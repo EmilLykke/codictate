@@ -1,6 +1,8 @@
+import { useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { PermissionState } from "../../app-events";
 import type { SettingsPane } from "../../../shared/types";
+import { requestDocumentsAccess } from "../../rpc";
 import { PermissionRow } from "./PermissionRow";
 import { WordmarkCodictate } from "../Brand/WordmarkCodictate";
 
@@ -11,6 +13,22 @@ export function PermissionScreen({
   permissions: PermissionState;
   onOpenSettings: (pane: SettingsPane) => void;
 }) {
+  // For Documents: trigger the native macOS dialog first; fall back to System
+  // Preferences only if the app was previously denied (dialog won't re-appear).
+  const handleAllow = useCallback(
+    async (pane: SettingsPane) => {
+      if (pane === "documents") {
+        const granted = await requestDocumentsAccess();
+        if (!granted) {
+          onOpenSettings(pane);
+        }
+      } else {
+        onOpenSettings(pane);
+      }
+    },
+    [onOpenSettings],
+  );
+
   const grantedCount = [
     permissions.inputMonitoring,
     permissions.microphone,
@@ -80,7 +98,7 @@ export function PermissionScreen({
             description="Detect the shortcut while the app is in background"
             pane="inputMonitoring"
             index={0}
-            onOpen={onOpenSettings}
+            onOpen={handleAllow}
           />
           <PermissionRow
             granted={permissions.microphone}
@@ -88,7 +106,7 @@ export function PermissionScreen({
             description="Record your voice to transcribe into text"
             pane="microphone"
             index={1}
-            onOpen={onOpenSettings}
+            onOpen={handleAllow}
           />
           <PermissionRow
             granted={permissions.accessibility}
@@ -96,7 +114,7 @@ export function PermissionScreen({
             description="Simulate keystrokes to paste transcription into other apps"
             pane="accessibility"
             index={2}
-            onOpen={onOpenSettings}
+            onOpen={handleAllow}
           />
           <PermissionRow
             granted={permissions.documents}
@@ -104,7 +122,7 @@ export function PermissionScreen({
             description="Save recordings and transcription history"
             pane="documents"
             index={3}
-            onOpen={onOpenSettings}
+            onOpen={handleAllow}
           />
         </div>
 
@@ -117,10 +135,12 @@ export function PermissionScreen({
               transition={{ delay: 0.5, duration: 0.3 }}
               className="mt-5 text-[18px] text-white/15 text-center leading-relaxed"
             >
-              Updates live — return to this window after granting each
-              permission.
+              “Allow” opens System Settings → Privacy & Security. Use the list
+              on the right to enable Input Monitoring, Microphone,
+              Accessibility, and Files & Folders for Codictate.
               <br />
-              Input Monitoring requires an app restart.
+              Updates live when you return here. Input Monitoring needs an app
+              restart after you allow it.
             </motion.p>
           )}
         </AnimatePresence>

@@ -20,7 +20,7 @@ export const WHISPER_MODELS: WhisperModel[] = [
     filename: 'ggml-large-v3-turbo-q5_0.bin',
     sizeMB: 574,
     label: 'Turbo',
-    description: 'Fast & very accurate — default',
+    description: 'Fast & very accurate — default (translate mode uses Large)',
     bundled: true,
   },
   {

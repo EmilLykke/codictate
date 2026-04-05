@@ -137,7 +137,9 @@ export async function setWhisperModel(modelId: string): Promise<boolean> {
   return rpc.request.setWhisperModel({ modelId })
 }
 
-export async function setTranslateToEnglish(enabled: boolean): Promise<boolean> {
+export async function setTranslateToEnglish(
+  enabled: boolean
+): Promise<boolean> {
   return rpc.request.setTranslateToEnglish({ enabled })
 }
 
@@ -157,4 +159,18 @@ export function cancelModelDownload(modelId: string): void {
 
 export function deleteWhisperModel(modelId: string): void {
   rpc.send.deleteWhisperModel({ modelId })
+}
+
+export async function fetchOnboardingState(): Promise<{
+  hasCompleted: boolean
+}> {
+  return rpc.request.getOnboardingState({})
+}
+
+export async function completeOnboarding(): Promise<boolean> {
+  return rpc.request.completeOnboarding({})
+}
+
+export async function requestDocumentsAccess(): Promise<boolean> {
+  return rpc.request.requestDocumentsAccess({})
 }

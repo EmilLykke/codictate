@@ -36,8 +36,20 @@ export const transcribe = async (
 ) => {
   const binary = join(import.meta.dir, '../native-helpers/whisper-cli')
 
-  // Translate mode always uses the dedicated translation model.
-  const effectiveModelId = translateToEnglish ? TRANSLATE_MODEL_ID : modelId
+  // Translate uses Large only; bundled Turbo cannot run `-tr` reliably.
+  const largeReady = modelManager.isModelAvailable(TRANSLATE_MODEL_ID)
+  const useTranslate = translateToEnglish && largeReady
+  if (translateToEnglish && !largeReady) {
+    log(
+      'whisper',
+      'translate requested but Large model missing — transcribing without -tr',
+      {
+        transcriptionModelId: modelId,
+      }
+    )
+  }
+
+  const effectiveModelId = useTranslate ? TRANSLATE_MODEL_ID : modelId
   const model = modelManager.getModelPath(effectiveModelId)
 
   const lang = whisperCliLanguageArg(whisperLanguageCode)
@@ -48,7 +60,7 @@ export const transcribe = async (
     whisperLanguageCode: lang,
     languageMode: lang === 'auto' ? 'auto-detect' : 'fixed',
     modelId: effectiveModelId,
-    translateToEnglish,
+    translateToEnglish: useTranslate,
   })
 
   const args = [
@@ -63,7 +75,7 @@ export const transcribe = async (
     '-nt', // No timestamps
   ]
 
-  if (translateToEnglish) {
+  if (useTranslate) {
     args.push('-tr')
   }
 

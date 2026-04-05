@@ -39,6 +39,7 @@ export class AppConfig {
   private whisperModelId: string
   private translateToEnglish: boolean
   private translateDefaultLanguageId: string | null
+  private hasCompletedOnboarding: boolean
 
   constructor() {
     this.audioDeviceName = null
@@ -50,6 +51,7 @@ export class AppConfig {
     this.whisperModelId = DEFAULT_MODEL_ID
     this.translateToEnglish = false
     this.translateDefaultLanguageId = null
+    this.hasCompletedOnboarding = false
   }
 
   // --- Persistence ---
@@ -91,6 +93,9 @@ export class AppConfig {
       ) {
         this.translateDefaultLanguageId = raw.translateDefaultLanguageId
       }
+      if (raw.hasCompletedOnboarding) {
+        this.hasCompletedOnboarding = true
+      }
     } catch {
       // No config file yet, defaults will be used
     }
@@ -115,6 +120,7 @@ export class AppConfig {
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       // Always write false — debug mode must never silently resume after restart
       debugMode: false,
+      hasCompletedOnboarding: this.hasCompletedOnboarding,
     }
   }
 
@@ -246,6 +252,15 @@ export class AppConfig {
     this.translateDefaultLanguageId = id
     await this.save()
     return true
+  }
+
+  public getHasCompletedOnboarding(): boolean {
+    return this.hasCompletedOnboarding
+  }
+
+  public async setHasCompletedOnboarding(): Promise<void> {
+    this.hasCompletedOnboarding = true
+    await this.save()
   }
 
   public getSettings(): AppSettings {

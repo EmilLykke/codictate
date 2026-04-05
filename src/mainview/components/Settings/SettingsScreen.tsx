@@ -21,6 +21,7 @@ import {
   setShortcut,
   setAudioDevice,
   fetchDevices,
+  fetchSettings,
   triggerUpdateCheck,
   triggerApplyUpdate,
   setDebugMode,
@@ -288,11 +289,16 @@ export function SettingsScreen({
           setTranslateDownloading(false);
           if (!error && translatePendingRef.current) {
             translatePendingRef.current = false;
-            await setTranslateToEnglish(true);
-            queryClient.setQueryData(["settings"], (old: AppSettings) => ({
-              ...old,
-              translateToEnglish: true,
-            }));
+            const ok = await setTranslateToEnglish(true);
+            if (ok) {
+              queryClient.setQueryData(["settings"], (old: AppSettings) => ({
+                ...old,
+                translateToEnglish: true,
+              }));
+            } else {
+              const fresh = await fetchSettings();
+              queryClient.setQueryData(["settings"], fresh);
+            }
           } else if (error) {
             translatePendingRef.current = false;
           }
@@ -437,13 +443,17 @@ export function SettingsScreen({
       return;
     }
 
-    // Turning on: check if the translate model is available
+    // Turning on: Large model must be on disk (Turbo alone is not enough).
     if (modelAvailability[TRANSLATE_MODEL_ID]) {
       queryClient.setQueryData(["settings"], {
         ...settings,
         translateToEnglish: true,
       });
-      await setTranslateToEnglish(true);
+      const ok = await setTranslateToEnglish(true);
+      if (!ok) {
+        const fresh = await fetchSettings();
+        queryClient.setQueryData(["settings"], fresh);
+      }
       return;
     }
 
@@ -580,7 +590,8 @@ export function SettingsScreen({
           <p className={settingsHelperClass}>
             Smaller models are faster but less accurate. All models shown are
             multilingual. The Turbo model is bundled with the app — others are
-            downloaded on demand.
+            downloaded on demand. Translate to English always uses the Large
+            model, not the one selected here.
           </p>
         </motion.div>
 

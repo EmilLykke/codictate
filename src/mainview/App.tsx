@@ -1,12 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { appEvents, type PermissionState } from "./app-events";
-import { fetchPermissions, fetchDevices, fetchSettings } from "./rpc";
-import type { AppStatus, SettingsPane } from "../shared/types";
+import {
+  fetchPermissions,
+  fetchDevices,
+  fetchSettings,
+  fetchOnboardingState,
+  completeOnboarding,
+} from "./rpc";
+import type { AppStatus, SettingsPane, ShortcutId } from "../shared/types";
 import { PermissionScreen } from "./components/Permissions/PermissionScreen";
 import { ReadyScreen } from "./components/Ready/ReadyScreen";
 import { SettingsScreen } from "./components/Settings/SettingsScreen";
+import { TryItStep } from "./components/Onboarding/TryItStep";
 
 const DEFAULT_PERMISSIONS: PermissionState = {
   inputMonitoring: false,
@@ -16,6 +23,14 @@ const DEFAULT_PERMISSIONS: PermissionState = {
 };
 
 export default function App() {
+  const queryClient = useQueryClient();
+
+  const { data: onboardingState } = useQuery({
+    queryKey: ["onboarding"],
+    queryFn: fetchOnboardingState,
+    staleTime: Infinity,
+  });
+
   const { data: permissions } = useQuery({
     queryKey: ["permissions"],
     queryFn: fetchPermissions,
@@ -61,11 +76,16 @@ export default function App() {
     appEvents.emit("openSettings", pane);
   }, []);
 
+  const handleOnboardingComplete = useCallback(async () => {
+    await completeOnboarding();
+    queryClient.setQueryData(["onboarding"], { hasCompleted: true });
+  }, [queryClient]);
+
   const p = permissions ?? DEFAULT_PERMISSIONS;
   const allPermissionsGranted =
     p.inputMonitoring && p.microphone && p.accessibility && p.documents;
 
-  if (!permissions) {
+  if (!permissions || !onboardingState) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-codictate-page">
         <motion.div
@@ -77,11 +97,30 @@ export default function App() {
     );
   }
 
+  // Permissions not yet all granted — show the permission checklist screen
+  if (!allPermissionsGranted) {
+    return <PermissionScreen permissions={p} onOpenSettings={openSettings} />;
+  }
+
+  // All permissions granted but onboarding not completed — show "try it" screen
+  if (!onboardingState.hasCompleted) {
+    const shortcutId: ShortcutId = settings?.shortcutId ?? "option-space";
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-codictate-page text-white select-none px-6">
+        <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 h-7" />
+        <div className="w-full max-w-[460px]">
+          <TryItStep
+            shortcutId={shortcutId}
+            onDone={handleOnboardingComplete}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {!allPermissionsGranted ? (
-        <PermissionScreen permissions={p} onOpenSettings={openSettings} />
-      ) : showSettings && settings ? (
+      {showSettings && settings ? (
         <SettingsScreen
           settings={settings}
           onBack={() => setShowSettings(false)}

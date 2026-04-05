@@ -11,7 +11,7 @@ import { setupRecording } from './setup-recording'
 import { setupWindow } from './setup-window'
 import { setOnAutoDisable } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
-import { WHISPER_MODELS } from '../shared/whisper-models'
+import { WHISPER_MODELS, TRANSLATE_MODEL_ID } from '../shared/whisper-models'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -46,6 +46,19 @@ const url = await getMainViewUrl()
 export const UserAppConfig = new AppConfig()
 await UserAppConfig.load()
 
+// Translate mode always runs on the Large model, not the bundled Turbo default.
+// Heal disk state if translate was left on without that model or without a resolvable source language.
+if (UserAppConfig.getTranslateToEnglish()) {
+  const langAuto = UserAppConfig.getTranscriptionLanguageId() === 'auto'
+  const noDefault = UserAppConfig.getTranslateDefaultLanguageId() == null
+  const translateNotRunnable =
+    !modelManager.isModelAvailable(TRANSLATE_MODEL_ID) ||
+    (langAuto && noDefault)
+  if (translateNotRunnable) {
+    await UserAppConfig.setTranslateOff()
+  }
+}
+
 let devices = await findDevices()
 
 let currentPermissions: PermissionState = {
@@ -53,6 +66,15 @@ let currentPermissions: PermissionState = {
   microphone: false,
   accessibility: false,
   documents: false,
+}
+
+// Only call checkDocumentsPermission() after the user explicitly requests it
+// (clicks "Allow" on the Documents row) OR after onboarding is complete on a
+// subsequent launch. This prevents the Files & Folders dialog from appearing
+// automatically at startup.
+let hasTriggeredDocumentsCheck = false
+function shouldCheckDocuments(): boolean {
+  return hasTriggeredDocumentsCheck || UserAppConfig.getHasCompletedOnboarding()
 }
 
 function allPermissionsGranted(p: PermissionState): boolean {
@@ -78,7 +100,7 @@ const pushInitialState = () => {
       })
     }
   }
-  keyboard.checkPermissions()
+  keyboard?.checkPermissions()
 }
 
 const onApplyUpdate = async () => {
@@ -92,15 +114,17 @@ const win = setupWindow({
   appConfig: UserAppConfig,
   getCurrentDevices: () => devices,
   getPermissions: async () => {
-    currentPermissions = {
-      ...currentPermissions,
-      documents: checkDocumentsPermission(),
+    if (shouldCheckDocuments()) {
+      currentPermissions = {
+        ...currentPermissions,
+        documents: checkDocumentsPermission(),
+      }
     }
-    if (keyboard.isAlive) keyboard.checkPermissions()
+    if (keyboard?.isAlive) keyboard.checkPermissions()
     return currentPermissions
   },
   onSettingsChanged: async () => {
-    keyboard.stop()
+    keyboard?.stop()
     keyboard = startKeyboard()
     win.send.updateSettings(UserAppConfig.getSettings())
   },
@@ -123,6 +147,14 @@ const win = setupWindow({
   },
   onTranslateChanged: () => {
     trayHandlers.syncTranslateState()
+  },
+  onRequestDocumentsAccess: () => {
+    hasTriggeredDocumentsCheck = true
+    currentPermissions = {
+      ...currentPermissions,
+      documents: checkDocumentsPermission(),
+    }
+    return currentPermissions
   },
 })
 
@@ -194,7 +226,9 @@ function startKeyboard() {
     (nativePermissions) => {
       currentPermissions = {
         ...nativePermissions,
-        documents: checkDocumentsPermission(),
+        documents: shouldCheckDocuments()
+          ? checkDocumentsPermission()
+          : currentPermissions.documents,
       }
       win.send.updatePermissions(currentPermissions)
 
@@ -205,8 +239,8 @@ function startKeyboard() {
         }
       } else if (!permissionPoll) {
         permissionPoll = setInterval(() => {
-          if (keyboard.isAlive) {
-            keyboard.checkPermissions()
+          if (keyboard?.isAlive) {
+            keyboard?.checkPermissions()
           } else {
             keyboard = startKeyboard()
           }
@@ -216,15 +250,17 @@ function startKeyboard() {
   )
 }
 
-let keyboard = startKeyboard()
+// Always start the keyboard listener — on first launch this surfaces the
+// Input Monitoring system dialog, which is the intended first step.
+let keyboard: ReturnType<typeof startKeyboard> = startKeyboard()
 
 // Push initial app state once the first window's RPC bridge is live.
 setTimeout(pushInitialState, 500)
 
 startDeviceMonitor()
 
-Electrobun.events.on('before-quit', () => keyboard.stop())
-process.on('exit', () => keyboard.stop())
+Electrobun.events.on('before-quit', () => keyboard?.stop())
+process.on('exit', () => keyboard?.stop())
 
 async function checkForUpdates() {
   const sendStatus = (

@@ -168,10 +168,21 @@ export const setupTray = (
       const translateWasOn = appConfig.getTranslateToEnglish()
       void (async () => {
         if (!translateWasOn) {
+          if (!modelManager.isModelAvailable(TRANSLATE_MODEL_ID)) {
+            tray.setMenu(
+              buildMenu(appConfig.resolveAudioDevice(currentDevices))
+            )
+            return
+          }
           if (appConfig.getTranscriptionLanguageId() === 'auto') {
             const fallback = appConfig.getTranslateDefaultLanguageId()
             if (fallback) {
               await appConfig.setTranscriptionLanguageId(fallback)
+            } else {
+              tray.setMenu(
+                buildMenu(appConfig.resolveAudioDevice(currentDevices))
+              )
+              return
             }
           }
           await appConfig.setTranslateToEnglish(true)

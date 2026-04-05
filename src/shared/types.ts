@@ -59,6 +59,8 @@ export type WebviewRPCType = {
       getPermissions: { params: {}; response: PermissionState }
       getDevices: { params: {}; response: DeviceInfo }
       getSettings: { params: {}; response: AppSettings }
+      getOnboardingState: { params: {}; response: { hasCompleted: boolean } }
+      completeOnboarding: { params: {}; response: boolean }
       setSettings: { params: { shortcutId: ShortcutId }; response: boolean }
       setAudioDevice: { params: { index: number }; response: boolean }
       setDebugMode: { params: { enabled: boolean }; response: boolean }
@@ -76,6 +78,7 @@ export type WebviewRPCType = {
         params: { languageId: string | null }
         response: boolean
       }
+      requestDocumentsAccess: { params: {}; response: boolean }
     }
     messages: {
       logBun: { msg: string }

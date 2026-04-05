@@ -4,7 +4,11 @@ import { useMemo, useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import type { AppStatus, AppSettings, DeviceInfo } from "../../../shared/types";
-import { setTranscriptionLanguage, setTranslateToEnglish } from "../../rpc";
+import {
+  setTranscriptionLanguage,
+  setTranslateToEnglish,
+  fetchSettings,
+} from "../../rpc";
 import {
   WHISPER_MODELS,
   TRANSLATE_MODEL_ID,
@@ -108,17 +112,25 @@ export function ReadyScreen({
         translateToEnglish: true,
       });
       await setTranscriptionLanguage(defaultLang);
-      await setTranslateToEnglish(true);
+      const ok = await setTranslateToEnglish(true);
+      if (!ok) {
+        queryClient.setQueryData(["settings"], await fetchSettings());
+      }
       return;
     }
-    // Language not set and no default → do nothing; the LanguagePicker is on
-    // screen and the tooltip explains what to do.
-    if (languageIsAuto) return;
+    // Auto source language but no default for translate → open Settings to set one.
+    if (languageIsAuto) {
+      onOpenSettings();
+      return;
+    }
     queryClient.setQueryData(["settings"], {
       ...settings,
       translateToEnglish: true,
     });
-    await setTranslateToEnglish(true);
+    const ok = await setTranslateToEnglish(true);
+    if (!ok) {
+      queryClient.setQueryData(["settings"], await fetchSettings());
+    }
   }, [
     settings,
     isIdle,

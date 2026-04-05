@@ -14,15 +14,21 @@ import { copyLogToClipboard } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
 import { TRANSLATE_MODEL_ID } from '../shared/whisper-models'
 
+/**
+ * Always open the Privacy & Security hub (macOS 13+). Legacy
+ * `com.apple.preference.security?Privacy_*` deep links often land on an empty
+ * or wrong pane in System Settings; every Codictate permission is toggled from
+ * this section’s sidebar (Input Monitoring, Microphone, Accessibility, Files
+ * & Folders).
+ */
+const PRIVACY_SECURITY_HUB =
+  'x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension'
+
 const SYSTEM_PREFS_URLS: Record<SettingsPane, string> = {
-  inputMonitoring:
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent',
-  microphone:
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
-  accessibility:
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-  documents:
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders',
+  inputMonitoring: PRIVACY_SECURITY_HUB,
+  microphone: PRIVACY_SECURITY_HUB,
+  accessibility: PRIVACY_SECURITY_HUB,
+  documents: PRIVACY_SECURITY_HUB,
 }
 
 interface WindowDeps {
@@ -43,6 +49,12 @@ interface WindowDeps {
   onTranscriptionMenuSync?: () => void
   /** Refresh tray checkmark after translate mode changes from the webview. */
   onTranslateChanged?: () => void
+  /**
+   * Explicitly trigger the Documents permission check (shown when user clicks
+   * "Allow" on the Documents row). Returns the updated full PermissionState so
+   * the handler can push it via rpc.
+   */
+  onRequestDocumentsAccess: () => PermissionState
 }
 
 export interface WindowHandle {
@@ -90,6 +102,13 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           }
         },
         getSettings: async () => deps.appConfig.getSettings(),
+        getOnboardingState: async () => ({
+          hasCompleted: deps.appConfig.getHasCompletedOnboarding(),
+        }),
+        completeOnboarding: async () => {
+          await deps.appConfig.setHasCompletedOnboarding()
+          return true
+        },
         setSettings: async ({ shortcutId }) => {
           await deps.appConfig.setShortcutId(shortcutId)
           await deps.onSettingsChanged(shortcutId)
@@ -135,6 +154,11 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             rpc.send.updateSettings(deps.appConfig.getSettings())
           }
           return ok
+        },
+        requestDocumentsAccess: async () => {
+          const updated = deps.onRequestDocumentsAccess()
+          rpc.send.updatePermissions(updated)
+          return updated.documents
         },
         setTranslateDefaultLanguage: async ({ languageId }) => {
           const ok =
