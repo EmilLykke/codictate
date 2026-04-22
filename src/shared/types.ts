@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { RPCSchema } from 'electrobun'
+import type { PlatformCapabilities } from './platform'
 import type {
   FormattingModeId,
   FormattingEmailGreetingStyle,
@@ -163,6 +164,7 @@ export type ShortcutId =
   | 'control-enter'
 
 export interface AppSettings {
+  capabilities: PlatformCapabilities
   /** Tap-or-hold smart shortcut (500ms gate + second press to stop). */
   shortcutId: ShortcutId
   /** Optional push-to-talk only; release always ends recording. Must differ from `shortcutId`. */

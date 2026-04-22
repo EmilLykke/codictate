@@ -80,15 +80,7 @@ export default function App() {
   }, []);
 
   const p = permissions ?? DEFAULT_PERMISSIONS;
-  const allPermissionsGranted =
-    p.inputMonitoring && p.microphone && p.accessibility && p.documents;
-
-  const needsProductOnboarding =
-    allPermissionsGranted &&
-    settings !== undefined &&
-    settings.onboardingCompleted === false;
-
-  if (!permissions) {
+  if (!settings) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-codictate-page overflow-hidden">
         <motion.div
@@ -100,7 +92,17 @@ export default function App() {
     );
   }
 
-  if (allPermissionsGranted && !settings) {
+  const usesMacPermissionFlow = settings.capabilities.supportsMacPermissionFlow;
+  const allPermissionsGranted = usesMacPermissionFlow
+    ? p.inputMonitoring && p.microphone && p.accessibility && p.documents
+    : true;
+
+  const needsProductOnboarding =
+    allPermissionsGranted &&
+    settings !== undefined &&
+    settings.onboardingCompleted === false;
+
+  if (!permissions) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-codictate-page overflow-hidden">
         <motion.div

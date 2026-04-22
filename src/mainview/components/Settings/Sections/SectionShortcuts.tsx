@@ -4,6 +4,7 @@ import type { AppSettings, ShortcutId } from "../../../../shared/types";
 import {
   dictationHoldOnlyShortcutHint,
   dictationShortcutBehaviorHint,
+  platformShortcutSupportHint,
 } from "../../../../shared/shortcut-options";
 import { setShortcut, setShortcutHoldOnly } from "../../../rpc";
 import { ShortcutPicker } from "../ShortcutPicker";
@@ -52,8 +53,14 @@ export function SectionShortcuts({ settings }: Props) {
         <ShortcutPicker
           value={settings.shortcutId}
           onChange={handleShortcutChange}
+          platform={settings.capabilities.platform}
         />
         <p className={settingsHelperClass}>{dictationShortcutBehaviorHint()}</p>
+        {platformShortcutSupportHint(settings.capabilities.platform) && (
+          <p className={`${settingsHelperClass} text-amber-200/55`}>
+            {platformShortcutSupportHint(settings.capabilities.platform)}
+          </p>
+        )}
       </div>
 
       <div className="mb-8">
@@ -64,6 +71,7 @@ export function SectionShortcuts({ settings }: Props) {
           value={settings.shortcutHoldOnlyId}
           mainShortcutId={settings.shortcutId}
           onChange={handleHoldOnlyShortcutChange}
+          platform={settings.capabilities.platform}
         />
         <p className={settingsHelperClass}>{dictationHoldOnlyShortcutHint()}</p>
       </div>

@@ -1,4 +1,3 @@
-import { homedir } from 'os'
 import { join, dirname } from 'path'
 import {
   mkdirSync,
@@ -19,14 +18,7 @@ import {
 } from '../../../shared/speech-models'
 import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 import { log } from '../logger'
-
-const MODELS_DIR = join(
-  homedir(),
-  'Library',
-  'Application Support',
-  'codictate',
-  'models'
-)
+import { MODELS_DIR } from '../../platform/runtime'
 
 const BUNDLED_MODEL_PATH = join(
   import.meta.dir,

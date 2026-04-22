@@ -1,5 +1,10 @@
 import { join } from "path";
 
+if (process.platform !== "darwin") {
+  console.log("[post-wrap] non-macOS host detected, skipping wrapper plist patching");
+  process.exit(0);
+}
+
 const wrapperBundlePath = process.env.ELECTROBUN_WRAPPER_BUNDLE_PATH;
 
 if (!wrapperBundlePath) {

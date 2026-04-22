@@ -14,6 +14,46 @@ const appIdentifier =
  *  (see getMacOSBundleDisplayName in Electrobun). Putting the channel in `name`
  *  would yield broken names like "Codictate Canary-canary". */
 const APP_NAME = "Codictate";
+const isWindowsHost = process.platform === "win32";
+
+const buildCopy: Record<string, string> = {
+  "dist/index.html": "views/mainview/index.html",
+  "dist/assets": "views/mainview/assets",
+  // -- Sounds (src/assets/sounds -> app/sounds)
+  "src/assets/sounds/dictation-start.wav": "sounds/dictation-start.wav",
+  "src/assets/sounds/dictation-stop.wav": "sounds/dictation-stop.wav",
+  "src/assets/sounds/dictation-cancel.wav": "sounds/dictation-cancel.wav",
+  "src/assets/sounds/funmode-dictation-start.mp3":
+    "sounds/funmode-dictation-start.mp3",
+  "src/assets/sounds/funmode-dication-end.mp3":
+    "sounds/funmode-dication-end.mp3",
+};
+
+if (isWindowsHost) {
+  buildCopy["native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe"] =
+    "native-helpers/CodictateWindowsHelper.exe";
+  buildCopy["vendors/whisper/whisper-cli.exe"] = "native-helpers/whisper-cli.exe";
+  buildCopy["vendors/whisper/ggml-large-v3-turbo-q5_0.bin"] =
+    "native-helpers/ggml-large-v3-turbo-q5_0.bin";
+  buildCopy["vendors/windows/TrayIcon.ico"] = "images/TrayIcon.ico";
+} else {
+  buildCopy["src/bun/utils/keyboard/KeyListener"] = "native-helpers/KeyListener";
+  buildCopy["src/bun/utils/audio/MicRecorder"] = "native-helpers/MicRecorder";
+  buildCopy["vendors/whisper/whisper-cli"] = "native-helpers/whisper-cli";
+  buildCopy["vendors/parakeet/CodictateParakeetHelper"] =
+    "native-helpers/CodictateParakeetHelper";
+  buildCopy["vendors/formatter/CodictateFormatterHelper"] =
+    "native-helpers/CodictateFormatterHelper";
+  buildCopy["vendors/window-helper/CodictateWindowHelper"] =
+    "native-helpers/CodictateWindowHelper";
+  buildCopy["vendors/observer/CodictateObserverHelper"] =
+    "native-helpers/CodictateObserverHelper";
+  buildCopy["vendors/whisper/ggml-large-v3-turbo-q5_0.bin"] =
+    "native-helpers/ggml-large-v3-turbo-q5_0.bin";
+  // -- Images (src/assets/images -> app/images)
+  buildCopy["src/assets/images/MacTrayIcon.svg"] = "images/MacTrayIcon.svg";
+  buildCopy["src/assets/images/MacDocIcon.png"] = "images/MacDocIcon.png";
+}
 
 export default {
   app: {
@@ -26,36 +66,7 @@ export default {
     exitOnLastWindowClosed: false,
   },
   build: {
-    copy: {
-      "dist/index.html": "views/mainview/index.html",
-      "dist/assets": "views/mainview/assets",
-      // -- custom key listener
-      "src/bun/utils/keyboard/KeyListener": "native-helpers/KeyListener",
-      "src/bun/utils/audio/MicRecorder": "native-helpers/MicRecorder",
-      // -- Whisper (vendored by preBuild, not committed to git)
-      "vendors/whisper/whisper-cli": "native-helpers/whisper-cli",
-      "vendors/parakeet/CodictateParakeetHelper":
-        "native-helpers/CodictateParakeetHelper",
-      "vendors/formatter/CodictateFormatterHelper":
-        "native-helpers/CodictateFormatterHelper",
-      "vendors/window-helper/CodictateWindowHelper":
-        "native-helpers/CodictateWindowHelper",
-      "vendors/observer/CodictateObserverHelper":
-        "native-helpers/CodictateObserverHelper",
-      "vendors/whisper/ggml-large-v3-turbo-q5_0.bin":
-        "native-helpers/ggml-large-v3-turbo-q5_0.bin",
-      // -- Sounds (src/assets/sounds → app/sounds)
-      "src/assets/sounds/dictation-start.wav": "sounds/dictation-start.wav",
-      "src/assets/sounds/dictation-stop.wav": "sounds/dictation-stop.wav",
-      "src/assets/sounds/dictation-cancel.wav": "sounds/dictation-cancel.wav",
-      "src/assets/sounds/funmode-dictation-start.mp3":
-        "sounds/funmode-dictation-start.mp3",
-      "src/assets/sounds/funmode-dication-end.mp3":
-        "sounds/funmode-dication-end.mp3",
-      // -- Images (src/assets/images → app/images)
-      "src/assets/images/MacTrayIcon.svg": "images/MacTrayIcon.svg",
-      "src/assets/images/MacDocIcon.png": "images/MacDocIcon.png",
-    },
+    copy: buildCopy,
     watchIgnore: ["dist/**"],
     mac: {
       icons: "icon.iconset",

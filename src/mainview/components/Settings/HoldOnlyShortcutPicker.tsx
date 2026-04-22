@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { ShortcutId } from "../../../shared/types";
+import type { PlatformRuntime } from "../../../shared/platform";
 import {
   shortcutOptionById,
-  shortcutOptionsGrouped,
+  shortcutOptionsGroupedForPlatform,
 } from "../../../shared/shortcut-options";
 import { Kbd } from "../Common/Kbd";
 
@@ -30,14 +31,16 @@ export function HoldOnlyShortcutPicker({
   value,
   mainShortcutId,
   onChange,
+  platform,
 }: {
   value: ShortcutId | null;
   mainShortcutId: ShortcutId;
   onChange: (id: ShortcutId | null) => void;
+  platform: PlatformRuntime;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const groups = shortcutOptionsGrouped()
+  const groups = shortcutOptionsGroupedForPlatform(platform)
     .map(({ family, title, options }) => ({
       family,
       title,
@@ -45,7 +48,7 @@ export function HoldOnlyShortcutPicker({
     }))
     .filter((g) => g.options.length > 0);
 
-  const selected = value !== null ? shortcutOptionById(value) : null;
+  const selected = value !== null ? shortcutOptionById(value, platform) : null;
 
   useEffect(() => {
     if (!open) return;

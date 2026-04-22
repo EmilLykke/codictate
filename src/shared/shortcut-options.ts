@@ -1,5 +1,6 @@
 import { DICTATION_HOLD_QUALIFY_MS } from './dictation-shortcut'
 import type { ShortcutId } from './types'
+import type { PlatformRuntime } from './platform'
 
 /** Used to group shortcuts in the picker (Option / Fn / Control). */
 export type ShortcutFamily = 'option' | 'fn' | 'control'
@@ -15,27 +16,104 @@ export interface ShortcutOption {
   id: ShortcutId
   keys: string[]
   label: string
+  windowsKeys?: string[]
+  windowsLabel?: string
+  supportedPlatforms?: PlatformRuntime[]
 }
 
 export const SHORTCUT_OPTIONS: ShortcutOption[] = [
-  { id: 'option-space', keys: ['⌥', 'Space'], label: 'Option + Space' },
-  { id: 'right-option', keys: ['Right ⌥'], label: 'Right Option' },
-  { id: 'option-enter', keys: ['⌥', 'Enter'], label: 'Option + Enter' },
-  { id: 'fn-space', keys: ['Fn', 'Space'], label: 'Fn + Space' },
-  { id: 'fn-f1', keys: ['Fn', 'F1'], label: 'Fn + F1' },
-  { id: 'fn-f2', keys: ['Fn', 'F2'], label: 'Fn + F2' },
+  {
+    id: 'option-space',
+    keys: ['⌥', 'Space'],
+    label: 'Option + Space',
+    windowsKeys: ['Alt', 'Space'],
+    windowsLabel: 'Alt + Space',
+    supportedPlatforms: ['macos', 'windows'],
+  },
+  {
+    id: 'right-option',
+    keys: ['Right ⌥'],
+    label: 'Right Option',
+    windowsKeys: ['Right Alt'],
+    windowsLabel: 'Right Alt',
+    supportedPlatforms: ['macos', 'windows'],
+  },
+  {
+    id: 'option-enter',
+    keys: ['⌥', 'Enter'],
+    label: 'Option + Enter',
+    windowsKeys: ['Alt', 'Enter'],
+    windowsLabel: 'Alt + Enter',
+    supportedPlatforms: ['macos', 'windows'],
+  },
+  {
+    id: 'fn-space',
+    keys: ['Fn', 'Space'],
+    label: 'Fn + Space',
+    supportedPlatforms: ['macos'],
+  },
+  {
+    id: 'fn-f1',
+    keys: ['Fn', 'F1'],
+    label: 'Fn + F1',
+    supportedPlatforms: ['macos'],
+  },
+  {
+    id: 'fn-f2',
+    keys: ['Fn', 'F2'],
+    label: 'Fn + F2',
+    supportedPlatforms: ['macos'],
+  },
   {
     id: 'fn-globe',
     keys: ['Fn'],
     label: 'Fn only (Globe)',
+    supportedPlatforms: ['macos'],
   },
-  { id: 'control-space', keys: ['⌃', 'Space'], label: 'Control + Space' },
-  { id: 'control-enter', keys: ['⌃', 'Enter'], label: 'Control + Enter' },
+  {
+    id: 'control-space',
+    keys: ['⌃', 'Space'],
+    label: 'Control + Space',
+    windowsKeys: ['Ctrl', 'Space'],
+    windowsLabel: 'Ctrl + Space',
+    supportedPlatforms: ['macos', 'windows'],
+  },
+  {
+    id: 'control-enter',
+    keys: ['⌃', 'Enter'],
+    label: 'Control + Enter',
+    windowsKeys: ['Ctrl', 'Enter'],
+    windowsLabel: 'Ctrl + Enter',
+    supportedPlatforms: ['macos', 'windows'],
+  },
 ]
 
+function optionSupportedOnPlatform(
+  option: ShortcutOption,
+  platform: PlatformRuntime
+): boolean {
+  return option.supportedPlatforms?.includes(platform) ?? true
+}
+
+function displayShortcutOption(
+  option: ShortcutOption,
+  platform: PlatformRuntime
+): ShortcutOption {
+  if (platform !== 'windows') return option
+  return {
+    ...option,
+    keys: option.windowsKeys ?? option.keys,
+    label: option.windowsLabel ?? option.label,
+  }
+}
+
 /** Resolve a shortcut row for UI (falls back to first option if id is unknown). */
-export function shortcutOptionById(id: ShortcutId): ShortcutOption {
-  return SHORTCUT_OPTIONS.find((o) => o.id === id) ?? SHORTCUT_OPTIONS[0]
+export function shortcutOptionById(
+  id: ShortcutId,
+  platform: PlatformRuntime = 'macos'
+): ShortcutOption {
+  const option = SHORTCUT_OPTIONS.find((o) => o.id === id) ?? SHORTCUT_OPTIONS[0]
+  return displayShortcutOption(option, platform)
 }
 
 const FAMILY_ORDER: ShortcutFamily[] = ['option', 'fn', 'control']
@@ -46,7 +124,21 @@ const FAMILY_LABEL: Record<ShortcutFamily, string> = {
   control: 'Control (⌃)',
 }
 
+const WINDOWS_FAMILY_LABEL: Record<ShortcutFamily, string> = {
+  option: 'Alt',
+  fn: 'Fn / Globe',
+  control: 'Control (Ctrl)',
+}
+
 export function shortcutOptionsGrouped(): {
+  family: ShortcutFamily
+  title: string
+  options: ShortcutOption[]
+}[] {
+  return shortcutOptionsGroupedForPlatform('macos')
+}
+
+export function shortcutOptionsGroupedForPlatform(platform: PlatformRuntime): {
   family: ShortcutFamily
   title: string
   options: ShortcutOption[]
@@ -57,27 +149,33 @@ export function shortcutOptionsGrouped(): {
     control: [],
   }
   for (const opt of SHORTCUT_OPTIONS) {
-    byFamily[shortcutFamily(opt.id)].push(opt)
+    if (!optionSupportedOnPlatform(opt, platform)) continue
+    byFamily[shortcutFamily(opt.id)].push(displayShortcutOption(opt, platform))
   }
   return FAMILY_ORDER.map((family) => ({
     family,
-    title: FAMILY_LABEL[family],
+    title:
+      platform === 'windows'
+        ? WINDOWS_FAMILY_LABEL[family]
+        : FAMILY_LABEL[family],
     options: byFamily[family],
-  }))
+  })).filter((group) => group.options.length > 0)
 }
 
-const keysById = Object.fromEntries(
-  SHORTCUT_OPTIONS.map((o) => [o.id, o.keys])
-) as Record<ShortcutId, string[]>
-
 /** Key cap labels for a shortcut (for inline UI, e.g. Ready / onboarding). */
-export function shortcutDisplayKeys(id: ShortcutId): string[] {
-  return keysById[id] ?? SHORTCUT_OPTIONS[0].keys
+export function shortcutDisplayKeys(
+  id: ShortcutId,
+  platform: PlatformRuntime = 'macos'
+): string[] {
+  return shortcutOptionById(id, platform).keys
 }
 
 /** Compact label for tray menu (Space → ␣; keys joined with +). */
-export function shortcutTrayCompact(id: ShortcutId): string {
-  return shortcutDisplayKeys(id).join('+')
+export function shortcutTrayCompact(
+  id: ShortcutId,
+  platform: PlatformRuntime = 'macos'
+): string {
+  return shortcutDisplayKeys(id, platform).join('+')
 }
 
 /** Ready / onboarding: section title + body for hold-to-talk mode. */
@@ -116,4 +214,18 @@ export function dictationShortcutBehaviorHint(): string {
 /** Explains optional second shortcut (push-to-talk only). */
 export function dictationHoldOnlyShortcutHint(): string {
   return 'Optional second shortcut: always push-to-talk — release stops and pastes.'
+}
+
+export function platformShortcutSupportHint(platform: PlatformRuntime): string | null {
+  if (platform !== 'windows') return null
+  return 'Windows starts with Alt and Ctrl shortcuts. Fn / Globe shortcuts are coming soon.'
+}
+
+export function windowsUsesModifierReleaseHold(id: ShortcutId): boolean {
+  return (
+    id === 'option-space' ||
+    id === 'option-enter' ||
+    id === 'control-space' ||
+    id === 'control-enter'
+  )
 }

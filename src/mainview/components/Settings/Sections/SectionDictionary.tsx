@@ -13,6 +13,7 @@ import {
   removeDictionaryEntry,
   setDictionaryAutoLearn,
 } from "../../../rpc";
+import { platformDisplayName } from "../../../../shared/platform";
 
 type Props = {
   settings: AppSettings;
@@ -35,6 +36,7 @@ function SparkleIcon() {
 export function SectionDictionary({ settings }: Props) {
   const queryClient = useQueryClient();
   const dictionary = settings.dictionary;
+  const autoLearnComingSoon = !settings.capabilities.supportsCorrectionObserver;
   const [entryKind, setEntryKind] = useState<DictionaryEntry["kind"]>("fuzzy");
   const [inputValue, setInputValue] = useState("");
   const [replacementFromValue, setReplacementFromValue] = useState("");
@@ -233,27 +235,36 @@ export function SectionDictionary({ settings }: Props) {
               Auto-learn corrections
             </span>
             <span className="mt-1 block text-[15px] leading-snug text-white/44">
-              Learns replacements from corrections you make after dictating.
+              {autoLearnComingSoon
+                ? "Learns replacements from post-dictation edits once Windows text observation lands."
+                : "Learns replacements from corrections you make after dictating."}
             </span>
+            {autoLearnComingSoon && (
+              <span className="mt-2 inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
+                Coming soon on {platformDisplayName(settings.capabilities.platform)}
+              </span>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={handleAutoLearnToggle}
-            className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 ${
-              dictionary.autoLearn
-                ? "border-emerald-400/45 bg-emerald-500/35"
-                : "border-white/14 bg-white/7"
-            }`}
-            aria-label="Toggle auto-learn corrections"
-          >
-            <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full transition-all duration-200 ${
+          {!autoLearnComingSoon && (
+            <button
+              type="button"
+              onClick={handleAutoLearnToggle}
+              className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 ${
                 dictionary.autoLearn
-                  ? "left-[21px] bg-white/90"
-                  : "left-0.5 bg-white/40"
+                  ? "border-emerald-400/45 bg-emerald-500/35"
+                  : "border-white/14 bg-white/7"
               }`}
-            />
-          </button>
+              aria-label="Toggle auto-learn corrections"
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full transition-all duration-200 ${
+                  dictionary.autoLearn
+                    ? "left-[21px] bg-white/90"
+                    : "left-0.5 bg-white/40"
+                }`}
+              />
+            </button>
+          )}
         </div>
       </div>
 

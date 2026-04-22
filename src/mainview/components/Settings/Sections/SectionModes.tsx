@@ -21,6 +21,7 @@ import {
 } from "../../../rpc";
 import { LanguagePicker } from "../LanguagePicker";
 import { settingsHelperClass } from "../settings-shared";
+import { platformDisplayName } from "../../../../shared/platform";
 
 /** Select value when translate default is still `auto` on disk — not a real language id. */
 const TRANSLATE_DEFAULT_PLACEHOLDER = "__translate_pick__";
@@ -43,6 +44,7 @@ export function SectionModes({
   onCancelDownload,
 }: Props) {
   const queryClient = useQueryClient();
+  const streamModeComingSoon = !settings.capabilities.supportsStreamMode;
 
   const handleTranslateDefaultLanguageChange = useCallback(
     async (languageId: string) => {
@@ -61,6 +63,7 @@ export function SectionModes({
   );
 
   const handleStreamModeToggle = useCallback(async () => {
+    if (streamModeComingSoon) return;
     const newValue = !settings.streamMode;
     queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
       old ? { ...old, streamMode: newValue } : old,
@@ -69,16 +72,17 @@ export function SectionModes({
     if (!ok) {
       queryClient.setQueryData(["settings"], await fetchSettings());
     }
-  }, [settings.streamMode, queryClient]);
+  }, [settings.streamMode, queryClient, streamModeComingSoon]);
 
   const handleStreamTranscriptionModeChange = useCallback(
     async (mode: StreamTranscriptionMode) => {
+      if (streamModeComingSoon) return;
       queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
         old ? { ...old, streamTranscriptionMode: mode } : old,
       );
       await setStreamTranscriptionMode(mode);
     },
-    [queryClient],
+    [queryClient, streamModeComingSoon],
   );
 
   return (
@@ -199,34 +203,44 @@ export function SectionModes({
               >
                 {settings.streamMode ? "Stream mode active" : "Stream mode"}
               </span>
+              {streamModeComingSoon && (
+                <span className="mt-1.5 inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
+                  Coming soon on {platformDisplayName(settings.capabilities.platform)}
+                </span>
+              )}
             </div>
-            <button
-              onClick={handleStreamModeToggle}
-              className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                settings.streamMode
-                  ? "bg-blue-500/30 border-blue-400/30"
-                  : "bg-white/7 border-white/14"
-              }`}
-              aria-label="Toggle stream mode"
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200 ${
+            {!streamModeComingSoon && (
+              <button
+                onClick={handleStreamModeToggle}
+                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
                   settings.streamMode
-                    ? "left-4 bg-blue-400/90"
-                    : "left-0.5 bg-white/40"
+                    ? "bg-blue-500/30 border-blue-400/30"
+                    : "bg-white/7 border-white/14"
                 }`}
-              />
-            </button>
+                aria-label="Toggle stream mode"
+              >
+                <span
+                  className={`absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200 ${
+                    settings.streamMode
+                      ? "left-4 bg-blue-400/90"
+                      : "left-0.5 bg-white/40"
+                  }`}
+                />
+              </button>
+            )}
           </div>
         </div>
         <p className={settingsHelperClass}>
-          Press shortcut to start streaming, again (or Esc) to stop. Requires
-          Parakeet model.{" "}
-          <span className="text-amber-200/55">
-            {PARAKEET_FIRST_RUN_STREAM_HELPER}
-          </span>
+          {streamModeComingSoon
+            ? "Hands-free stream dictation is planned for Windows after the one-shot dictation path lands."
+            : "Press shortcut to start streaming, again (or Esc) to stop. Requires Parakeet model."}{" "}
+          {!streamModeComingSoon && (
+            <span className="text-amber-200/55">
+              {PARAKEET_FIRST_RUN_STREAM_HELPER}
+            </span>
+          )}
         </p>
-        {!modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] && (
+        {!streamModeComingSoon && !modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] && (
           <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
             <p className="text-[17px] text-white/70 leading-snug">
               Install{" "}
@@ -248,7 +262,7 @@ export function SectionModes({
             </button>
           </div>
         )}
-        {settings.streamMode &&
+        {!streamModeComingSoon && settings.streamMode &&
           !parakeetSupportsTranscriptionLanguageId(
             settings.transcriptionLanguageId,
           ) && (
@@ -257,7 +271,9 @@ export function SectionModes({
               transcription language for stream mode.
             </p>
           )}
-        <div className="mt-4 rounded-xl border border-white/11 bg-black/10 p-2">
+        <div
+          className={`mt-4 rounded-xl border border-white/11 bg-black/10 p-2 ${streamModeComingSoon ? "opacity-55" : ""}`}
+        >
           <div className="grid grid-cols-2 gap-2">
             {(
               [
@@ -277,10 +293,11 @@ export function SectionModes({
               return (
                 <button
                   key={mode.id}
+                  disabled={streamModeComingSoon}
                   onClick={() =>
                     void handleStreamTranscriptionModeChange(mode.id)
                   }
-                  className={`rounded-xl border px-3 py-3 text-left transition-colors duration-200 cursor-pointer ${
+                  className={`rounded-xl border px-3 py-3 text-left transition-colors duration-200 ${
                     active
                       ? "border-blue-400/30 bg-blue-500/15 text-white/88"
                       : "border-white/10 bg-white/4 text-white/62 hover:border-white/18 hover:bg-white/7"

@@ -38,6 +38,7 @@ import {
   setFormattingSlackUseMarkdown,
 } from "../../../rpc";
 import { settingsHelperClass } from "../settings-shared";
+import { platformDisplayName } from "../../../../shared/platform";
 
 type TileOption<T extends string> = {
   value: T;
@@ -479,9 +480,17 @@ export function SectionFormatting({ settings }: Props) {
       {!formatting.available && (
         <div className="mb-6 rounded-xl border border-white/10 bg-white/4 px-4 py-3.5">
           <p className="text-[18px] text-white/44 leading-relaxed font-sans">
-            Be aware: output formatting only works on{" "}
-            <span className="text-white/62 font-medium">macOS 26 or later</span>{" "}
-            with Apple Intelligence enabled in System Settings.
+            {settings.capabilities.supportsFormatting
+              ? "Be aware: output formatting only works on "
+              : "Formatting is planned, but not available yet on "}
+            <span className="text-white/62 font-medium">
+              {settings.capabilities.supportsFormatting
+                ? "macOS 26 or later"
+                : platformDisplayName(settings.capabilities.platform)}
+            </span>
+            {settings.capabilities.supportsFormatting
+              ? " with Apple Intelligence enabled in System Settings."
+              : "."}
           </p>
         </div>
       )}
@@ -499,6 +508,11 @@ export function SectionFormatting({ settings }: Props) {
                   >
                     Formatting
                   </span>
+                  {!settings.capabilities.supportsFormatting && (
+                    <span className="mt-1.5 inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
+                      Coming soon on {platformDisplayName(settings.capabilities.platform)}
+                    </span>
+                  )}
                   <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
                     Auto-detects the focused app and applies the matching
                     format. Works in standard recording mode only — not stream

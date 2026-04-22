@@ -416,6 +416,7 @@ export function ProductOnboardingScreen({
               <ShortcutPicker
                 value={shortcutDraft}
                 onChange={setShortcutDraft}
+                platform={settings.capabilities.platform}
               />
               <button
                 type="button"

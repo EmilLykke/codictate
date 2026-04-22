@@ -1,13 +1,11 @@
-import { homedir } from 'os'
-import { join } from 'path'
 import { mkdirSync, appendFileSync } from 'fs'
 import { writeNativePasteboard } from './clipboard/native-pasteboard-bridge'
+import { APP_DATA_DIR, LOG_PATH } from '../platform/runtime'
 
 const DEBUG_AUTO_DISABLE_MS = 5 * 60 * 1_000 // 5 minutes
 const RING_BUFFER_MAX = 500
 
-const LOG_DIR = join(homedir(), 'Library', 'Application Support', 'codictate')
-const LOG_PATH = join(LOG_DIR, 'debug.log')
+const LOG_DIR = APP_DATA_DIR
 
 let debugEnabled = false
 let autoDisableTimer: ReturnType<typeof setTimeout> | null = null

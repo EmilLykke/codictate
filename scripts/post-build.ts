@@ -11,6 +11,11 @@ import {
   statSync,
 } from "fs";
 
+if (process.platform !== "darwin") {
+  console.log("[post-build] non-macOS host detected, skipping macOS bundle patching");
+  process.exit(0);
+}
+
 const buildDir = process.env.ELECTROBUN_BUILD_DIR;
 
 if (!buildDir) {

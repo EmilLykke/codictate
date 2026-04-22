@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { ShortcutId } from "../../../shared/types";
+import type { PlatformRuntime } from "../../../shared/platform";
 import {
   shortcutOptionById,
-  shortcutOptionsGrouped,
+  shortcutOptionsGroupedForPlatform,
 } from "../../../shared/shortcut-options";
 import { Kbd } from "../Common/Kbd";
 
@@ -29,14 +30,16 @@ function DropdownChevron({ open }: { open: boolean }) {
 export function ShortcutPicker({
   value,
   onChange,
+  platform,
 }: {
   value: ShortcutId;
   onChange: (id: ShortcutId) => void;
+  platform: PlatformRuntime;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const selected = shortcutOptionById(value);
-  const groups = shortcutOptionsGrouped();
+  const selected = shortcutOptionById(value, platform);
+  const groups = shortcutOptionsGroupedForPlatform(platform);
 
   useEffect(() => {
     if (!open) return;

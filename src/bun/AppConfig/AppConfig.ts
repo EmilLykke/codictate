@@ -1,6 +1,4 @@
 import { mkdirSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
 import {
   DEFAULT_MAX_RECORDING_DURATION_SECONDS,
   isValidMaxRecordingDurationSeconds,
@@ -52,16 +50,15 @@ import {
   parseDictionaryCandidates,
   stageDictionaryCandidate,
 } from '../utils/dictionary/auto-learn-candidates'
+import {
+  APP_DATA_DIR,
+  DICTIONARY_CONFIG_PATH,
+  LEGACY_CONFIG_PATH,
+  MAIN_CONFIG_PATH,
+  getPlatformCapabilities,
+} from '../platform/runtime'
 
-const CONFIG_DIR = join(
-  homedir(),
-  'Library',
-  'Application Support',
-  'codictate'
-)
-const MAIN_CONFIG_PATH = join(CONFIG_DIR, 'main-config.json')
-const DICTIONARY_CONFIG_PATH = join(CONFIG_DIR, 'dictionary-config.json')
-const LEGACY_CONFIG_PATH = join(CONFIG_DIR, 'app-config.json')
+const CONFIG_DIR = APP_DATA_DIR
 
 const VALID_SHORTCUT_IDS = new Set<ShortcutId>(
   SHORTCUT_OPTIONS.map((o) => o.id)
@@ -734,6 +731,7 @@ export class AppConfig {
       })
     )
     return {
+      capabilities: getPlatformCapabilities(),
       shortcutId: this.shortcutId,
       shortcutHoldOnlyId: this.shortcutHoldOnlyId,
       maxRecordingDuration: this.maxRecordingDuration,

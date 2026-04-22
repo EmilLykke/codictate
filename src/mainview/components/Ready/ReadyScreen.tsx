@@ -11,6 +11,7 @@ import {
   dictationShortcutSummaryHoldTitle,
   shortcutDisplayKeys,
 } from "../../../shared/shortcut-options";
+import { platformDisplayName } from "../../../shared/platform";
 import {
   setTranscriptionLanguage,
   setTranslateDefaultLanguage,
@@ -238,11 +239,12 @@ export function ReadyScreen({
   ]);
 
   const isStreamMode = settings?.streamMode ?? false;
+  const streamModeSupported = settings?.capabilities.supportsStreamMode ?? true;
   const streamModeLabel =
     settings?.streamTranscriptionMode === "live" ? "Live" : "VAD";
 
   const handleStreamToggle = useCallback(async () => {
-    if (!settings) return;
+    if (!settings || !streamModeSupported) return;
     const newValue = !isStreamMode;
     queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
       old ? { ...old, streamMode: newValue } : old,
@@ -252,9 +254,10 @@ export function ReadyScreen({
       queryClient.setQueryData(["settings"], await fetchSettings());
       if (newValue) onOpenSettings();
     }
-  }, [isStreamMode, queryClient, settings, onOpenSettings]);
+  }, [isStreamMode, onOpenSettings, queryClient, settings, streamModeSupported]);
 
   const formattingAvailable = settings?.formatting.available ?? false;
+  const formattingSupported = settings?.capabilities.supportsFormatting ?? true;
   const isFormattingForced =
     (settings?.formatting.forceModeId ?? null) !== null;
   const isFormattingActive =
@@ -285,14 +288,20 @@ export function ReadyScreen({
     : null;
 
   const displayKeys = useMemo(
-    () => shortcutDisplayKeys(settings?.shortcutId ?? "option-space"),
-    [settings?.shortcutId],
+    () =>
+      shortcutDisplayKeys(
+        settings?.shortcutId ?? "option-space",
+        settings?.capabilities.platform ?? "macos",
+      ),
+    [settings?.capabilities.platform, settings?.shortcutId],
   );
 
   const holdDisplayKeys = useMemo(() => {
     const id = settings?.shortcutHoldOnlyId;
-    return id ? shortcutDisplayKeys(id) : null;
-  }, [settings?.shortcutHoldOnlyId]);
+    return id
+      ? shortcutDisplayKeys(id, settings?.capabilities.platform ?? "macos")
+      : null;
+  }, [settings?.capabilities.platform, settings?.shortcutHoldOnlyId]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-codictate-page text-white select-none overflow-hidden">
@@ -521,25 +530,29 @@ export function ReadyScreen({
           {settings !== undefined && (
             <InstantTooltip
               text={
-                isStreamMode
-                  ? "Stream mode active — press shortcut to start, again to stop"
-                  : `Stream mode — continuous hands-free dictation (${streamModeLabel})`
+                !streamModeSupported
+                  ? `Stream mode is coming soon on ${platformDisplayName(settings.capabilities.platform)}`
+                  : isStreamMode
+                    ? "Stream mode active — press shortcut to start, again to stop"
+                    : `Stream mode — continuous hands-free dictation (${streamModeLabel})`
               }
               side="top"
               floatInViewport
             >
               <button
                 onClick={handleStreamToggle}
-                disabled={isRecording || isTranscribing}
+                disabled={isRecording || isTranscribing || !streamModeSupported}
                 className={`inline-flex aspect-square w-10 shrink-0 self-stretch items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[border-color,background-color,box-shadow] duration-200 disabled:opacity-50 disabled:pointer-events-none cursor-pointer ${
-                  isStreamMode
+                  isStreamMode && streamModeSupported
                     ? "border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400/80"
                     : "border-white/12 bg-white/5 hover:border-white/18 hover:bg-white/7 text-white/48 hover:text-white/70"
                 }`}
                 aria-label={
-                  isStreamMode
-                    ? "Stream mode active - click to disable"
-                    : `Stream mode - continuous hands-free dictation (${streamModeLabel})`
+                  !streamModeSupported
+                    ? `Stream mode coming soon on ${platformDisplayName(settings.capabilities.platform)}`
+                    : isStreamMode
+                      ? "Stream mode active - click to disable"
+                      : `Stream mode - continuous hands-free dictation (${streamModeLabel})`
                 }
               >
                 <svg
@@ -562,30 +575,34 @@ export function ReadyScreen({
               </button>
             </InstantTooltip>
           )}
-          {settings !== undefined && formattingAvailable && (
+          {settings !== undefined && (formattingAvailable || !formattingSupported) && (
             <InstantTooltip
               text={
-                isFormattingForced
-                  ? `Force formatting: ${settings?.formatting.forceModeId} — clear from tray to disable`
-                  : isFormattingActive
-                    ? "Formatting on — click to disable"
-                    : "Format output — reshape transcription with Apple Intelligence"
+                !formattingSupported
+                  ? `Formatting is coming soon on ${platformDisplayName(settings.capabilities.platform)}`
+                  : isFormattingForced
+                    ? `Force formatting: ${settings?.formatting.forceModeId} — clear from tray to disable`
+                    : isFormattingActive
+                      ? "Formatting on — click to disable"
+                      : "Format output — reshape transcription with Apple Intelligence"
               }
               side="top"
               floatInViewport
             >
               <button
                 onClick={handleFormattingToggle}
-                disabled={isRecording || isTranscribing || isStreaming}
+                disabled={isRecording || isTranscribing || isStreaming || !formattingSupported}
                 className={`inline-flex aspect-square w-10 shrink-0 self-stretch items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[border-color,background-color,box-shadow] duration-200 disabled:opacity-50 disabled:pointer-events-none cursor-pointer ${
-                  isFormattingActive
+                  isFormattingActive && formattingSupported
                     ? "border-purple-400/30 bg-purple-500/15 hover:bg-purple-500/25 text-purple-400/80"
                     : "border-white/12 bg-white/5 hover:border-white/18 hover:bg-white/7 text-white/48 hover:text-white/70"
                 }`}
                 aria-label={
-                  isFormattingActive
-                    ? "Formatting on — click to disable"
-                    : "Format output with Apple Intelligence"
+                  !formattingSupported
+                    ? `Formatting coming soon on ${platformDisplayName(settings.capabilities.platform)}`
+                    : isFormattingActive
+                      ? "Formatting on — click to disable"
+                      : "Format output with Apple Intelligence"
                 }
               >
                 <svg

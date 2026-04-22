@@ -15,8 +15,9 @@
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "tsc": "tsc -p tsconfig.bun.json --noEmit && tsc -p tsconfig.vite.json --noEmit",
-    "dev": "electrobun dev --watch",
+    "dev": "vite build && electrobun dev --watch",
     "dev:hmr": "bun run build:native && concurrently \"bun run hmr\" \"bun run start\"",
+    "dev:windows": "bun run build:native:windows-helper && vite build && electrobun dev --watch",
     "hmr": "vite --port 5173",
     "build:all": "bun run build:stable && bun run build:canary",
     "release": "scripts/release.sh",
@@ -26,7 +27,9 @@
     "build:stable": "bun run build:native && vite build && CODICTATE_CHANNEL=stable electrobun build --env=stable",
     "build:canary": "bun run build:native && vite build && CODICTATE_CHANNEL=canary electrobun build --env=canary",
     "build:native": "src/scripts/build-swift.sh",
+    "build:native:windows-helper": "cargo build --release --manifest-path native/CodictateWindowsHelper/Cargo.toml",
     "start": "bun run build:native && vite build && CODICTATE_CHANNEL=dev electrobun dev",
+    "start:windows": "bun run build:native:windows-helper && vite build && CODICTATE_CHANNEL=dev electrobun dev",
     "postbuild": "chmod +x build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/KeyListener build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/MicRecorder"
   },
   "dependencies": {
@@ -43,6 +46,7 @@
     "@eslint/js": "^10.0.1",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/bun": "1.3.10",
+    "@types/three": "^0.181.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.4",
