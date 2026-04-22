@@ -8,14 +8,26 @@
 //
 // Dev setup: brew install cmake, Xcode + swift for the Parakeet helper.
 
+import { availableParallelism } from "os";
 import { join } from "path";
-import { existsSync, mkdirSync, chmodSync } from "fs";
+import { existsSync, mkdirSync, chmodSync, copyFileSync, rmSync, readdirSync, readFileSync, writeFileSync } from "fs";
 
 const VENDORS_DIR = "./vendors";
 
 const WHISPER_VERSION = "1.8.3";
 const WHISPER_DIR = join(VENDORS_DIR, "whisper");
-const WHISPER_BINARY = join(WHISPER_DIR, "whisper-cli");
+const WINDOWS_DIR = join(VENDORS_DIR, "windows");
+const WINDOWS_TRAY_ICON = join(WINDOWS_DIR, "TrayIcon.ico");
+const WHISPER_BINARY_NAME = process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli";
+const WHISPER_BINARY = join(WHISPER_DIR, WHISPER_BINARY_NAME);
+const WHISPER_BUILD_STAMP = join(WHISPER_DIR, "build-stamp.txt");
+const WHISPER_BUILD_SIGNATURE = [
+  `version=${WHISPER_VERSION}`,
+  `platform=${process.platform}`,
+  `examples=on`,
+  `shared=off`,
+  `vulkan=${process.platform === "win32" ? "on" : "off"}`,
+].join("\n");
 
 const PARAKEET_PKG = join(import.meta.dir, "..", "native", "CodictateParakeetHelper");
 const PARAKEET_DIR = join(VENDORS_DIR, "parakeet");
@@ -50,8 +62,17 @@ function resolveCargoExecutable(): string {
   );
 }
 
+function commandExists(command: string): boolean {
+  const checker = process.platform === "win32" ? "where" : "which";
+  return Bun.spawnSync([checker, command], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
+}
+
 async function vendorWhisperBinaries() {
-  if (existsSync(WHISPER_BINARY)) {
+  if (
+    existsSync(WHISPER_BINARY) &&
+    existsSync(WHISPER_BUILD_STAMP) &&
+    readFileSync(WHISPER_BUILD_STAMP, "utf8") === WHISPER_BUILD_SIGNATURE
+  ) {
     console.log("[pre-build] whisper-cli already vendored, skipping");
     return;
   }
@@ -59,7 +80,15 @@ async function vendorWhisperBinaries() {
   const cmakeCheck = Bun.spawnSync(["cmake", "--version"], { stdout: "pipe" });
   if (cmakeCheck.exitCode !== 0) {
     throw new Error(
-      "[pre-build] cmake not found. Install it with: brew install cmake",
+      process.platform === "win32"
+        ? "[pre-build] cmake not found. Install it and ensure `cmake` is on PATH."
+        : "[pre-build] cmake not found. Install it with: brew install cmake",
+    );
+  }
+
+  if (process.platform === "win32" && !commandExists("glslc")) {
+    throw new Error(
+      "[pre-build] Vulkan GPU build requires the Vulkan SDK shader compiler (`glslc`). Install the LunarG Vulkan SDK and reopen your terminal so `glslc` is on PATH.",
     );
   }
 
@@ -70,22 +99,18 @@ async function vendorWhisperBinaries() {
   const srcDir = join(WHISPER_DIR, "whisper-src");
   const buildDir = join(WHISPER_DIR, "whisper-build");
 
-  console.log(
-    `[pre-build] Downloading whisper.cpp v${WHISPER_VERSION} source...`,
-  );
-  const dl = Bun.spawnSync(
-    ["curl", "-L", "--progress-bar", sourceUrl, "-o", tarPath],
-    { stdio: ["ignore", "inherit", "inherit"] },
-  );
-  if (dl.exitCode !== 0) {
+  console.log(`[pre-build] Downloading whisper.cpp v${WHISPER_VERSION} source...`);
+  const response = await fetch(sourceUrl);
+  if (!response.ok) {
     throw new Error("[pre-build] Failed to download whisper.cpp source");
   }
+  await Bun.write(tarPath, response);
 
   mkdirSync(srcDir, { recursive: true });
   Bun.spawnSync(["tar", "-xf", tarPath, "-C", srcDir, "--strip-components=1"], {
     stdio: ["ignore", "inherit", "inherit"],
   });
-  Bun.spawnSync(["rm", "-f", tarPath]);
+  rmSync(tarPath, { force: true });
 
   console.log("[pre-build] Configuring whisper-cli (static, no SDL2)...");
   const configure = Bun.spawnSync(
@@ -93,51 +118,103 @@ async function vendorWhisperBinaries() {
       "cmake",
       "-S", srcDir,
       "-B", buildDir,
+      ...(process.platform === "win32" ? ["-A", "x64"] : []),
       "-DCMAKE_BUILD_TYPE=Release",
       "-DBUILD_SHARED_LIBS=OFF",
       "-DWHISPER_BUILD_TESTS=OFF",
-      "-DWHISPER_BUILD_EXAMPLES=OFF",
+      "-DWHISPER_BUILD_EXAMPLES=ON",
+      ...(process.platform === "win32" ? ["-DGGML_VULKAN=ON"] : []),
     ],
     { stdio: ["ignore", "inherit", "inherit"] },
   );
   if (configure.exitCode !== 0) {
-    Bun.spawnSync(["rm", "-rf", srcDir, buildDir]);
+    rmSync(srcDir, { recursive: true, force: true });
+    rmSync(buildDir, { recursive: true, force: true });
     throw new Error("[pre-build] cmake configure failed");
   }
 
-  const cpuResult = Bun.spawnSync(["sysctl", "-n", "hw.ncpu"], {
-    stdout: "pipe",
-  });
-  const jobs = cpuResult.stdout.toString().trim() || "4";
+  const jobs = String(Math.max(1, availableParallelism?.() ?? 4));
 
   console.log(
     `[pre-build] Building whisper-cli (${jobs} cores, ~3-5 min first time)...`,
   );
-  const build = Bun.spawnSync(
-    ["cmake", "--build", buildDir, "--target", "whisper-cli", "-j", jobs],
-    { stdio: ["ignore", "inherit", "inherit"] },
-  );
+  const buildArgs = ["cmake", "--build", buildDir, "--config", "Release"];
+  if (process.platform !== "win32") {
+    buildArgs.push("--target", "whisper-cli", "-j", jobs);
+  }
+  const build = Bun.spawnSync(buildArgs, {
+    stdio: ["ignore", "inherit", "inherit"],
+  });
   if (build.exitCode !== 0) {
-    Bun.spawnSync(["rm", "-rf", srcDir, buildDir]);
+    rmSync(srcDir, { recursive: true, force: true });
+    rmSync(buildDir, { recursive: true, force: true });
     throw new Error("[pre-build] whisper-cli build failed");
   }
 
-  const findCli = Bun.spawnSync(
-    ["find", buildDir, "-name", "whisper-cli", "-type", "f"],
-    { stdout: "pipe" },
-  );
-  const cliPath = findCli.stdout.toString().trim().split("\n")[0];
+  const cliPath = findFileRecursively(buildDir, WHISPER_BINARY_NAME);
 
   if (!cliPath) {
-    Bun.spawnSync(["rm", "-rf", srcDir, buildDir]);
+    rmSync(srcDir, { recursive: true, force: true });
+    rmSync(buildDir, { recursive: true, force: true });
     throw new Error("[pre-build] whisper-cli binary not found after build");
   }
 
-  Bun.spawnSync(["cp", cliPath, WHISPER_BINARY]);
-  chmodSync(WHISPER_BINARY, 0o755);
+  copyFileSync(cliPath, WHISPER_BINARY);
+  if (process.platform !== "win32") {
+    chmodSync(WHISPER_BINARY, 0o755);
+  }
+  writeFileSync(WHISPER_BUILD_STAMP, WHISPER_BUILD_SIGNATURE);
   console.log("[pre-build] whisper-cli built and vendored successfully");
 
-  Bun.spawnSync(["rm", "-rf", srcDir, buildDir]);
+  rmSync(srcDir, { recursive: true, force: true });
+  rmSync(buildDir, { recursive: true, force: true });
+}
+
+function ensureWindowsTrayIcon() {
+  if (process.platform !== "win32") return;
+  const sourcePng = join(import.meta.dir, "..", "src", "assets", "images", "MacTrayIcon.png");
+  if (!existsSync(sourcePng)) return;
+
+  const png = readFileSync(sourcePng);
+  if (png.length < 24 || png.toString("ascii", 1, 4) !== "PNG") {
+    throw new Error("[pre-build] Invalid tray icon PNG");
+  }
+
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  mkdirSync(WINDOWS_DIR, { recursive: true });
+
+  const header = Buffer.alloc(6 + 16);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  header.writeUInt8(width >= 256 ? 0 : width, 6);
+  header.writeUInt8(height >= 256 ? 0 : height, 7);
+  header.writeUInt8(0, 8);
+  header.writeUInt8(0, 9);
+  header.writeUInt16LE(1, 10);
+  header.writeUInt16LE(32, 12);
+  header.writeUInt32LE(png.length, 14);
+  header.writeUInt32LE(22, 18);
+
+  writeFileSync(WINDOWS_TRAY_ICON, Buffer.concat([header, png]));
+}
+
+function findFileRecursively(root: string, fileName: string): string | null {
+  const stack = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const fullPath = join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else if (entry.isFile() && entry.name === fileName) {
+        return fullPath;
+      }
+    }
+  }
+  return null;
 }
 
 function parakeetVendoredBinaryLooksExecutable(path: string): boolean {
@@ -409,17 +486,21 @@ async function vendorWhisperModel() {
   console.log(
     `[pre-build] Downloading ${MODEL_NAME} (~547 MB, this may take a moment)...`,
   );
-  const dl = Bun.spawnSync(
-    ["curl", "-L", "--progress-bar", url, "-o", MODEL_PATH],
-    {
-      stdio: ["ignore", "inherit", "inherit"],
-    },
-  );
-  if (dl.exitCode !== 0) {
+  const response = await fetch(url);
+  if (!response.ok) {
     throw new Error(`[pre-build] Failed to download ${MODEL_NAME}`);
   }
+  await Bun.write(MODEL_PATH, response);
 
   console.log(`[pre-build] ${MODEL_NAME} vendored successfully`);
+}
+
+if (process.platform === "win32") {
+  ensureWindowsTrayIcon();
+  await vendorWhisperBinaries();
+  await vendorWhisperModel();
+  console.log("[pre-build] Windows whisper dependencies ready");
+  process.exit(0);
 }
 
 if (process.platform !== "darwin") {

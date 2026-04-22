@@ -6,14 +6,15 @@ import { pasteTranscript } from '../keyboard/keyboard-events'
 import { applyFormatting } from '../formatting/apply-formatting'
 import { buildFormatterRequest } from '../formatting/resolve-formatting-request'
 import { join } from 'node:path'
+import { availableParallelism } from 'node:os'
 import { log } from '../logger'
 import type {
   DictionaryEntry,
   FormattingRuntimeSettings,
 } from '../../../shared/types'
 import { applyDictionary } from '../dictionary/apply-dictionary'
-
-export const RECORDING_PATH = '/tmp/codictate-recording.wav'
+import { RECORDING_PATH } from '../../platform/runtime'
+import { findWhisperCliBinary } from './find-whisper-cli'
 
 /**
  * Whisper often splits or mishears the product name — normalize before paste.
@@ -96,7 +97,7 @@ export const transcribe = async (
     return transcribeParakeet(modelId)
   }
 
-  const binary = join(import.meta.dir, '../native-helpers/whisper-cli')
+  const binary = await findWhisperCliBinary()
 
   const translateRunModelId = resolveTranslateModelId(modelId, (id) =>
     modelManager.isModelAvailable(id)
@@ -128,6 +129,8 @@ export const transcribe = async (
     binary,
     '-m',
     model,
+    '-t',
+    String(Math.max(4, availableParallelism?.() ?? 4)),
     '--language',
     lang,
     '-f',

@@ -1,21 +1,53 @@
 import { AppConfig } from '../../AppConfig/AppConfig'
-import { speech2text, RECORDING_PATH } from '../whisper/speech2text'
+import { speech2text } from '../whisper/speech2text'
 import { duckDelayAfterStartChimeMs, playEndSound } from '../sound/play-sound'
 import { findMicRecorderBinary } from './find-mic-recorder'
 import { findDevices } from './devices'
 import { log } from '../logger'
 import { stat } from 'node:fs/promises'
+import { RECORDING_PATH } from '../../platform/runtime'
+import { getPlatformRuntime } from '../../platform/runtime'
 
 /** Set `discard: true` before killing the recorder so onExit skips transcription and UI handoff. */
 export type RecordingSession = { discard: boolean; startedAtMs: number }
 
-const WAV_HEADER_BYTES = 44
-const PCM_16BIT_MONO_48KHZ_BYTES_PER_MS = 96
 const MIN_VALID_RECORDING_MS = 180
 
-function estimateWavDurationMs(sizeBytes: number): number {
-  const pcmBytes = Math.max(0, sizeBytes - WAV_HEADER_BYTES)
-  return Math.floor(pcmBytes / PCM_16BIT_MONO_48KHZ_BYTES_PER_MS)
+function readAscii(buf: Buffer, start: number, end: number): string {
+  return buf.subarray(start, end).toString('ascii')
+}
+
+function estimateWavDurationMsFromBuffer(buf: Buffer): number | null {
+  if (buf.length < 44) return null
+  if (readAscii(buf, 0, 4) !== 'RIFF') return null
+  if (readAscii(buf, 8, 12) !== 'WAVE') return null
+
+  let off = 12
+  let sampleRate = 0
+  let channels = 0
+  let bitsPerSample = 0
+  let dataSize = 0
+
+  while (off + 8 <= buf.length) {
+    const chunkId = readAscii(buf, off, off + 4)
+    const chunkSize = buf.readUInt32LE(off + 4)
+    const dataStart = off + 8
+    off += 8 + chunkSize + (chunkSize % 2)
+    if (chunkId === 'fmt ') {
+      if (dataStart + 16 > buf.length) return null
+      channels = buf.readUInt16LE(dataStart + 2)
+      sampleRate = buf.readUInt32LE(dataStart + 4)
+      bitsPerSample = buf.readUInt16LE(dataStart + 14)
+    } else if (chunkId === 'data') {
+      dataSize = chunkSize
+      break
+    }
+  }
+
+  if (!sampleRate || !channels || !bitsPerSample || !dataSize) return null
+  const bytesPerFrame = channels * (bitsPerSample / 8)
+  if (!bytesPerFrame || !Number.isInteger(bytesPerFrame)) return null
+  return Math.floor((dataSize / bytesPerFrame / sampleRate) * 1000)
 }
 
 async function shouldSkipTranscriptionForShortCapture(
@@ -28,7 +60,9 @@ async function shouldSkipTranscriptionForShortCapture(
 }> {
   try {
     const fileStats = await stat(RECORDING_PATH)
-    const durationMs = estimateWavDurationMs(fileStats.size)
+    const wavFile = Bun.file(RECORDING_PATH)
+    const durationMs = estimateWavDurationMsFromBuffer(Buffer.from(await wavFile.arrayBuffer()))
+    const durationForResult = durationMs ?? undefined
     const fileLooksFresh = fileStats.mtimeMs >= session.startedAtMs - 50
 
     if (!fileLooksFresh) {
@@ -36,20 +70,20 @@ async function shouldSkipTranscriptionForShortCapture(
         skip: true,
         reason: 'stale-file',
         sizeBytes: fileStats.size,
-        durationMs,
+        durationMs: durationForResult,
       }
     }
 
-    if (durationMs < MIN_VALID_RECORDING_MS) {
+    if ((durationMs ?? 0) < MIN_VALID_RECORDING_MS) {
       return {
         skip: true,
         reason: 'too-short',
         sizeBytes: fileStats.size,
-        durationMs,
+        durationMs: durationForResult,
       }
     }
 
-    return { skip: false, sizeBytes: fileStats.size, durationMs }
+    return { skip: false, sizeBytes: fileStats.size, durationMs: durationForResult }
   } catch {
     return { skip: true, reason: 'missing-file' }
   }
@@ -121,7 +155,7 @@ export const startRecording = async (
     ],
     {
       stderr: 'pipe',
-      stdin: 'ignore',
+      stdin: getPlatformRuntime() === 'windows' ? 'pipe' : 'ignore',
       async onExit(proc, exitCode) {
         let stderrText = ''
         try {
@@ -180,6 +214,22 @@ export const startRecording = async (
 }
 
 export const stopRecording = async (recorder: ReturnType<typeof Bun.spawn>) => {
+  if (getPlatformRuntime() === 'windows') {
+    const stdin = recorder.stdin
+    if (stdin && typeof stdin !== 'number') {
+      try {
+        stdin.write('stop\n')
+        stdin.flush()
+        await Promise.race([
+          recorder.exited,
+          new Promise((resolve) => setTimeout(resolve, 1500)),
+        ])
+        if (recorder.exitCode !== null) return
+      } catch {
+        // fall through to kill
+      }
+    }
+  }
   recorder.kill('SIGINT')
   await recorder.exited
 }

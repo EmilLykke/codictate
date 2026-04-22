@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getPlatformRuntime } from '../../platform/runtime'
 
 const soundPath = (filename: string) =>
   join(import.meta.dir, `../sounds/${filename}`)
@@ -79,6 +80,7 @@ export function duckDelayAfterStartChimeMs(funModeEnabled = false): number {
 
 // Fire-and-forget — does not block the caller
 export const playStartSound = (funModeEnabled = false) => {
+  if (getPlatformRuntime() !== 'macos') return
   Bun.spawn([
     'afplay',
     funModeEnabled ? FUN_MODE_START_MP3 : DICTATION_START_WAV,
@@ -86,9 +88,11 @@ export const playStartSound = (funModeEnabled = false) => {
 }
 
 export const playEndSound = (funModeEnabled = false) => {
+  if (getPlatformRuntime() !== 'macos') return
   Bun.spawn(['afplay', funModeEnabled ? FUN_MODE_STOP_MP3 : DICTATION_STOP_WAV])
 }
 
 export const playCancelSound = () => {
+  if (getPlatformRuntime() !== 'macos') return
   Bun.spawn(['afplay', soundPath('dictation-cancel.wav')])
 }
