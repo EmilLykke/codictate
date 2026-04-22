@@ -206,6 +206,7 @@ export function setupIndicatorWindow(deps: {
   }
 
   function getOrCreateHelper(): NativeIndicatorHelper | null {
+    if (!deps.getSettings().capabilities.supportsNativeIndicator) return null
     if (helper) return helper
     helper = createNativeIndicatorHelper((x, y) => {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return

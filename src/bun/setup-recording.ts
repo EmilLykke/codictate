@@ -24,9 +24,11 @@ import { AppConfig } from './AppConfig/AppConfig'
 import type { TrayHandlers } from './setup-tray'
 import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
+import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { log } from './utils/logger'
 import { startObserverHelper } from './utils/keyboard/observer-helper'
+import { getPlatformRuntime } from './platform/runtime'
 
 /** Keycodes that should not cancel "wait for Fn chord" when main is fn-globe + hold is fn-* (non-globe). */
 const FN_GLOBE_DEFER_CANCEL_SUPPRESS = new Set<number>([
@@ -90,7 +92,9 @@ export const setupRecording = (
   let sessionStopping = false
   let transcriptionPipelineActive = false
   let pendingHoldReleaseWhileStarting = false
+  let pendingHoldReleaseStartedAtMs = 0
   let pendingStreamHoldReleaseWhileStarting = false
+  let pendingStreamHoldReleaseStartedAtMs = 0
 
   // Stream mode state
   let streamSession: StreamSession | null = null
@@ -155,6 +159,44 @@ export const setupRecording = (
   }
 
   const keyLabel = (keycode: number) => KeyCode[keycode] ?? String(keycode)
+
+  const usesWindowsModifierReleaseHold = (shortcutId: ShortcutId): boolean =>
+    getPlatformRuntime() === 'windows' && windowsUsesModifierReleaseHold(shortcutId)
+
+  const isWindowsModifierReleaseEvent = (
+    shortcutId: ShortcutId,
+    keyEvent: KeyEvent
+  ): boolean => {
+    if (!usesWindowsModifierReleaseHold(shortcutId)) return true
+    switch (shortcutId) {
+      case 'option-space':
+      case 'option-enter':
+        return (
+          !keyEvent.keyDown &&
+          (keyEvent.keycode === Key.option || keyEvent.keycode === Key.rightOption)
+        )
+      case 'control-space':
+      case 'control-enter':
+        return (
+          !keyEvent.keyDown &&
+          (keyEvent.keycode === Key.control ||
+            keyEvent.keycode === Key.rightControl)
+        )
+      default:
+        return true
+    }
+  }
+
+  const isWindowsComboTriggerReleaseEvent = (
+    shortcutId: ShortcutId,
+    keyEvent: KeyEvent
+  ): boolean => {
+    if (!usesWindowsModifierReleaseHold(shortcutId)) return false
+    return (
+      !keyEvent.keyDown &&
+      (keyEvent.keycode === Key.space || keyEvent.keycode === Key.enter)
+    )
+  }
 
   const keyEventDebug = (e: KeyEvent) => ({
     keycode: e.keycode,
@@ -229,6 +271,7 @@ export const setupRecording = (
       return
     streamStarting = true
     pendingStreamHoldReleaseWhileStarting = false
+    pendingStreamHoldReleaseStartedAtMs = Date.now()
     const streamDebugId = ++streamDebugSeq
     activeStreamShortcutMode = shortcutMode
     try {
@@ -284,6 +327,7 @@ export const setupRecording = (
       if (streamSession === null) {
         activeStreamShortcutMode = null
         pendingStreamHoldReleaseWhileStarting = false
+        pendingStreamHoldReleaseStartedAtMs = 0
       }
     }
   }
@@ -296,6 +340,7 @@ export const setupRecording = (
     streamSession = null
     activeStreamShortcutMode = null
     pendingStreamHoldReleaseWhileStarting = false
+    pendingStreamHoldReleaseStartedAtMs = 0
     resetHoldGate()
     await stopParakeetStream(session)
     setTrayIdle()
@@ -310,7 +355,6 @@ export const setupRecording = (
       log('shortcut', 'stopping recorder session', {
         activeRecordingMode: activeRecordingMode ?? undefined,
       })
-      console.log('END RECORD')
       const proc = recorderProc
       await stopRecording(proc)
       recorderProc = null
@@ -330,13 +374,13 @@ export const setupRecording = (
     }
     sessionStarting = true
     pendingHoldReleaseWhileStarting = false
+    pendingHoldReleaseStartedAtMs = Date.now()
     activeRecordingMode = mode
     try {
       log('shortcut', 'starting recorder session', {
         mode,
         streamMode: appConfig.getStreamMode(),
       })
-      console.log('START RECORD')
       playStartSound(appConfig.getFunModeEnabled())
       setTrayRecording()
       onStatusChange?.('recording')
@@ -381,6 +425,16 @@ export const setupRecording = (
   }
 
   const handleKeyEvent = async (keyEvent: KeyEvent) => {
+    if (isWindowsComboTriggerReleaseEvent(appConfig.getShortcutId(), keyEvent)) {
+      return
+    }
+    if (
+      appConfig.getShortcutHoldOnlyId() !== null &&
+      isWindowsComboTriggerReleaseEvent(appConfig.getShortcutHoldOnlyId()!, keyEvent)
+    ) {
+      return
+    }
+
     if (
       keyEvent.keyDown &&
       keyEvent.keycode === Key.enter &&
@@ -430,7 +484,6 @@ export const setupRecording = (
         setTrayIdle()
         onStatusChange?.('ready')
         playCancelSound()
-        console.log('Recording cancelled')
         return
       }
     }
@@ -442,7 +495,18 @@ export const setupRecording = (
           : hybrid
 
       if (def.matchesHoldUp(keyEvent)) {
-        if (sessionStarting) pendingHoldReleaseWhileStarting = true
+        if (
+          activeRecordingMode === 'hybrid' &&
+          !isWindowsModifierReleaseEvent(appConfig.getShortcutId(), keyEvent)
+        ) {
+          return
+        }
+        if (sessionStarting) {
+          pendingHoldReleaseWhileStarting =
+            activeRecordingMode === 'holdOnly' ||
+            Date.now() - pendingHoldReleaseStartedAtMs >=
+              DICTATION_HOLD_QUALIFY_MS
+        }
         if (holdArmTimer !== null) clearHoldArmTimer()
         const releaseStops = activeRecordingMode === 'holdOnly' || holdQualified
         if (releaseStops) await tryStop()
@@ -466,8 +530,17 @@ export const setupRecording = (
         activeStreamShortcutMode === 'hybrid' &&
         hybrid.matchesHoldUp(keyEvent)
       ) {
+        if (!isWindowsModifierReleaseEvent(appConfig.getShortcutId(), keyEvent)) {
+          return
+        }
         if (holdArmTimer !== null) clearHoldArmTimer()
-        if (holdQualified) pendingStreamHoldReleaseWhileStarting = true
+        if (
+          holdQualified ||
+          Date.now() - pendingStreamHoldReleaseStartedAtMs >=
+            DICTATION_HOLD_QUALIFY_MS
+        ) {
+          pendingStreamHoldReleaseWhileStarting = true
+        }
         return
       }
       if (
