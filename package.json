@@ -27,6 +27,7 @@
     "release:local": "scripts/release.sh --local",
     "build:stable": "bun run build:native && vite build && CODICTATE_CHANNEL=stable electrobun build --env=stable",
     "build:canary": "bun run build:native && vite build && CODICTATE_CHANNEL=canary electrobun build --env=canary",
+    "build:installer:windows": "powershell -ExecutionPolicy Bypass -File scripts/build-inno-installer.ps1",
     "build:native": "src/scripts/build-swift.sh",
     "build:native:windows-helper": "cargo build --release --manifest-path native/CodictateWindowsHelper/Cargo.toml",
     "start": "bun run build:native && vite build && CODICTATE_CHANNEL=dev electrobun dev",

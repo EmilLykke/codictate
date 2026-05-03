@@ -172,6 +172,9 @@ jobs:
           install_runtime: false
           cache: true
 
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
@@ -194,6 +197,12 @@ jobs:
         run: |
           bunx vite build
           bunx electrobun build --env=${{ needs.create-release.outputs.channel }}
+
+      - name: Build Windows installer (${{ needs.create-release.outputs.channel }})
+        shell: pwsh
+        env:
+          CODICTATE_CHANNEL: ${{ needs.create-release.outputs.channel }}
+        run: .\scripts\build-inno-installer.ps1 -Channel ${{ needs.create-release.outputs.channel }}
 
       - name: Upload to release
         shell: bash

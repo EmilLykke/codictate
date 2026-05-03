@@ -7,6 +7,7 @@
 3. The tag triggers `.github/workflows/release.yml`, which:
    - Creates a draft GitHub Release (skipped if already exists)
    - Builds macOS and Windows in parallel (skips macOS if already uploaded)
+   - Wraps the Windows bundle with Inno Setup so the `.exe` registers a normal uninstaller
    - Publishes the release once both builds are done
 
 ## Commands
@@ -43,7 +44,7 @@ The CI workflow requires these secrets set in **Settings → Secrets and variabl
 | `ELECTROBUN_APPLEID` | Apple ID email |
 | `ELECTROBUN_APPLEIDPASS` | App-specific password from appleid.apple.com |
 
-Windows builds require no secrets.
+Windows builds require no secrets. CI installs Inno Setup with Chocolatey before packaging the Windows installer.
 
 ## Manual builds (no release)
 
@@ -53,6 +54,8 @@ To build without publishing, use the manual workflows in GitHub Actions:
 - **Actions → Build Windows → Run workflow**
 
 Artifacts are uploaded as a zip to the workflow run — useful for testing before a real release.
+
+Windows workflow artifacts include the Electrobun update/archive zip and an Inno Setup installer named like `stable-windows-x64-Codictate-Setup.exe`. The Inno installer is the user-facing download because it appears in Windows Installed apps and uninstalls cleanly.
 
 ## Re-running a failed build
 
