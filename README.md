@@ -48,7 +48,7 @@ Using **AeroSpace**? See **[docs/AEROSPACE.md](docs/AEROSPACE.md)** for an optio
 
 ### Windows
 
-Download and run the `.exe` installer from Releases.
+Download and run the `*-Setup.exe` installer from Releases. It installs per-user and can be removed from Windows **Settings → Apps → Installed apps**.
 
 ### Requirements
 
@@ -108,6 +108,8 @@ bun run build:stable
 # Windows
 bun run build:native:windows-helper   # compile CodictateWindowsHelper (Rust)
 # then build:canary / build:stable via CI, or run start:windows for dev
+# CI also wraps Windows release builds with Inno Setup so they are uninstallable
+bun run build:installer:windows       # after a local Windows Electrobun build, requires Inno Setup 6
 ```
 
 Unsigned local builds work without any `.env` configuration. To sign locally, copy `.env.example` to `.env` and fill in Apple developer credentials. See **[docs/MACOS_SIGNING_AND_NOTARIZATION.md](docs/MACOS_SIGNING_AND_NOTARIZATION.md)**.
