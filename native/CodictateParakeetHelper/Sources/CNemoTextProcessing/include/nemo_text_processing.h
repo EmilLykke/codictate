@@ -33,13 +33,41 @@ char* nemo_normalize(const char* input);
 char* nemo_normalize_sentence(const char* input);
 
 /**
- * Normalize a full sentence with a configurable max span size.
+ * Normalize a single spoken-form expression with caller-specified options.
  *
  * @param input Null-terminated UTF-8 string
- * @param max_span_tokens Maximum number of consecutive tokens per span (default 16)
+ * @param concat_compound_numbers When non-zero, consecutive 0-99 number
+ *        words concatenate (aviation flight-number style — e.g.
+ *        "thirty five sixty two" -> "3562", "seven eighty eight" -> "788")
+ *        instead of adding.
+ * @param disable_bare_second When non-zero, the bare word "second" is NOT
+ *        rewritten to "2nd" (issue #22), so phrases like
+ *        "give me a second" stay literal. Compound ordinals
+ *        ("twenty second" -> "22nd") still convert.
  * @return Newly allocated string, must be freed with nemo_free_string().
  */
-char* nemo_normalize_sentence_with_max_span(const char* input, uint32_t max_span_tokens);
+char* nemo_normalize_with_options(
+    const char* input,
+    uint32_t concat_compound_numbers,
+    uint32_t disable_bare_second
+);
+
+/**
+ * Normalize a full sentence with caller-specified options.
+ *
+ * @param input Null-terminated UTF-8 string
+ * @param concat_compound_numbers See nemo_normalize_with_options.
+ * @param max_span_tokens Maximum consecutive tokens per span. Pass 0 to
+ *        use the library default (16).
+ * @param disable_bare_second See nemo_normalize_with_options.
+ * @return Newly allocated string, must be freed with nemo_free_string().
+ */
+char* nemo_normalize_sentence_with_options(
+    const char* input,
+    uint32_t concat_compound_numbers,
+    uint32_t max_span_tokens,
+    uint32_t disable_bare_second
+);
 
 /**
  * Add a custom spoken-to-written normalization rule.

@@ -60,18 +60,31 @@ public enum NemoTextProcessing {
         return String(cString: resultPtr)
     }
 
-    /// Normalize a full sentence with a configurable max span size.
+    /// Normalize a full sentence with caller-specified options.
     ///
     /// - Parameters:
     ///   - input: Sentence containing spoken-form spans
-    ///   - maxSpanTokens: Maximum consecutive tokens per normalizable span (default 16)
+    ///   - maxSpanTokens: Maximum consecutive tokens per normalizable span (0 = library default of 16)
+    ///   - concatCompoundNumbers: When true, consecutive 0-99 number words concatenate
+    ///     (aviation style — e.g. "thirty five sixty two" → "3562")
+    ///   - disableBareSecond: When true, the bare word "second" is NOT rewritten to "2nd"
     /// - Returns: Sentence with spoken-form spans replaced
-    public static func normalizeSentence(_ input: String, maxSpanTokens: UInt32) -> String {
+    public static func normalizeSentence(
+        _ input: String,
+        maxSpanTokens: UInt32 = 0,
+        concatCompoundNumbers: Bool = false,
+        disableBareSecond: Bool = false
+    ) -> String {
         guard let cString = input.cString(using: .utf8) else {
             return input
         }
 
-        guard let resultPtr = nemo_normalize_sentence_with_max_span(cString, maxSpanTokens) else {
+        guard let resultPtr = nemo_normalize_sentence_with_options(
+            cString,
+            concatCompoundNumbers ? 1 : 0,
+            maxSpanTokens,
+            disableBareSecond ? 1 : 0
+        ) else {
             return input
         }
 
