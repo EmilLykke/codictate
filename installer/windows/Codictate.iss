@@ -13,6 +13,15 @@
   #define AppChannel "stable"
 #endif
 
+; Must match Electrobun Updater: %LOCALAPPDATA%\{identifier}\{channel}\app
+; (see node_modules/electrobun/.../Updater.ts runningAppBundlePath for win).
+; If Inno installs under Programs\Codictate while updates apply here, shortcuts
+; keep launching the old copy after an in-app update.
+#define InstallRelDir GetEnv("CODICTATE_INNO_INSTALL_RELDIR")
+#if InstallRelDir == ""
+  #error CODICTATE_INNO_INSTALL_RELDIR must be set (e.g. app.codictate/stable/app)
+#endif
+
 #define SourceDir GetEnv("CODICTATE_INNO_SOURCE_DIR")
 #if SourceDir == ""
   #error CODICTATE_INNO_SOURCE_DIR must point at the built Windows app bundle directory
@@ -49,8 +58,9 @@ AppPublisher={#Publisher}
 AppPublisherURL=https://github.com/EmilLykke/codictate
 AppSupportURL=https://github.com/EmilLykke/codictate/issues
 AppUpdatesURL=https://github.com/EmilLykke/codictate/releases
-DefaultDirName={localappdata}\Programs\{#AppName}
+DefaultDirName={localappdata}\{#InstallRelDir}
 DefaultGroupName={#AppName}
+UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
 OutputBaseFilename={#AppChannel}-windows-x64-{#AppName}-Setup
