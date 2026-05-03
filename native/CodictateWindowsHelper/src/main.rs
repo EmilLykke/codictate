@@ -41,6 +41,7 @@ static INDICATOR_STATE: OnceLock<Arc<Mutex<IndicatorState>>> = OnceLock::new();
 static INDICATOR_ANIMATION: OnceLock<Mutex<IndicatorAnimation>> = OnceLock::new();
 static OUTPUT_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
+const LLKHF_INJECTED: u32 = 0x10;
 const INDICATOR_TIMER_ID: usize = 1;
 const INDICATOR_FRAME_MS: u32 = 33;
 const INDICATOR_MAX_ORB_SIZE: f32 = 56.0;
@@ -391,6 +392,10 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
     };
 
     let info = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
+    if info.flags & LLKHF_INJECTED != 0 {
+        return unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) };
+    }
+
     let Some((keycode, modifier_key)) = vk_to_keycode(info.vkCode) else {
         return unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) };
     };
@@ -444,7 +449,8 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
         }
     }
 
-    let should_swallow = rule_match.is_some() || combo_match;
+    let is_modifier_release = is_key_up && modifier_key.is_some();
+    let should_swallow = !is_modifier_release && (rule_match.is_some() || combo_match);
 
     emit_key_event(event);
     drop(state);
@@ -474,15 +480,51 @@ fn send_key(vk: u16, key_up: bool) -> bool {
     unsafe { SendInput(1, &mut input, std::mem::size_of::<INPUT>() as i32) == 1 }
 }
 
+fn send_key_up_safely(vk: u16) -> bool {
+    for attempt in 0..3 {
+        if send_key(vk, true) {
+            return true;
+        }
+        if attempt < 2 {
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+    false
+}
+
+fn release_modifiers_for_text_injection() -> bool {
+    let mut success = true;
+    for vk in [
+        VK_CONTROL as u16,
+        VK_LCONTROL as u16,
+        VK_RCONTROL as u16,
+        VK_MENU as u16,
+        VK_LMENU as u16,
+        VK_RMENU as u16,
+        VK_LSHIFT as u16,
+        VK_RSHIFT as u16,
+    ] {
+        success = send_key_up_safely(vk) && success;
+    }
+    success
+}
+
 fn send_key_press(vk: u16) -> bool {
-    send_key(vk, false) && send_key(vk, true)
+    let key_down = send_key(vk, false);
+    let key_up = send_key_up_safely(vk);
+    key_down && key_up
 }
 
 fn send_ctrl_v() -> bool {
-    send_key(VK_CONTROL as u16, false)
-        && send_key(b'V' as u16, false)
-        && send_key(b'V' as u16, true)
-        && send_key(VK_CONTROL as u16, true)
+    let modifiers_released = release_modifiers_for_text_injection();
+    let ctrl_down = send_key(VK_LCONTROL as u16, false);
+    let v_down = send_key(b'V' as u16, false);
+    let v_up = send_key_up_safely(b'V' as u16);
+    let left_ctrl_up = send_key_up_safely(VK_LCONTROL as u16);
+    let right_ctrl_up = send_key_up_safely(VK_RCONTROL as u16);
+    let ctrl_up = send_key_up_safely(VK_CONTROL as u16);
+
+    modifiers_released && ctrl_down && v_down && v_up && left_ctrl_up && right_ctrl_up && ctrl_up
 }
 
 fn send_backspaces(count: usize) -> bool {
@@ -871,7 +913,9 @@ fn handle_keyboard_hook() -> ExitCode {
                         .as_mut()
                         .and_then(|clipboard| clipboard.set_text(text).ok())
                         .is_some();
-                    let deleted = send_backspaces(delete_text.chars().count());
+                    let modifiers_released = release_modifiers_for_text_injection();
+                    let deleted =
+                        modifiers_released && send_backspaces(delete_text.chars().count());
                     let success = clipboard_ok && deleted && send_ctrl_v();
                     let _ = emit_json(json!({
                         "type": "paste_result",
