@@ -45,7 +45,7 @@ export function ModelPicker({
         return (
           <motion.div
             key={model.id}
-            className={`relative flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-4 rounded-xl border transition-colors duration-200 ${
+            className={`relative flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-start sm:gap-3 sm:px-4 rounded-xl border transition-colors duration-200 ${
               isSelected
                 ? "border-white/26 bg-white/6"
                 : "border-white/11 bg-white/4"
@@ -78,7 +78,7 @@ export function ModelPicker({
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span
                     className={`text-[19px] leading-tight sm:text-[21px] font-medium font-sans transition-colors duration-200 ${
                       isSelected ? "text-white/78" : "text-white/62"
@@ -130,17 +130,6 @@ export function ModelPicker({
                 <span className="mt-1 block text-[15px] leading-snug text-white/36 font-sans sm:mt-0.5 sm:text-[17px] sm:leading-tight">
                   {model.description}
                 </span>
-
-                {isDownloading && (
-                  <div className="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-white/40"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.round(progress * 100)}%` }}
-                      transition={{ duration: 0.2 }}
-                    />
-                  </div>
-                )}
               </div>
             </div>
 
@@ -234,6 +223,17 @@ export function ModelPicker({
                   )}
               </div>
             </div>
+
+            {isDownloading && (
+              <div className="h-1 rounded-full bg-white/10 overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full bg-white/40"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.round(progress * 100)}%` }}
+                  transition={{ duration: 0.2 }}
+                />
+              </div>
+            )}
           </motion.div>
         );
       })}

@@ -169,27 +169,35 @@ class ModelManager {
 
     mkdirSync(tempDir, { recursive: true })
 
-    for (const ent of entries) {
-      controller.signal.throwIfAborted()
-      const blob = await downloadFile({ repo, path: ent.path })
-      if (blob === null) {
-        continue
+    const CONCURRENCY = 6
+    let nextIdx = 0
+    const downloadOne = async () => {
+      while (nextIdx < entries.length) {
+        controller.signal.throwIfAborted()
+        const ent = entries[nextIdx++]
+        const blob = await downloadFile({ repo, path: ent.path })
+        if (blob === null) continue
+
+        controller.signal.throwIfAborted()
+        const outPath = join(tempDir, ent.path)
+        mkdirSync(dirname(outPath), { recursive: true })
+        const writeStream = createWriteStream(outPath)
+        const nodeReadable = Readable.fromWeb(
+          blob.stream() as import('stream/web').ReadableStream
+        )
+        await pipeline(nodeReadable, writeStream, {
+          signal: controller.signal,
+        })
+
+        received += ent.size
+        onProgress(Math.min(1, received / totalBytes), false)
       }
-
-      controller.signal.throwIfAborted()
-      const outPath = join(tempDir, ent.path)
-      mkdirSync(dirname(outPath), { recursive: true })
-      const writeStream = createWriteStream(outPath)
-      const nodeReadable = Readable.fromWeb(
-        blob.stream() as import('stream/web').ReadableStream
-      )
-      await pipeline(nodeReadable, writeStream, {
-        signal: controller.signal,
-      })
-
-      received += ent.size
-      onProgress(Math.min(1, received / totalBytes), false)
     }
+    const workers = Array.from(
+      { length: Math.min(CONCURRENCY, entries.length) },
+      () => downloadOne()
+    )
+    await Promise.all(workers)
 
     if (existsSync(destDir)) {
       rmSync(destDir, { recursive: true, force: true })
