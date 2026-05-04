@@ -49,10 +49,12 @@ const TOGGLE_DIMMED =
 
 export function HomeScreen({
   status,
+  deviceInfo,
   settings,
   modelAvailability,
   onModelChange,
   onLanguageChange,
+  onDeviceChange,
   onStreamToggle,
   onFormattingToggle,
   onTranslateToggle,
@@ -63,6 +65,7 @@ export function HomeScreen({
   modelAvailability: Record<string, boolean>;
   onModelChange: (modelId: string) => void;
   onLanguageChange: (languageId: string) => void;
+  onDeviceChange: (index: number) => void;
   onStreamToggle: () => void;
   onFormattingToggle: () => void;
   onTranslateToggle: () => void;
@@ -126,7 +129,7 @@ export function HomeScreen({
         {/* Overview */}
         <div className="lg:col-span-2 rounded-2xl bg-white/5 border border-white/10 p-7">
           <div className="flex items-center justify-between mb-5">
-            <div className="grid grid-cols-2 gap-y-5 gap-x-8">
+            <div className="grid grid-cols-3 gap-y-5 gap-x-8">
               <div>
                 <div className="text-[16px] text-white/40 mb-2">Model</div>
                 <select
@@ -153,6 +156,24 @@ export function HomeScreen({
                       {lang.label}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <div className="text-[16px] text-white/40 mb-2">Microphone</div>
+                <select
+                  value={deviceInfo?.selectedDevice ?? 0}
+                  onChange={(e) => onDeviceChange(Number(e.target.value))}
+                  className="home-select w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[19px] text-white/90 font-medium appearance-none cursor-pointer outline-none focus:border-white/20 transition-colors"
+                >
+                  {deviceInfo && Object.keys(deviceInfo.devices).length > 0 ? (
+                    Object.entries(deviceInfo.devices).map(([idx, name]) => (
+                      <option key={idx} value={idx}>
+                        {name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={0}>No microphones found</option>
+                  )}
                 </select>
               </div>
             </div>

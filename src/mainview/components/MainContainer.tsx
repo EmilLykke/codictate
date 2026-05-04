@@ -36,6 +36,7 @@ import {
   setFormattingEnabled,
   setStreamMode,
   setTranscriptionLanguage,
+  setAudioDevice,
   setTranslateToEnglish,
   setWhisperModel,
 } from "../rpc";
@@ -309,6 +310,18 @@ export function MainContainer({
     [queryClient],
   );
 
+  const handleDeviceChange = useCallback(
+    async (index: number) => {
+      queryClient.setQueryData(
+        ["devices"],
+        (old: DeviceInfo | undefined) =>
+          old ? { ...old, selectedDevice: index } : old,
+      );
+      await setAudioDevice(index);
+    },
+    [queryClient],
+  );
+
   const handleTranslateToggle = useCallback(async () => {
     if (settings.translateToEnglish) {
       queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
@@ -391,6 +404,7 @@ export function MainContainer({
             modelAvailability={modelAvailability}
             onModelChange={handleModelSelect}
             onLanguageChange={handleLanguageChange}
+            onDeviceChange={handleDeviceChange}
             onStreamToggle={handleStreamToggle}
             onFormattingToggle={handleFormattingToggle}
             onTranslateToggle={handleTranslateToggle}
