@@ -8,6 +8,12 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $AppName = if ($Channel -eq 'stable') { 'Codictate' } else { "Codictate-$Channel" }
+# Same layout as Electrobun Updater.applyUpdate on Windows (LOCALAPPDATA\identifier\channel\app).
+$InstallRelDir = if ($Channel -eq 'canary') {
+  'app.codictate.canary/canary/app'
+} else {
+  'app.codictate/stable/app'
+}
 $OutputDir = Join-Path $ProjectRoot 'artifacts'
 $InnoScript = Join-Path $ProjectRoot 'installer\windows\Codictate.iss'
 $IconFile = Join-Path $ProjectRoot 'src\assets\images\MacDocIcon.ico'
@@ -80,6 +86,7 @@ if ($Iscc) {
 $env:CODICTATE_INNO_APP_NAME = $AppName
 $env:CODICTATE_INNO_APP_VERSION = $Version
 $env:CODICTATE_INNO_CHANNEL = $Channel
+$env:CODICTATE_INNO_INSTALL_RELDIR = $InstallRelDir
 $env:CODICTATE_INNO_SOURCE_DIR = $SourceDir
 $env:CODICTATE_INNO_OUTPUT_DIR = $OutputDir
 $env:CODICTATE_INNO_ICON_FILE = $IconFile
