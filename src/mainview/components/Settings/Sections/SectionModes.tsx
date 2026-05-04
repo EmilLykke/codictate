@@ -57,9 +57,7 @@ export function SectionModes({
     settings.whisperModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID;
   const streamModeComingSoon = !settings.capabilities.supportsStreamMode;
   const parakeetWarmingUp =
-    isParakeetInstalled &&
-    isParakeetSelected &&
-    !settings.parakeetCoreMlReady;
+    isParakeetInstalled && isParakeetSelected && !settings.parakeetCoreMlReady;
 
   const handleTranslateDefaultLanguageChange = useCallback(
     async (languageId: string) => {

@@ -10,11 +10,7 @@ import type {
 } from "../shared/types";
 import { PermissionScreen } from "./components/Permissions/PermissionScreen";
 import { ProductOnboardingScreen } from "./components/Onboarding/ProductOnboardingScreen";
-import { ReadyScreen } from "./components/Ready/ReadyScreen";
-import {
-  SettingsScreen,
-  type SettingsCategory,
-} from "./components/Settings/SettingsScreen";
+import { MainContainer } from "./components/MainContainer";
 
 const DEFAULT_PERMISSIONS: PermissionState = {
   inputMonitoring: false,
@@ -55,10 +51,6 @@ export default function App() {
   });
 
   const [status, setStatus] = useState<AppStatus>("ready");
-  const [showSettings, setShowSettings] = useState(false);
-  const [settingsInitialCategory, setSettingsInitialCategory] = useState<
-    SettingsCategory | undefined
-  >(undefined);
   const [devPreviewRoute, setDevPreviewRoute] =
     useState<DevAppPreviewRoute | null>(null);
 
@@ -71,7 +63,6 @@ export default function App() {
   useEffect(() => {
     return appEvents.on("openSettingsScreen", () => {
       setDevPreviewRoute(null);
-      setShowSettings(true);
     });
   }, []);
 
@@ -124,14 +115,12 @@ export default function App() {
       }
       if (devPreviewRoute === "ready") {
         return (
-          <ReadyScreen
+          <MainContainer
             status={status}
             deviceInfo={deviceInfo}
             settings={settings}
-            onOpenSettings={(section) => {
-              setSettingsInitialCategory(section);
-              setShowSettings(true);
-            }}
+            devPreviewRoute={devPreviewRoute}
+            onDevPreviewRouteChange={setDevPreviewRoute}
           />
         );
       }
@@ -144,35 +133,21 @@ export default function App() {
         <PermissionScreen permissions={p} onOpenSettings={openSettings} />
       ) : needsProductOnboarding && settings ? (
         <ProductOnboardingScreen settings={settings} />
-      ) : showSettings && settings ? (
-        <SettingsScreen
+      ) : settings ? (
+        <MainContainer
+          status={status}
+          deviceInfo={deviceInfo}
           settings={settings}
-          onBack={() => {
-            setShowSettings(false);
-            setSettingsInitialCategory(undefined);
-          }}
-          initialCategory={settingsInitialCategory}
           devPreviewRoute={isDev ? devPreviewRoute : undefined}
           onDevPreviewRouteChange={
             isDev
               ? (route) => {
                   setDevPreviewRoute(route);
-                  if (route !== null) setShowSettings(false);
                 }
               : undefined
           }
         />
-      ) : (
-        <ReadyScreen
-          status={status}
-          deviceInfo={deviceInfo}
-          settings={settings}
-          onOpenSettings={(section) => {
-            setSettingsInitialCategory(section);
-            setShowSettings(true);
-          }}
-        />
-      )}
+      ) : null}
     </>
   );
 }

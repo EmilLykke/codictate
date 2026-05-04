@@ -40,7 +40,7 @@ import {
 } from "../Brand/WordmarkCodictate";
 import { ShortcutPicker } from "../Settings/ShortcutPicker";
 import { LanguagePicker } from "../Settings/LanguagePicker";
-import { RecordingOrb } from "../Ready/RecordingOrb";
+import { RecordingOrb } from "../Common/RecordingOrb";
 import { DictationShortcutStartHint } from "../Common/DictationShortcutStartHint";
 import { Kbd } from "../Common/Kbd";
 import { WindowTitleBar } from "../Common/WindowTitleBar";
