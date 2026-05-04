@@ -23,6 +23,8 @@ import {
   getStreamModeReadiness,
   getTranslateReadiness,
 } from '../shared/whisper-models'
+import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
+import { warmupParakeet } from './utils/whisper/speech2text'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -97,7 +99,8 @@ if (UserAppConfig.getStreamMode()) {
   const streamReady = getStreamModeReadiness(
     UserAppConfig.getWhisperModelId(),
     UserAppConfig.getTranscriptionLanguageId(),
-    (id) => modelManager.isModelAvailable(id)
+    (id) => modelManager.isModelAvailable(id),
+    UserAppConfig.isParakeetCoreMlReady()
   )
   if (streamReady.kind !== 'ready') {
     await UserAppConfig.setStreamMode(false)
@@ -327,6 +330,17 @@ menuHandlers = setupApplicationMenu(
 
 const pushSettingsToWebview = () =>
   win.send.updateSettings(UserAppConfig.getSettings())
+
+if (
+  modelManager.isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID) &&
+  !UserAppConfig.isParakeetCoreMlReady()
+) {
+  void warmupParakeet(async () => {
+    await UserAppConfig.markParakeetCoreMlReady()
+    pushSettingsToWebview()
+    trayHandlers?.syncStreamModeState()
+  })
+}
 
 trayHandlers = setupTray(
   (onAction) => win.getOrCreateWindow(onAction),

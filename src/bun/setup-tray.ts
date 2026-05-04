@@ -157,7 +157,8 @@ export const setupTray = (
     const readiness = getStreamModeReadiness(
       cfg.getWhisperModelId(),
       cfg.getTranscriptionLanguageId(),
-      (id) => modelManager.isModelAvailable(id)
+      (id) => modelManager.isModelAvailable(id),
+      cfg.isParakeetCoreMlReady()
     )
     const streamOn = cfg.getStreamMode()
     if (readiness.kind !== 'ready' && !streamOn) {
@@ -165,6 +166,7 @@ export const setupTray = (
         need_parakeet_download: 'Stream mode — download Parakeet in Settings',
         need_switch_model: 'Stream mode — switch to Parakeet in Settings',
         need_language: 'Stream mode — set language in Settings',
+        need_warmup: 'Stream mode — preparing model…',
       } as const
       return {
         type: 'normal' as const,

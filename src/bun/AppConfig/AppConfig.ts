@@ -179,6 +179,7 @@ interface PersistedMainSettings {
   recordingIndicatorMode: RecordingIndicatorMode
   recordingIndicatorPosition: { x: number; y: number } | null
   streamMode: boolean
+  parakeetCoreMlReady: boolean
   streamTranscriptionMode: StreamTranscriptionMode
   userDisplayName: string
   formatting: Omit<FormattingSettings, 'available' | 'modelInstalled'>
@@ -202,6 +203,7 @@ export class AppConfig {
   private recordingIndicatorMode: RecordingIndicatorMode
   private recordingIndicatorPosition: { x: number; y: number } | null
   private streamMode: boolean
+  private parakeetCoreMlReady: boolean
   private streamTranscriptionMode: StreamTranscriptionMode
   private userDisplayName: string
   private formatting: FormattingSettings
@@ -227,6 +229,7 @@ export class AppConfig {
     this.recordingIndicatorMode = 'always'
     this.recordingIndicatorPosition = null
     this.streamMode = false
+    this.parakeetCoreMlReady = false
     this.streamTranscriptionMode = 'vad'
     this.userDisplayName = ''
     this.formatting = defaultFormattingSettings(
@@ -253,6 +256,7 @@ export class AppConfig {
       recordingIndicatorMode: this.recordingIndicatorMode,
       recordingIndicatorPosition: this.recordingIndicatorPosition,
       streamMode: this.streamMode,
+      parakeetCoreMlReady: this.parakeetCoreMlReady,
       streamTranscriptionMode: this.streamTranscriptionMode,
       userDisplayName: this.userDisplayName,
       formatting: {
@@ -375,6 +379,13 @@ export class AppConfig {
       this.shortcutHoldOnlyId = null
     }
     if (typeof raw.streamMode === 'boolean') this.streamMode = raw.streamMode
+    if (typeof raw.parakeetCoreMlReady === 'boolean') {
+      this.parakeetCoreMlReady = raw.parakeetCoreMlReady
+    } else {
+      this.parakeetCoreMlReady = modelManager.isModelAvailable(
+        'parakeet-tdt-0.6b-v3'
+      )
+    }
     if (
       raw.streamTranscriptionMode === 'live' ||
       raw.streamTranscriptionMode === 'vad'
@@ -768,6 +779,7 @@ export class AppConfig {
       recordingIndicatorMode: this.recordingIndicatorMode,
       recordingIndicatorPosition: this.recordingIndicatorPosition,
       streamMode: this.streamMode,
+      parakeetCoreMlReady: this.parakeetCoreMlReady,
       streamTranscriptionMode: this.streamTranscriptionMode,
       userDisplayName: this.userDisplayName,
       formatting: {
@@ -944,7 +956,8 @@ export class AppConfig {
         const readiness = getStreamModeReadiness(
           this.whisperModelId,
           this.transcriptionLanguageId,
-          (id) => modelManager.isModelAvailable(id)
+          (id) => modelManager.isModelAvailable(id),
+          this.parakeetCoreMlReady
         )
         if (readiness.kind !== 'ready') {
           log('config', 'stream mode blocked', {
@@ -1398,6 +1411,22 @@ export class AppConfig {
 
   public getFormattingAvailable(): boolean {
     return this.formatting.available
+  }
+
+  public isParakeetCoreMlReady(): boolean {
+    return this.parakeetCoreMlReady
+  }
+
+  public async markParakeetCoreMlReady(): Promise<void> {
+    if (this.parakeetCoreMlReady) return
+    this.parakeetCoreMlReady = true
+    await this.saveMain()
+  }
+
+  public async resetParakeetCoreMlReady(): Promise<void> {
+    if (!this.parakeetCoreMlReady) return
+    this.parakeetCoreMlReady = false
+    await this.saveMain()
   }
 
   public getStreamMode(): boolean {

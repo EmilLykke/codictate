@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useEffect, useRef, useState } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import type { AppStatus, AppSettings, DeviceInfo } from "../../../shared/types";
@@ -27,7 +27,6 @@ import {
   getWhisperModel,
 } from "../../../shared/whisper-models";
 import {
-  PARAKEET_COREML_PREP_STORAGE_KEY,
   PARAKEET_FIRST_RUN_READY_SUBTITLE,
   getSpeechModel,
   speechModelLocksTranscriptionLanguage,
@@ -84,37 +83,7 @@ export function ReadyScreen({
     settings?.whisperModelId != null &&
     getSpeechModel(settings.whisperModelId)?.engine === "whisperkit";
 
-  const [parakeetCoreMlPrepDone, setParakeetCoreMlPrepDone] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return (
-        window.localStorage.getItem(PARAKEET_COREML_PREP_STORAGE_KEY) === "1"
-      );
-    } catch {
-      return true;
-    }
-  });
-
-  const prevStatusRef = useRef<AppStatus>(status);
-  useEffect(() => {
-    const prev = prevStatusRef.current;
-    if (
-      (prev === "transcribing" || prev === "streaming") &&
-      status !== "transcribing" &&
-      status !== "streaming" &&
-      isWhisperKitModel
-    ) {
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(PARAKEET_COREML_PREP_STORAGE_KEY, "1");
-        }
-      } catch {
-        /* ignore */
-      }
-      setParakeetCoreMlPrepDone(true);
-    }
-    prevStatusRef.current = status;
-  }, [status, isWhisperKitModel]);
+  const parakeetCoreMlPrepDone = settings?.parakeetCoreMlReady ?? true;
 
   const showParakeetFirstRunHint =
     (isTranscribing || isStreaming) &&

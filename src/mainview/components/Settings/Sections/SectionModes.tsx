@@ -56,6 +56,10 @@ export function SectionModes({
   const isParakeetSelected =
     settings.whisperModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID;
   const streamModeComingSoon = !settings.capabilities.supportsStreamMode;
+  const parakeetWarmingUp =
+    isParakeetInstalled &&
+    isParakeetSelected &&
+    !settings.parakeetCoreMlReady;
 
   const handleTranslateDefaultLanguageChange = useCallback(
     async (languageId: string) => {
@@ -86,7 +90,9 @@ export function SectionModes({
       return;
     }
     if (!isParakeetInstalled) {
-      // Download prompt below explains what to do
+      return;
+    }
+    if (parakeetWarmingUp) {
       return;
     }
     if (!isParakeetSelected) {
@@ -106,6 +112,7 @@ export function SectionModes({
     streamModeComingSoon,
     isParakeetInstalled,
     isParakeetSelected,
+    parakeetWarmingUp,
     queryClient,
   ]);
 
@@ -127,6 +134,11 @@ export function SectionModes({
     await setWhisperModel(DEFAULT_STREAM_CAPABLE_MODEL_ID);
     if (nextLang !== settings.transcriptionLanguageId) {
       await setTranscriptionLanguage(nextLang);
+    }
+    const fresh = await fetchSettings();
+    if (!fresh.parakeetCoreMlReady) {
+      queryClient.setQueryData(["settings"], fresh);
+      return;
     }
     queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
       old ? { ...old, streamMode: true } : old,
@@ -281,7 +293,10 @@ export function SectionModes({
                     ? "bg-blue-500/30 border-blue-400/30"
                     : "bg-white/7 border-white/14"
                 } ${!settings.streamMode && !isParakeetInstalled ? "disabled:opacity-40 disabled:cursor-not-allowed" : ""}`}
-                disabled={!settings.streamMode && !isParakeetInstalled}
+                disabled={
+                  !settings.streamMode &&
+                  (!isParakeetInstalled || parakeetWarmingUp)
+                }
                 aria-label="Toggle stream mode"
               >
                 <span
@@ -305,6 +320,36 @@ export function SectionModes({
             </span>
           )}
         </p>
+        {!streamModeComingSoon && parakeetWarmingUp && (
+          <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <svg
+                className="animate-spin h-4 w-4 shrink-0 text-amber-400/70"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              <p className="text-[17px] text-white/70 leading-snug">
+                Preparing Parakeet for your Mac — this takes 1-2 minutes on
+                first use. Stream mode will be available once preparation
+                completes.
+              </p>
+            </div>
+          </div>
+        )}
         {!streamModeComingSoon &&
           !modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] && (
             <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">

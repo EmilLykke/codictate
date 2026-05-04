@@ -198,12 +198,17 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           }
           if (
             patch.streamMode !== undefined ||
-            patch.streamTranscriptionMode !== undefined
+            patch.streamTranscriptionMode !== undefined ||
+            patch.whisperModelId !== undefined
           ) {
             deps.onStreamModeChanged?.()
           }
           if (patch.whisperModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-            void warmupParakeet()
+            void warmupParakeet(async () => {
+              await deps.appConfig.markParakeetCoreMlReady()
+              rpc.send.updateSettings(deps.appConfig.getSettings())
+              deps.onStreamModeChanged?.()
+            })
           }
           return true
         },
@@ -317,7 +322,11 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
                     deps.onTranslateChanged?.()
                   }
                   if (modelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-                    void warmupParakeet()
+                    void warmupParakeet(async () => {
+                      await deps.appConfig.markParakeetCoreMlReady()
+                      rpc.send.updateSettings(deps.appConfig.getSettings())
+                      deps.onStreamModeChanged?.()
+                    })
                   }
                 }
               } catch {
@@ -332,6 +341,9 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         deleteWhisperModel: ({ modelId }) => {
           const deleted = modelManager.deleteModel(modelId)
           if (deleted) {
+            if (modelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
+              void deps.appConfig.resetParakeetCoreMlReady()
+            }
             rpc.send.updateSettings(deps.appConfig.getSettings())
             if (isTranslateCapableModelId(modelId)) {
               deps.onTranslateChanged?.()

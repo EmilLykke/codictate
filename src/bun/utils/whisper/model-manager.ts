@@ -158,7 +158,7 @@ class ModelManager {
 
     for await (const e of listFiles({ repo, recursive: true })) {
       controller.signal.throwIfAborted()
-      if (e.type === 'file') {
+      if (e.type === 'file' && e.path !== '.gitattributes') {
         const size = e.lfs?.size ?? e.size
         entries.push({ path: e.path, size })
       }
@@ -171,29 +171,21 @@ class ModelManager {
 
     for (const ent of entries) {
       controller.signal.throwIfAborted()
-      const fetchWithAbort: typeof fetch = Object.assign(
-        (input: string | Request | URL, init?: RequestInit) =>
-          fetch(input, { ...init, signal: controller.signal }),
-        { preconnect: fetch.preconnect.bind(fetch) }
-      )
-      const response = await downloadFile({
-        repo,
-        path: ent.path,
-        fetch: fetchWithAbort,
-      })
-      if (!response || !response.ok || !response.body) {
-        throw new Error(`Failed to download ${ent.path}`)
+      const blob = await downloadFile({ repo, path: ent.path })
+      if (blob === null) {
+        continue
       }
 
+      controller.signal.throwIfAborted()
       const outPath = join(tempDir, ent.path)
       mkdirSync(dirname(outPath), { recursive: true })
       const writeStream = createWriteStream(outPath)
-      const webBody = response.body
-      if (!webBody) throw new Error(`Empty body for ${ent.path}`)
       const nodeReadable = Readable.fromWeb(
-        webBody as import('stream/web').ReadableStream
+        blob.stream() as import('stream/web').ReadableStream
       )
-      await pipeline(nodeReadable, writeStream)
+      await pipeline(nodeReadable, writeStream, {
+        signal: controller.signal,
+      })
 
       received += ent.size
       onProgress(Math.min(1, received / totalBytes), false)

@@ -131,12 +131,14 @@ export type StreamModeReadiness =
   | { kind: 'need_parakeet_download' }
   | { kind: 'need_switch_model' }
   | { kind: 'need_language' }
+  | { kind: 'need_warmup' }
 
 /** Whether stream (Parakeet) dictation can be enabled with the given config. */
 export function getStreamModeReadiness(
   whisperModelId: string,
   transcriptionLanguageId: string,
-  isModelAvailable: (id: string) => boolean
+  isModelAvailable: (id: string) => boolean,
+  parakeetCoreMlReady: boolean
 ): StreamModeReadiness {
   if (!isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID)) {
     return { kind: 'need_parakeet_download' }
@@ -146,6 +148,9 @@ export function getStreamModeReadiness(
   }
   if (!parakeetSupportsTranscriptionLanguageId(transcriptionLanguageId)) {
     return { kind: 'need_language' }
+  }
+  if (!parakeetCoreMlReady) {
+    return { kind: 'need_warmup' }
   }
   return { kind: 'ready' }
 }

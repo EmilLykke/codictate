@@ -219,6 +219,8 @@ export interface AppSettings {
    * download; normal shortcut toggles the stream instead of push-to-talk recording.
    */
   streamMode: boolean
+  /** Whether the Parakeet Core ML model has been prepared and is ready for stream mode. */
+  parakeetCoreMlReady: boolean
   /** Stream transcription behavior: VAD utterance commits or low-latency live chunks. */
   streamTranscriptionMode: StreamTranscriptionMode
   /** General user profile name, available to formatting and future personalized behaviors. */

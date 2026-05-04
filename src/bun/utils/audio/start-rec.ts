@@ -7,6 +7,7 @@ import { log } from '../logger'
 import { stat } from 'node:fs/promises'
 import { RECORDING_PATH } from '../../platform/runtime'
 import { getPlatformRuntime } from '../../platform/runtime'
+import { getSpeechModel } from '../../../shared/speech-models'
 
 /** Set `discard: true` before killing the recorder so onExit skips transcription and UI handoff. */
 export type RecordingSession = { discard: boolean; startedAtMs: number }
@@ -205,6 +206,13 @@ export const startRecording = async (
             () => appConfig.acceptPreviouslyAppliedEntries(),
             (entries) => appConfig.notifyAppliedEntries(entries)
           )
+          if (
+            getSpeechModel(appConfig.getWhisperModelId())?.engine ===
+              'whisperkit' &&
+            !appConfig.isParakeetCoreMlReady()
+          ) {
+            await appConfig.markParakeetCoreMlReady()
+          }
         }
         onDone()
       },

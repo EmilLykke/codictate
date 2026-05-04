@@ -270,7 +270,9 @@ function createSilentWav(): Uint8Array {
   return buf
 }
 
-export async function warmupParakeet(): Promise<void> {
+export async function warmupParakeet(
+  onReady?: () => Promise<void>
+): Promise<void> {
   const PARAKEET_MODEL_ID = 'parakeet-tdt-0.6b-v3'
   if (!modelManager.isModelAvailable(PARAKEET_MODEL_ID)) return
   try {
@@ -286,6 +288,9 @@ export async function warmupParakeet(): Promise<void> {
     })
     await proc.exited
     log('parakeet', 'Core ML warmup complete', { exitCode: proc.exitCode })
+    if (proc.exitCode === 0) {
+      await onReady?.()
+    }
   } catch (err) {
     log('parakeet', 'Core ML warmup error', { err: String(err) })
   }

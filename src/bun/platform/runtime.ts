@@ -109,7 +109,7 @@ export const FORMATTER_MODELS: Record<
     displayName: 'Qwen3 4B',
     filename: 'Qwen3-4B-Q4_K_M.gguf',
     path: join(MODELS_DIR, 'Qwen3-4B-Q4_K_M.gguf'),
-    url: 'https://huggingface.co/bartowski/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf',
     expectedSizeBytes: 2_600_000_000,
     sizeLabel: '~2.5 GB',
     noThink: true,
