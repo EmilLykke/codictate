@@ -3,6 +3,19 @@ import tseslint from "typescript-eslint";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import { defineConfig } from "eslint/config";
 
+const prettierOptions = {
+  printWidth: 80,
+  bracketSpacing: true,
+  singleQuote: true,
+  semi: false,
+  trailingComma: "es5",
+  endOfLine: "auto",
+};
+
+const lineEndingPrettierOptions = {
+  endOfLine: "auto",
+};
+
 export default defineConfig(
   {
     ignores: [
@@ -18,6 +31,13 @@ export default defineConfig(
   tseslint.configs.recommended,
   eslintPluginPrettierRecommended,
   {
+    files: ["**/*.{js,mjs,cjs,ts,tsx}"],
+    rules: {
+      "linebreak-style": 0,
+      "prettier/prettier": ["error", lineEndingPrettierOptions],
+    },
+  },
+  {
     files: ["src/**/*.ts"],
     rules: {
       quotes: "off",
@@ -31,17 +51,7 @@ export default defineConfig(
         "warn",
         { argsIgnorePattern: "^_" },
       ],
-      "prettier/prettier": [
-        "error",
-        {
-          printWidth: 80,
-          bracketSpacing: true,
-          singleQuote: true,
-          semi: false,
-          trailingComma: "es5",
-          endOfLine: "auto",
-        },
-      ],
+      "prettier/prettier": ["error", prettierOptions],
     },
   },
 );
