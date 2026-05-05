@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { ShortcutId } from "../../../shared/types";
 import type { PlatformRuntime } from "../../../shared/platform";
@@ -31,15 +31,28 @@ export function ShortcutPicker({
   value,
   onChange,
   platform,
+  disabled = false,
 }: {
   value: ShortcutId;
   onChange: (id: ShortcutId) => void;
   platform: PlatformRuntime;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const selected = shortcutOptionById(value, platform);
   const groups = shortcutOptionsGroupedForPlatform(platform);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const active = container.querySelector("[aria-selected='true']");
+    if (active) {
+      active.scrollIntoView({ block: "center" });
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -66,10 +79,15 @@ export function ShortcutPicker({
     <div ref={rootRef} className="relative">
       <motion.button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left transition-colors duration-200 hover:border-white/16 hover:bg-white/6"
+        className={`flex w-full items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left transition-colors duration-200 ${
+          disabled
+            ? "opacity-50 cursor-not-allowed"
+            : "cursor-pointer hover:border-white/16 hover:bg-white/6"
+        }`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           {selected.keys.map((key, i) => (
@@ -102,6 +120,7 @@ export function ShortcutPicker({
             aria-label="Choose shortcut"
           >
             <div
+              ref={scrollRef}
               className="max-h-[min(340px,52vh)] overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
               style={{ scrollbarWidth: "thin" }}
             >

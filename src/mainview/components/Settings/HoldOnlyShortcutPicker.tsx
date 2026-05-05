@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { ShortcutId } from "../../../shared/types";
 import type { PlatformRuntime } from "../../../shared/platform";
@@ -32,14 +32,17 @@ export function HoldOnlyShortcutPicker({
   mainShortcutId,
   onChange,
   platform,
+  disabled = false,
 }: {
   value: ShortcutId | null;
   mainShortcutId: ShortcutId;
   onChange: (id: ShortcutId | null) => void;
   platform: PlatformRuntime;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const groups = shortcutOptionsGroupedForPlatform(platform)
     .map(({ family, title, options }) => ({
       family,
@@ -49,6 +52,16 @@ export function HoldOnlyShortcutPicker({
     .filter((g) => g.options.length > 0);
 
   const selected = value !== null ? shortcutOptionById(value, platform) : null;
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const active = container.querySelector("[aria-selected='true']");
+    if (active) {
+      active.scrollIntoView({ block: "center" });
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -75,10 +88,15 @@ export function HoldOnlyShortcutPicker({
     <div ref={rootRef} className="relative">
       <motion.button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left transition-colors duration-200 hover:border-white/16 hover:bg-white/6"
+        className={`flex w-full items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left transition-colors duration-200 ${
+          disabled
+            ? "opacity-50 cursor-not-allowed"
+            : "cursor-pointer hover:border-white/16 hover:bg-white/6"
+        }`}
       >
         {selected ? (
           <>
@@ -121,6 +139,7 @@ export function HoldOnlyShortcutPicker({
             aria-label="Choose hold-only shortcut"
           >
             <div
+              ref={scrollRef}
               className="max-h-[min(340px,52vh)] overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
               style={{ scrollbarWidth: "thin" }}
             >

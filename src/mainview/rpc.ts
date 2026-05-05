@@ -461,6 +461,30 @@ export async function removeDictionaryEntry(params: {
   return rpc.request.updateDictionarySettings({ patch: { entries } })
 }
 
+export async function editDictionaryEntry(
+  oldEntry: Pick<DictionaryEntry, 'kind' | 'text' | 'from'>,
+  newEntry: { kind: 'fuzzy' | 'replacement'; text: string; from?: string }
+): Promise<boolean> {
+  const current = queryClient.getQueryData<AppSettings>(['settings'])
+  if (!current) return false
+  const oldKey = `${oldEntry.kind}:${(oldEntry.from ?? '').trim().toLowerCase()}=>${oldEntry.text
+    .trim()
+    .toLowerCase()}`
+  const entries = current.dictionary.entries.map((entry) => {
+    const entryKey = `${entry.kind}:${(entry.from ?? '').trim().toLowerCase()}=>${entry.text
+      .trim()
+      .toLowerCase()}`
+    if (entryKey !== oldKey) return entry
+    return {
+      ...entry,
+      kind: newEntry.kind,
+      text: newEntry.text,
+      from: newEntry.kind === 'replacement' ? newEntry.from : undefined,
+    }
+  })
+  return rpc.request.updateDictionarySettings({ patch: { entries } })
+}
+
 export async function setDictionaryAutoLearn(
   enabled: boolean
 ): Promise<boolean> {

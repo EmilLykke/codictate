@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { motion } from "motion/react";
 import type { AppStatus, AppSettings, DeviceInfo } from "../../../shared/types";
+import { DropdownSelect } from "../Common/DropdownSelect";
+import { SearchableSelect } from "../Common/SearchableSelect";
 import {
   dictationReadyPttHintAfter,
   dictationReadyPttHintBefore,
@@ -132,49 +134,45 @@ export function HomeScreen({
             <div className="grid grid-cols-3 gap-y-5 gap-x-8">
               <div>
                 <div className="text-[16px] text-white/40 mb-2">Model</div>
-                <select
+                <DropdownSelect
                   value={settings?.whisperModelId ?? ""}
-                  onChange={(e) => onModelChange(e.target.value)}
-                  className="home-select w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[19px] text-white/90 font-medium appearance-none cursor-pointer outline-none focus:border-white/20 transition-colors"
-                >
-                  {availableModels.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={onModelChange}
+                  ariaLabel="Speech model"
+                  align="start"
+                  options={availableModels.map((m) => ({
+                    value: m.id,
+                    label: m.label,
+                  }))}
+                />
               </div>
               <div>
                 <div className="text-[16px] text-white/40 mb-2">Language</div>
-                <select
+                <SearchableSelect
                   value={currentLanguageId}
-                  onChange={(e) => onLanguageChange(e.target.value)}
-                  className="home-select w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[19px] text-white/90 font-medium appearance-none cursor-pointer outline-none focus:border-white/20 transition-colors"
-                >
-                  {TRANSCRIPTION_LANGUAGE_OPTIONS.map((lang) => (
-                    <option key={lang.id} value={lang.id}>
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={onLanguageChange}
+                  ariaLabel="Transcription language"
+                  searchPlaceholder="Search languages…"
+                  options={TRANSCRIPTION_LANGUAGE_OPTIONS.map((lang) => ({
+                    value: lang.id,
+                    label: lang.label,
+                  }))}
+                />
               </div>
               <div>
                 <div className="text-[16px] text-white/40 mb-2">Microphone</div>
-                <select
-                  value={deviceInfo?.selectedDevice ?? 0}
-                  onChange={(e) => onDeviceChange(Number(e.target.value))}
-                  className="home-select w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[19px] text-white/90 font-medium appearance-none cursor-pointer outline-none focus:border-white/20 transition-colors"
-                >
-                  {deviceInfo && Object.keys(deviceInfo.devices).length > 0 ? (
-                    Object.entries(deviceInfo.devices).map(([idx, name]) => (
-                      <option key={idx} value={idx}>
-                        {name}
-                      </option>
-                    ))
-                  ) : (
-                    <option value={0}>No microphones found</option>
-                  )}
-                </select>
+                <DropdownSelect
+                  value={String(deviceInfo?.selectedDevice ?? 0)}
+                  onChange={(v) => onDeviceChange(Number(v))}
+                  ariaLabel="Microphone"
+                  placeholder="No microphones found"
+                  options={
+                    deviceInfo && Object.keys(deviceInfo.devices).length > 0
+                      ? Object.entries(deviceInfo.devices).map(
+                          ([idx, name]) => ({ value: idx, label: name }),
+                        )
+                      : []
+                  }
+                />
               </div>
             </div>
           </div>
@@ -193,6 +191,7 @@ export function HomeScreen({
                         : `Stream mode — continuous dictation (${streamModeLabel})`
                 }
                 side="bottom"
+                floatInViewport
               >
                 <button
                   onClick={onStreamToggle}
@@ -241,6 +240,7 @@ export function HomeScreen({
                       : "Formatting — auto-format dictated text"
                 }
                 side="bottom"
+                floatInViewport
               >
                 <button
                   onClick={onFormattingToggle}
@@ -283,6 +283,7 @@ export function HomeScreen({
                     : "Translate mode — transcribe and translate to English"
                 }
                 side="bottom"
+                floatInViewport
               >
                 <button
                   onClick={onTranslateToggle}

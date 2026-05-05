@@ -8,6 +8,7 @@ import type {
 } from "../../../../shared/types";
 import {
   addDictionaryEntry,
+  editDictionaryEntry,
   fetchSettings,
   removeDictionaryCandidate,
   removeDictionaryEntry,
@@ -42,6 +43,13 @@ export function SectionDictionary({ settings }: Props) {
   const [replacementFromValue, setReplacementFromValue] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editFrom, setEditFrom] = useState("");
+  const [editKind, setEditKind] =
+    useState<DictionaryEntry["kind"]>("fuzzy");
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (showAddForm) {
@@ -143,6 +151,72 @@ export function SectionDictionary({ settings }: Props) {
       }
     },
     [entryKey, queryClient],
+  );
+
+  const startEditing = useCallback(
+    (entry: DictionaryEntry) => {
+      const key = entryKey(entry);
+      setEditingKey(key);
+      setEditText(entry.text);
+      setEditFrom(entry.from ?? "");
+      setEditKind(entry.kind);
+      setTimeout(() => editInputRef.current?.focus(), 50);
+    },
+    [entryKey],
+  );
+
+  const cancelEditing = useCallback(() => {
+    setEditingKey(null);
+    setEditText("");
+    setEditFrom("");
+  }, []);
+
+  const handleEditSave = useCallback(
+    async (originalEntry: DictionaryEntry) => {
+      const text = editText.trim();
+      const from = editFrom.trim();
+      if (!text) return;
+      if (editKind === "replacement" && !from) return;
+
+      const newEntry =
+        editKind === "replacement"
+          ? { kind: "replacement" as const, from, text }
+          : { kind: "fuzzy" as const, text };
+
+      queryClient.setQueryData(["settings"], (old: AppSettings | undefined) => {
+        if (!old) return old;
+        const entries = old.dictionary.entries.map((e) =>
+          entryKey(e) === entryKey(originalEntry)
+            ? {
+                ...e,
+                kind: newEntry.kind,
+                text: newEntry.text,
+                from: newEntry.kind === "replacement" ? newEntry.from : undefined,
+              }
+            : e,
+        );
+        return { ...old, dictionary: { ...old.dictionary, entries } };
+      });
+      setEditingKey(null);
+
+      const ok = await editDictionaryEntry(
+        { kind: originalEntry.kind, text: originalEntry.text, from: originalEntry.from },
+        newEntry,
+      );
+      if (!ok) {
+        const fresh = await fetchSettings();
+        queryClient.setQueryData(["settings"], fresh);
+      }
+    },
+    [editFrom, editKind, editText, entryKey, queryClient],
+  );
+
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>, entry: DictionaryEntry) => {
+      if (e.key === "Enter") handleEditSave(entry);
+      if (e.key === "Escape") cancelEditing();
+    },
+    [handleEditSave, cancelEditing],
   );
 
   const handleAutoLearnToggle = useCallback(async () => {
@@ -401,83 +475,184 @@ export function SectionDictionary({ settings }: Props) {
               </div>
             )}
             <ul>
-              {dictionary.entries.map((entry, i) => (
-                <li
-                  key={entryKey(entry)}
-                  className={`flex items-center justify-between gap-4 px-5 py-4 ${
-                    i > 0 || hasAutoEntries ? "border-t border-white/8" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {entry.source === "auto" && (
-                      <span
-                        className="shrink-0 text-amber-300/55"
-                        title="Added automatically from a correction"
-                      >
-                        <SparkleIcon />
-                      </span>
-                    )}
-                    {entry.source === "auto" &&
-                      entry.confidence !== undefined &&
-                      entry.confidence < 3 && (
-                        <span
-                          className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.1em] text-amber-300/70"
-                          title={`Provisional — accepted ${entry.timesAccepted ?? 0} time${(entry.timesAccepted ?? 0) !== 1 ? "s" : ""} without revert`}
-                        >
-                          provisional
-                        </span>
-                      )}
-                    <div className="min-w-0">
-                      {entry.kind === "replacement" ? (
-                        <div
-                          className={`truncate text-[18px] font-medium ${
-                            entry.source === "auto"
-                              ? "text-amber-100/80"
-                              : "text-white/85"
-                          }`}
-                        >
-                          {entry.from?.toLowerCase()} {"→"} {entry.text}
-                        </div>
-                      ) : (
-                        <span
-                          className={`text-[18px] font-medium truncate ${
-                            entry.source === "auto"
-                              ? "text-amber-100/80"
-                              : "text-white/85"
-                          }`}
-                        >
-                          {entry.text}
-                        </span>
-                      )}
-                      <div className="mt-1 text-[13px] uppercase tracking-[0.12em] text-white/30">
-                        {entry.kind === "replacement"
-                          ? "exact replacement"
-                          : "fuzzy match"}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(entry)}
-                    aria-label={`Remove ${entry.kind === "replacement" ? `${entry.from} to ${entry.text}` : entry.text}`}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/40 transition-colors duration-200 hover:border-white/18 hover:bg-white/8 hover:text-white/70"
+              {dictionary.entries.map((entry, i) => {
+                const key = entryKey(entry);
+                const isEditing = editingKey === key;
+
+                return (
+                  <li
+                    key={key}
+                    className={`px-5 py-4 ${
+                      i > 0 || hasAutoEntries ? "border-t border-white/8" : ""
+                    }`}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
-                </li>
-              ))}
+                    {isEditing ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditKind("fuzzy")}
+                            className={`rounded-lg border px-2.5 py-1 text-[14px] transition-colors duration-200 ${
+                              editKind === "fuzzy"
+                                ? "border-white/24 bg-white/12 text-white/88"
+                                : "border-white/10 bg-transparent text-white/42 hover:border-white/16 hover:text-white/65"
+                            }`}
+                          >
+                            Fuzzy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditKind("replacement")}
+                            className={`rounded-lg border px-2.5 py-1 text-[14px] transition-colors duration-200 ${
+                              editKind === "replacement"
+                                ? "border-white/24 bg-white/12 text-white/88"
+                                : "border-white/10 bg-transparent text-white/42 hover:border-white/16 hover:text-white/65"
+                            }`}
+                          >
+                            Replacement
+                          </button>
+                        </div>
+                        <div className="flex gap-3">
+                          {editKind === "replacement" && (
+                            <input
+                              type="text"
+                              value={editFrom}
+                              onChange={(e) => setEditFrom(e.target.value)}
+                              onKeyDown={(e) => handleEditKeyDown(e, entry)}
+                              placeholder="From"
+                              className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[18px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                            />
+                          )}
+                          <input
+                            ref={editInputRef}
+                            type="text"
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            onKeyDown={(e) => handleEditKeyDown(e, entry)}
+                            placeholder={
+                              editKind === "replacement" ? "To" : "Term"
+                            }
+                            className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[18px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={cancelEditing}
+                            className="rounded-xl border border-white/10 bg-transparent px-3 py-1.5 text-[15px] text-white/48 transition-colors duration-200 hover:border-white/18 hover:text-white/72 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEditSave(entry)}
+                            disabled={
+                              !editText.trim() ||
+                              (editKind === "replacement" && !editFrom.trim())
+                            }
+                            className="rounded-xl border border-white/14 bg-white/7 px-4 py-1.5 text-[15px] font-medium text-white/75 transition-colors duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {entry.source === "auto" && (
+                            <span
+                              className="shrink-0 text-amber-300/55"
+                              title="Added automatically from a correction"
+                            >
+                              <SparkleIcon />
+                            </span>
+                          )}
+                          {entry.source === "auto" &&
+                            entry.confidence !== undefined &&
+                            entry.confidence < 3 && (
+                              <span
+                                className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.1em] text-amber-300/70"
+                                title={`Provisional — accepted ${entry.timesAccepted ?? 0} time${(entry.timesAccepted ?? 0) !== 1 ? "s" : ""} without revert`}
+                              >
+                                provisional
+                              </span>
+                            )}
+                          <div className="min-w-0">
+                            {entry.kind === "replacement" ? (
+                              <div
+                                className={`truncate text-[18px] font-medium ${
+                                  entry.source === "auto"
+                                    ? "text-amber-100/80"
+                                    : "text-white/85"
+                                }`}
+                              >
+                                {entry.from?.toLowerCase()} {"→"} {entry.text}
+                              </div>
+                            ) : (
+                              <span
+                                className={`text-[18px] font-medium truncate ${
+                                  entry.source === "auto"
+                                    ? "text-amber-100/80"
+                                    : "text-white/85"
+                                }`}
+                              >
+                                {entry.text}
+                              </span>
+                            )}
+                            <div className="mt-1 text-[13px] uppercase tracking-[0.12em] text-white/30">
+                              {entry.kind === "replacement"
+                                ? "exact replacement"
+                                : "fuzzy match"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => startEditing(entry)}
+                            aria-label={`Edit ${entry.kind === "replacement" ? `${entry.from} to ${entry.text}` : entry.text}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/40 transition-colors duration-200 hover:border-white/18 hover:bg-white/8 hover:text-white/70"
+                          >
+                            <svg
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+                              <path d="m15 5 4 4" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(entry)}
+                            aria-label={`Remove ${entry.kind === "replacement" ? `${entry.from} to ${entry.text}` : entry.text}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/40 transition-colors duration-200 hover:border-white/18 hover:bg-white/8 hover:text-white/70"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}

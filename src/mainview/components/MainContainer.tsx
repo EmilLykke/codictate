@@ -426,7 +426,7 @@ export function MainContainer({
         {activeTab === "formatting" && (
           <SectionFormatting settings={settings} />
         )}
-        {activeTab === "shortcuts" && <SectionShortcuts settings={settings} />}
+        {activeTab === "shortcuts" && <SectionShortcuts settings={settings} status={status} />}
         {activeTab === "transcription" && (
           <SectionTranscription
             settings={settings}
