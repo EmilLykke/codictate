@@ -1,4 +1,4 @@
-use crate::audio::capture::open_default_input_sample_stream;
+use crate::audio::capture::open_input_sample_stream;
 use crate::audio::resample::{RECORDING_SAMPLE_RATE, StreamingResampler};
 use crate::ipc::emit_json;
 use crate::keyboard::inject;
@@ -44,9 +44,9 @@ impl TextInjector {
         }
     }
 
-    fn update_live_line(&mut self, displayed: &mut String, next: &str) -> Result<(), String> {
-        let common = common_prefix_byte_len(displayed, next);
-        let delete_chars = displayed[common..].chars().count();
+    fn replace_typed_segment(&mut self, typed: &mut String, next: &str) -> Result<(), String> {
+        let common = common_prefix_byte_len(typed, next);
+        let delete_chars = typed[common..].chars().count();
         let insert = &next[common..];
 
         if delete_chars > 0 {
@@ -58,8 +58,8 @@ impl TextInjector {
         }
 
         self.paste_text(insert)?;
-        displayed.clear();
-        displayed.push_str(next);
+        typed.clear();
+        typed.push_str(next);
         Ok(())
     }
 }
@@ -223,18 +223,6 @@ fn rms(samples: &[f32]) -> f32 {
     (energy / samples.len() as f32).sqrt()
 }
 
-fn join_transcript(left: &str, right: &str) -> String {
-    let left = left.trim();
-    let right = right.trim();
-    if left.is_empty() {
-        return right.to_string();
-    }
-    if right.is_empty() {
-        return left.to_string();
-    }
-    format!("{left} {right}")
-}
-
 fn resolve_live_utterance_text(final_raw: &str, last_partial: &str) -> String {
     let final_text = clean_transcript(final_raw);
     if !final_text.is_empty() {
@@ -242,6 +230,33 @@ fn resolve_live_utterance_text(final_raw: &str, last_partial: &str) -> String {
     } else {
         clean_transcript(last_partial)
     }
+}
+
+fn completed_stable_prefix(previous: &str, current: &str) -> String {
+    let common = common_prefix_byte_len(previous, current);
+    let common_prefix = &current[..common];
+    let trimmed = common_prefix.trim_end();
+    let Some(last_boundary) = trimmed.rfind(char::is_whitespace) else {
+        return String::new();
+    };
+    clean_transcript(&trimmed[..last_boundary])
+}
+
+fn append_live_prefix(
+    injector: &mut TextInjector,
+    typed_utterance: &mut String,
+    next_prefix: &str,
+) -> Result<(), String> {
+    if next_prefix.len() <= typed_utterance.len()
+        || !next_prefix.starts_with(typed_utterance.as_str())
+    {
+        return Ok(());
+    }
+
+    let insert = &next_prefix[typed_utterance.len()..];
+    injector.paste_text(insert)?;
+    typed_utterance.push_str(insert);
+    Ok(())
 }
 
 pub fn handle_transcribe(args: &[String]) -> ExitCode {
@@ -280,15 +295,18 @@ pub fn handle_transcribe(args: &[String]) -> ExitCode {
 
 pub fn handle_stream(args: &[String]) -> ExitCode {
     if args.len() < 4 {
-        eprintln!("CodictateWindowsHelper stream <vad|live> <parakeetModelDir>");
+        eprintln!(
+            "CodictateWindowsHelper stream <vad|live> <parakeetModelDir> [deviceIndexOrEndpointId]"
+        );
         return ExitCode::from(1);
     }
 
     let mode = &args[2];
     let model_dir = &args[3];
+    let device_ref = args.get(4).map(String::as_str);
     let result = match mode.as_str() {
-        "vad" => run_vad_stream(model_dir),
-        "live" => run_live_stream(model_dir),
+        "vad" => run_vad_stream(model_dir, device_ref),
+        "live" => run_live_stream(model_dir, device_ref),
         other => Err(format!("unknown stream mode: {other}")),
     };
 
@@ -301,10 +319,10 @@ pub fn handle_stream(args: &[String]) -> ExitCode {
     }
 }
 
-fn run_vad_stream(model_dir: &str) -> Result<(), String> {
+fn run_vad_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), String> {
     let mut model = load_model(model_dir)?;
     let mut injector = TextInjector::new()?;
-    let input = open_default_input_sample_stream()?;
+    let input = open_input_sample_stream(device_ref)?;
     let mut resampler = StreamingResampler::new(input.sample_rate)?;
     log_phase("stream [vad]: audio input running");
 
@@ -368,10 +386,10 @@ fn run_vad_stream(model_dir: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn run_live_stream(model_dir: &str) -> Result<(), String> {
+fn run_live_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), String> {
     let mut model = load_model(model_dir)?;
     let mut injector = TextInjector::new()?;
-    let input = open_default_input_sample_stream()?;
+    let input = open_input_sample_stream(device_ref)?;
     let mut resampler = StreamingResampler::new(input.sample_rate)?;
     log_phase("stream [live]: audio input running");
 
@@ -382,13 +400,12 @@ fn run_live_stream(model_dir: &str) -> Result<(), String> {
     const MIN_SAMPLES_BETWEEN_UPDATES: usize = 4_800;
     const MAX_UTTERANCE: usize = RECORDING_SAMPLE_RATE as usize * 20;
 
-    let mut committed_text = String::new();
     let mut utterance = Vec::<f32>::new();
     let mut in_speech = false;
     let mut silence_accum = 0usize;
     let mut samples_since_last_update = 0usize;
-    let mut last_live_text = String::new();
-    let mut injected_display = String::new();
+    let mut last_partial_text = String::new();
+    let mut typed_utterance = String::new();
 
     loop {
         let input_chunk = match input.recv_timeout(STREAM_RECV_TIMEOUT) {
@@ -406,7 +423,8 @@ fn run_live_stream(model_dir: &str) -> Result<(), String> {
                         in_speech = true;
                         utterance.clear();
                         samples_since_last_update = 0;
-                        last_live_text.clear();
+                        last_partial_text.clear();
+                        typed_utterance.clear();
                         log_phase("stream [live]: voice active");
                     }
 
@@ -419,11 +437,16 @@ fn run_live_stream(model_dir: &str) -> Result<(), String> {
                         samples_since_last_update = 0;
                         if let Some(partial_text) = transcribe_for_stream(&mut model, &utterance)
                             && !partial_text.is_empty()
-                            && partial_text != last_live_text
+                            && partial_text != last_partial_text
                         {
-                            last_live_text = partial_text.clone();
-                            let full_text = join_transcript(&committed_text, &partial_text);
-                            injector.update_live_line(&mut injected_display, &full_text)?;
+                            let stable_prefix =
+                                completed_stable_prefix(&last_partial_text, &partial_text);
+                            append_live_prefix(
+                                &mut injector,
+                                &mut typed_utterance,
+                                &stable_prefix,
+                            )?;
+                            last_partial_text = partial_text;
                         }
                     }
 
@@ -431,14 +454,13 @@ fn run_live_stream(model_dir: &str) -> Result<(), String> {
                         commit_live_utterance(
                             &mut model,
                             &mut injector,
-                            &mut committed_text,
-                            &mut injected_display,
+                            &mut typed_utterance,
                             &utterance,
-                            &last_live_text,
+                            &last_partial_text,
                         )?;
                         utterance.clear();
                         samples_since_last_update = 0;
-                        last_live_text.clear();
+                        last_partial_text.clear();
                     }
                 }
                 _ if in_speech => {
@@ -449,19 +471,18 @@ fn run_live_stream(model_dir: &str) -> Result<(), String> {
                         in_speech = false;
                         silence_accum = 0;
                         log_phase("stream [live]: silence commit");
-                        if utterance.len() >= MIN_UTTERANCE {
+                        if utterance.len() >= MIN_UTTERANCE || !typed_utterance.is_empty() {
                             commit_live_utterance(
                                 &mut model,
                                 &mut injector,
-                                &mut committed_text,
-                                &mut injected_display,
+                                &mut typed_utterance,
                                 &utterance,
-                                &last_live_text,
+                                &last_partial_text,
                             )?;
                         }
                         utterance.clear();
                         samples_since_last_update = 0;
-                        last_live_text.clear();
+                        last_partial_text.clear();
                     }
                 }
                 _ => {}
@@ -476,19 +497,52 @@ fn run_live_stream(model_dir: &str) -> Result<(), String> {
 fn commit_live_utterance(
     model: &mut ParakeetTDT,
     injector: &mut TextInjector,
-    committed_text: &mut String,
-    injected_display: &mut String,
+    typed_utterance: &mut String,
     utterance: &[f32],
-    last_live_text: &str,
+    last_partial_text: &str,
 ) -> Result<(), String> {
     let final_text = match transcribe_for_stream(model, utterance) {
-        Some(raw) => resolve_live_utterance_text(&raw, last_live_text),
-        None => clean_transcript(last_live_text),
+        Some(raw) => resolve_live_utterance_text(&raw, last_partial_text),
+        None => clean_transcript(last_partial_text),
     };
     if final_text.is_empty() {
         return Ok(());
     }
 
-    *committed_text = join_transcript(committed_text, &final_text);
-    injector.update_live_line(injected_display, committed_text)
+    injector.replace_typed_segment(typed_utterance, &final_text)?;
+    if !inject::send_space() {
+        return Err("failed to insert trailing space".to_string());
+    }
+    typed_utterance.clear();
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stable_prefix_lags_by_one_completed_word() {
+        assert_eq!(
+            completed_stable_prefix("hello world", "hello world again"),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn stable_prefix_waits_for_punctuation_to_settle() {
+        assert_eq!(completed_stable_prefix("hello world", "hello, world"), "");
+        assert_eq!(
+            completed_stable_prefix("hello, world", "hello, world again"),
+            "hello,"
+        );
+    }
+
+    #[test]
+    fn stable_prefix_can_grow_beyond_one_word() {
+        assert_eq!(
+            completed_stable_prefix("hello brave world", "hello brave world again"),
+            "hello brave"
+        );
+    }
 }

@@ -18,7 +18,7 @@ fn print_help() {
     println!("  keyboard-hook");
     println!("  record <path> <deviceIndexOrEndpointId> <maxSeconds>");
     println!("  transcribe <wavPath> <parakeetModelDir>");
-    println!("  stream <vad|live> <parakeetModelDir>");
+    println!("  stream <vad|live> <parakeetModelDir> [deviceIndexOrEndpointId]");
     println!();
     println!("Planned next:");
     println!("  focused-app");
