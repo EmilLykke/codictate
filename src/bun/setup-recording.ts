@@ -22,6 +22,7 @@ import {
 import { playCancelSound, playStartSound } from './utils/sound/play-sound'
 import { AppConfig } from './AppConfig/AppConfig'
 import type { TrayHandlers } from './setup-tray'
+import type { AudioDeviceSnapshot } from './utils/audio/devices'
 import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
 import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
@@ -83,7 +84,7 @@ export const setupRecording = (
   }: TrayHandlers,
   onStatusChange?: (status: AppStatus) => void,
   onPermissions?: (status: PermissionStatus) => void,
-  getAudioDevices?: () => Record<string, string>,
+  getAudioDevices?: () => AudioDeviceSnapshot,
   onAutoLearnedEntry?: () => void
 ) => {
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null

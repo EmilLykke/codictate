@@ -1,4 +1,5 @@
 import { AppConfig } from '../AppConfig/AppConfig'
+import type { AudioDeviceDetails } from '../../shared/types'
 
 export const DEVICE_ACTION_PREFIX = 'select-device-action'
 
@@ -18,14 +19,16 @@ export const handleDeviceAction = async (
   action: string,
   appConfig: AppConfig,
   devices: Record<string, string>,
-  onSelected?: (device: number) => void
+  onSelected?: (device: number) => void,
+  deviceDetails?: Record<string, AudioDeviceDetails>
 ) => {
   if (!action.startsWith(DEVICE_ACTION_PREFIX)) return
   try {
     const indexStr = action.split(`${DEVICE_ACTION_PREFIX}-`)[1]
     const selectedDevice = Number(indexStr)
     const deviceName = devices[indexStr]
-    await appConfig.setAudioDevice(selectedDevice, deviceName)
+    const deviceId = deviceDetails?.[indexStr]?.id ?? null
+    await appConfig.setAudioDevice(selectedDevice, deviceName, deviceId)
     onSelected?.(selectedDevice)
     console.log('Selected device:', selectedDevice, deviceName)
   } catch (error) {

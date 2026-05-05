@@ -7,10 +7,22 @@ publish = false
 [dependencies]
 arboard = "3.6.1"
 cpal = "0.16.0"
+crossbeam-channel = "0.5.15"
 hound = "3.5.1"
 rubato = "0.16.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+windows = { version = "0.54.0", features = [
+  "Win32_Devices_FunctionDiscovery",
+  "Win32_Foundation",
+  "Win32_Media_Audio",
+  "Win32_Security",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Threading",
+  "Win32_System_Variant",
+  "Win32_UI_Shell_PropertiesSystem",
+] }
 windows-sys = { version = "0.60.2", features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
