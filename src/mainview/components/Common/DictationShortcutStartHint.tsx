@@ -35,13 +35,15 @@ export function DictationShortcutStartHint({
   align,
   className = "",
 }: {
-  align: "center" | "end";
+  align: "start" | "center" | "end";
   className?: string;
 }) {
   const alignClass =
     align === "end"
       ? "text-center md:text-right md:ml-auto"
-      : "mx-auto text-center";
+      : align === "start"
+        ? "text-left"
+        : "mx-auto text-center";
 
   return (
     <p

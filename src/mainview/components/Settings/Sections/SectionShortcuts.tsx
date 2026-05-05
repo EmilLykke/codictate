@@ -1,6 +1,10 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AppSettings, ShortcutId } from "../../../../shared/types";
+import type {
+  AppSettings,
+  AppStatus,
+  ShortcutId,
+} from "../../../../shared/types";
 import {
   dictationHoldOnlyShortcutHint,
   dictationShortcutBehaviorHint,
@@ -13,9 +17,14 @@ import { settingsHelperClass } from "../settings-shared";
 
 type Props = {
   settings: AppSettings;
+  status: AppStatus;
 };
 
-export function SectionShortcuts({ settings }: Props) {
+export function SectionShortcuts({ settings, status }: Props) {
+  const busy =
+    status === "recording" ||
+    status === "transcribing" ||
+    status === "streaming";
   const queryClient = useQueryClient();
 
   const handleShortcutChange = useCallback(
@@ -54,6 +63,7 @@ export function SectionShortcuts({ settings }: Props) {
           value={settings.shortcutId}
           onChange={handleShortcutChange}
           platform={settings.capabilities.platform}
+          disabled={busy}
         />
         <p className={settingsHelperClass}>{dictationShortcutBehaviorHint()}</p>
         {platformShortcutSupportHint(settings.capabilities.platform) && (
@@ -72,6 +82,7 @@ export function SectionShortcuts({ settings }: Props) {
           mainShortcutId={settings.shortcutId}
           onChange={handleHoldOnlyShortcutChange}
           platform={settings.capabilities.platform}
+          disabled={busy}
         />
         <p className={settingsHelperClass}>{dictationHoldOnlyShortcutHint()}</p>
       </div>
