@@ -62,45 +62,45 @@ export function SectionUi({ settings }: Props) {
           Recording indicator
         </h2>
         <div className="flex flex-col gap-2">
-        {indicatorComingSoon && (
-          <div className="rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
-            <span className="inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
-              Coming soon on{" "}
-              {platformDisplayName(settings.capabilities.platform)}
-            </span>
-            <p className="mt-2 text-[13px] text-white/60 leading-snug">
-              The floating desktop indicator will arrive after the Windows
-              dictation core is in place.
-            </p>
-          </div>
-        )}
-        {INDICATOR_OPTIONS.map(({ mode, label, hint }) => {
-          const selected = settings.recordingIndicatorMode === mode;
-          return (
-            <button
-              key={mode}
-              type="button"
-              disabled={indicatorComingSoon}
-              onClick={() => handleRecordingIndicatorModeChange(mode)}
-              className={`w-full text-left rounded-xl border px-4 py-3.5 transition-colors duration-200 ${
-                selected
-                  ? "border-white/22 bg-white/8"
-                  : "border-white/11 bg-white/4 hover:border-white/16 hover:bg-white/6"
-              } ${indicatorComingSoon ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
-            >
-              <span
-                className={`block text-[17px] font-medium ${selected ? "text-white/88" : "text-white/62"}`}
+          {indicatorComingSoon && (
+            <div className="rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
+              <span className="inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
+                Coming soon on{" "}
+                {platformDisplayName(settings.capabilities.platform)}
+              </span>
+              <p className="mt-2 text-[13px] text-white/60 leading-snug">
+                The floating desktop indicator will arrive after the Windows
+                dictation core is in place.
+              </p>
+            </div>
+          )}
+          {INDICATOR_OPTIONS.map(({ mode, label, hint }) => {
+            const selected = settings.recordingIndicatorMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                disabled={indicatorComingSoon}
+                onClick={() => handleRecordingIndicatorModeChange(mode)}
+                className={`w-full text-left rounded-xl border px-4 py-3.5 transition-colors duration-200 ${
+                  selected
+                    ? "border-white/22 bg-white/8"
+                    : "border-white/11 bg-white/4 hover:border-white/16 hover:bg-white/6"
+                } ${indicatorComingSoon ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
               >
-                {label}
-              </span>
-              <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                {hint}
-              </span>
-            </button>
-          );
-        })}
+                <span
+                  className={`block text-[17px] font-medium ${selected ? "text-white/88" : "text-white/62"}`}
+                >
+                  {label}
+                </span>
+                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
+                  {hint}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
     </>
   );
 }

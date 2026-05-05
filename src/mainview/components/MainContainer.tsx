@@ -2,10 +2,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout, type SidebarTab } from "./Layout/AppLayout";
 import { HomeScreen } from "./Home/HomeScreen";
-import { SectionTranscription } from "./Settings/Sections/SectionTranscription";
-import { SectionModes } from "./Settings/Sections/SectionModes";
+import { SectionModels } from "./Settings/Sections/SectionModels";
 import { SectionFormatting } from "./Settings/Sections/SectionFormatting";
-import { SectionAudio } from "./Settings/Sections/SectionAudio";
 import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
 import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
 import type {
@@ -13,6 +11,7 @@ import type {
   AppSettings,
   DeviceInfo,
   DevAppPreviewRoute,
+  StreamTranscriptionMode,
 } from "../../shared/types";
 import { appEvents } from "../app-events";
 import {
@@ -36,6 +35,8 @@ import {
   setStreamMode,
   setTranscriptionLanguage,
   setAudioDevice,
+  setStreamTranscriptionMode,
+  setTranslateDefaultLanguage,
   setTranslateToEnglish,
   setWhisperModel,
 } from "../rpc";
@@ -56,7 +57,8 @@ export function MainContainer({
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SidebarTab>("home");
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>("general");
+  const [settingsInitialTab, setSettingsInitialTab] =
+    useState<SettingsTab>("general");
 
   // Model availability: seeded from settings (always up-to-date on fetch),
   // then kept in sync via modelAvailability events for incremental changes.
@@ -384,13 +386,37 @@ export function MainContainer({
     // need_switch_model or need_language — handled in Settings UI / language pickers.
   }, [settings, queryClient, modelAvailability]);
 
+  const handleStreamTranscriptionModeChange = useCallback(
+    async (mode: StreamTranscriptionMode) => {
+      queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+        old ? { ...old, streamTranscriptionMode: mode } : old,
+      );
+      await setStreamTranscriptionMode(mode);
+    },
+    [queryClient],
+  );
+
+  const handleTranslateDefaultLanguageChange = useCallback(
+    async (languageId: string) => {
+      if (languageId === "__translate_pick__" || languageId === "auto") return;
+      queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+        old ? { ...old, translateDefaultLanguageId: languageId } : old,
+      );
+      await setTranslateDefaultLanguage(languageId);
+    },
+    [queryClient],
+  );
+
   return (
     <>
       <AppLayout
         platform={settings.capabilities.platform}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onOpenSettings={() => { setSettingsInitialTab("general"); setIsSettingsModalOpen(true); }}
+        onOpenSettings={() => {
+          setSettingsInitialTab("general");
+          setIsSettingsModalOpen(true);
+        }}
         onOpenHelp={() => {}}
         onWordmarkSecretTap={() => {}}
       >
@@ -400,33 +426,30 @@ export function MainContainer({
             deviceInfo={deviceInfo}
             settings={settings}
             modelAvailability={modelAvailability}
+            downloadProgress={downloadProgress}
+            translateDownloadModelId={translateDownloadModelId}
             onModelChange={handleModelSelect}
             onLanguageChange={handleLanguageChange}
             onDeviceChange={handleDeviceChange}
             onStreamToggle={handleStreamToggle}
+            onStreamTranscriptionModeChange={handleStreamTranscriptionModeChange}
             onFormattingToggle={handleFormattingToggle}
             onTranslateToggle={handleTranslateToggle}
-            onOpenSettings={() => { setSettingsInitialTab("shortcuts"); setIsSettingsModalOpen(true); }}
+            onTranslateDefaultLanguageChange={
+              handleTranslateDefaultLanguageChange
+            }
+            onCancelDownload={handleCancelDownload}
+            onOpenSettings={() => {
+              setSettingsInitialTab("shortcuts");
+              setIsSettingsModalOpen(true);
+            }}
           />
         )}
         {activeTab === "dictionary" && (
           <SectionDictionary settings={settings} />
         )}
-        {activeTab === "modes" && (
-          <SectionModes
-            settings={settings}
-            modelAvailability={modelAvailability}
-            downloadProgress={downloadProgress}
-            translateDownloadModelId={translateDownloadModelId}
-            onTranslateToggle={handleTranslateToggle}
-            onCancelDownload={handleCancelDownload}
-          />
-        )}
-        {activeTab === "formatting" && (
-          <SectionFormatting settings={settings} />
-        )}
-{activeTab === "transcription" && (
-          <SectionTranscription
+        {activeTab === "models" && (
+          <SectionModels
             settings={settings}
             modelAvailability={modelAvailability}
             downloadProgress={downloadProgress}
@@ -436,7 +459,9 @@ export function MainContainer({
             onModelDelete={handleModelDelete}
           />
         )}
-        {activeTab === "audio" && <SectionAudio settings={settings} />}
+        {activeTab === "formatting" && (
+          <SectionFormatting settings={settings} />
+        )}
       </AppLayout>
 
       <SettingsModal

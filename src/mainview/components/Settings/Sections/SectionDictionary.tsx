@@ -294,9 +294,7 @@ export function SectionDictionary({ settings }: Props) {
   return (
     <>
       <div className="mb-6">
-        <h2 className="text-[28px] tracking-tight text-white/90">
-          Dictionary
-        </h2>
+        <h2 className="text-[28px] tracking-tight text-white/90">Dictionary</h2>
         <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
           Teach Codictate how to spell your terms and abbreviations.
         </p>

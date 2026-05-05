@@ -1,6 +1,11 @@
 import { useMemo } from "react";
-import { motion } from "motion/react";
-import type { AppStatus, AppSettings, DeviceInfo } from "../../../shared/types";
+import { motion, AnimatePresence } from "motion/react";
+import type {
+  AppStatus,
+  AppSettings,
+  DeviceInfo,
+  StreamTranscriptionMode,
+} from "../../../shared/types";
 import { DropdownSelect } from "../Common/DropdownSelect";
 import {
   dictationReadyPttHintBefore,
@@ -16,6 +21,11 @@ import {
   supportsStreamMode,
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
 } from "../../../shared/speech-models";
+import {
+  getWhisperModel,
+  formatModelSize,
+  isTranslateCapableModelId,
+} from "../../../shared/whisper-models";
 import { LanguagePicker } from "../Settings/LanguagePicker";
 import { InstantTooltip } from "../Common/InstantTooltip";
 
@@ -61,29 +71,41 @@ const TOGGLE_OFF =
 const TOGGLE_DIMMED =
   "border-white/8 bg-white/3 text-white/20 hover:border-white/14 hover:text-white/30";
 
+const TRANSLATE_DEFAULT_PLACEHOLDER = "__translate_pick__";
+
 export function HomeScreen({
   status,
   deviceInfo,
   settings,
   modelAvailability,
+  downloadProgress,
+  translateDownloadModelId,
   onModelChange,
   onLanguageChange,
   onDeviceChange,
   onStreamToggle,
+  onStreamTranscriptionModeChange,
   onFormattingToggle,
   onTranslateToggle,
+  onTranslateDefaultLanguageChange,
+  onCancelDownload,
   onOpenSettings,
 }: {
   status: AppStatus;
   deviceInfo?: DeviceInfo;
   settings?: AppSettings;
   modelAvailability: Record<string, boolean>;
+  downloadProgress: Record<string, number>;
+  translateDownloadModelId: string | null;
   onModelChange: (modelId: string) => void;
   onLanguageChange: (languageId: string) => void;
   onDeviceChange: (index: number) => void;
   onStreamToggle: () => void;
+  onStreamTranscriptionModeChange: (mode: StreamTranscriptionMode) => void;
   onFormattingToggle: () => void;
   onTranslateToggle: () => void;
+  onTranslateDefaultLanguageChange: (languageId: string) => void;
+  onCancelDownload: (modelId: string) => void;
   onOpenSettings: () => void;
 }) {
   const isRecording = status === "recording";
@@ -134,6 +156,10 @@ export function HomeScreen({
   const isTranslateOn = settings?.translateToEnglish ?? false;
   const parakeetInstalled =
     modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] ?? false;
+
+  const canTranslate =
+    isTranslateOn ||
+    isTranslateCapableModelId(settings?.whisperModelId ?? "");
 
   return (
     <div className="flex flex-col h-full">
@@ -293,16 +319,22 @@ export function HomeScreen({
                 text={
                   isTranslateOn
                     ? "Translate mode active"
-                    : "Translate mode: transcribe and translate to English"
+                    : !canTranslate
+                      ? "Select a translate-capable model (Small or Large Whisper) to enable"
+                      : "Translate mode: transcribe and translate to English"
                 }
                 side="bottom"
                 floatInViewport
               >
                 <button
                   onClick={onTranslateToggle}
-                  disabled={!isIdle}
+                  disabled={!isIdle || !canTranslate}
                   className={`${TOGGLE_BASE} disabled:opacity-50 disabled:pointer-events-none ${
-                    isTranslateOn ? TOGGLE_ON_BLUE : TOGGLE_OFF
+                    isTranslateOn
+                      ? TOGGLE_ON_BLUE
+                      : !canTranslate
+                        ? TOGGLE_DIMMED
+                        : TOGGLE_OFF
                   }`}
                   aria-label="Toggle translate mode"
                 >
@@ -326,7 +358,105 @@ export function HomeScreen({
                 </button>
               </InstantTooltip>
             )}
+
+            {(isStreamMode || isTranslateOn) && (
+              <div className="ml-auto flex items-center gap-3">
+                {isStreamMode && (
+                  <div className="flex items-center gap-1.5">
+                    {(
+                      [
+                        { id: "vad", label: "VAD", tip: "Transcribes in pauses" },
+                        { id: "live", label: "Live", tip: "Streams continuously" },
+                      ] as const
+                    ).map((mode) => {
+                      const active =
+                        settings?.streamTranscriptionMode === mode.id;
+                      return (
+                        <InstantTooltip key={mode.id} text={mode.tip} side="bottom">
+                          <button
+                            onClick={() =>
+                              onStreamTranscriptionModeChange(mode.id)
+                            }
+                            className={`rounded-lg border px-3 py-1.5 text-[14px] font-medium transition-colors duration-200 cursor-pointer ${
+                              active
+                                ? "border-blue-400/30 bg-blue-500/15 text-blue-300/90"
+                                : "border-white/12 bg-transparent text-white/40 hover:border-white/20 hover:text-white/60"
+                            }`}
+                          >
+                            {mode.label}
+                          </button>
+                        </InstantTooltip>
+                      );
+                    })}
+                  </div>
+                )}
+                {isTranslateOn && (
+                  <div className="flex items-center gap-2">
+                <span className="text-[13px] text-white/38 shrink-0">
+                  Source
+                </span>
+                <LanguagePicker
+                  value={
+                    settings?.translateDefaultLanguageId === "auto"
+                      ? TRANSLATE_DEFAULT_PLACEHOLDER
+                      : (settings?.translateDefaultLanguageId ??
+                        TRANSLATE_DEFAULT_PLACEHOLDER)
+                  }
+                  onChange={onTranslateDefaultLanguageChange}
+                  leadingDisabledOption={{
+                    value: TRANSLATE_DEFAULT_PLACEHOLDER,
+                    label: "Choose source language...",
+                  }}
+                  excludeAuto
+                    ariaLabel="Default source language for translation"
+                  />
+                </div>
+                )}
+              </div>
+            )}
           </div>
+
+          <AnimatePresence>
+            {translateDownloadModelId !== null && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="text-[13px] text-white/50 leading-relaxed">
+                      Downloading{" "}
+                      {getWhisperModel(translateDownloadModelId)?.label ??
+                        translateDownloadModelId}{" "}
+                      (
+                      {formatModelSize(
+                        getWhisperModel(translateDownloadModelId)?.sizeMB ?? 0,
+                      )}
+                      )
+                    </p>
+                    <div className="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-blue-400/60"
+                        animate={{
+                          width: `${Math.round((downloadProgress[translateDownloadModelId] ?? 0) * 100)}%`,
+                        }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onCancelDownload(translateDownloadModelId)}
+                    className="shrink-0 px-2.5 py-1 rounded-lg text-[13px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/44 hover:text-white/64 transition-colors duration-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Statistics */}
