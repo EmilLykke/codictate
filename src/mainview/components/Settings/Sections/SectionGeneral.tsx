@@ -102,26 +102,24 @@ export function SectionGeneral({
         <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Profile
         </h2>
-        <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden px-4 py-3.5">
-          <label className="block">
-            <span className="mb-2 block text-[13px] text-white/44 font-sans">
-              Your name
-            </span>
-            <input
-              type="text"
-              value={userDisplayNameDraft}
-              onChange={(event) => setUserDisplayNameDraft(event.target.value)}
-              onBlur={() => void handleUserDisplayNameCommit()}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.currentTarget.blur();
-                }
-              }}
-              placeholder="Your name"
-              className="w-full rounded-lg border border-white/12 bg-white/5 px-4 py-3.5 text-[17px] font-medium text-white/78 outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-white/24 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
-            />
-          </label>
-        </div>
+        <label className="block">
+          <span className="mb-2 block text-[13px] text-white/44 font-sans">
+            Your name
+          </span>
+          <input
+            type="text"
+            value={userDisplayNameDraft}
+            onChange={(event) => setUserDisplayNameDraft(event.target.value)}
+            onBlur={() => void handleUserDisplayNameCommit()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
+            placeholder="Your name"
+            className="w-full rounded-lg border border-white/12 bg-white/5 px-4 py-3.5 text-[17px] font-medium text-white/78 outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-white/24 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+          />
+        </label>
         <p className={settingsHelperClass}>
           Stored as a general profile value. Formatting can use it for email
           sign-offs, and future features can reuse it elsewhere.

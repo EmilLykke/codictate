@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { motion } from "motion/react";
 import type { AppStatus, AppSettings, DeviceInfo } from "../../../shared/types";
 import { DropdownSelect } from "../Common/DropdownSelect";
-import { SearchableSelect } from "../Common/SearchableSelect";
 import {
   dictationReadyPttHintBefore,
   dictationReadyPttHintAfter,
@@ -15,8 +14,9 @@ import {
   SPEECH_MODELS,
   getSpeechModel,
   supportsStreamMode,
+  DEFAULT_STREAM_CAPABLE_MODEL_ID,
 } from "../../../shared/speech-models";
-import { TRANSCRIPTION_LANGUAGE_OPTIONS } from "../../../shared/transcription-languages";
+import { LanguagePicker } from "../Settings/LanguagePicker";
 import { InstantTooltip } from "../Common/InstantTooltip";
 
 function ShortcutHelpIcon({ tooltip }: { tooltip: React.ReactNode }) {
@@ -132,6 +132,8 @@ export function HomeScreen({
     (settings?.formatting?.enabled ?? false) && formattingAvailable;
 
   const isTranslateOn = settings?.translateToEnglish ?? false;
+  const parakeetInstalled =
+    modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] ?? false;
 
   return (
     <div className="flex flex-col h-full">
@@ -161,15 +163,10 @@ export function HomeScreen({
               </div>
               <div>
                 <div className="text-[16px] text-white/40 mb-2">Language</div>
-                <SearchableSelect
+                <LanguagePicker
                   value={currentLanguageId}
                   onChange={onLanguageChange}
-                  ariaLabel="Transcription language"
-                  searchPlaceholder="Search languages…"
-                  options={TRANSCRIPTION_LANGUAGE_OPTIONS.map((lang) => ({
-                    value: lang.id,
-                    label: lang.label,
-                  }))}
+                  speechModelId={settings?.whisperModelId ?? null}
                 />
               </div>
               <div>
@@ -199,10 +196,12 @@ export function HomeScreen({
                   !streamModeSupported
                     ? "Stream mode coming soon on this platform"
                     : !canStream
-                      ? "Download a stream-capable model (Parakeet) to enable"
+                      ? parakeetInstalled
+                        ? "Select the Parakeet model to enable stream mode"
+                        : "Download a stream-capable model (Parakeet) to enable"
                       : isStreamMode
                         ? "Stream mode active"
-                        : `Stream mode — continuous dictation (${streamModeLabel})`
+                        : `Stream mode: continuous dictation (${streamModeLabel})`
                 }
                 side="bottom"
                 floatInViewport
@@ -251,7 +250,7 @@ export function HomeScreen({
                     ? "Formatting active"
                     : !formattingModelInstalled
                       ? "Download a formatter model in Settings to enable"
-                      : "Formatting — auto-format dictated text"
+                      : "Formatting: auto-format dictated text"
                 }
                 side="bottom"
                 floatInViewport
@@ -294,7 +293,7 @@ export function HomeScreen({
                 text={
                   isTranslateOn
                     ? "Translate mode active"
-                    : "Translate mode — transcribe and translate to English"
+                    : "Translate mode: transcribe and translate to English"
                 }
                 side="bottom"
                 floatInViewport

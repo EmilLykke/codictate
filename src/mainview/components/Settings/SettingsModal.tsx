@@ -133,6 +133,16 @@ export function SettingsModal({
                         General
                       </button>
                       <button
+                        onClick={() => setActiveTab("ui")}
+                        className={`${TAB_BUTTON} ${
+                          activeTab === "ui"
+                            ? "bg-white/10 text-white/90"
+                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                        }`}
+                      >
+                        Indicator
+                      </button>
+                      <button
                         onClick={() => setActiveTab("shortcuts")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "shortcuts"
@@ -141,16 +151,6 @@ export function SettingsModal({
                         }`}
                       >
                         Shortcuts
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("ui")}
-                        className={`${TAB_BUTTON} ${
-                          activeTab === "ui"
-                            ? "bg-white/10 text-white/90"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
-                        }`}
-                      >
-                        Appearance
                       </button>
                       {funModeUnlocked && (
                         <button
@@ -172,10 +172,10 @@ export function SettingsModal({
                       <h2 className="text-[22px] font-semibold text-white/90">
                         {activeTab === "general"
                           ? "General"
-                          : activeTab === "shortcuts"
-                            ? "Shortcuts"
-                            : activeTab === "ui"
-                              ? "Appearance"
+                          : activeTab === "ui"
+                            ? "Indicator"
+                            : activeTab === "shortcuts"
+                              ? "Shortcuts"
                               : "Fun"}
                       </h2>
                       <Dialog.Close asChild>

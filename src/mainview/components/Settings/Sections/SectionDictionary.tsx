@@ -294,10 +294,7 @@ export function SectionDictionary({ settings }: Props) {
   return (
     <>
       <div className="mb-6">
-        <span className="block text-[16px] uppercase tracking-[0.18em] text-white/38">
-          Settings
-        </span>
-        <h2 className="mt-2 text-[28px] tracking-tight text-white/90">
+        <h2 className="text-[28px] tracking-tight text-white/90">
           Dictionary
         </h2>
         <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
@@ -306,7 +303,7 @@ export function SectionDictionary({ settings }: Props) {
       </div>
 
       {/* Auto-learn toggle */}
-      <div className="mb-6 overflow-hidden rounded-xl border border-white/11 bg-white/4">
+      <div className="mb-6 overflow-hidden rounded-xl border border-white/12 bg-white/5">
         <div className="flex items-center gap-4 px-5 py-4">
           <div className="min-w-0 flex-1">
             <span className="block text-[14px] font-medium text-white/85">
@@ -461,7 +458,7 @@ export function SectionDictionary({ settings }: Props) {
       </AnimatePresence>
 
       {/* Entries list */}
-      <div className="overflow-hidden rounded-xl border border-white/11 bg-white/4">
+      <div className="overflow-hidden rounded-xl border border-white/12 bg-white/5">
         {dictionary.entries.length === 0 ? (
           <div className="px-5 py-8 text-center text-[13px] text-white/34">
             No words added yet.
@@ -562,7 +559,10 @@ export function SectionDictionary({ settings }: Props) {
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="flex items-center gap-2.5 min-w-0 cursor-pointer"
+                          onDoubleClick={() => startEditing(entry)}
+                        >
                           {entry.source === "auto" && (
                             <span
                               className="shrink-0 text-amber-300/55"
@@ -576,7 +576,7 @@ export function SectionDictionary({ settings }: Props) {
                             entry.confidence < 3 && (
                               <span
                                 className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.1em] text-amber-300/70"
-                                title={`Provisional — accepted ${entry.timesAccepted ?? 0} time${(entry.timesAccepted ?? 0) !== 1 ? "s" : ""} without revert`}
+                                title={`Provisional - accepted ${entry.timesAccepted ?? 0} time${(entry.timesAccepted ?? 0) !== 1 ? "s" : ""} without revert`}
                               >
                                 provisional
                               </span>
@@ -584,26 +584,26 @@ export function SectionDictionary({ settings }: Props) {
                           <div className="min-w-0">
                             {entry.kind === "replacement" ? (
                               <div
-                                className={`truncate text-[14px] font-medium ${
+                                className={`truncate text-[16px] font-medium ${
                                   entry.source === "auto"
                                     ? "text-amber-100/80"
-                                    : "text-white/85"
+                                    : "text-white/88"
                                 }`}
                               >
                                 {entry.from?.toLowerCase()} {"→"} {entry.text}
                               </div>
                             ) : (
                               <span
-                                className={`text-[14px] font-medium truncate ${
+                                className={`text-[16px] font-medium truncate ${
                                   entry.source === "auto"
                                     ? "text-amber-100/80"
-                                    : "text-white/85"
+                                    : "text-white/88"
                                 }`}
                               >
                                 {entry.text}
                               </span>
                             )}
-                            <div className="mt-1 text-[13px] uppercase tracking-[0.12em] text-white/30">
+                            <div className="mt-0.5 text-[12px] uppercase tracking-[0.12em] text-white/28">
                               {entry.kind === "replacement"
                                 ? "exact replacement"
                                 : "fuzzy match"}
@@ -683,10 +683,10 @@ export function SectionDictionary({ settings }: Props) {
                 }`}
               >
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-medium text-amber-50/82">
+                  <div className="truncate text-[16px] font-medium text-amber-50/82">
                     {candidate.from.toLowerCase()} {"→"} {candidate.to}
                   </div>
-                  <div className="mt-1 text-[13px] uppercase tracking-[0.12em] text-white/34">
+                  <div className="mt-0.5 text-[12px] uppercase tracking-[0.12em] text-white/28">
                     {candidate.corrections} of 2 confirmations
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import type {
 } from "../../../../shared/types";
 import { fetchSettings, setRecordingIndicatorMode } from "../../../rpc";
 import { platformDisplayName } from "../../../../shared/platform";
+import { VoiceActivityCore } from "../../Common/VoiceActivityCore";
 
 type Props = {
   settings: AppSettings;
@@ -49,11 +50,18 @@ export function SectionUi({ settings }: Props) {
   );
 
   return (
-    <div className="mb-8">
-      <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
-        Recording indicator
-      </h2>
-      <div className="flex flex-col gap-2">
+    <>
+      <div className="mb-8 flex justify-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black border border-white/10 shadow-lg shadow-black/40">
+          <VoiceActivityCore status="recording" variant="indicator" />
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          Recording indicator
+        </h2>
+        <div className="flex flex-col gap-2">
         {indicatorComingSoon && (
           <div className="rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
             <span className="inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
@@ -93,5 +101,6 @@ export function SectionUi({ settings }: Props) {
         })}
       </div>
     </div>
+    </>
   );
 }

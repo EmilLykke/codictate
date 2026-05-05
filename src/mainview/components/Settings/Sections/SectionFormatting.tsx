@@ -546,7 +546,7 @@ export function SectionFormatting({ settings }: Props) {
       )}
 
       {formatting.available && (
-        <div className="mb-6 rounded-xl border border-white/11 bg-white/4 px-4 py-3.5">
+        <div className="mb-6">
           <span className="block text-[13px] font-medium text-white/86 mb-2.5">
             Formatter model
           </span>
@@ -636,7 +636,7 @@ export function SectionFormatting({ settings }: Props) {
               </span>
               <button
                 onClick={handleDeleteFormatterModel}
-                className="ml-auto text-[13px] text-white/40 hover:text-white/70 cursor-pointer"
+                className="text-[13px] text-white/40 hover:text-white/70 cursor-pointer"
               >
                 Remove
               </button>

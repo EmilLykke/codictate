@@ -277,7 +277,9 @@ export function AppLayout({
 
       {/* Content Area — left-aligned */}
       <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-16 pt-12">
-        {children}
+        {activeTab === "home" ? children : (
+          <div className="max-w-3xl">{children}</div>
+        )}
       </div>
     </div>
   );
