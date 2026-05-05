@@ -1,6 +1,7 @@
 import type {
   AppStatus,
   AppSettings,
+  FormatterModelTier,
   PermissionState,
   SettingsPane,
   UpdateCheckState,
@@ -23,6 +24,7 @@ type EventMap = {
   }
   modelAvailability: { modelId: string; available: boolean }
   formatterModelProgress: {
+    tier: FormatterModelTier
     progressFraction: number
     done: boolean
     error?: string

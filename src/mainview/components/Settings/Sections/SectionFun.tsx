@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AppSettings } from "../../../../shared/types";
+import { Switch } from "../../Common/Switch";
 import { fetchSettings, setFunModeEnabled } from "../../../rpc";
 
 type Props = {
@@ -55,24 +56,11 @@ export function SectionFun({ settings, onBackToSettings }: Props) {
               set.
             </span>
           </div>
-          <button
-            type="button"
-            onClick={handleFunModeToggle}
-            className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 ${
-              settings.funModeEnabled
-                ? "border-amber-300/40 bg-amber-300/15"
-                : "border-white/14 bg-white/7"
-            }`}
+          <Switch
+            checked={settings.funModeEnabled}
+            onCheckedChange={() => void handleFunModeToggle()}
             aria-label="Toggle Fun Mode"
-          >
-            <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full transition-all duration-200 ${
-                settings.funModeEnabled
-                  ? "left-[21px] bg-amber-200"
-                  : "left-0.5 bg-white/40"
-              }`}
-            />
-          </button>
+          />
         </div>
       </div>
     </>

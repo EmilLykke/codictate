@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { Switch } from "../../Common/Switch";
 import type {
   AppSettings,
   DevAppPreviewRoute,
@@ -151,23 +152,11 @@ export function SectionDebug({
                 {settings.debugMode ? "Debug logging active" : "Debug logging"}
               </span>
             </div>
-            <button
-              onClick={handleDebugToggle}
-              className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                settings.debugMode
-                  ? "bg-amber-500/30 border-amber-400/30"
-                  : "bg-white/7 border-white/14"
-              }`}
+            <Switch
+              checked={settings.debugMode}
+              onCheckedChange={() => void handleDebugToggle()}
               aria-label="Toggle debug logging"
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200 ${
-                  settings.debugMode
-                    ? "left-4 bg-amber-400/90"
-                    : "left-0.5 bg-white/40"
-                }`}
-              />
-            </button>
+            />
           </div>
 
           <AnimatePresence>

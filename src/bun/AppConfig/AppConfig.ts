@@ -110,7 +110,7 @@ function defaultEnabledModes(): FormattingSettings['enabledModes'] {
 
 function defaultFormattingSettings(
   available: boolean,
-  modelInstalled: boolean
+  modelAvailability: Record<FormatterModelTier, boolean>
 ): FormattingSettings {
   return {
     enabled: false,
@@ -118,7 +118,7 @@ function defaultFormattingSettings(
     forceModeId: null,
     formatterModelTier: 'fast',
     available,
-    modelInstalled,
+    modelAvailability,
     email: {
       includeSenderName: false,
       greetingStyle: 'auto',
@@ -182,7 +182,7 @@ interface PersistedMainSettings {
   parakeetCoreMlReady: boolean
   streamTranscriptionMode: StreamTranscriptionMode
   userDisplayName: string
-  formatting: Omit<FormattingSettings, 'available' | 'modelInstalled'>
+  formatting: Omit<FormattingSettings, 'available' | 'modelAvailability'>
   audioDucking: AudioDuckingSettings
   debugMode: false
 }
@@ -232,10 +232,10 @@ export class AppConfig {
     this.parakeetCoreMlReady = false
     this.streamTranscriptionMode = 'vad'
     this.userDisplayName = ''
-    this.formatting = defaultFormattingSettings(
-      detectFormattingAvailable(),
-      isFormatterModelInstalled('fast')
-    )
+    this.formatting = defaultFormattingSettings(detectFormattingAvailable(), {
+      fast: isFormatterModelInstalled('fast'),
+      quality: isFormatterModelInstalled('quality'),
+    })
     this.audioDucking = defaultAudioDuckingSettings()
     this.dictionary = defaultDictionarySettings()
   }
@@ -805,7 +805,8 @@ export class AppConfig {
       enabled: this.formatting.enabled,
       enabledModes: { ...this.formatting.enabledModes },
       forceModeId: this.formatting.forceModeId,
-      modelInstalled: this.formatting.modelInstalled,
+      modelInstalled:
+        this.formatting.modelAvailability[this.formatting.formatterModelTier],
       transcriptionLanguageId: this.transcriptionLanguageId,
       userDisplayName: this.userDisplayName,
       formatterModelTier: this.formatting.formatterModelTier,
@@ -816,11 +817,12 @@ export class AppConfig {
     }
   }
 
-  /** Re-check whether the formatter model GGUF for the active tier exists on disk. */
+  /** Re-check whether each formatter model GGUF exists on disk. */
   public refreshFormatterModelInstalled(): void {
-    this.formatting.modelInstalled = isFormatterModelInstalled(
-      this.formatting.formatterModelTier
-    )
+    this.formatting.modelAvailability = {
+      fast: isFormatterModelInstalled('fast'),
+      quality: isFormatterModelInstalled('quality'),
+    }
   }
 
   public async updateGeneralSettings(

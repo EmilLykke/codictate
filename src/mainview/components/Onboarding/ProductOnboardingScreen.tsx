@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
+import { Switch } from "../Common/Switch";
 import type {
   AppSettings,
   AppStatus,
@@ -600,7 +601,7 @@ export function ProductOnboardingScreen({
                 How do you usually write?
               </p>
               <p className="mb-5 text-center text-[13px] leading-snug text-white/38 sm:text-[14px]">
-                We’ll use this for formatting defaults (Messages, Slack, and
+                We’ll use this for auto-polish defaults (Messages, Slack, and
                 documents). Email greeting and closing stay on Auto where it
                 helps. You can refine everything in Settings later.
               </p>
@@ -610,7 +611,7 @@ export function ProductOnboardingScreen({
               </h2>
               <div
                 role="radiogroup"
-                aria-label="Default writing style for formatting"
+                aria-label="Default writing style for auto-polish"
                 className="grid w-full grid-cols-1 gap-4 min-[600px]:grid-cols-3"
               >
                 {WRITING_STYLE_OPTIONS.map(
@@ -667,32 +668,18 @@ export function ProductOnboardingScreen({
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <span className="block text-[15px] font-medium text-white/78">
-                      Emoji when formatting
+                      Emoji when polishing
                     </span>
                     <span className="mt-0.5 block text-[16px] text-white/40 leading-snug">
-                      Allow emoji in formatted Messages and Slack output. Off by
+                      Allow emoji in polished Messages and Slack output. Off by
                       default.
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEmojiDraft((e) => !e)}
-                    className={`relative shrink-0 h-6 w-10 rounded-full border transition-colors duration-200 cursor-pointer ${
-                      emojiDraft
-                        ? "border-blue-400/50 bg-white/10"
-                        : "bg-white/7 border-white/14"
-                    }`}
-                    aria-pressed={emojiDraft}
+                  <Switch
+                    checked={emojiDraft}
+                    onCheckedChange={() => setEmojiDraft((e) => !e)}
                     aria-label="Toggle emoji in formatted chat"
-                  >
-                    <span
-                      className={`absolute top-0.5 h-5 w-5 rounded-full transition-all duration-200 ${
-                        emojiDraft
-                          ? "left-[18px] bg-blue-300"
-                          : "left-0.5 bg-white/40"
-                      }`}
-                    />
-                  </button>
+                  />
                 </div>
               </div>
 

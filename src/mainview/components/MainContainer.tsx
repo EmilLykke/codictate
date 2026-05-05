@@ -432,7 +432,9 @@ export function MainContainer({
             onLanguageChange={handleLanguageChange}
             onDeviceChange={handleDeviceChange}
             onStreamToggle={handleStreamToggle}
-            onStreamTranscriptionModeChange={handleStreamTranscriptionModeChange}
+            onStreamTranscriptionModeChange={
+              handleStreamTranscriptionModeChange
+            }
             onFormattingToggle={handleFormattingToggle}
             onTranslateToggle={handleTranslateToggle}
             onTranslateDefaultLanguageChange={

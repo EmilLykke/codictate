@@ -22,7 +22,15 @@ const SHORT_DESC: Record<string, string> = {
   "parakeet-tdt-0.6b-v3": "Fast and accurate with live dictation.",
 };
 
-function StatBar({ label, value, max = 10 }: { label: string; value: number; max?: number }) {
+function StatBar({
+  label,
+  value,
+  max = 10,
+}: {
+  label: string;
+  value: number;
+  max?: number;
+}) {
   const pct = Math.round((value / max) * 100);
   return (
     <div className="flex items-center gap-2">

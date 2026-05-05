@@ -78,7 +78,7 @@ const MAIN_FEATURES: { id: SidebarTab; label: string; icon: ReactNode }[] = [
   },
   {
     id: "formatting",
-    label: "Formatting",
+    label: "Auto-polish",
     icon: (
       <svg
         width="18"
@@ -96,7 +96,6 @@ const MAIN_FEATURES: { id: SidebarTab; label: string; icon: ReactNode }[] = [
     ),
   },
 ];
-
 
 interface AppLayoutProps {
   platform: Platform;
@@ -158,7 +157,6 @@ export function AppLayout({
                 </button>
               );
             })}
-
           </nav>
 
           <div className="mt-auto flex flex-col gap-1 pt-4">

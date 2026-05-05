@@ -66,8 +66,8 @@ export interface FormattingSettings {
   formatterModelTier: FormatterModelTier
   /** Platform supports running the formatter at all (vendored llama-cli present). */
   available: boolean
-  /** Local formatter model GGUF for the selected tier has been downloaded. */
-  modelInstalled: boolean
+  /** Per-tier availability: true when that tier's GGUF exists on disk. */
+  modelAvailability: Record<FormatterModelTier, boolean>
   email: FormattingEmailSettings
   imessage: FormattingImessageSettings
   slack: FormattingSlackSettings
@@ -337,9 +337,9 @@ export type WebviewRPCType = {
       downloadWhisperModel: { modelId: string }
       cancelModelDownload: { modelId: string }
       deleteWhisperModel: { modelId: string }
-      downloadFormatterModel: {}
+      downloadFormatterModel: { tier: FormatterModelTier }
       cancelFormatterModelDownload: {}
-      deleteFormatterModel: {}
+      deleteFormatterModel: { tier: FormatterModelTier }
     }
   }>
   webview: RPCSchema<{
@@ -359,6 +359,7 @@ export type WebviewRPCType = {
       }
       updateModelAvailability: { modelId: string; available: boolean }
       updateFormatterModelProgress: {
+        tier: FormatterModelTier
         progressFraction: number
         done: boolean
         error?: string

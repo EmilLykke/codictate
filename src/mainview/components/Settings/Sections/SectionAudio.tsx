@@ -2,6 +2,7 @@ import { useCallback, type ChangeEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import type { AppSettings } from "../../../../shared/types";
+import { Switch } from "../../Common/Switch";
 import {
   fetchDevices,
   setAudioDevice,
@@ -160,23 +161,13 @@ export function SectionAudio({ settings }: Props) {
                 stream mode).
               </span>
             </div>
-            <button
-              onClick={handleAudioDuckingIncludeBuiltInToggle}
-              className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                audioDucking.includeBuiltInSpeakers
-                  ? "bg-blue-500/30 border-blue-400/30"
-                  : "bg-white/7 border-white/14"
-              }`}
+            <Switch
+              checked={audioDucking.includeBuiltInSpeakers}
+              onCheckedChange={() =>
+                void handleAudioDuckingIncludeBuiltInToggle()
+              }
               aria-label="Toggle ducking for built-in speakers"
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200 ${
-                  audioDucking.includeBuiltInSpeakers
-                    ? "left-4 bg-blue-400/90"
-                    : "left-0.5 bg-white/40"
-                }`}
-              />
-            </button>
+            />
           </div>
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
@@ -190,23 +181,13 @@ export function SectionAudio({ settings }: Props) {
                 and stream mode).
               </span>
             </div>
-            <button
-              onClick={handleAudioDuckingIncludeHeadphonesToggle}
-              className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                audioDucking.includeHeadphones
-                  ? "bg-blue-500/30 border-blue-400/30"
-                  : "bg-white/7 border-white/14"
-              }`}
+            <Switch
+              checked={audioDucking.includeHeadphones}
+              onCheckedChange={() =>
+                void handleAudioDuckingIncludeHeadphonesToggle()
+              }
               aria-label="Toggle ducking for headphones"
-            >
-              <span
-                className={`absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200 ${
-                  audioDucking.includeHeadphones
-                    ? "left-4 bg-blue-400/90"
-                    : "left-0.5 bg-white/40"
-                }`}
-              />
-            </button>
+            />
           </div>
           <AnimatePresence>
             {isAnyAudioDuckingEnabled && (

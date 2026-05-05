@@ -31,7 +31,6 @@ import {
   setFormattingEmailCustomGreeting,
   setFormattingEmailGreetingStyle,
   setFormattingEmailIncludeSenderName,
-  setFormattingEnabled,
   setFormattingForceModeId,
   setFormattingImessageAllowEmoji,
   setFormattingImessageLightweight,
@@ -45,6 +44,7 @@ import {
 import { appEvents } from "../../../app-events";
 import { settingsHelperClass } from "../settings-shared";
 import { platformDisplayName } from "../../../../shared/platform";
+import { Switch } from "../../Common/Switch";
 
 type TileOption<T extends string> = {
   value: T;
@@ -57,7 +57,7 @@ const EMAIL_GREETING_OPTIONS: TileOption<FormattingEmailGreetingStyle>[] = [
   { value: "auto", label: "Auto", sublabel: "Let Codictate pick" },
   { value: "hi", label: "Hi,", sublabel: "Friendly" },
   { value: "hello", label: "Hello,", sublabel: "Classic" },
-  { value: "custom", label: "Custom…", sublabel: "You decide" },
+  { value: "custom", label: "Custom...", sublabel: "You decide" },
   { value: "none", label: "None", sublabel: "Skip greeting entirely" },
 ];
 
@@ -66,7 +66,7 @@ const EMAIL_CLOSING_OPTIONS: TileOption<FormattingEmailClosingStyle>[] = [
   { value: "best-regards", label: "Best regards,", sublabel: "Professional" },
   { value: "thanks", label: "Thanks,", sublabel: "Grateful" },
   { value: "kind-regards", label: "Kind regards,", sublabel: "Warm" },
-  { value: "custom", label: "Custom…", sublabel: "You decide" },
+  { value: "custom", label: "Custom...", sublabel: "You decide" },
   { value: "none", label: "None", sublabel: "Skip sign-off entirely" },
 ];
 
@@ -113,7 +113,7 @@ const SLACK_TONE_OPTIONS: TileOption<FormattingSlackTone>[] = [
     label: "very casual",
     sublabel: "No Caps + Relaxed",
     preview:
-      "quick update — the new build is out, let me know if anything breaks",
+      "quick update -- the new build is out, let me know if anything breaks",
   },
 ];
 
@@ -136,7 +136,7 @@ const DOCUMENT_TONE_OPTIONS: TileOption<FormattingDocumentTone>[] = [
     label: "very casual",
     sublabel: "Relaxed prose",
     preview:
-      "So here's where we landed after the chat — a few things to lock in.",
+      "So here's where we landed after the chat -- a few things to lock in.",
   },
 ];
 
@@ -153,12 +153,90 @@ const DOCUMENT_STRUCTURE_OPTIONS: TileOption<FormattingDocumentStructure>[] = [
     label: "Bulleted",
     sublabel: "List when it fits",
     preview:
-      "• Design: UI pass this week\n• Engineering: API wrap-up\n• Review Friday",
+      "- Design: UI pass this week\n- Engineering: API wrap-up\n- Review Friday",
   },
 ];
 
 const LIGHT_AI_LOCKED_HINT =
   "These use the on-device LLM. Turn off light formatting above to change them.";
+
+const MODE_ICONS: Record<FormattingModeId, React.ReactNode> = {
+  email: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  ),
+  imessage: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+    </svg>
+  ),
+  slack: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="3" height="8" x="13" y="2" rx="1.5" />
+      <path d="M19 8.5V10h1.5A1.5 1.5 0 1 0 19 8.5" />
+      <rect width="3" height="8" x="8" y="14" rx="1.5" />
+      <path d="M5 15.5V14H3.5A1.5 1.5 0 1 0 5 15.5" />
+      <rect width="8" height="3" x="14" y="13" rx="1.5" />
+      <path d="M15.5 19H14v1.5a1.5 1.5 0 1 0 1.5-1.5" />
+      <rect width="8" height="3" x="2" y="8" rx="1.5" />
+      <path d="M8.5 5H10V3.5A1.5 1.5 0 1 0 8.5 5" />
+    </svg>
+  ),
+  document: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <path d="M10 13H8" />
+      <path d="M16 17H8" />
+      <path d="M16 13h-2" />
+    </svg>
+  ),
+};
+
+const MODE_DESCRIPTIONS: Record<FormattingModeId, string> = {
+  email: "Mail, Outlook, Spark, Superhuman, Mimestream",
+  imessage: "Apple Messages",
+  slack: "Slack desktop",
+  document: "Notes, Pages, Word, Google Docs",
+};
 
 function LightLockedShell({
   locked,
@@ -187,6 +265,40 @@ function LightLockedShell({
   );
 }
 
+function SwitchRow({
+  label,
+  description,
+  checked,
+  onCheckedChange,
+  ariaLabel,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex-1 min-w-0">
+        <span
+          className={`block text-[15px] font-medium ${checked ? "text-white/78" : "text-white/58"}`}
+        >
+          {label}
+        </span>
+        <span className="mt-0.5 block text-[12px] text-white/40 leading-snug">
+          {description}
+        </span>
+      </div>
+      <Switch
+        checked={checked}
+        onCheckedChange={() => onCheckedChange()}
+        aria-label={ariaLabel}
+      />
+    </div>
+  );
+}
+
 type Props = {
   settings: AppSettings;
 };
@@ -194,37 +306,57 @@ type Props = {
 export function SectionFormatting({ settings }: Props) {
   const queryClient = useQueryClient();
   const formatting = settings.formatting;
-  const [focusedFormat, setFocusedFormat] = useState<FormattingModeId>("email");
+  const [expandedMode, setExpandedMode] = useState<FormattingModeId | null>(
+    null,
+  );
   const [customGreetingDraft, setCustomGreetingDraft] = useState("");
   const [customClosingDraft, setCustomClosingDraft] = useState("");
-  const [modelDownload, setModelDownload] = useState<{
+  type TierDownloadState = {
     inFlight: boolean;
     fraction: number;
     error?: string;
-  }>({ inFlight: false, fraction: 0 });
+  };
+  const [tierDownloads, setTierDownloads] = useState<
+    Record<FormatterModelTier, TierDownloadState>
+  >({
+    fast: { inFlight: false, fraction: 0 },
+    quality: { inFlight: false, fraction: 0 },
+  });
 
   useEffect(() => {
     return appEvents.on("formatterModelProgress", (data) => {
-      setModelDownload({
-        inFlight: !data.done,
-        fraction: data.progressFraction,
-        error: data.error,
-      });
+      setTierDownloads((prev) => ({
+        ...prev,
+        [data.tier]: {
+          inFlight: !data.done,
+          fraction: data.progressFraction,
+          error: data.error,
+        },
+      }));
     });
   }, []);
 
-  const handleDownloadFormatterModel = useCallback(() => {
-    setModelDownload({ inFlight: true, fraction: 0 });
-    downloadFormatterModel();
-  }, []);
+  const handleDownloadFormatterModel = useCallback(
+    (tier: FormatterModelTier) => {
+      setTierDownloads((prev) => ({
+        ...prev,
+        [tier]: { inFlight: true, fraction: 0 },
+      }));
+      downloadFormatterModel(tier);
+    },
+    [],
+  );
 
   const handleCancelFormatterDownload = useCallback(() => {
     cancelFormatterModelDownload();
-    setModelDownload({ inFlight: false, fraction: 0 });
+    setTierDownloads({
+      fast: { inFlight: false, fraction: 0 },
+      quality: { inFlight: false, fraction: 0 },
+    });
   }, []);
 
-  const handleDeleteFormatterModel = useCallback(() => {
-    deleteFormatterModel();
+  const handleDeleteFormatterModel = useCallback((tier: FormatterModelTier) => {
+    deleteFormatterModel(tier);
   }, []);
 
   const handleFormatterModelTierChange = useCallback(
@@ -262,57 +394,22 @@ export function SectionFormatting({ settings }: Props) {
             }
           : {}),
         ...(patch.email
-          ? {
-              email: {
-                ...old.formatting.email,
-                ...patch.email,
-              },
-            }
+          ? { email: { ...old.formatting.email, ...patch.email } }
           : {}),
         ...(patch.imessage
-          ? {
-              imessage: {
-                ...old.formatting.imessage,
-                ...patch.imessage,
-              },
-            }
+          ? { imessage: { ...old.formatting.imessage, ...patch.imessage } }
           : {}),
         ...(patch.slack
-          ? {
-              slack: {
-                ...old.formatting.slack,
-                ...patch.slack,
-              },
-            }
+          ? { slack: { ...old.formatting.slack, ...patch.slack } }
           : {}),
         ...(patch.document
-          ? {
-              document: {
-                ...old.formatting.document,
-                ...patch.document,
-              },
-            }
+          ? { document: { ...old.formatting.document, ...patch.document } }
           : {}),
       };
-
-      return {
-        ...old,
-        formatting: nextFormatting,
-      };
+      return { ...old, formatting: nextFormatting };
     },
     [],
   );
-
-  const handleFormattingEnabledToggle = useCallback(async () => {
-    const newValue = !formatting.enabled;
-    queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
-      old ? mergeFormatting(old, { enabled: newValue }) : old,
-    );
-    const ok = await setFormattingEnabled(newValue);
-    if (!ok) {
-      queryClient.setQueryData(["settings"], await fetchSettings());
-    }
-  }, [formatting.enabled, mergeFormatting, queryClient]);
 
   const handleFormattingModeToggle = useCallback(
     async (modeId: FormattingModeId) => {
@@ -389,9 +486,7 @@ export function SectionFormatting({ settings }: Props) {
         old ? mergeFormatting(old, { email: { greetingStyle: style } }) : old,
       );
       const ok = await setFormattingEmailGreetingStyle(style);
-      if (!ok) {
-        queryClient.setQueryData(["settings"], await fetchSettings());
-      }
+      if (!ok) queryClient.setQueryData(["settings"], await fetchSettings());
     },
     [mergeFormatting, queryClient],
   );
@@ -402,9 +497,7 @@ export function SectionFormatting({ settings }: Props) {
         old ? mergeFormatting(old, { email: { closingStyle: style } }) : old,
       );
       const ok = await setFormattingEmailClosingStyle(style);
-      if (!ok) {
-        queryClient.setQueryData(["settings"], await fetchSettings());
-      }
+      if (!ok) queryClient.setQueryData(["settings"], await fetchSettings());
     },
     [mergeFormatting, queryClient],
   );
@@ -515,24 +608,23 @@ export function SectionFormatting({ settings }: Props) {
         : old,
     );
     const ok = await setFormattingEmailIncludeSenderName(newValue);
-    if (!ok) {
-      queryClient.setQueryData(["settings"], await fetchSettings());
-    }
+    if (!ok) queryClient.setQueryData(["settings"], await fetchSettings());
   }, [formatting.email.includeSenderName, mergeFormatting, queryClient]);
-
-  const effectiveFraction = modelDownload.inFlight
-    ? modelDownload.fraction
-    : formatting.modelInstalled
-      ? 1
-      : 0;
 
   return (
     <>
+      {/* Intro */}
+      <p className="mb-6 text-[14px] text-white/44 leading-relaxed">
+        Automatically cleans up your dictation based on which app you're in.
+        Toggle from the Home screen; configure per-app behavior below.
+      </p>
+
+      {/* Platform warning */}
       {!formatting.available && (
         <div className="mb-6 rounded-xl border border-white/10 bg-white/4 px-4 py-3.5">
           <p className="text-[14px] text-white/44 leading-relaxed font-sans">
-            Formatting requires the vendored llama-cli binary, which is missing.
-            Run{" "}
+            Auto-polish requires the vendored llama-cli binary, which is
+            missing. Run{" "}
             <span className="text-white/62 font-medium">
               bun scripts/pre-build.ts
             </span>{" "}
@@ -545,150 +637,7 @@ export function SectionFormatting({ settings }: Props) {
         </div>
       )}
 
-      {formatting.available && (
-        <div className="mb-6">
-          <span className="block text-[13px] font-medium text-white/86 mb-2.5">
-            Formatter model
-          </span>
-          <div className="flex gap-2 mb-3">
-            {(
-              [
-                {
-                  tier: "fast" as FormatterModelTier,
-                  label: "Qwen2.5 3B",
-                  sublabel: "Fast · ~2 GB · multilingual",
-                },
-                {
-                  tier: "quality" as FormatterModelTier,
-                  label: "Qwen3 4B",
-                  sublabel: "Better quality · ~2.5 GB · 119 languages",
-                },
-              ] as const
-            ).map(({ tier, label, sublabel }) => {
-              const active = formatting.formatterModelTier === tier;
-              return (
-                <button
-                  key={tier}
-                  onClick={() => handleFormatterModelTierChange(tier)}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer ${
-                    active
-                      ? "border-blue-400/40 bg-blue-500/16 text-white"
-                      : "border-white/12 bg-white/6 text-white/60 hover:bg-white/10 hover:text-white/80"
-                  }`}
-                >
-                  <span className="block text-[15px] font-medium">{label}</span>
-                  <span className="block text-[13px] mt-0.5 opacity-70">
-                    {sublabel}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {!formatting.modelInstalled && (
-            <div>
-              <span className="block text-[15px] text-white/50 mb-2">
-                {formatting.formatterModelTier === "fast"
-                  ? "Qwen2.5 3B not downloaded yet."
-                  : "Qwen3 4B not downloaded yet."}
-              </span>
-              {modelDownload.error && (
-                <span className="mb-2 block text-[14px] text-rose-300/80">
-                  {modelDownload.error}
-                </span>
-              )}
-              {modelDownload.inFlight && (
-                <div className="mb-2 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full bg-blue-400 transition-all duration-150"
-                    style={{ width: `${Math.round(effectiveFraction * 100)}%` }}
-                  />
-                </div>
-              )}
-              <div className="flex gap-2">
-                {modelDownload.inFlight ? (
-                  <button
-                    onClick={handleCancelFormatterDownload}
-                    className="rounded-lg border border-white/16 bg-white/8 px-3 py-1.5 text-[14px] text-white/80 hover:bg-white/12 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleDownloadFormatterModel}
-                    className="rounded-lg border border-blue-400/40 bg-blue-500/20 px-3 py-1.5 text-[14px] text-white hover:bg-blue-500/30 cursor-pointer"
-                  >
-                    Download
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {formatting.modelInstalled && (
-            <div className="flex items-center gap-2">
-              <span className="text-[14px] text-emerald-400/80">
-                ✓{" "}
-                {formatting.formatterModelTier === "fast"
-                  ? "Qwen2.5 3B"
-                  : "Qwen3 4B"}{" "}
-                installed
-              </span>
-              <button
-                onClick={handleDeleteFormatterModel}
-                className="text-[13px] text-white/40 hover:text-white/70 cursor-pointer"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="mb-6 rounded-xl border border-white/11 bg-white/4 px-4 py-3.5">
-        <div className="flex items-center gap-3">
-          {(() => {
-            const effectiveOn =
-              formatting.enabled || formatting.forceModeId !== null;
-            return (
-              <>
-                <div className="flex-1 min-w-0">
-                  <span
-                    className={`block text-[17px] font-medium ${effectiveOn ? "text-white/86" : "text-white/60"}`}
-                  >
-                    Formatting
-                  </span>
-                  <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                    Auto-detects the focused app and applies the matching
-                    format. Works in standard recording mode only — not stream
-                    mode. Force mode (set from the tray) always applies
-                    regardless of this switch.
-                  </span>
-                </div>
-                <button
-                  onClick={handleFormattingEnabledToggle}
-                  disabled={!formatting.available || !formatting.modelInstalled}
-                  className={`relative shrink-0 w-10 h-6 rounded-full transition-colors duration-200 cursor-pointer border disabled:cursor-not-allowed disabled:opacity-50 ${
-                    effectiveOn
-                      ? "border-blue-400/50 bg-white/10"
-                      : "bg-white/7 border-white/14"
-                  }`}
-                  aria-label="Toggle formatting master switch"
-                >
-                  <span
-                    className={`absolute top-px w-5 h-5 rounded-full transition-all duration-200 ${
-                      effectiveOn
-                        ? "left-[18px] bg-blue-400"
-                        : "left-0.5 bg-white/40"
-                    }`}
-                  />
-                </button>
-              </>
-            );
-          })()}
-        </div>
-      </div>
-
+      {/* Force mode alert */}
       <AnimatePresence>
         {formatting.forceModeId !== null && (
           <motion.div
@@ -719,7 +668,7 @@ export function SectionFormatting({ settings }: Props) {
                 <span className="font-medium text-amber-200/90">
                   {formattingModeLabel(formatting.forceModeId)}
                 </span>{" "}
-                — always applied, even if formatting is off or the format is
+                -- always applied, even if auto-polish is off or the format is
                 disabled below. Clear to return to auto-detection.
               </span>
               <button
@@ -733,497 +682,606 @@ export function SectionFormatting({ settings }: Props) {
         )}
       </AnimatePresence>
 
-      <div className="mb-8">
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider">
-            Formats
+      {/* Model tier picker */}
+      {formatting.available && (
+        <div className="mb-8">
+          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+            Model
           </h2>
+          <div className="flex flex-col gap-2">
+            {(
+              [
+                {
+                  tier: "fast" as FormatterModelTier,
+                  label: "Fast",
+                  model: "Qwen2.5 3B",
+                  size: "~2 GB",
+                  desc: "Quicker, slightly less polished",
+                },
+                {
+                  tier: "quality" as FormatterModelTier,
+                  label: "Quality",
+                  model: "Qwen3 4B",
+                  size: "~2.5 GB",
+                  desc: "Best results, bit slower",
+                },
+              ] as const
+            ).map(({ tier, label, model, size, desc }) => {
+              const isSelected = formatting.formatterModelTier === tier;
+              const isInstalled = formatting.modelAvailability[tier];
+              const dl = tierDownloads[tier];
+              const isDownloading = dl.inFlight;
+              const needsDownload = !isInstalled && !isDownloading;
+              const canSelect = !isSelected && isInstalled;
+              return (
+                <div
+                  key={tier}
+                  className={`rounded-xl border transition-colors duration-200 overflow-hidden ${
+                    isSelected
+                      ? "border-blue-400/25 bg-white/7"
+                      : "border-white/11 bg-white/4"
+                  } ${canSelect ? "hover:border-white/16 hover:bg-white/6 cursor-pointer" : ""}`}
+                  onClick={() => {
+                    if (canSelect) void handleFormatterModelTierChange(tier);
+                  }}
+                >
+                  <div className="flex items-center gap-4 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`text-[16px] font-semibold ${isSelected ? "text-white/85" : "text-white/60"}`}
+                        >
+                          {label}
+                        </span>
+                        {isSelected && isInstalled && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/15 text-blue-300/80 border border-blue-400/20">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[13px] text-white/38">
+                        {model} - {desc}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <span className="text-[12px] text-white/25 tabular-nums">
+                        {size}
+                      </span>
+                      {needsDownload && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadFormatterModel(tier);
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
+                        >
+                          Download
+                        </button>
+                      )}
+                      {isInstalled && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFormatterModel(tier);
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-white/12 hover:border-red-400/30 bg-white/4 hover:bg-red-500/8 text-white/48 hover:text-red-400/70 transition-colors duration-200 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {isDownloading && (
+                    <div className="px-4 pb-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[12px] text-white/30 tabular-nums">
+                          {Math.round(dl.fraction * 100)}%
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelFormatterDownload();
+                          }}
+                          className="text-[12px] font-medium text-white/28 hover:text-white/50 transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <div className="h-1 rounded-full bg-white/8 overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full bg-blue-400/40"
+                          initial={{ width: 0 }}
+                          animate={{
+                            width: `${Math.round(dl.fraction * 100)}%`,
+                          }}
+                          transition={{ duration: 0.2 }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {dl.error && (
+                    <div className="px-4 pb-3">
+                      <span className="text-[13px] text-rose-300/80">
+                        {dl.error}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <p className={settingsHelperClass}>
+            The on-device model that rewrites your dictation. Set once; the
+            active tier applies to all formats below.
+          </p>
         </div>
-        <div className="grid grid-cols-1 gap-2.5 min-[520px]:grid-cols-2 xl:grid-cols-4">
+      )}
+
+      {/* Modes accordion */}
+      <div className="mb-8">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          Formats
+        </h2>
+        <div className="flex flex-col gap-2">
           {FORMATTING_MODES.map((mode) => {
             const enabled = formatting.enabledModes[mode.id] ?? false;
-            const focused = focusedFormat === mode.id;
+            const isExpanded = expandedMode === mode.id;
+            const isLightweight =
+              (mode.id === "imessage" && formatting.imessage.lightweight) ||
+              (mode.id === "slack" && formatting.slack.lightweight) ||
+              (mode.id === "document" && formatting.document.lightweight);
+
             return (
               <div
                 key={mode.id}
-                className={`relative rounded-xl border transition-all duration-200 overflow-hidden ${
-                  focused
-                    ? "border-blue-400/50 bg-blue-400/5"
-                    : enabled
-                      ? "border-white/14 bg-white/6 hover:border-white/22"
-                      : "border-white/10 bg-white/4 hover:border-white/18"
+                className={`rounded-xl border transition-colors duration-200 ${
+                  isExpanded
+                    ? "border-blue-400/25 bg-white/7"
+                    : "border-white/11 bg-white/4 overflow-hidden"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => setFocusedFormat(mode.id)}
-                  aria-pressed={focused}
-                  className="w-full text-left px-4 pt-4 pb-12 cursor-pointer"
-                >
-                  <span
-                    className={`block text-[15px] xl:text-[17px] font-medium ${
-                      focused
-                        ? "text-white/92"
-                        : enabled
-                          ? "text-white/82"
-                          : "text-white/58"
-                    }`}
+                {/* Collapsed row */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedMode(isExpanded ? null : mode.id)}
+                    className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer"
                   >
-                    {mode.label}
-                  </span>
-                  <span
-                    className={`mt-1 block text-[15px] xl:text-[13px] leading-snug ${
-                      focused ? "text-white/58" : "text-white/40"
-                    }`}
-                  >
-                    {mode.tagline}
-                  </span>
-                  {(mode.id === "imessage" &&
-                    formatting.imessage.lightweight) ||
-                  (mode.id === "slack" && formatting.slack.lightweight) ||
-                  (mode.id === "document" &&
-                    formatting.document.lightweight) ? (
-                    <span className="mt-2 inline-flex rounded-md border border-white/12 bg-white/5 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white/48">
-                      Light formatting
-                    </span>
-                  ) : null}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleFormattingModeToggle(mode.id)}
-                  aria-label={`Toggle ${mode.label} formatting`}
-                  className={`absolute bottom-2 right-2 h-5 w-9 rounded-full border transition-colors duration-200 cursor-pointer ${
-                    enabled
-                      ? "border-blue-400/50 bg-white/10"
-                      : "bg-white/7 border-white/14"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                      enabled ? "left-4 bg-blue-400" : "left-0.5 bg-white/40"
-                    }`}
+                    <div
+                      className={`shrink-0 ${isExpanded || enabled ? "text-white/60" : "text-white/30"}`}
+                    >
+                      {MODE_ICONS[mode.id]}
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[16px] font-semibold ${
+                            isExpanded || enabled
+                              ? "text-white/85"
+                              : "text-white/55"
+                          }`}
+                        >
+                          {mode.label}
+                        </span>
+                        {isLightweight && enabled && (
+                          <span className="rounded-md border border-white/12 bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                            Light
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[13px] text-white/38">
+                        {MODE_DESCRIPTIONS[mode.id]}
+                      </span>
+                    </div>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`shrink-0 text-white/30 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={() =>
+                      void handleFormattingModeToggle(mode.id)
+                    }
+                    aria-label={`Toggle ${mode.label} auto-polish`}
                   />
-                </button>
+                </div>
+
+                {/* Expanded settings */}
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+                      animate={{
+                        height: "auto",
+                        opacity: 1,
+                        overflow: "visible",
+                      }}
+                      exit={{ height: 0, opacity: 0, overflow: "hidden" }}
+                      transition={{ duration: 0.2, overflow: { delay: 0.2 } }}
+                    >
+                      <div className="border-t border-white/8 px-4 pt-3 pb-4">
+                        {mode.id === "email" && (
+                          <EmailSettings
+                            formatting={formatting}
+                            customGreetingDraft={customGreetingDraft}
+                            customClosingDraft={customClosingDraft}
+                            onCustomGreetingChange={setCustomGreetingDraft}
+                            onCustomGreetingCommit={handleCustomGreetingCommit}
+                            onCustomClosingChange={setCustomClosingDraft}
+                            onCustomClosingCommit={handleCustomClosingCommit}
+                            onGreetingStyleChange={
+                              handleEmailGreetingStyleChange
+                            }
+                            onClosingStyleChange={handleEmailClosingStyleChange}
+                            onIncludeSenderNameToggle={
+                              handleFormattingEmailIncludeSenderNameToggle
+                            }
+                          />
+                        )}
+                        {mode.id === "imessage" && (
+                          <ImessageSettings
+                            formatting={formatting}
+                            onToneChange={handleImessageToneChange}
+                            onLightweightToggle={
+                              handleFormattingImessageLightweightToggle
+                            }
+                            onAllowEmojiToggle={
+                              handleFormattingImessageAllowEmojiToggle
+                            }
+                          />
+                        )}
+                        {mode.id === "slack" && (
+                          <SlackSettings
+                            formatting={formatting}
+                            onToneChange={handleSlackToneChange}
+                            onLightweightToggle={
+                              handleFormattingSlackLightweightToggle
+                            }
+                            onUseMarkdownToggle={
+                              handleFormattingSlackUseMarkdownToggle
+                            }
+                            onAllowEmojiToggle={
+                              handleFormattingSlackAllowEmojiToggle
+                            }
+                          />
+                        )}
+                        {mode.id === "document" && (
+                          <DocumentSettings
+                            formatting={formatting}
+                            onToneChange={handleDocumentToneChange}
+                            onStructureChange={handleDocumentStructureChange}
+                            onLightweightToggle={
+                              handleFormattingDocumentLightweightToggle
+                            }
+                          />
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             );
           })}
         </div>
       </div>
-
-      {focusedFormat === "email" && (
-        <div className="mb-8">
-          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
-            Email behavior
-          </h2>
-          <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex-1 min-w-0">
-                <span
-                  className={`block text-[17px] font-medium ${formatting.email.includeSenderName ? "text-white/78" : "text-white/58"}`}
-                >
-                  Add my name to email sign-off
-                </span>
-                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                  Uses your stored name when the email needs a sign-off and you
-                  did not dictate one clearly.
-                </span>
-              </div>
-              <button
-                onClick={handleFormattingEmailIncludeSenderNameToggle}
-                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                  formatting.email.includeSenderName
-                    ? "border-blue-400/50 bg-white/10"
-                    : "bg-white/7 border-white/14"
-                }`}
-                aria-label="Toggle sender name in email sign-off"
-              >
-                <span
-                  className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                    formatting.email.includeSenderName
-                      ? "left-4 bg-blue-400"
-                      : "left-0.5 bg-white/40"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <span className="mb-2 block text-[13px] text-white/44 font-sans">
-              Greeting style
-            </span>
-            <DropdownPicker
-              value={formatting.email.greetingStyle}
-              onChange={handleEmailGreetingStyleChange}
-              options={EMAIL_GREETING_OPTIONS}
-              ariaLabel="Preferred email greeting style"
-            />
-            <AnimatePresence>
-              {formatting.email.greetingStyle === "custom" && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="overflow-hidden"
-                >
-                  <input
-                    type="text"
-                    value={customGreetingDraft}
-                    onChange={(e) => setCustomGreetingDraft(e.target.value)}
-                    onBlur={() => void handleCustomGreetingCommit()}
-                    placeholder="e.g. Dear"
-                    className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <div className="mt-5">
-            <span className="mb-2 block text-[13px] text-white/44 font-sans">
-              Closing style
-            </span>
-            <DropdownPicker
-              value={formatting.email.closingStyle}
-              onChange={handleEmailClosingStyleChange}
-              options={EMAIL_CLOSING_OPTIONS}
-              ariaLabel="Preferred email closing style"
-            />
-            <AnimatePresence>
-              {formatting.email.closingStyle === "custom" && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="overflow-hidden"
-                >
-                  <input
-                    type="text"
-                    value={customClosingDraft}
-                    onChange={(e) => setCustomClosingDraft(e.target.value)}
-                    onBlur={() => void handleCustomClosingCommit()}
-                    placeholder="e.g. Cheers"
-                    className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <p className={settingsHelperClass}>
-            Applies in Mail, Outlook, Spark, Superhuman and Mimestream. The
-            formatter keeps your language and only fills in missing pieces like
-            greeting, sign-off, and spacing.
-          </p>
-        </div>
-      )}
-
-      {focusedFormat === "imessage" && (
-        <div className="mb-8">
-          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
-            Messages behavior
-          </h2>
-          <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex-1 min-w-0">
-                <span
-                  className={`block text-[17px] font-medium ${formatting.imessage.lightweight ? "text-white/78" : "text-white/58"}`}
-                >
-                  Light formatting only
-                </span>
-                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                  Skips the LLM rewrite for Messages. Tidies spacing only; tone
-                  below then controls capitalization (Very casual = lowercase).
-                  Turn off for emoji and fuller rewrites.
-                </span>
-              </div>
-              <button
-                onClick={handleFormattingImessageLightweightToggle}
-                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                  formatting.imessage.lightweight
-                    ? "border-blue-400/50 bg-white/10"
-                    : "bg-white/7 border-white/14"
-                }`}
-                aria-label="Toggle lightweight Messages formatting"
-              >
-                <span
-                  className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                    formatting.imessage.lightweight
-                      ? "left-4 bg-blue-400"
-                      : "left-0.5 bg-white/40"
-                  }`}
-                />
-              </button>
-            </div>
-            <LightLockedShell
-              locked={formatting.imessage.lightweight}
-              hint={LIGHT_AI_LOCKED_HINT}
-            >
-              <div className="flex items-center gap-3 px-4 py-3.5">
-                <div className="flex-1 min-w-0">
-                  <span
-                    className={`block text-[17px] font-medium ${formatting.imessage.allowEmoji ? "text-white/78" : "text-white/58"}`}
-                  >
-                    Allow emoji
-                  </span>
-                  <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                    Lets Codictate sprinkle in a relevant emoji when it fits the
-                    mood.
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleFormattingImessageAllowEmojiToggle}
-                  className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                    formatting.imessage.allowEmoji
-                      ? "border-blue-400/50 bg-white/10"
-                      : "bg-white/7 border-white/14"
-                  }`}
-                  aria-label="Toggle Messages emoji"
-                >
-                  <span
-                    className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                      formatting.imessage.allowEmoji
-                        ? "left-4 bg-blue-400"
-                        : "left-0.5 bg-white/40"
-                    }`}
-                  />
-                </button>
-              </div>
-            </LightLockedShell>
-          </div>
-          <div className="mt-5">
-            <span className="mb-2 block text-[13px] text-white/44 font-sans">
-              Tone
-            </span>
-            <TileGroup
-              value={formatting.imessage.tone}
-              onChange={handleImessageToneChange}
-              options={IMESSAGE_TONE_OPTIONS}
-              columns={3}
-              ariaLabel="Messages tone"
-            />
-          </div>
-          <p className={settingsHelperClass}>
-            Applies in the Messages app. With light formatting only, only
-            spacing and tone-driven caps apply. With the LLM on, Formal means
-            heavier polish, Casual a lighter touch, and Very casual the smallest
-            rewrite.
-          </p>
-        </div>
-      )}
-
-      {focusedFormat === "slack" && (
-        <div className="mb-8">
-          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
-            Slack behavior
-          </h2>
-          <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex-1 min-w-0">
-                <span
-                  className={`block text-[17px] font-medium ${formatting.slack.lightweight ? "text-white/78" : "text-white/58"}`}
-                >
-                  Light formatting only
-                </span>
-                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                  Skips the LLM rewrite for Slack. Tidies spacing; tone below
-                  then controls capitalization when Very casual is selected.
-                  Turn off for markdown, emoji, and fuller rewrites.
-                </span>
-              </div>
-              <button
-                onClick={handleFormattingSlackLightweightToggle}
-                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                  formatting.slack.lightweight
-                    ? "border-blue-400/50 bg-white/10"
-                    : "bg-white/7 border-white/14"
-                }`}
-                aria-label="Toggle lightweight Slack formatting"
-              >
-                <span
-                  className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                    formatting.slack.lightweight
-                      ? "left-4 bg-blue-400"
-                      : "left-0.5 bg-white/40"
-                  }`}
-                />
-              </button>
-            </div>
-            <LightLockedShell
-              locked={formatting.slack.lightweight}
-              hint={LIGHT_AI_LOCKED_HINT}
-            >
-              <div className="divide-y divide-white/8">
-                <div className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="flex-1 min-w-0">
-                    <span
-                      className={`block text-[17px] font-medium ${formatting.slack.useMarkdown ? "text-white/78" : "text-white/58"}`}
-                    >
-                      Use Slack markdown
-                    </span>
-                    <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                      Adds{" "}
-                      <span className="text-[16px] font-normal [font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',Arial,sans-serif]">
-                        *bold*, _italic_, `code`
-                      </span>{" "}
-                      and bullet lists when helpful.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleFormattingSlackUseMarkdownToggle}
-                    className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                      formatting.slack.useMarkdown
-                        ? "border-blue-400/50 bg-white/10"
-                        : "bg-white/7 border-white/14"
-                    }`}
-                    aria-label="Toggle Slack markdown"
-                  >
-                    <span
-                      className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                        formatting.slack.useMarkdown
-                          ? "left-4 bg-blue-400"
-                          : "left-0.5 bg-white/40"
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="flex-1 min-w-0">
-                    <span
-                      className={`block text-[17px] font-medium ${formatting.slack.allowEmoji ? "text-white/78" : "text-white/58"}`}
-                    >
-                      Allow emoji
-                    </span>
-                    <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                      Slack-flavoured :thumbsup: style emoji where appropriate.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleFormattingSlackAllowEmojiToggle}
-                    className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                      formatting.slack.allowEmoji
-                        ? "border-blue-400/50 bg-white/10"
-                        : "bg-white/7 border-white/14"
-                    }`}
-                    aria-label="Toggle Slack emoji"
-                  >
-                    <span
-                      className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                        formatting.slack.allowEmoji
-                          ? "left-4 bg-blue-400"
-                          : "left-0.5 bg-white/40"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </LightLockedShell>
-          </div>
-          <div className="mt-5">
-            <span className="mb-2 block text-[13px] text-white/44 font-sans">
-              Tone
-            </span>
-            <TileGroup
-              value={formatting.slack.tone}
-              onChange={handleSlackToneChange}
-              options={SLACK_TONE_OPTIONS}
-              columns={3}
-              ariaLabel="Slack tone"
-            />
-          </div>
-          <p className={settingsHelperClass}>
-            Applies in the Slack desktop app. With light formatting, only
-            spacing and tone-driven caps apply. With the LLM on, Formal is a
-            stronger polish, Casual a lighter touch, and Very casual the
-            smallest rewrite.
-          </p>
-        </div>
-      )}
-
-      {focusedFormat === "document" && (
-        <div className="mb-8">
-          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
-            Document behavior
-          </h2>
-          <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex-1 min-w-0">
-                <span
-                  className={`block text-[17px] font-medium ${formatting.document.lightweight ? "text-white/78" : "text-white/58"}`}
-                >
-                  Light formatting only
-                </span>
-                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                  Skips the LLM rewrite for document apps. Tidies spacing; tone
-                  below then controls capitalization when Very casual is
-                  selected. Turn off for structure choices and fuller rewrites.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleFormattingDocumentLightweightToggle}
-                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200 cursor-pointer border ${
-                  formatting.document.lightweight
-                    ? "border-blue-400/50 bg-white/10"
-                    : "bg-white/7 border-white/14"
-                }`}
-                aria-label="Toggle lightweight document formatting"
-              >
-                <span
-                  className={`absolute top-px w-4 h-4 rounded-full transition-all duration-200 ${
-                    formatting.document.lightweight
-                      ? "left-4 bg-blue-400"
-                      : "left-0.5 bg-white/40"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-          <div className="mt-5">
-            <span className="mb-2 block text-[13px] text-white/44 font-sans">
-              Tone
-            </span>
-            <TileGroup
-              value={formatting.document.tone}
-              onChange={handleDocumentToneChange}
-              options={DOCUMENT_TONE_OPTIONS}
-              columns={3}
-              ariaLabel="Document tone"
-            />
-          </div>
-          <div className="mt-5">
-            <span className="mb-2 block text-[13px] text-white/44 font-sans">
-              Structure
-            </span>
-            <LightLockedShell
-              locked={formatting.document.lightweight}
-              hint={LIGHT_AI_LOCKED_HINT}
-            >
-              <div className="px-1 pb-1 pt-0.5 sm:px-2">
-                <TileGroup
-                  value={formatting.document.structure}
-                  onChange={handleDocumentStructureChange}
-                  options={DOCUMENT_STRUCTURE_OPTIONS}
-                  columns={2}
-                  ariaLabel="Document structure"
-                />
-              </div>
-            </LightLockedShell>
-          </div>
-          <p className={settingsHelperClass}>
-            Applies in Notes, Pages, Word and similar writing apps. With light
-            formatting, only spacing and tone-driven caps apply. With Apple
-            Intelligence on, Formal is a stronger polish, Casual a lighter
-            touch, and Very casual the smallest rewrite.
-          </p>
-        </div>
-      )}
     </>
+  );
+}
+
+function EmailSettings({
+  formatting,
+  customGreetingDraft,
+  customClosingDraft,
+  onCustomGreetingChange,
+  onCustomGreetingCommit,
+  onCustomClosingChange,
+  onCustomClosingCommit,
+  onGreetingStyleChange,
+  onClosingStyleChange,
+  onIncludeSenderNameToggle,
+}: {
+  formatting: AppSettings["formatting"];
+  customGreetingDraft: string;
+  customClosingDraft: string;
+  onCustomGreetingChange: (v: string) => void;
+  onCustomGreetingCommit: () => Promise<void>;
+  onCustomClosingChange: (v: string) => void;
+  onCustomClosingCommit: () => Promise<void>;
+  onGreetingStyleChange: (s: FormattingEmailGreetingStyle) => void;
+  onClosingStyleChange: (s: FormattingEmailClosingStyle) => void;
+  onIncludeSenderNameToggle: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden">
+        <SwitchRow
+          label="Add my name to email sign-off"
+          description="Uses your stored name when the email needs a sign-off and you did not dictate one clearly."
+          checked={formatting.email.includeSenderName}
+          onCheckedChange={onIncludeSenderNameToggle}
+          ariaLabel="Toggle sender name in email sign-off"
+        />
+      </div>
+
+      <div>
+        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+          Greeting style
+        </span>
+        <DropdownPicker
+          value={formatting.email.greetingStyle}
+          onChange={onGreetingStyleChange}
+          options={EMAIL_GREETING_OPTIONS}
+          ariaLabel="Preferred email greeting style"
+        />
+        <AnimatePresence>
+          {formatting.email.greetingStyle === "custom" && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="overflow-hidden"
+            >
+              <input
+                type="text"
+                value={customGreetingDraft}
+                onChange={(e) => onCustomGreetingChange(e.target.value)}
+                onBlur={() => void onCustomGreetingCommit()}
+                placeholder="e.g. Dear"
+                className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div>
+        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+          Closing style
+        </span>
+        <DropdownPicker
+          value={formatting.email.closingStyle}
+          onChange={onClosingStyleChange}
+          options={EMAIL_CLOSING_OPTIONS}
+          ariaLabel="Preferred email closing style"
+        />
+        <AnimatePresence>
+          {formatting.email.closingStyle === "custom" && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="overflow-hidden"
+            >
+              <input
+                type="text"
+                value={customClosingDraft}
+                onChange={(e) => onCustomClosingChange(e.target.value)}
+                onBlur={() => void onCustomClosingCommit()}
+                placeholder="e.g. Cheers"
+                className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <p className={`${settingsHelperClass} !mt-0`}>
+        The formatter keeps your language and only fills in missing pieces like
+        greeting, sign-off, and spacing.
+      </p>
+    </div>
+  );
+}
+
+function ImessageSettings({
+  formatting,
+  onToneChange,
+  onLightweightToggle,
+  onAllowEmojiToggle,
+}: {
+  formatting: AppSettings["formatting"];
+  onToneChange: (t: FormattingImessageTone) => void;
+  onLightweightToggle: () => void;
+  onAllowEmojiToggle: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+          Tone
+        </span>
+        <TileGroup
+          value={formatting.imessage.tone}
+          onChange={onToneChange}
+          options={IMESSAGE_TONE_OPTIONS}
+          columns={3}
+          ariaLabel="Messages tone"
+        />
+      </div>
+
+      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden divide-y divide-white/8">
+        <SwitchRow
+          label="Light formatting only"
+          description="Skips the LLM rewrite. Tidies spacing only; tone controls capitalization."
+          checked={formatting.imessage.lightweight}
+          onCheckedChange={onLightweightToggle}
+          ariaLabel="Toggle lightweight Messages auto-polish"
+        />
+        <LightLockedShell
+          locked={formatting.imessage.lightweight}
+          hint={LIGHT_AI_LOCKED_HINT}
+        >
+          <SwitchRow
+            label="Allow emoji"
+            description="Lets Codictate sprinkle in a relevant emoji when it fits the mood."
+            checked={formatting.imessage.allowEmoji}
+            onCheckedChange={onAllowEmojiToggle}
+            ariaLabel="Toggle Messages emoji"
+          />
+        </LightLockedShell>
+      </div>
+
+      <p className={`${settingsHelperClass} !mt-0`}>
+        With light formatting, only spacing and tone-driven caps apply. With the
+        LLM on, Formal means heavier polish, Casual a lighter touch.
+      </p>
+    </div>
+  );
+}
+
+function SlackSettings({
+  formatting,
+  onToneChange,
+  onLightweightToggle,
+  onUseMarkdownToggle,
+  onAllowEmojiToggle,
+}: {
+  formatting: AppSettings["formatting"];
+  onToneChange: (t: FormattingSlackTone) => void;
+  onLightweightToggle: () => void;
+  onUseMarkdownToggle: () => void;
+  onAllowEmojiToggle: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+          Tone
+        </span>
+        <TileGroup
+          value={formatting.slack.tone}
+          onChange={onToneChange}
+          options={SLACK_TONE_OPTIONS}
+          columns={3}
+          ariaLabel="Slack tone"
+        />
+      </div>
+
+      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden divide-y divide-white/8">
+        <SwitchRow
+          label="Light formatting only"
+          description="Skips the LLM rewrite. Tidies spacing; tone controls capitalization."
+          checked={formatting.slack.lightweight}
+          onCheckedChange={onLightweightToggle}
+          ariaLabel="Toggle lightweight Slack auto-polish"
+        />
+        <LightLockedShell
+          locked={formatting.slack.lightweight}
+          hint={LIGHT_AI_LOCKED_HINT}
+        >
+          <div className="divide-y divide-white/8">
+            <SwitchRow
+              label="Use Slack markdown"
+              description="Adds *bold*, _italic_, `code` and bullet lists when helpful."
+              checked={formatting.slack.useMarkdown}
+              onCheckedChange={onUseMarkdownToggle}
+              ariaLabel="Toggle Slack markdown"
+            />
+            <SwitchRow
+              label="Allow emoji"
+              description="Slack-flavoured :thumbsup: style emoji where appropriate."
+              checked={formatting.slack.allowEmoji}
+              onCheckedChange={onAllowEmojiToggle}
+              ariaLabel="Toggle Slack emoji"
+            />
+          </div>
+        </LightLockedShell>
+      </div>
+
+      <p className={`${settingsHelperClass} !mt-0`}>
+        With light formatting, only spacing and tone-driven caps apply. With the
+        LLM on, Formal is a stronger polish, Casual a lighter touch.
+      </p>
+    </div>
+  );
+}
+
+function DocumentSettings({
+  formatting,
+  onToneChange,
+  onStructureChange,
+  onLightweightToggle,
+}: {
+  formatting: AppSettings["formatting"];
+  onToneChange: (t: FormattingDocumentTone) => void;
+  onStructureChange: (s: FormattingDocumentStructure) => void;
+  onLightweightToggle: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+          Tone
+        </span>
+        <TileGroup
+          value={formatting.document.tone}
+          onChange={onToneChange}
+          options={DOCUMENT_TONE_OPTIONS}
+          columns={3}
+          ariaLabel="Document tone"
+        />
+      </div>
+
+      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden divide-y divide-white/8">
+        <SwitchRow
+          label="Light formatting only"
+          description="Skips the LLM rewrite. Tidies spacing; tone controls capitalization."
+          checked={formatting.document.lightweight}
+          onCheckedChange={onLightweightToggle}
+          ariaLabel="Toggle lightweight document auto-polish"
+        />
+      </div>
+
+      <LightLockedShell
+        locked={formatting.document.lightweight}
+        hint={LIGHT_AI_LOCKED_HINT}
+      >
+        <div>
+          <span className="mb-2 block text-[13px] text-white/44 font-sans">
+            Structure
+          </span>
+          <TileGroup
+            value={formatting.document.structure}
+            onChange={onStructureChange}
+            options={DOCUMENT_STRUCTURE_OPTIONS}
+            columns={2}
+            ariaLabel="Document structure"
+          />
+        </div>
+      </LightLockedShell>
+
+      <p className={`${settingsHelperClass} !mt-0`}>
+        With light formatting, only spacing and tone-driven caps apply. With the
+        LLM on, Formal is a stronger polish, Casual a lighter touch.
+      </p>
+    </div>
   );
 }
 
@@ -1290,14 +1348,14 @@ function DropdownPicker<T extends string>({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ariaLabel}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left transition-colors duration-200 hover:border-white/16 hover:bg-white/6"
+        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-2.5 text-left transition-colors duration-200 hover:border-white/16 hover:bg-white/6"
       >
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="font-sans text-[15px] font-medium text-white/92 xl:text-[17px]">
+          <span className="font-sans text-[14px] font-medium text-white/92">
             {selected.label}
           </span>
           {selected.sublabel && (
-            <span className="mt-0.5 text-[15px] text-white/55 xl:text-[13px]">
+            <span className="mt-0.5 text-[12px] text-white/55">
               {selected.sublabel}
             </span>
           )}
@@ -1359,7 +1417,7 @@ function DropdownPicker<T extends string>({
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col text-left">
                         <span
-                          className={`font-sans text-[15px] leading-snug transition-colors duration-200 xl:text-[17px] ${
+                          className={`font-sans text-[14px] leading-snug transition-colors duration-200 ${
                             isActive
                               ? "text-white/92 font-medium"
                               : "text-white/72"
@@ -1369,7 +1427,7 @@ function DropdownPicker<T extends string>({
                         </span>
                         {opt.sublabel && (
                           <span
-                            className={`mt-0.5 text-[15px] transition-colors duration-200 xl:text-[13px] ${
+                            className={`mt-0.5 text-[12px] transition-colors duration-200 ${
                               isActive ? "text-white/55" : "text-white/40"
                             }`}
                           >

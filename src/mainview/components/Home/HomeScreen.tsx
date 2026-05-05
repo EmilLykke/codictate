@@ -148,7 +148,9 @@ export function HomeScreen({
   const formattingSupported =
     settings?.capabilities?.supportsFormatting ?? false;
   const formattingModelInstalled =
-    settings?.formatting?.modelInstalled ?? false;
+    settings?.formatting?.modelAvailability?.[
+      settings.formatting.formatterModelTier
+    ] ?? false;
   const formattingAvailable = formattingSupported && formattingModelInstalled;
   const isFormattingActive =
     (settings?.formatting?.enabled ?? false) && formattingAvailable;
@@ -158,8 +160,7 @@ export function HomeScreen({
     modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] ?? false;
 
   const canTranslate =
-    isTranslateOn ||
-    isTranslateCapableModelId(settings?.whisperModelId ?? "");
+    isTranslateOn || isTranslateCapableModelId(settings?.whisperModelId ?? "");
 
   return (
     <div className="flex flex-col h-full">
@@ -273,10 +274,10 @@ export function HomeScreen({
               <InstantTooltip
                 text={
                   isFormattingActive
-                    ? "Formatting active"
+                    ? "Auto-polish active"
                     : !formattingModelInstalled
                       ? "Download a formatter model in Settings to enable"
-                      : "Formatting: auto-format dictated text"
+                      : "Auto-polish: cleans up dictated text for the app you're in"
                 }
                 side="bottom"
                 floatInViewport
@@ -296,7 +297,7 @@ export function HomeScreen({
                         ? TOGGLE_DIMMED
                         : TOGGLE_OFF
                   }`}
-                  aria-label="Toggle formatting"
+                  aria-label="Toggle auto-polish"
                 >
                   <svg
                     width="16"
@@ -365,14 +366,26 @@ export function HomeScreen({
                   <div className="flex items-center gap-1.5">
                     {(
                       [
-                        { id: "vad", label: "VAD", tip: "Transcribes in pauses" },
-                        { id: "live", label: "Live", tip: "Streams continuously" },
+                        {
+                          id: "vad",
+                          label: "VAD",
+                          tip: "Transcribes in pauses",
+                        },
+                        {
+                          id: "live",
+                          label: "Live",
+                          tip: "Streams continuously",
+                        },
                       ] as const
                     ).map((mode) => {
                       const active =
                         settings?.streamTranscriptionMode === mode.id;
                       return (
-                        <InstantTooltip key={mode.id} text={mode.tip} side="bottom">
+                        <InstantTooltip
+                          key={mode.id}
+                          text={mode.tip}
+                          side="bottom"
+                        >
                           <button
                             onClick={() =>
                               onStreamTranscriptionModeChange(mode.id)
@@ -392,25 +405,25 @@ export function HomeScreen({
                 )}
                 {isTranslateOn && (
                   <div className="flex items-center gap-2">
-                <span className="text-[13px] text-white/38 shrink-0">
-                  Source
-                </span>
-                <LanguagePicker
-                  value={
-                    settings?.translateDefaultLanguageId === "auto"
-                      ? TRANSLATE_DEFAULT_PLACEHOLDER
-                      : (settings?.translateDefaultLanguageId ??
-                        TRANSLATE_DEFAULT_PLACEHOLDER)
-                  }
-                  onChange={onTranslateDefaultLanguageChange}
-                  leadingDisabledOption={{
-                    value: TRANSLATE_DEFAULT_PLACEHOLDER,
-                    label: "Choose source language...",
-                  }}
-                  excludeAuto
-                    ariaLabel="Default source language for translation"
-                  />
-                </div>
+                    <span className="text-[13px] text-white/38 shrink-0">
+                      Source
+                    </span>
+                    <LanguagePicker
+                      value={
+                        settings?.translateDefaultLanguageId === "auto"
+                          ? TRANSLATE_DEFAULT_PLACEHOLDER
+                          : (settings?.translateDefaultLanguageId ??
+                            TRANSLATE_DEFAULT_PLACEHOLDER)
+                      }
+                      onChange={onTranslateDefaultLanguageChange}
+                      leadingDisabledOption={{
+                        value: TRANSLATE_DEFAULT_PLACEHOLDER,
+                        label: "Choose source language...",
+                      }}
+                      excludeAuto
+                      ariaLabel="Default source language for translation"
+                    />
+                  </div>
                 )}
               </div>
             )}

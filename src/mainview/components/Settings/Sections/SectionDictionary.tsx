@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
+import { Switch } from "../../Common/Switch";
 import type {
   AppSettings,
   DictionaryCandidate,
@@ -320,24 +321,11 @@ export function SectionDictionary({ settings }: Props) {
             )}
           </div>
           {!autoLearnComingSoon && (
-            <button
-              type="button"
-              onClick={handleAutoLearnToggle}
-              className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 ${
-                dictionary.autoLearn
-                  ? "border-emerald-400/45 bg-emerald-500/35"
-                  : "border-white/14 bg-white/7"
-              }`}
+            <Switch
+              checked={dictionary.autoLearn}
+              onCheckedChange={() => void handleAutoLearnToggle()}
               aria-label="Toggle auto-learn corrections"
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full transition-all duration-200 ${
-                  dictionary.autoLearn
-                    ? "left-[21px] bg-white/90"
-                    : "left-0.5 bg-white/40"
-                }`}
-              />
-            </button>
+            />
           )}
         </div>
       </div>

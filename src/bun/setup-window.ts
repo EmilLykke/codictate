@@ -350,13 +350,12 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             }
           }
         },
-        downloadFormatterModel: () => {
-          const tier =
-            deps.appConfig.getSettings().formatting.formatterModelTier
+        downloadFormatterModel: ({ tier }) => {
           formatterModelManager
             .download(tier, (progressFraction, done, error) => {
               try {
                 rpc.send.updateFormatterModelProgress({
+                  tier,
                   progressFraction,
                   done,
                   error,
@@ -374,9 +373,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         cancelFormatterModelDownload: () => {
           formatterModelManager.cancel()
         },
-        deleteFormatterModel: () => {
-          const tier =
-            deps.appConfig.getSettings().formatting.formatterModelTier
+        deleteFormatterModel: ({ tier }) => {
           const deleted = formatterModelManager.delete(tier)
           if (deleted) {
             deps.appConfig.refreshFormatterModelInstalled()

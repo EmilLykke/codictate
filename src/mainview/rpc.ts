@@ -74,6 +74,7 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
         appEvents.emit('modelDownloadProgress', data)
       },
       updateFormatterModelProgress: (data: {
+        tier: FormatterModelTier
         progressFraction: number
         done: boolean
         error?: string
@@ -528,14 +529,14 @@ export async function setFormatterModelTier(
   })
 }
 
-export function downloadFormatterModel(): void {
-  rpc.send.downloadFormatterModel({})
+export function downloadFormatterModel(tier: FormatterModelTier): void {
+  rpc.send.downloadFormatterModel({ tier })
 }
 
 export function cancelFormatterModelDownload(): void {
   rpc.send.cancelFormatterModelDownload({})
 }
 
-export function deleteFormatterModel(): void {
-  rpc.send.deleteFormatterModel({})
+export function deleteFormatterModel(tier: FormatterModelTier): void {
+  rpc.send.deleteFormatterModel({ tier })
 }
