@@ -11,7 +11,6 @@ export type SidebarTab =
   | "dictionary"
   | "modes"
   | "formatting"
-  | "shortcuts"
   | "transcription"
   | "audio";
 
@@ -92,32 +91,6 @@ const MAIN_FEATURES: { id: SidebarTab; label: string; icon: ReactNode }[] = [
       >
         <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
         <path d="m15 5 4 4" />
-      </svg>
-    ),
-  },
-  {
-    id: "shortcuts",
-    label: "Shortcuts",
-    icon: (
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect width="20" height="16" x="2" y="4" rx="2" ry="2" />
-        <path d="M6 8h.01" />
-        <path d="M10 8h.01" />
-        <path d="M14 8h.01" />
-        <path d="M18 8h.01" />
-        <path d="M8 12h.01" />
-        <path d="M12 12h.01" />
-        <path d="M16 12h.01" />
-        <path d="M7 16h10" />
       </svg>
     ),
   },

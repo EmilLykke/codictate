@@ -152,7 +152,7 @@ export function SearchableSelect({
           }`}
         >
           <span
-            className={`min-w-0 flex-1 truncate text-[19px] font-medium ${
+            className={`min-w-0 flex-1 truncate text-[15px] font-medium ${
               selectedOption ? "text-white/90" : "text-white/45"
             }`}
           >
@@ -203,7 +203,7 @@ export function SearchableSelect({
                     onKeyDown={handleKeyDown}
                     placeholder={searchPlaceholder}
                     autoFocus
-                    className="w-full bg-transparent text-[18px] font-medium text-white/90 placeholder-white/30 outline-none"
+                    className="w-full bg-transparent text-[14px] font-medium text-white/90 placeholder-white/30 outline-none"
                   />
                 </div>
                 <div
@@ -212,7 +212,7 @@ export function SearchableSelect({
                   style={{ scrollbarWidth: "thin" }}
                 >
                   {filtered.length === 0 ? (
-                    <div className="px-4 py-4 text-center text-[17px] text-white/34">
+                    <div className="px-4 py-4 text-center text-[13px] text-white/34">
                       No matches
                     </div>
                   ) : (
@@ -268,7 +268,7 @@ export function SearchableSelect({
                               )}
                             </div>
                             <span
-                              className={`text-[18px] font-medium transition-colors duration-200 ${
+                              className={`text-[14px] font-medium transition-colors duration-200 ${
                                 opt.disabled
                                   ? "text-white/30"
                                   : isActive

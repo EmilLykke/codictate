@@ -161,14 +161,14 @@ export function SectionModes({
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Translate to English
         </h2>
         <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[21px] font-medium ${settings.translateToEnglish ? "text-white/78" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${settings.translateToEnglish ? "text-white/78" : "text-white/58"}`}
               >
                 {settings.translateToEnglish
                   ? "Translation active"
@@ -206,7 +206,7 @@ export function SectionModes({
               >
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
-                    <p className="text-[18px] text-white/55 font-sans leading-relaxed">
+                    <p className="text-[14px] text-white/55 font-sans leading-relaxed">
                       Downloading the{" "}
                       {getWhisperModel(translateDownloadModelId)?.label ??
                         translateDownloadModelId}{" "}
@@ -228,7 +228,7 @@ export function SectionModes({
                   </div>
                   <button
                     onClick={() => onCancelDownload(translateDownloadModelId)}
-                    className="shrink-0 px-2.5 py-1 rounded-lg text-[17px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/44 hover:text-white/64 transition-colors duration-200 cursor-pointer"
+                    className="shrink-0 px-2.5 py-1 rounded-lg text-[13px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/44 hover:text-white/64 transition-colors duration-200 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -239,7 +239,7 @@ export function SectionModes({
         </div>
 
         <div className="mt-3">
-          <p className="text-[17px] text-white/44 font-sans mb-2">
+          <p className="text-[13px] text-white/44 font-sans mb-2">
             Default source language
           </p>
           <LanguagePicker
@@ -265,14 +265,14 @@ export function SectionModes({
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Stream mode
         </h2>
         <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[21px] font-medium ${settings.streamMode ? "text-white/78" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${settings.streamMode ? "text-white/78" : "text-white/58"}`}
               >
                 {settings.streamMode ? "Stream mode active" : "Stream mode"}
               </span>
@@ -340,7 +340,7 @@ export function SectionModes({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              <p className="text-[17px] text-white/70 leading-snug">
+              <p className="text-[13px] text-white/70 leading-snug">
                 Preparing Parakeet for your Mac — this takes 1-2 minutes on
                 first use. Stream mode will be available once preparation
                 completes.
@@ -351,7 +351,7 @@ export function SectionModes({
         {!streamModeComingSoon &&
           !modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] && (
             <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
-              <p className="text-[17px] text-white/70 leading-snug">
+              <p className="text-[13px] text-white/70 leading-snug">
                 Install{" "}
                 <strong className="text-white/85 font-medium">
                   Parakeet TDT v3
@@ -365,7 +365,7 @@ export function SectionModes({
                 onClick={() =>
                   downloadWhisperModel(DEFAULT_STREAM_CAPABLE_MODEL_ID)
                 }
-                className="mt-3 px-3 py-2 rounded-lg text-[17px] font-medium border border-amber-400/35 bg-amber-500/15 hover:bg-amber-500/25 text-amber-100/90 transition-colors cursor-pointer"
+                className="mt-3 px-3 py-2 rounded-lg text-[13px] font-medium border border-amber-400/35 bg-amber-500/15 hover:bg-amber-500/25 text-amber-100/90 transition-colors cursor-pointer"
               >
                 Download Parakeet
               </button>
@@ -382,7 +382,7 @@ export function SectionModes({
               className="overflow-hidden"
             >
               <div className="mt-3 rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
-                <p className="text-[17px] text-white/70 leading-snug">
+                <p className="text-[13px] text-white/70 leading-snug">
                   Stream mode requires{" "}
                   <strong className="text-white/85 font-medium">
                     Parakeet TDT v3
@@ -393,14 +393,14 @@ export function SectionModes({
                   <button
                     type="button"
                     onClick={() => void handleSwitchToParakeetAndEnableStream()}
-                    className="px-3 py-2 rounded-lg text-[17px] font-medium border border-amber-400/35 bg-amber-500/15 hover:bg-amber-500/25 text-amber-100/90 transition-colors cursor-pointer"
+                    className="px-3 py-2 rounded-lg text-[13px] font-medium border border-amber-400/35 bg-amber-500/15 hover:bg-amber-500/25 text-amber-100/90 transition-colors cursor-pointer"
                   >
                     Switch to Parakeet
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowSwitchToParakeet(false)}
-                    className="px-3 py-2 rounded-lg text-[17px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/44 hover:text-white/64 transition-colors cursor-pointer"
+                    className="px-3 py-2 rounded-lg text-[13px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/44 hover:text-white/64 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -420,9 +420,8 @@ export function SectionModes({
             </p>
           )}
         <div
-          className={`mt-4 rounded-xl border border-white/11 bg-black/10 p-2 ${streamModeComingSoon ? "opacity-55" : ""}`}
+          className={`mt-4 grid grid-cols-2 gap-2 ${streamModeComingSoon ? "opacity-55" : ""}`}
         >
-          <div className="grid grid-cols-2 gap-2">
             {(
               [
                 {
@@ -451,7 +450,7 @@ export function SectionModes({
                       : "border-white/10 bg-white/4 text-white/62 hover:border-white/18 hover:bg-white/7"
                   }`}
                 >
-                  <span className="block text-[18px] font-medium">
+                  <span className="block text-[14px] font-medium">
                     {mode.title}
                   </span>
                   <span className="mt-1 block text-[15px] leading-snug text-white/48">
@@ -460,7 +459,6 @@ export function SectionModes({
                 </button>
               );
             })}
-          </div>
         </div>
       </div>
     </>

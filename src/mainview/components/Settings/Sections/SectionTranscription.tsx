@@ -62,7 +62,7 @@ export function SectionTranscription({
   return (
     <>
       <div className="mb-8 min-w-0">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Transcription Model
         </h2>
         <ModelPicker
@@ -85,7 +85,7 @@ export function SectionTranscription({
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Transcription Language
         </h2>
         <LanguagePicker
@@ -101,7 +101,7 @@ export function SectionTranscription({
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Recording Limit
         </h2>
         <RecordingLimitPicker

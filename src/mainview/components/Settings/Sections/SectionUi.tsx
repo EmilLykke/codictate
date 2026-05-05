@@ -50,7 +50,7 @@ export function SectionUi({ settings }: Props) {
 
   return (
     <div className="mb-8">
-      <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+      <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
         Recording indicator
       </h2>
       <div className="flex flex-col gap-2">
@@ -60,7 +60,7 @@ export function SectionUi({ settings }: Props) {
               Coming soon on{" "}
               {platformDisplayName(settings.capabilities.platform)}
             </span>
-            <p className="mt-2 text-[17px] text-white/60 leading-snug">
+            <p className="mt-2 text-[13px] text-white/60 leading-snug">
               The floating desktop indicator will arrive after the Windows
               dictation core is in place.
             </p>
@@ -81,11 +81,11 @@ export function SectionUi({ settings }: Props) {
               } ${indicatorComingSoon ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
             >
               <span
-                className={`block text-[21px] font-medium ${selected ? "text-white/88" : "text-white/62"}`}
+                className={`block text-[17px] font-medium ${selected ? "text-white/88" : "text-white/62"}`}
               >
                 {label}
               </span>
-              <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+              <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                 {hint}
               </span>
             </button>

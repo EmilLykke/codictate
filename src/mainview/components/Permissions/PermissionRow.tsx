@@ -75,7 +75,7 @@ export function PermissionRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
           <span
-            className={`text-[21px] font-medium leading-none transition-colors duration-300 ${granted ? "text-white/60" : "text-white/80"}`}
+            className={`text-[17px] font-medium leading-none transition-colors duration-300 ${granted ? "text-white/60" : "text-white/80"}`}
           >
             {label}
           </span>
@@ -83,13 +83,13 @@ export function PermissionRow({
             <motion.span
               initial={{ opacity: 0, x: -4 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-[18px] text-emerald-400/60 font-medium"
+              className="text-[14px] text-emerald-400/60 font-medium"
             >
               granted
             </motion.span>
           )}
         </div>
-        <p className="text-[19px] text-white/25 mt-0.5 leading-snug">
+        <p className="text-[15px] text-white/25 mt-0.5 leading-snug">
           {description}
         </p>
         {isLockedFutureStep && (
@@ -106,7 +106,7 @@ export function PermissionRow({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 6 }}
             onClick={() => onOpen(pane)}
-            className="shrink-0 text-[19px] text-white/35 hover:text-white/70 border border-white/8 hover:border-white/20 px-2.5 py-1 rounded-lg transition-colors duration-200 cursor-pointer"
+            className="shrink-0 text-[15px] text-white/35 hover:text-white/70 border border-white/8 hover:border-white/20 px-2.5 py-1 rounded-lg transition-colors duration-200 cursor-pointer"
           >
             Allow →
           </motion.button>

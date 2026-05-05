@@ -297,10 +297,10 @@ export function SectionDictionary({ settings }: Props) {
         <span className="block text-[16px] uppercase tracking-[0.18em] text-white/38">
           Settings
         </span>
-        <h2 className="mt-2 text-[34px] tracking-tight text-white/90">
+        <h2 className="mt-2 text-[28px] tracking-tight text-white/90">
           Dictionary
         </h2>
-        <p className="mt-3 text-[18px] text-white/44 leading-relaxed font-sans font-normal">
+        <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
           Teach Codictate how to spell your terms and abbreviations.
         </p>
       </div>
@@ -309,7 +309,7 @@ export function SectionDictionary({ settings }: Props) {
       <div className="mb-6 overflow-hidden rounded-xl border border-white/11 bg-white/4">
         <div className="flex items-center gap-4 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <span className="block text-[18px] font-medium text-white/85">
+            <span className="block text-[14px] font-medium text-white/85">
               Auto-learn corrections
             </span>
             <span className="mt-1 block text-[15px] leading-snug text-white/44">
@@ -417,7 +417,7 @@ export function SectionDictionary({ settings }: Props) {
                   onChange={(e) => setReplacementFromValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Replace this, e.g. BTW"
-                  className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-[18px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                  className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
                 />
               )}
               <input
@@ -431,7 +431,7 @@ export function SectionDictionary({ settings }: Props) {
                     ? "With this, e.g. by the way"
                     : "Canonical term, e.g. Electrobun"
                 }
-                className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-[18px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
               />
             </div>
 
@@ -463,7 +463,7 @@ export function SectionDictionary({ settings }: Props) {
       {/* Entries list */}
       <div className="overflow-hidden rounded-xl border border-white/11 bg-white/4">
         {dictionary.entries.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[17px] text-white/34">
+          <div className="px-5 py-8 text-center text-[13px] text-white/34">
             No words added yet.
           </div>
         ) : (
@@ -524,7 +524,7 @@ export function SectionDictionary({ settings }: Props) {
                               onChange={(e) => setEditFrom(e.target.value)}
                               onKeyDown={(e) => handleEditKeyDown(e, entry)}
                               placeholder="From"
-                              className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[18px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                              className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
                             />
                           )}
                           <input
@@ -536,7 +536,7 @@ export function SectionDictionary({ settings }: Props) {
                             placeholder={
                               editKind === "replacement" ? "To" : "Term"
                             }
-                            className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[18px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                            className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
                           />
                         </div>
                         <div className="flex justify-end gap-2">
@@ -584,7 +584,7 @@ export function SectionDictionary({ settings }: Props) {
                           <div className="min-w-0">
                             {entry.kind === "replacement" ? (
                               <div
-                                className={`truncate text-[18px] font-medium ${
+                                className={`truncate text-[14px] font-medium ${
                                   entry.source === "auto"
                                     ? "text-amber-100/80"
                                     : "text-white/85"
@@ -594,7 +594,7 @@ export function SectionDictionary({ settings }: Props) {
                               </div>
                             ) : (
                               <span
-                                className={`text-[18px] font-medium truncate ${
+                                className={`text-[14px] font-medium truncate ${
                                   entry.source === "auto"
                                     ? "text-amber-100/80"
                                     : "text-white/85"
@@ -666,7 +666,7 @@ export function SectionDictionary({ settings }: Props) {
       {dictionary.candidates.length > 0 && (
         <div className="mt-6 overflow-hidden rounded-xl border border-amber-200/12 bg-amber-200/[0.04]">
           <div className="border-b border-amber-200/10 px-5 py-4">
-            <div className="text-[18px] font-medium text-amber-50/88">
+            <div className="text-[14px] font-medium text-amber-50/88">
               Pending auto-learn
             </div>
             <div className="mt-1 text-[15px] leading-snug text-white/44">
@@ -683,7 +683,7 @@ export function SectionDictionary({ settings }: Props) {
                 }`}
               >
                 <div className="min-w-0">
-                  <div className="truncate text-[18px] font-medium text-amber-50/82">
+                  <div className="truncate text-[14px] font-medium text-amber-50/82">
                     {candidate.from.toLowerCase()} {"→"} {candidate.to}
                   </div>
                   <div className="mt-1 text-[13px] uppercase tracking-[0.12em] text-white/34">

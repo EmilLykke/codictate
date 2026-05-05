@@ -530,7 +530,7 @@ export function SectionFormatting({ settings }: Props) {
     <>
       {!formatting.available && (
         <div className="mb-6 rounded-xl border border-white/10 bg-white/4 px-4 py-3.5">
-          <p className="text-[18px] text-white/44 leading-relaxed font-sans">
+          <p className="text-[14px] text-white/44 leading-relaxed font-sans">
             Formatting requires the vendored llama-cli binary, which is missing.
             Run{" "}
             <span className="text-white/62 font-medium">
@@ -547,7 +547,7 @@ export function SectionFormatting({ settings }: Props) {
 
       {formatting.available && (
         <div className="mb-6 rounded-xl border border-white/11 bg-white/4 px-4 py-3.5">
-          <span className="block text-[17px] font-medium text-white/86 mb-2.5">
+          <span className="block text-[13px] font-medium text-white/86 mb-2.5">
             Formatter model
           </span>
           <div className="flex gap-2 mb-3">
@@ -654,11 +654,11 @@ export function SectionFormatting({ settings }: Props) {
               <>
                 <div className="flex-1 min-w-0">
                   <span
-                    className={`block text-[21px] font-medium ${effectiveOn ? "text-white/86" : "text-white/60"}`}
+                    className={`block text-[17px] font-medium ${effectiveOn ? "text-white/86" : "text-white/60"}`}
                   >
                     Formatting
                   </span>
-                  <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                  <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                     Auto-detects the focused app and applies the matching
                     format. Works in standard recording mode only — not stream
                     mode. Force mode (set from the tray) always applies
@@ -714,7 +714,7 @@ export function SectionFormatting({ settings }: Props) {
                 <path d="M12 17h.01" />
                 <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
               </svg>
-              <span className="flex-1 text-[17px] text-white/72 leading-snug">
+              <span className="flex-1 text-[13px] text-white/72 leading-snug">
                 Force mode active:{" "}
                 <span className="font-medium text-amber-200/90">
                   {formattingModeLabel(formatting.forceModeId)}
@@ -735,7 +735,7 @@ export function SectionFormatting({ settings }: Props) {
 
       <div className="mb-8">
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider">
+          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider">
             Formats
           </h2>
         </div>
@@ -761,7 +761,7 @@ export function SectionFormatting({ settings }: Props) {
                   className="w-full text-left px-4 pt-4 pb-12 cursor-pointer"
                 >
                   <span
-                    className={`block text-[19px] xl:text-[21px] font-medium ${
+                    className={`block text-[15px] xl:text-[17px] font-medium ${
                       focused
                         ? "text-white/92"
                         : enabled
@@ -772,7 +772,7 @@ export function SectionFormatting({ settings }: Props) {
                     {mode.label}
                   </span>
                   <span
-                    className={`mt-1 block text-[15px] xl:text-[17px] leading-snug ${
+                    className={`mt-1 block text-[15px] xl:text-[13px] leading-snug ${
                       focused ? "text-white/58" : "text-white/40"
                     }`}
                   >
@@ -812,18 +812,18 @@ export function SectionFormatting({ settings }: Props) {
 
       {focusedFormat === "email" && (
         <div className="mb-8">
-          <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
             Email behavior
           </h2>
           <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3.5">
               <div className="flex-1 min-w-0">
                 <span
-                  className={`block text-[21px] font-medium ${formatting.email.includeSenderName ? "text-white/78" : "text-white/58"}`}
+                  className={`block text-[17px] font-medium ${formatting.email.includeSenderName ? "text-white/78" : "text-white/58"}`}
                 >
                   Add my name to email sign-off
                 </span>
-                <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                   Uses your stored name when the email needs a sign-off and you
                   did not dictate one clearly.
                 </span>
@@ -849,7 +849,7 @@ export function SectionFormatting({ settings }: Props) {
           </div>
 
           <div className="mt-5">
-            <span className="mb-2 block text-[17px] text-white/44 font-sans">
+            <span className="mb-2 block text-[13px] text-white/44 font-sans">
               Greeting style
             </span>
             <DropdownPicker
@@ -873,7 +873,7 @@ export function SectionFormatting({ settings }: Props) {
                     onChange={(e) => setCustomGreetingDraft(e.target.value)}
                     onBlur={() => void handleCustomGreetingCommit()}
                     placeholder="e.g. Dear"
-                    className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[19px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+                    className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
                   />
                 </motion.div>
               )}
@@ -881,7 +881,7 @@ export function SectionFormatting({ settings }: Props) {
           </div>
 
           <div className="mt-5">
-            <span className="mb-2 block text-[17px] text-white/44 font-sans">
+            <span className="mb-2 block text-[13px] text-white/44 font-sans">
               Closing style
             </span>
             <DropdownPicker
@@ -905,7 +905,7 @@ export function SectionFormatting({ settings }: Props) {
                     onChange={(e) => setCustomClosingDraft(e.target.value)}
                     onBlur={() => void handleCustomClosingCommit()}
                     placeholder="e.g. Cheers"
-                    className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[19px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+                    className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
                   />
                 </motion.div>
               )}
@@ -922,18 +922,18 @@ export function SectionFormatting({ settings }: Props) {
 
       {focusedFormat === "imessage" && (
         <div className="mb-8">
-          <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
             Messages behavior
           </h2>
           <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
             <div className="flex items-center gap-3 px-4 py-3.5">
               <div className="flex-1 min-w-0">
                 <span
-                  className={`block text-[21px] font-medium ${formatting.imessage.lightweight ? "text-white/78" : "text-white/58"}`}
+                  className={`block text-[17px] font-medium ${formatting.imessage.lightweight ? "text-white/78" : "text-white/58"}`}
                 >
                   Light formatting only
                 </span>
-                <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                   Skips the LLM rewrite for Messages. Tidies spacing only; tone
                   below then controls capitalization (Very casual = lowercase).
                   Turn off for emoji and fuller rewrites.
@@ -964,11 +964,11 @@ export function SectionFormatting({ settings }: Props) {
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <div className="flex-1 min-w-0">
                   <span
-                    className={`block text-[21px] font-medium ${formatting.imessage.allowEmoji ? "text-white/78" : "text-white/58"}`}
+                    className={`block text-[17px] font-medium ${formatting.imessage.allowEmoji ? "text-white/78" : "text-white/58"}`}
                   >
                     Allow emoji
                   </span>
-                  <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                  <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                     Lets Codictate sprinkle in a relevant emoji when it fits the
                     mood.
                   </span>
@@ -995,7 +995,7 @@ export function SectionFormatting({ settings }: Props) {
             </LightLockedShell>
           </div>
           <div className="mt-5">
-            <span className="mb-2 block text-[17px] text-white/44 font-sans">
+            <span className="mb-2 block text-[13px] text-white/44 font-sans">
               Tone
             </span>
             <TileGroup
@@ -1017,18 +1017,18 @@ export function SectionFormatting({ settings }: Props) {
 
       {focusedFormat === "slack" && (
         <div className="mb-8">
-          <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
             Slack behavior
           </h2>
           <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
             <div className="flex items-center gap-3 px-4 py-3.5">
               <div className="flex-1 min-w-0">
                 <span
-                  className={`block text-[21px] font-medium ${formatting.slack.lightweight ? "text-white/78" : "text-white/58"}`}
+                  className={`block text-[17px] font-medium ${formatting.slack.lightweight ? "text-white/78" : "text-white/58"}`}
                 >
                   Light formatting only
                 </span>
-                <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                   Skips the LLM rewrite for Slack. Tidies spacing; tone below
                   then controls capitalization when Very casual is selected.
                   Turn off for markdown, emoji, and fuller rewrites.
@@ -1060,11 +1060,11 @@ export function SectionFormatting({ settings }: Props) {
                 <div className="flex items-center gap-3 px-4 py-3.5">
                   <div className="flex-1 min-w-0">
                     <span
-                      className={`block text-[21px] font-medium ${formatting.slack.useMarkdown ? "text-white/78" : "text-white/58"}`}
+                      className={`block text-[17px] font-medium ${formatting.slack.useMarkdown ? "text-white/78" : "text-white/58"}`}
                     >
                       Use Slack markdown
                     </span>
-                    <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                    <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                       Adds{" "}
                       <span className="text-[16px] font-normal [font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,'Helvetica_Neue',Arial,sans-serif]">
                         *bold*, _italic_, `code`
@@ -1094,11 +1094,11 @@ export function SectionFormatting({ settings }: Props) {
                 <div className="flex items-center gap-3 px-4 py-3.5">
                   <div className="flex-1 min-w-0">
                     <span
-                      className={`block text-[21px] font-medium ${formatting.slack.allowEmoji ? "text-white/78" : "text-white/58"}`}
+                      className={`block text-[17px] font-medium ${formatting.slack.allowEmoji ? "text-white/78" : "text-white/58"}`}
                     >
                       Allow emoji
                     </span>
-                    <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                    <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                       Slack-flavoured :thumbsup: style emoji where appropriate.
                     </span>
                   </div>
@@ -1125,7 +1125,7 @@ export function SectionFormatting({ settings }: Props) {
             </LightLockedShell>
           </div>
           <div className="mt-5">
-            <span className="mb-2 block text-[17px] text-white/44 font-sans">
+            <span className="mb-2 block text-[13px] text-white/44 font-sans">
               Tone
             </span>
             <TileGroup
@@ -1147,18 +1147,18 @@ export function SectionFormatting({ settings }: Props) {
 
       {focusedFormat === "document" && (
         <div className="mb-8">
-          <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
             Document behavior
           </h2>
           <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
             <div className="flex items-center gap-3 px-4 py-3.5">
               <div className="flex-1 min-w-0">
                 <span
-                  className={`block text-[21px] font-medium ${formatting.document.lightweight ? "text-white/78" : "text-white/58"}`}
+                  className={`block text-[17px] font-medium ${formatting.document.lightweight ? "text-white/78" : "text-white/58"}`}
                 >
                   Light formatting only
                 </span>
-                <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                   Skips the LLM rewrite for document apps. Tidies spacing; tone
                   below then controls capitalization when Very casual is
                   selected. Turn off for structure choices and fuller rewrites.
@@ -1185,7 +1185,7 @@ export function SectionFormatting({ settings }: Props) {
             </div>
           </div>
           <div className="mt-5">
-            <span className="mb-2 block text-[17px] text-white/44 font-sans">
+            <span className="mb-2 block text-[13px] text-white/44 font-sans">
               Tone
             </span>
             <TileGroup
@@ -1197,7 +1197,7 @@ export function SectionFormatting({ settings }: Props) {
             />
           </div>
           <div className="mt-5">
-            <span className="mb-2 block text-[17px] text-white/44 font-sans">
+            <span className="mb-2 block text-[13px] text-white/44 font-sans">
               Structure
             </span>
             <LightLockedShell
@@ -1293,11 +1293,11 @@ function DropdownPicker<T extends string>({
         className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left transition-colors duration-200 hover:border-white/16 hover:bg-white/6"
       >
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="font-sans text-[19px] font-medium text-white/92 xl:text-[21px]">
+          <span className="font-sans text-[15px] font-medium text-white/92 xl:text-[17px]">
             {selected.label}
           </span>
           {selected.sublabel && (
-            <span className="mt-0.5 text-[15px] text-white/55 xl:text-[17px]">
+            <span className="mt-0.5 text-[15px] text-white/55 xl:text-[13px]">
               {selected.sublabel}
             </span>
           )}
@@ -1359,7 +1359,7 @@ function DropdownPicker<T extends string>({
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col text-left">
                         <span
-                          className={`font-sans text-[19px] leading-snug transition-colors duration-200 xl:text-[21px] ${
+                          className={`font-sans text-[15px] leading-snug transition-colors duration-200 xl:text-[17px] ${
                             isActive
                               ? "text-white/92 font-medium"
                               : "text-white/72"
@@ -1369,7 +1369,7 @@ function DropdownPicker<T extends string>({
                         </span>
                         {opt.sublabel && (
                           <span
-                            className={`mt-0.5 text-[15px] transition-colors duration-200 xl:text-[17px] ${
+                            className={`mt-0.5 text-[15px] transition-colors duration-200 xl:text-[13px] ${
                               isActive ? "text-white/55" : "text-white/40"
                             }`}
                           >
@@ -1433,7 +1433,7 @@ function TileGroup<T extends string>({
           >
             <div className="p-5 pb-2">
               <span
-                className={`block text-[32px] tracking-tight ${
+                className={`block text-[26px] tracking-tight ${
                   opt.label === "Formal." ? "font-serif" : "font-sans"
                 } ${selected ? "text-white" : "text-white/80"}`}
               >
@@ -1441,7 +1441,7 @@ function TileGroup<T extends string>({
               </span>
               {opt.sublabel && (
                 <span
-                  className={`mt-1 block text-[17px] font-medium ${
+                  className={`mt-1 block text-[13px] font-medium ${
                     selected ? "text-white/60" : "text-white/40"
                   }`}
                 >
@@ -1453,7 +1453,7 @@ function TileGroup<T extends string>({
             {opt.preview && (
               <div className="px-4 pb-5 mt-auto pt-6">
                 <div
-                  className={`rounded-2xl rounded-br-sm p-4 text-[19px] leading-relaxed whitespace-pre-wrap relative ${
+                  className={`rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed whitespace-pre-wrap relative ${
                     selected
                       ? "bg-blue-500/20 text-blue-50"
                       : "bg-white/5 text-white/70"

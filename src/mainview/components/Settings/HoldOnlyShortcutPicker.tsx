@@ -73,12 +73,12 @@ export function HoldOnlyShortcutPicker({
                   </span>
                 ))}
               </div>
-              <span className="hidden min-w-0 max-w-[min(11rem,46%)] shrink-0 truncate text-right font-sans text-[17px] text-white/62 sm:block sm:text-[19px]">
+              <span className="hidden min-w-0 max-w-[min(11rem,46%)] shrink-0 truncate text-right font-sans text-[13px] text-white/62 sm:block sm:text-[15px]">
                 {selected.label}
               </span>
             </>
           ) : (
-            <span className="min-w-0 flex-1 font-sans text-[17px] text-white/56 sm:text-[19px]">
+            <span className="min-w-0 flex-1 font-sans text-[13px] text-white/56 sm:text-[15px]">
               None
             </span>
           )}
@@ -138,7 +138,7 @@ export function HoldOnlyShortcutPicker({
                         />
                       ) : null}
                     </div>
-                    <span className="font-sans text-[17px] text-white/72 sm:text-[19px]">
+                    <span className="font-sans text-[13px] text-white/72 sm:text-[15px]">
                       None
                     </span>
                   </Select.Item>
@@ -202,7 +202,7 @@ export function HoldOnlyShortcutPicker({
                             </div>
 
                             <span
-                              className={`max-w-[min(11rem,42%)] shrink-0 text-right font-sans text-[17px] leading-snug transition-colors duration-200 sm:text-[19px] ${
+                              className={`max-w-[min(11rem,42%)] shrink-0 text-right font-sans text-[13px] leading-snug transition-colors duration-200 sm:text-[15px] ${
                                 isActive ? "text-white/72" : "text-white/56"
                               }`}
                             >

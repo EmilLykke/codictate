@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Iceland", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-brand: "Iceberg", "Iceland", ui-sans-serif, system-ui, sans-serif;
   --color-codictate-page: hsl(0 0% 0%);
   --color-codictate-canvas: hsl(200 10% 0%);
@@ -17,7 +17,7 @@
   body {
     margin: 0;
     font-family: var(--font-sans);
-    font-size: 23px;
+    font-size: 16px;
     @apply bg-codictate-page text-codictate-foreground antialiased;
   }
 }

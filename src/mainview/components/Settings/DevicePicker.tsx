@@ -31,7 +31,7 @@ export function DevicePicker({
           <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
           <line x1="12" y1="19" x2="12" y2="22" />
         </svg>
-        <span className="text-[21px] text-white/50 font-sans">
+        <span className="text-[17px] text-white/50 font-sans">
           No microphones found
         </span>
       </div>
@@ -88,7 +88,7 @@ export function DevicePicker({
             </svg>
 
             <span
-              className={`text-[21px] font-medium truncate font-sans transition-colors duration-200 ${isActive ? "text-white/72" : "text-white/52"}`}
+              className={`text-[17px] font-medium truncate font-sans transition-colors duration-200 ${isActive ? "text-white/72" : "text-white/52"}`}
             >
               {name}
             </span>

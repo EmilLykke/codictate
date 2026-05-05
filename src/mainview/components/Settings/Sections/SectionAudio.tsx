@@ -129,7 +129,7 @@ export function SectionAudio({ settings }: Props) {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Input Device
         </h2>
         <DevicePicker
@@ -144,18 +144,18 @@ export function SectionAudio({ settings }: Props) {
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Audio Ducking
         </h2>
         <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[21px] font-medium ${audioDucking.includeBuiltInSpeakers ? "text-white/78" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${audioDucking.includeBuiltInSpeakers ? "text-white/78" : "text-white/58"}`}
               >
                 Built-in speakers
               </span>
-              <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+              <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                 Mute Mac speaker output while dictating (classic recording and
                 stream mode).
               </span>
@@ -181,11 +181,11 @@ export function SectionAudio({ settings }: Props) {
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[21px] font-medium ${audioDucking.includeHeadphones ? "text-white/78" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${audioDucking.includeHeadphones ? "text-white/78" : "text-white/58"}`}
               >
                 Headphones & Bluetooth
               </span>
-              <span className="mt-0.5 block text-[17px] text-white/40 leading-snug">
+              <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
                 Also lower headphone volume while dictating (classic recording
                 and stream mode).
               </span>
@@ -218,10 +218,10 @@ export function SectionAudio({ settings }: Props) {
                 className="border-t border-white/8 px-4 py-3.5"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[17px] text-white/44 font-sans">
+                  <span className="text-[13px] text-white/44 font-sans">
                     Mute amount
                   </span>
-                  <span className="text-[17px] text-white/55 font-medium tabular-nums">
+                  <span className="text-[13px] text-white/55 font-medium tabular-nums">
                     {audioDucking.level === 0
                       ? "Fully mute"
                       : audioDucking.level === 100

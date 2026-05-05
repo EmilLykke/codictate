@@ -40,9 +40,9 @@ const styles = {
       "grid w-full grid-cols-2 items-start gap-0 text-left [&>*:first-child]:border-r [&>*:first-child]:border-white/12 [&>*:first-child]:pr-4 sm:[&>*:first-child]:pr-5 [&>*:last-child]:pl-4 sm:[&>*:last-child]:pl-5",
     wrapSingle: "w-full min-w-0 text-left",
     label:
-      "font-sans text-[22px] font-semibold tracking-[-0.02em] text-white/82 sm:text-[24px]",
+      "font-sans text-[18px] font-semibold tracking-[-0.02em] text-white/82 sm:text-[20px]",
     labelPair:
-      "font-sans text-[20px] font-semibold tracking-[-0.02em] text-white/80 sm:text-[22px]",
+      "font-sans text-[16px] font-semibold tracking-[-0.02em] text-white/80 sm:text-[18px]",
   },
   onboarding: {
     wrapSplit:
@@ -52,9 +52,9 @@ const styles = {
       "grid w-full grid-cols-2 items-start gap-0 text-left [&>*:first-child]:border-r [&>*:first-child]:border-white/12 [&>*:first-child]:pr-4 sm:[&>*:first-child]:pr-4 [&>*:last-child]:pl-4 sm:[&>*:last-child]:pl-4",
     wrapSingle: "w-full min-w-0 text-left",
     label:
-      "font-sans text-[19px] font-semibold tracking-[-0.02em] text-white/78 sm:text-[21px]",
+      "font-sans text-[15px] font-semibold tracking-[-0.02em] text-white/78 sm:text-[17px]",
     labelPair:
-      "font-sans text-[17px] font-semibold tracking-[-0.02em] text-white/76 sm:text-[19px]",
+      "font-sans text-[13px] font-semibold tracking-[-0.02em] text-white/76 sm:text-[15px]",
   },
 } as const;
 

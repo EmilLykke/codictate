@@ -5,10 +5,9 @@ import { HomeScreen } from "./Home/HomeScreen";
 import { SectionTranscription } from "./Settings/Sections/SectionTranscription";
 import { SectionModes } from "./Settings/Sections/SectionModes";
 import { SectionFormatting } from "./Settings/Sections/SectionFormatting";
-import { SectionShortcuts } from "./Settings/Sections/SectionShortcuts";
 import { SectionAudio } from "./Settings/Sections/SectionAudio";
 import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
-import { SettingsModal } from "./Settings/SettingsModal";
+import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
 import type {
   AppStatus,
   AppSettings,
@@ -57,6 +56,7 @@ export function MainContainer({
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<SidebarTab>("home");
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>("general");
 
   // Model availability: seeded from settings (always up-to-date on fetch),
   // then kept in sync via modelAvailability events for incremental changes.
@@ -390,7 +390,7 @@ export function MainContainer({
         platform={settings.capabilities.platform}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenSettings={() => { setSettingsInitialTab("general"); setIsSettingsModalOpen(true); }}
         onOpenHelp={() => {}}
         onWordmarkSecretTap={() => {}}
       >
@@ -406,6 +406,7 @@ export function MainContainer({
             onStreamToggle={handleStreamToggle}
             onFormattingToggle={handleFormattingToggle}
             onTranslateToggle={handleTranslateToggle}
+            onOpenSettings={() => { setSettingsInitialTab("shortcuts"); setIsSettingsModalOpen(true); }}
           />
         )}
         {activeTab === "dictionary" && (
@@ -424,10 +425,7 @@ export function MainContainer({
         {activeTab === "formatting" && (
           <SectionFormatting settings={settings} />
         )}
-        {activeTab === "shortcuts" && (
-          <SectionShortcuts settings={settings} status={status} />
-        )}
-        {activeTab === "transcription" && (
+{activeTab === "transcription" && (
           <SectionTranscription
             settings={settings}
             modelAvailability={modelAvailability}
@@ -445,6 +443,8 @@ export function MainContainer({
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         settings={settings}
+        status={status}
+        initialTab={settingsInitialTab}
         devPreviewRoute={devPreviewRoute}
         onDevPreviewRouteChange={onDevPreviewRouteChange}
       />

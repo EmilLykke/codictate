@@ -57,7 +57,7 @@ export function ShortcutPicker({
               </span>
             ))}
           </div>
-          <span className="hidden min-w-0 max-w-[min(11rem,46%)] shrink-0 truncate text-right font-sans text-[17px] text-white/62 sm:block sm:text-[19px]">
+          <span className="hidden min-w-0 max-w-[min(11rem,46%)] shrink-0 truncate text-right font-sans text-[13px] text-white/62 sm:block sm:text-[15px]">
             {selected.label}
           </span>
           <DropdownChevron open={open} />
@@ -143,7 +143,7 @@ export function ShortcutPicker({
                             </div>
 
                             <span
-                              className={`max-w-[min(11rem,42%)] shrink-0 text-right font-sans text-[17px] leading-snug transition-colors duration-200 sm:text-[19px] ${
+                              className={`max-w-[min(11rem,42%)] shrink-0 text-right font-sans text-[13px] leading-snug transition-colors duration-200 sm:text-[15px] ${
                                 isActive ? "text-white/72" : "text-white/56"
                               }`}
                             >

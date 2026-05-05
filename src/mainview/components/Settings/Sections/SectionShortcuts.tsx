@@ -56,7 +56,7 @@ export function SectionShortcuts({ settings, status }: Props) {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Main shortcut
         </h2>
         <ShortcutPicker
@@ -74,7 +74,7 @@ export function SectionShortcuts({ settings, status }: Props) {
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Hold-only shortcut
         </h2>
         <HoldOnlyShortcutPicker

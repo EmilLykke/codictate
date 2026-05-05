@@ -99,12 +99,12 @@ export function SectionGeneral({
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Profile
         </h2>
         <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden px-4 py-3.5">
           <label className="block">
-            <span className="mb-2 block text-[17px] text-white/44 font-sans">
+            <span className="mb-2 block text-[13px] text-white/44 font-sans">
               Your name
             </span>
             <input
@@ -118,7 +118,7 @@ export function SectionGeneral({
                 }
               }}
               placeholder="Your name"
-              className="w-full rounded-lg border border-white/12 bg-white/5 px-4 py-3.5 text-[21px] font-medium text-white/78 outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-white/24 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+              className="w-full rounded-lg border border-white/12 bg-white/5 px-4 py-3.5 text-[17px] font-medium text-white/78 outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-white/24 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
             />
           </label>
         </div>
@@ -129,7 +129,7 @@ export function SectionGeneral({
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Updates
         </h2>
         <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
@@ -145,7 +145,7 @@ export function SectionGeneral({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.18 }}
-                  className={`block text-[21px] font-medium ${updateStateTextClass(updateState)}`}
+                  className={`block text-[17px] font-medium ${updateStateTextClass(updateState)}`}
                 >
                   {updateStateLabel(updateState, updateMessage)}
                 </motion.span>
@@ -167,7 +167,7 @@ export function SectionGeneral({
                 transition={{ duration: 0.2 }}
                 className="border-t border-white/10 px-4 py-2.5"
               >
-                <p className="text-[18px] text-orange-300/85 leading-relaxed font-sans font-normal">
+                <p className="text-[14px] text-orange-300/85 leading-relaxed font-sans font-normal">
                   {updateMessage ??
                     "Something went wrong. Check your internet connection and try again."}
                 </p>
@@ -178,7 +178,7 @@ export function SectionGeneral({
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Diagnostics
         </h2>
         <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
@@ -204,7 +204,7 @@ export function SectionGeneral({
             </div>
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[21px] font-medium ${settings.debugMode ? "text-amber-400/80" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${settings.debugMode ? "text-amber-400/80" : "text-white/58"}`}
               >
                 {settings.debugMode ? "Debug logging active" : "Debug logging"}
               </span>
@@ -239,7 +239,7 @@ export function SectionGeneral({
               >
                 <button
                   onClick={handleCopyLog}
-                  className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[19px] font-medium border transition-colors duration-200 cursor-pointer ${
+                  className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium border transition-colors duration-200 cursor-pointer ${
                     isCopied
                       ? "bg-emerald-500/15 border-emerald-400/25 text-emerald-400/80"
                       : "border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/52 hover:text-white/72"
@@ -299,7 +299,7 @@ export function SectionGeneral({
 
       {showDevTools && (
         <div className="mb-8">
-          <h2 className="text-[18px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
             Development
           </h2>
           <div className="relative group">
@@ -486,7 +486,7 @@ function UpdateAction({
     return (
       <button
         onClick={onRestart}
-        className="shrink-0 px-3 py-1.5 rounded-lg text-[19px] font-semibold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/20 hover:border-blue-400/35 text-blue-300/90 transition-colors duration-200 cursor-pointer"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-semibold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/20 hover:border-blue-400/35 text-blue-300/90 transition-colors duration-200 cursor-pointer"
       >
         Restart
       </button>
@@ -496,7 +496,7 @@ function UpdateAction({
     return (
       <button
         onClick={onCheck}
-        className="shrink-0 px-3 py-1.5 rounded-lg text-[19px] font-medium border border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
       >
         Retry
       </button>
@@ -508,7 +508,7 @@ function UpdateAction({
   return (
     <button
       onClick={onCheck}
-      className="shrink-0 px-3 py-1.5 rounded-lg text-[19px] font-medium border border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
+      className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
     >
       Check
     </button>

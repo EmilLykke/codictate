@@ -95,9 +95,9 @@ export function PermissionScreen({
           <WordmarkCodictate
             as="h1"
             showMark
-            className="text-[23px] font-semibold tracking-tight text-white/80"
+            className="text-[19px] font-semibold tracking-tight text-white/80"
           />
-          <p className="text-[19px] text-white/25 mt-0.5">
+          <p className="text-[15px] text-white/25 mt-0.5">
             A few things before we start
           </p>
         </motion.div>
@@ -109,10 +109,10 @@ export function PermissionScreen({
           className="mb-4"
         >
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-[18px] text-white/25 font-medium uppercase tracking-wider">
+            <span className="text-[14px] text-white/25 font-medium uppercase tracking-wider">
               Permissions
             </span>
-            <span className="text-[18px] text-white/25">
+            <span className="text-[14px] text-white/25">
               {grantedCount} / 4
             </span>
           </div>
@@ -168,7 +168,7 @@ export function PermissionScreen({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.5, duration: 0.3 }}
-              className="mt-5 text-[18px] text-white/15 text-center leading-relaxed"
+              className="mt-5 text-[14px] text-white/15 text-center leading-relaxed"
             >
               One system prompt at a time — return here after each step.
             </motion.p>
@@ -182,7 +182,7 @@ export function PermissionScreen({
               animate={{ opacity: 1, y: 0 }}
               className="mt-5 flex flex-col items-center gap-1"
             >
-              <div className="text-[19px] text-emerald-400/70 font-medium">
+              <div className="text-[15px] text-emerald-400/70 font-medium">
                 All set — ready to dictate
               </div>
             </motion.div>

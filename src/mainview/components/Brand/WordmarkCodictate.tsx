@@ -34,7 +34,7 @@ export function WordmarkCodictate({
       ) : null}
       <span className="inline whitespace-nowrap">
         <span className="font-brand">C</span>
-        <span className="font-sans">odictate</span>
+        <span style={{ fontFamily: '"Iceland", sans-serif' }}>odictate</span>
       </span>
     </Tag>
   );

@@ -9,7 +9,7 @@ import { SearchableSelect } from "../Common/SearchableSelect";
 
 /** Ready bar: match compact LanguagePicker padding + type size on translate / icon buttons. */
 export const READY_BAR_PY_CLASS = "py-1";
-export const READY_BAR_TEXT_CLASS = "text-[21px] font-medium leading-snug";
+export const READY_BAR_TEXT_CLASS = "text-[17px] font-medium leading-snug";
 
 export function LanguagePicker({
   value,

@@ -4,17 +4,13 @@ import type { AppStatus, AppSettings, DeviceInfo } from "../../../shared/types";
 import { DropdownSelect } from "../Common/DropdownSelect";
 import { SearchableSelect } from "../Common/SearchableSelect";
 import {
-  dictationReadyPttHintAfter,
   dictationReadyPttHintBefore,
+  dictationReadyPttHintAfter,
   dictationShortcutSummaryHoldBody,
-  dictationShortcutSummaryHoldTitle,
+  dictationShortcutSummaryTapBody,
   shortcutDisplayKeys,
 } from "../../../shared/shortcut-options";
 import { Kbd } from "../Common/Kbd";
-import {
-  DictationShortcutStartHint,
-  UnderlinedDictationTerm,
-} from "../Common/DictationShortcutStartHint";
 import {
   SPEECH_MODELS,
   getSpeechModel,
@@ -23,18 +19,34 @@ import {
 import { TRANSCRIPTION_LANGUAGE_OPTIONS } from "../../../shared/transcription-languages";
 import { InstantTooltip } from "../Common/InstantTooltip";
 
-function DictationPttHoldHint({ className = "" }: { className?: string }) {
+function ShortcutHelpIcon({ tooltip }: { tooltip: React.ReactNode }) {
   return (
-    <p
-      className={`mt-3 max-w-[min(100%,15.5rem)] text-[15px] leading-snug text-white/50 font-sans text-balance text-left ${className}`}
+    <InstantTooltip
+      text={tooltip}
+      side="bottom"
+      tooltipClassName="max-w-[20rem]"
     >
-      {dictationReadyPttHintBefore}
-      <UnderlinedDictationTerm
-        label={dictationShortcutSummaryHoldTitle}
-        tooltipText={dictationShortcutSummaryHoldBody}
-      />
-      {dictationReadyPttHintAfter}
-    </p>
+      <button
+        type="button"
+        className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[5px] border border-white/15 bg-white/5 text-white/40 hover:text-white/70 hover:border-white/25 transition-colors cursor-help"
+        aria-label="Shortcut help"
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" strokeWidth="2" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <path d="M12 17h.01" />
+        </svg>
+      </button>
+    </InstantTooltip>
   );
 }
 
@@ -60,6 +72,7 @@ export function HomeScreen({
   onStreamToggle,
   onFormattingToggle,
   onTranslateToggle,
+  onOpenSettings,
 }: {
   status: AppStatus;
   deviceInfo?: DeviceInfo;
@@ -71,6 +84,7 @@ export function HomeScreen({
   onStreamToggle: () => void;
   onFormattingToggle: () => void;
   onTranslateToggle: () => void;
+  onOpenSettings: () => void;
 }) {
   const isRecording = status === "recording";
   const isTranscribing = status === "transcribing";
@@ -122,7 +136,7 @@ export function HomeScreen({
   return (
     <div className="flex flex-col h-full">
       <div className="mb-10">
-        <h2 className="text-[34px] font-semibold text-white/90">
+        <h2 className="text-[28px] font-semibold text-white/90">
           Welcome back!
         </h2>
       </div>
@@ -322,54 +336,89 @@ export function HomeScreen({
             <span className="text-[36px] font-semibold text-white/90 leading-none text-right">
               42,069
             </span>
-            <span className="text-[18px] text-white/50">total words</span>
+            <span className="text-[14px] text-white/50">total words</span>
             <span className="text-[30px] font-semibold text-white/90 leading-none text-right">
               420
             </span>
-            <span className="text-[18px] text-white/50">wpm</span>
+            <span className="text-[14px] text-white/50">wpm</span>
             <span className="text-[30px] font-semibold text-white/90 leading-none text-right">
               4 day
             </span>
-            <span className="text-[18px] text-white/50">streak</span>
+            <span className="text-[14px] text-white/50">streak</span>
           </div>
         </div>
       </div>
 
-      {/* Shortcuts — left-aligned, no status text */}
+      {/* Shortcuts */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.18, duration: 0.35 }}
-        className="flex w-full flex-col gap-5"
+        className="flex w-full items-start gap-10"
       >
-        {holdDisplayKeys ? (
-          <div className="flex flex-col gap-7 md:flex-row md:items-start md:gap-12">
-            <div className="flex flex-col gap-2">
-              <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-white/70">
-                Main shortcut
-              </span>
-              <div className="flex items-center gap-1.5">
-                {displayKeys.map((key, i) => (
-                  <span
-                    key={`main-${i}-${key}`}
-                    className="flex items-center gap-1.5"
-                  >
-                    {i > 0 && (
-                      <span className="text-white/42 text-[18px] font-light">
-                        +
-                      </span>
-                    )}
-                    <Kbd>{key}</Kbd>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-white/70">
+              Main shortcut
+            </span>
+            <ShortcutHelpIcon
+              tooltip={
+                <span className="text-[15px] leading-snug">
+                  <span className="font-bold text-white/80">Hold</span>
+                  {" - "}
+                  {dictationShortcutSummaryHoldBody}
+                  <br />
+                  <br />
+                  <span className="font-bold text-white/80">Tap</span>
+                  {" - "}
+                  {dictationShortcutSummaryTapBody}
+                </span>
+              }
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            {displayKeys.map((key, i) => (
+              <span
+                key={`main-${i}-${key}`}
+                className="flex items-center gap-1.5"
+              >
+                {i > 0 && (
+                  <span className="text-white/30 text-[18px] font-light">
+                    +
                   </span>
-                ))}
-              </div>
-              <DictationShortcutStartHint align="start" />
-            </div>
-
-            <div className="flex flex-col gap-2 border-t border-white/10 pt-5 md:border-t-0 md:border-l md:border-white/12 md:pl-12 md:pt-0">
-              <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-white/70">
-                Push-to-talk
+                )}
+                <Kbd>{key}</Kbd>
               </span>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="self-start text-[13px] text-white/35 hover:text-white/60 transition-colors cursor-pointer"
+          >
+            Edit →
+          </button>
+        </div>
+
+        {holdDisplayKeys && (
+          <>
+            <div className="mt-6 h-14 w-px bg-white/12" />
+
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-white/70">
+                  Push-to-talk
+                </span>
+                <ShortcutHelpIcon
+                  tooltip={
+                    <span className="text-[15px] leading-snug">
+                      {dictationReadyPttHintBefore}
+                      <span className="font-bold text-white/80">hold</span>
+                      {dictationReadyPttHintAfter}
+                    </span>
+                  }
+                />
+              </div>
               <div className="flex items-center gap-1.5">
                 {holdDisplayKeys.map((key, i) => (
                   <span
@@ -377,7 +426,7 @@ export function HomeScreen({
                     className="flex items-center gap-1.5"
                   >
                     {i > 0 && (
-                      <span className="text-white/42 text-[18px] font-light">
+                      <span className="text-white/30 text-[18px] font-light">
                         +
                       </span>
                     )}
@@ -385,31 +434,8 @@ export function HomeScreen({
                   </span>
                 ))}
               </div>
-              <DictationPttHoldHint />
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-white/70">
-              Shortcut
-            </span>
-            <div className="flex items-center gap-1.5">
-              {displayKeys.map((key, i) => (
-                <span
-                  key={`main-${i}-${key}`}
-                  className="flex items-center gap-1.5"
-                >
-                  {i > 0 && (
-                    <span className="text-white/42 text-[18px] font-light">
-                      +
-                    </span>
-                  )}
-                  <Kbd>{key}</Kbd>
-                </span>
-              ))}
-            </div>
-            <DictationShortcutStartHint align="start" />
-          </div>
+          </>
         )}
       </motion.div>
     </div>

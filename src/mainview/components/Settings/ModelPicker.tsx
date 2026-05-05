@@ -80,7 +80,7 @@ export function ModelPicker({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span
-                    className={`text-[19px] leading-tight sm:text-[21px] font-medium font-sans transition-colors duration-200 ${
+                    className={`text-[15px] leading-tight sm:text-[17px] font-medium font-sans transition-colors duration-200 ${
                       isSelected ? "text-white/78" : "text-white/62"
                     }`}
                   >
@@ -127,14 +127,14 @@ export function ModelPicker({
                     </span>
                   )}
                 </div>
-                <span className="mt-1 block text-[15px] leading-snug text-white/36 font-sans sm:mt-0.5 sm:text-[17px] sm:leading-tight">
+                <span className="mt-1 block text-[15px] leading-snug text-white/36 font-sans sm:mt-0.5 sm:text-[13px] sm:leading-tight">
                   {model.description}
                 </span>
               </div>
             </div>
 
             <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-white/8 pt-2.5 sm:w-auto sm:shrink-0 sm:flex-nowrap sm:justify-end sm:border-t-0 sm:pt-0">
-              <span className="shrink-0 text-[15px] text-white/30 font-sans tabular-nums sm:text-[17px]">
+              <span className="shrink-0 text-[15px] text-white/30 font-sans tabular-nums sm:text-[13px]">
                 {formatModelSize(model.downloadSizeMB)}
               </span>
 
@@ -145,7 +145,7 @@ export function ModelPicker({
                       e.stopPropagation();
                       onDownload(model.id);
                     }}
-                    className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/52 hover:text-white/72 transition-colors duration-200 cursor-pointer sm:text-[17px]"
+                    className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/52 hover:text-white/72 transition-colors duration-200 cursor-pointer sm:text-[13px]"
                   >
                     Download
                   </button>
@@ -157,7 +157,7 @@ export function ModelPicker({
                       e.stopPropagation();
                       onCancelDownload(model.id);
                     }}
-                    className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/38 hover:text-white/58 transition-colors duration-200 cursor-pointer sm:text-[17px]"
+                    className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/38 hover:text-white/58 transition-colors duration-200 cursor-pointer sm:text-[13px]"
                   >
                     Cancel
                   </button>
@@ -169,7 +169,7 @@ export function ModelPicker({
                       e.stopPropagation();
                       setConfirmDelete(model.id);
                     }}
-                    className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/8 hover:border-red-400/28 bg-white/3 hover:bg-red-500/10 text-white/28 hover:text-red-400/70 transition-colors duration-200 cursor-pointer sm:text-[17px]"
+                    className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/8 hover:border-red-400/28 bg-white/3 hover:bg-red-500/10 text-white/28 hover:text-red-400/70 transition-colors duration-200 cursor-pointer sm:text-[13px]"
                     aria-label={`Remove ${model.label} model`}
                   >
                     Remove
@@ -187,7 +187,7 @@ export function ModelPicker({
                         setConfirmDelete(null);
                         onDelete(model.id);
                       }}
-                      className="px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-red-400/30 bg-red-500/15 hover:bg-red-500/25 text-red-400/80 hover:text-red-400 transition-colors duration-200 cursor-pointer sm:text-[17px]"
+                      className="px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-red-400/30 bg-red-500/15 hover:bg-red-500/25 text-red-400/80 hover:text-red-400 transition-colors duration-200 cursor-pointer sm:text-[13px]"
                     >
                       Delete
                     </button>
@@ -196,7 +196,7 @@ export function ModelPicker({
                         e.stopPropagation();
                         setConfirmDelete(null);
                       }}
-                      className="px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/10 bg-white/3 hover:bg-white/6 text-white/38 hover:text-white/58 transition-colors duration-200 cursor-pointer sm:text-[17px]"
+                      className="px-2.5 py-1.5 sm:py-1 rounded-lg text-[15px] font-medium border border-white/10 bg-white/3 hover:bg-white/6 text-white/38 hover:text-white/58 transition-colors duration-200 cursor-pointer sm:text-[13px]"
                     >
                       Keep
                     </button>
