@@ -2,7 +2,7 @@ use super::resample::{RECORDING_SAMPLE_RATE, StreamingResampler};
 use super::wav::RecordingWavWriter;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, SampleRate, StreamConfig};
-use crossbeam_channel::{Sender, bounded};
+use crossbeam_channel::{Receiver, Sender, bounded};
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,6 +11,21 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 type RecordingWorker = JoinHandle<Result<(), String>>;
+
+pub struct InputSampleStream {
+    pub sample_rate: u32,
+    rx: Receiver<Vec<f32>>,
+    _stream: cpal::Stream,
+}
+
+impl InputSampleStream {
+    pub fn recv_timeout(
+        &self,
+        timeout: Duration,
+    ) -> Result<Vec<f32>, crossbeam_channel::RecvTimeoutError> {
+        self.rx.recv_timeout(timeout)
+    }
+}
 
 fn spawn_recording_worker(
     path: &str,
@@ -158,6 +173,74 @@ fn write_frames_u16(data: &[u16], channels: usize, sender: &Sender<Vec<f32>>) {
         chunk.push((sum / channels as f32).clamp(-1.0, 1.0));
     }
     send_mono_chunk(sender, chunk);
+}
+
+pub fn open_default_input_sample_stream() -> Result<InputSampleStream, String> {
+    let host = cpal::default_host();
+    let device = host
+        .default_input_device()
+        .ok_or_else(|| "no default input device".to_string())?;
+    let (config, sample_format) = pick_record_config(&device)?;
+    let (sample_tx, sample_rx) = bounded::<Vec<f32>>(4096);
+
+    let err_fn = |err| {
+        let _ = writeln!(
+            io::stderr().lock(),
+            "CodictateWindowsHelper stream input error: {err}"
+        );
+    };
+
+    let channels = config.channels as usize;
+    let stream = match sample_format {
+        SampleFormat::F32 => {
+            let sender = sample_tx.clone();
+            device.build_input_stream(
+                &config,
+                move |data: &[f32], _| write_frames_f32(data, channels, &sender),
+                err_fn,
+                None,
+            )
+        }
+        SampleFormat::I16 => {
+            let sender = sample_tx.clone();
+            device.build_input_stream(
+                &config,
+                move |data: &[i16], _| write_frames_i16(data, channels, &sender),
+                err_fn,
+                None,
+            )
+        }
+        SampleFormat::U8 => {
+            let sender = sample_tx.clone();
+            device.build_input_stream(
+                &config,
+                move |data: &[u8], _| write_frames_u8(data, channels, &sender),
+                err_fn,
+                None,
+            )
+        }
+        SampleFormat::U16 => {
+            let sender = sample_tx.clone();
+            device.build_input_stream(
+                &config,
+                move |data: &[u16], _| write_frames_u16(data, channels, &sender),
+                err_fn,
+                None,
+            )
+        }
+        other => return Err(format!("unsupported sample format: {other:?}")),
+    }
+    .map_err(|err| format!("build_input_stream failed: {err}"))?;
+
+    stream
+        .play()
+        .map_err(|err| format!("stream play failed: {err}"))?;
+
+    Ok(InputSampleStream {
+        sample_rate: config.sample_rate.0,
+        rx: sample_rx,
+        _stream: stream,
+    })
 }
 
 pub fn record_to_wav(path: &str, device_ref: &str, max_seconds: u64) -> Result<(), String> {

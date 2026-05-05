@@ -33,7 +33,7 @@ export function getPlatformCapabilities(): PlatformCapabilities {
       return {
         platform,
         supportsMacPermissionFlow: false,
-        supportsStreamMode: false,
+        supportsStreamMode: true,
         supportsFormatting: true,
         supportsCorrectionObserver: false,
         supportsNativeIndicator: true,

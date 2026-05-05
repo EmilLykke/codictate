@@ -1,7 +1,7 @@
-mod capture;
+pub(crate) mod capture;
 mod com;
 mod devices;
-mod resample;
+pub(crate) mod resample;
 mod wav;
 
 use crate::ipc::emit_json;

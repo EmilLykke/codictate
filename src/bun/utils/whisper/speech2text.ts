@@ -280,19 +280,19 @@ export async function warmupParakeet(
     const modelDir = modelManager.getParakeetInstallDir(PARAKEET_MODEL_ID)
     const warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
     await Bun.write(warmupPath, createSilentWav())
-    log('parakeet', 'starting Core ML warmup')
+    log('parakeet', 'starting model warmup')
     const proc = Bun.spawn([helper, 'transcribe', warmupPath, modelDir], {
       stdout: 'ignore',
       stderr: 'ignore',
       env: { ...process.env, LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
     })
     await proc.exited
-    log('parakeet', 'Core ML warmup complete', { exitCode: proc.exitCode })
+    log('parakeet', 'model warmup complete', { exitCode: proc.exitCode })
     if (proc.exitCode === 0) {
       await onReady?.()
     }
   } catch (err) {
-    log('parakeet', 'Core ML warmup error', { err: String(err) })
+    log('parakeet', 'model warmup error', { err: String(err) })
   }
 }
 

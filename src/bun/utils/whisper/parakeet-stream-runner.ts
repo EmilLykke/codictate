@@ -1,4 +1,4 @@
-// Parakeet stream mode: spawn CodictateParakeetHelper only. The helper captures mic,
+// Parakeet stream mode: spawn the platform Parakeet helper. The helper captures mic,
 // runs the model, and pastes — nothing is read from stdout.
 //
 // Live-mode tracing: set CODICTATE_LIVE_DEBUG=1 in the environment before starting
@@ -60,21 +60,17 @@ export async function startParakeetStream(
     Math.min(100, Math.round(options?.outputDuckLevel ?? 0))
   )
 
-  log(
-    'stream',
-    'spawning CodictateParakeetHelper (helper handles capture + paste)',
-    {
-      binary,
-      streamArgs: ['stream', modeArg, modelDir],
-      streamTranscriptionMode,
-      modelDir,
-      streamDebugId,
-      outputDuckDelayMs,
-      outputDuckBuiltIn,
-      outputDuckHeadphones,
-      outputDuckLevel,
-    }
-  )
+  log('stream', 'spawning Parakeet helper (helper handles capture + paste)', {
+    binary,
+    streamArgs: ['stream', modeArg, modelDir],
+    streamTranscriptionMode,
+    modelDir,
+    streamDebugId,
+    outputDuckDelayMs,
+    outputDuckBuiltIn,
+    outputDuckHeadphones,
+    outputDuckLevel,
+  })
 
   const proc = Bun.spawn(args, {
     stdout: 'ignore',

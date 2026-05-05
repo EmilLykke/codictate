@@ -33,6 +33,8 @@ if (isWindowsHost) {
   buildCopy[
     "native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe"
   ] = "native-helpers/CodictateWindowsHelper.exe";
+  buildCopy["native/CodictateWindowsHelper/target/release/DirectML.dll"] =
+    "native-helpers/DirectML.dll";
   buildCopy["vendors/whisper/whisper-cli.exe"] =
     "native-helpers/whisper-cli.exe";
   buildCopy["vendors/llama/llama-completion.exe"] =

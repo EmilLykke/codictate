@@ -1,5 +1,5 @@
 mod hook;
-mod inject;
+pub(crate) mod inject;
 pub mod protocol;
 
 use self::protocol::{
