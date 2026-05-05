@@ -656,6 +656,27 @@ fn write_frames_i16(
     }
 }
 
+fn write_frames_u8(
+    data: &[u8],
+    channels: usize,
+    writer: &Arc<Mutex<Option<hound::WavWriter<std::io::BufWriter<File>>>>>,
+) {
+    if channels == 0 {
+        return;
+    }
+    let Ok(mut guard) = writer.lock() else {
+        return;
+    };
+    let Some(writer) = guard.as_mut() else {
+        return;
+    };
+    for frame in data.chunks(channels) {
+        let sum: i32 = frame.iter().map(|sample| (*sample as i32 - 128) << 8).sum();
+        let mono = (sum / channels as i32) as i16;
+        let _ = writer.write_sample(mono);
+    }
+}
+
 fn write_frames_u16(
     data: &[u16],
     channels: usize,
@@ -742,6 +763,15 @@ fn record_to_wav(path: &str, device_index: usize, max_seconds: u64) -> Result<()
             device.build_input_stream(
                 &config,
                 move |data: &[i16], _| write_frames_i16(data, channels, &writer),
+                err_fn,
+                None,
+            )
+        }
+        SampleFormat::U8 => {
+            let writer = writer.clone();
+            device.build_input_stream(
+                &config,
+                move |data: &[u8], _| write_frames_u8(data, channels, &writer),
                 err_fn,
                 None,
             )
