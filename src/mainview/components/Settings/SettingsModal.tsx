@@ -88,7 +88,7 @@ export function SettingsModal({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="fixed inset-0 z-50 m-auto flex h-fit max-h-[85vh] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] shadow-2xl"
+                className="fixed inset-0 z-50 m-auto flex max-h-[85vh] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] shadow-2xl"
               >
                 <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
                   <Dialog.Title asChild>

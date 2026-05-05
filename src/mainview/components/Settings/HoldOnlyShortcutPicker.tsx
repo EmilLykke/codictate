@@ -50,7 +50,7 @@ export function HoldOnlyShortcutPicker({
       <Select.Trigger asChild>
         <motion.button
           type="button"
-          className={`flex w-full items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left transition-colors duration-200 ${
+          className={`flex w-full items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-white/20 ${
             disabled
               ? "opacity-50 cursor-not-allowed"
               : "cursor-pointer hover:border-white/16 hover:bg-white/6"
