@@ -1,11 +1,11 @@
 use arboard::Clipboard;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, SampleRate, StreamConfig};
+use rubato::{FftFixedInOut, Resampler};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashSet;
 use std::env;
-use std::fs::File;
 use std::io::{self, BufRead, Write};
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -42,6 +42,7 @@ static INDICATOR_ANIMATION: OnceLock<Mutex<IndicatorAnimation>> = OnceLock::new(
 static OUTPUT_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 const LLKHF_INJECTED: u32 = 0x10;
+const RECORDING_SAMPLE_RATE: u32 = 16_000;
 const INDICATOR_TIMER_ID: usize = 1;
 const INDICATOR_FRAME_MS: u32 = 33;
 const INDICATOR_MAX_ORB_SIZE: f32 = 56.0;
@@ -571,7 +572,9 @@ fn pick_record_config(device: &cpal::Device) -> Result<(StreamConfig, SampleForm
             }
             let min = range.min_sample_rate().0;
             let max = range.max_sample_rate().0;
-            let desired = if min <= 48_000 && 48_000 <= max {
+            let desired = if min <= RECORDING_SAMPLE_RATE && RECORDING_SAMPLE_RATE <= max {
+                RECORDING_SAMPLE_RATE
+            } else if min <= 48_000 && 48_000 <= max {
                 48_000
             } else {
                 max
@@ -584,7 +587,7 @@ fn pick_record_config(device: &cpal::Device) -> Result<(StreamConfig, SampleForm
                 },
                 range.sample_format(),
             ));
-            if desired == 48_000 && channels == 1 {
+            if desired == RECORDING_SAMPLE_RATE && channels == 1 {
                 break;
             }
         }
@@ -599,102 +602,155 @@ fn pick_record_config(device: &cpal::Device) -> Result<(StreamConfig, SampleForm
     Ok((fallback.config(), fallback.sample_format()))
 }
 
-fn finalize_writer(
-    writer: Arc<Mutex<Option<hound::WavWriter<std::io::BufWriter<File>>>>>,
-) -> Result<(), String> {
-    let mut guard = writer
-        .lock()
-        .map_err(|_| "writer lock poisoned".to_string())?;
-    if let Some(writer) = guard.take() {
-        writer
-            .finalize()
-            .map_err(|err| format!("finalize failed: {err}"))?;
-    }
-    Ok(())
+fn append_frames(buffers: &mut [Vec<f32>], additional: &[Vec<f32>], nbr_frames: usize) {
+    buffers
+        .iter_mut()
+        .zip(additional.iter())
+        .for_each(|(buffer, add)| buffer.extend_from_slice(&add[..nbr_frames]));
 }
 
-fn write_frames_f32(
-    data: &[f32],
-    channels: usize,
-    writer: &Arc<Mutex<Option<hound::WavWriter<std::io::BufWriter<File>>>>>,
-) {
+fn resample_mono_to_recording_rate(
+    samples: &[f32],
+    input_sample_rate: u32,
+) -> Result<Vec<f32>, String> {
+    if input_sample_rate == RECORDING_SAMPLE_RATE {
+        return Ok(samples.to_vec());
+    }
+    if samples.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut resampler = FftFixedInOut::<f32>::new(
+        input_sample_rate as usize,
+        RECORDING_SAMPLE_RATE as usize,
+        1024,
+        1,
+    )
+    .map_err(|err| format!("resampler init failed: {err}"))?;
+
+    let delay = resampler.output_delay();
+    let output_len = ((samples.len() as f64 * RECORDING_SAMPLE_RATE as f64)
+        / input_sample_rate as f64)
+        .round() as usize;
+    let mut outdata = vec![Vec::with_capacity(output_len + delay + 1024)];
+    let mut outbuffer = vec![vec![0.0f32; resampler.output_frames_max()]];
+    let mut indata_slices: Vec<&[f32]> = vec![samples];
+    let mut input_frames_next = resampler.input_frames_next();
+
+    while indata_slices[0].len() >= input_frames_next {
+        let (nbr_in, nbr_out) = resampler
+            .process_into_buffer(&indata_slices, &mut outbuffer, None)
+            .map_err(|err| format!("resample failed: {err}"))?;
+        indata_slices[0] = &indata_slices[0][nbr_in..];
+        append_frames(&mut outdata, &outbuffer, nbr_out);
+        input_frames_next = resampler.input_frames_next();
+    }
+
+    if !indata_slices[0].is_empty() {
+        let (_nbr_in, nbr_out) = resampler
+            .process_partial_into_buffer(Some(&indata_slices), &mut outbuffer, None)
+            .map_err(|err| format!("resample final chunk failed: {err}"))?;
+        append_frames(&mut outdata, &outbuffer, nbr_out);
+    }
+
+    while outdata[0].len() < output_len + delay {
+        let (_nbr_in, nbr_out) = resampler
+            .process_partial_into_buffer(None::<&[&[f32]]>, &mut outbuffer, None)
+            .map_err(|err| format!("resample flush failed: {err}"))?;
+        if nbr_out == 0 {
+            break;
+        }
+        append_frames(&mut outdata, &outbuffer, nbr_out);
+    }
+
+    let start = delay.min(outdata[0].len());
+    let end = (start + output_len).min(outdata[0].len());
+    Ok(outdata[0][start..end].to_vec())
+}
+
+fn write_recording_wav(path: &str, samples: &[f32]) -> Result<(), String> {
+    let mut writer = hound::WavWriter::create(
+        path,
+        hound::WavSpec {
+            channels: 1,
+            sample_rate: RECORDING_SAMPLE_RATE,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        },
+    )
+    .map_err(|err| format!("failed to create wav: {err}"))?;
+
+    for sample in samples {
+        let sample = (sample.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16;
+        writer
+            .write_sample(sample)
+            .map_err(|err| format!("failed to write wav sample: {err}"))?;
+    }
+
+    writer
+        .finalize()
+        .map_err(|err| format!("finalize failed: {err}"))
+}
+
+fn write_frames_f32(data: &[f32], channels: usize, samples: &Arc<Mutex<Vec<f32>>>) {
     if channels == 0 {
         return;
     }
-    let Ok(mut guard) = writer.lock() else {
-        return;
-    };
-    let Some(writer) = guard.as_mut() else {
+    let Ok(mut samples) = samples.lock() else {
         return;
     };
     for frame in data.chunks(channels) {
         let sum: f32 = frame.iter().copied().sum();
         let mono = (sum / channels as f32).clamp(-1.0, 1.0);
-        let sample = (mono * i16::MAX as f32) as i16;
-        let _ = writer.write_sample(sample);
+        samples.push(mono);
     }
 }
 
-fn write_frames_i16(
-    data: &[i16],
-    channels: usize,
-    writer: &Arc<Mutex<Option<hound::WavWriter<std::io::BufWriter<File>>>>>,
-) {
+fn write_frames_i16(data: &[i16], channels: usize, samples: &Arc<Mutex<Vec<f32>>>) {
     if channels == 0 {
         return;
     }
-    let Ok(mut guard) = writer.lock() else {
-        return;
-    };
-    let Some(writer) = guard.as_mut() else {
+    let Ok(mut samples) = samples.lock() else {
         return;
     };
     for frame in data.chunks(channels) {
-        let sum: i32 = frame.iter().map(|sample| *sample as i32).sum();
-        let mono = (sum / channels as i32) as i16;
-        let _ = writer.write_sample(mono);
+        let sum: f32 = frame.iter().map(|sample| *sample as f32 / 32768.0).sum();
+        let mono = (sum / channels as f32).clamp(-1.0, 1.0);
+        samples.push(mono);
     }
 }
 
-fn write_frames_u8(
-    data: &[u8],
-    channels: usize,
-    writer: &Arc<Mutex<Option<hound::WavWriter<std::io::BufWriter<File>>>>>,
-) {
+fn write_frames_u8(data: &[u8], channels: usize, samples: &Arc<Mutex<Vec<f32>>>) {
     if channels == 0 {
         return;
     }
-    let Ok(mut guard) = writer.lock() else {
-        return;
-    };
-    let Some(writer) = guard.as_mut() else {
+    let Ok(mut samples) = samples.lock() else {
         return;
     };
     for frame in data.chunks(channels) {
-        let sum: i32 = frame.iter().map(|sample| (*sample as i32 - 128) << 8).sum();
-        let mono = (sum / channels as i32) as i16;
-        let _ = writer.write_sample(mono);
+        let sum: f32 = frame
+            .iter()
+            .map(|sample| (*sample as f32 - 128.0) / 128.0)
+            .sum();
+        let mono = (sum / channels as f32).clamp(-1.0, 1.0);
+        samples.push(mono);
     }
 }
 
-fn write_frames_u16(
-    data: &[u16],
-    channels: usize,
-    writer: &Arc<Mutex<Option<hound::WavWriter<std::io::BufWriter<File>>>>>,
-) {
+fn write_frames_u16(data: &[u16], channels: usize, samples: &Arc<Mutex<Vec<f32>>>) {
     if channels == 0 {
         return;
     }
-    let Ok(mut guard) = writer.lock() else {
-        return;
-    };
-    let Some(writer) = guard.as_mut() else {
+    let Ok(mut samples) = samples.lock() else {
         return;
     };
     for frame in data.chunks(channels) {
-        let sum: i64 = frame.iter().map(|sample| *sample as i64 - 32_768).sum();
-        let mono = (sum / channels as i64) as i16;
-        let _ = writer.write_sample(mono);
+        let sum: f32 = frame
+            .iter()
+            .map(|sample| (*sample as f32 - 32_768.0) / 32_768.0)
+            .sum();
+        let mono = (sum / channels as f32).clamp(-1.0, 1.0);
+        samples.push(mono);
     }
 }
 
@@ -710,18 +766,7 @@ fn record_to_wav(path: &str, device_index: usize, max_seconds: u64) -> Result<()
     };
 
     let (config, sample_format) = pick_record_config(&device)?;
-    let writer = hound::WavWriter::create(
-        path,
-        hound::WavSpec {
-            channels: 1,
-            sample_rate: config.sample_rate.0,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        },
-    )
-    .map_err(|err| format!("failed to create wav: {err}"))?;
-
-    let writer = Arc::new(Mutex::new(Some(writer)));
+    let samples = Arc::new(Mutex::new(Vec::<f32>::new()));
     let stop_flag = Arc::new(AtomicBool::new(false));
     let command_stop = stop_flag.clone();
 
@@ -750,37 +795,37 @@ fn record_to_wav(path: &str, device_index: usize, max_seconds: u64) -> Result<()
     let channels = config.channels as usize;
     let stream = match sample_format {
         SampleFormat::F32 => {
-            let writer = writer.clone();
+            let samples = samples.clone();
             device.build_input_stream(
                 &config,
-                move |data: &[f32], _| write_frames_f32(data, channels, &writer),
+                move |data: &[f32], _| write_frames_f32(data, channels, &samples),
                 err_fn,
                 None,
             )
         }
         SampleFormat::I16 => {
-            let writer = writer.clone();
+            let samples = samples.clone();
             device.build_input_stream(
                 &config,
-                move |data: &[i16], _| write_frames_i16(data, channels, &writer),
+                move |data: &[i16], _| write_frames_i16(data, channels, &samples),
                 err_fn,
                 None,
             )
         }
         SampleFormat::U8 => {
-            let writer = writer.clone();
+            let samples = samples.clone();
             device.build_input_stream(
                 &config,
-                move |data: &[u8], _| write_frames_u8(data, channels, &writer),
+                move |data: &[u8], _| write_frames_u8(data, channels, &samples),
                 err_fn,
                 None,
             )
         }
         SampleFormat::U16 => {
-            let writer = writer.clone();
+            let samples = samples.clone();
             device.build_input_stream(
                 &config,
-                move |data: &[u16], _| write_frames_u16(data, channels, &writer),
+                move |data: &[u16], _| write_frames_u16(data, channels, &samples),
                 err_fn,
                 None,
             )
@@ -803,7 +848,12 @@ fn record_to_wav(path: &str, device_index: usize, max_seconds: u64) -> Result<()
 
     drop(stream);
     stop_flag.store(true, Ordering::SeqCst);
-    finalize_writer(writer)
+    let samples = samples
+        .lock()
+        .map_err(|_| "samples lock poisoned".to_string())?
+        .clone();
+    let samples = resample_mono_to_recording_rate(&samples, config.sample_rate.0)?;
+    write_recording_wav(path, &samples)
 }
 
 fn handle_list_devices() -> ExitCode {

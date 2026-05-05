@@ -294,7 +294,7 @@ final class RecordSession: NSObject, AVAudioRecorderDelegate {
 
         let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatLinearPCM),
-            AVSampleRateKey: 48_000.0,
+            AVSampleRateKey: 16_000.0,
             AVNumberOfChannelsKey: 1,
             AVLinearPCMBitDepthKey: 16,
             AVLinearPCMIsFloatKey: false,
