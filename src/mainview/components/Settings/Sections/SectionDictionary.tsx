@@ -47,8 +47,7 @@ export function SectionDictionary({ settings }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editFrom, setEditFrom] = useState("");
-  const [editKind, setEditKind] =
-    useState<DictionaryEntry["kind"]>("fuzzy");
+  const [editKind, setEditKind] = useState<DictionaryEntry["kind"]>("fuzzy");
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -191,7 +190,8 @@ export function SectionDictionary({ settings }: Props) {
                 ...e,
                 kind: newEntry.kind,
                 text: newEntry.text,
-                from: newEntry.kind === "replacement" ? newEntry.from : undefined,
+                from:
+                  newEntry.kind === "replacement" ? newEntry.from : undefined,
               }
             : e,
         );
@@ -200,7 +200,11 @@ export function SectionDictionary({ settings }: Props) {
       setEditingKey(null);
 
       const ok = await editDictionaryEntry(
-        { kind: originalEntry.kind, text: originalEntry.text, from: originalEntry.from },
+        {
+          kind: originalEntry.kind,
+          text: originalEntry.text,
+          from: originalEntry.from,
+        },
         newEntry,
       );
       if (!ok) {

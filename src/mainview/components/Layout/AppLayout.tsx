@@ -196,118 +196,113 @@ export function AppLayout({
       {/* Sidebar — floating glass card */}
       <div className="shrink-0 flex flex-col p-3 pb-3 pt-10">
         <div className="glass-sidebar flex-1 flex w-[232px] flex-col px-3 pb-6 pt-5">
+          <div className="mb-8">
+            <button
+              type="button"
+              onClick={onWordmarkSecretTap}
+              className="cursor-pointer rounded-lg outline-none transition-opacity duration-200 hover:opacity-95 focus-visible:ring-2 focus-visible:ring-white/20"
+              aria-label="Codictate"
+            >
+              <WordmarkCodictate
+                as="h1"
+                className={`text-[30px] ${wordmarkCodictateTypographyClass}`}
+              />
+            </button>
+          </div>
 
-            <div className="mb-8">
-              <button
-                type="button"
-                onClick={onWordmarkSecretTap}
-                className="cursor-pointer rounded-lg outline-none transition-opacity duration-200 hover:opacity-95 focus-visible:ring-2 focus-visible:ring-white/20"
-                aria-label="Codictate"
-              >
-                <WordmarkCodictate
-                  as="h1"
-                  className={`text-[30px] ${wordmarkCodictateTypographyClass}`}
-                />
-              </button>
-            </div>
+          <nav className="flex flex-col gap-1">
+            {MAIN_FEATURES.map((c) => {
+              const isActive = activeTab === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => onTabChange(c.id)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium transition-colors duration-200 cursor-pointer ${
+                    isActive
+                      ? "bg-white/10 text-white/90"
+                      : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                  }`}
+                >
+                  <div className={isActive ? "text-white/80" : "text-white/40"}>
+                    {c.icon}
+                  </div>
+                  {c.label}
+                </button>
+              );
+            })}
 
-            <nav className="flex flex-col gap-1">
-              {MAIN_FEATURES.map((c) => {
-                const isActive = activeTab === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => onTabChange(c.id)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium transition-colors duration-200 cursor-pointer ${
-                      isActive
-                        ? "bg-white/10 text-white/90"
-                        : "text-white/50 hover:bg-white/5 hover:text-white/70"
-                    }`}
-                  >
-                    <div
-                      className={isActive ? "text-white/80" : "text-white/40"}
-                    >
-                      {c.icon}
-                    </div>
-                    {c.label}
-                  </button>
-                );
-              })}
+            <div className="my-2 h-px bg-white/10 mx-3" />
 
-              <div className="my-2 h-px bg-white/10 mx-3" />
+            {CONFIGURATION_GROUP.map((c) => {
+              const isActive = activeTab === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => onTabChange(c.id)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium transition-colors duration-200 cursor-pointer ${
+                    isActive
+                      ? "bg-white/10 text-white/90"
+                      : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                  }`}
+                >
+                  <div className={isActive ? "text-white/80" : "text-white/40"}>
+                    {c.icon}
+                  </div>
+                  {c.label}
+                </button>
+              );
+            })}
+          </nav>
 
-              {CONFIGURATION_GROUP.map((c) => {
-                const isActive = activeTab === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => onTabChange(c.id)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium transition-colors duration-200 cursor-pointer ${
-                      isActive
-                        ? "bg-white/10 text-white/90"
-                        : "text-white/50 hover:bg-white/5 hover:text-white/70"
-                    }`}
-                  >
-                    <div
-                      className={isActive ? "text-white/80" : "text-white/40"}
-                    >
-                      {c.icon}
-                    </div>
-                    {c.label}
-                  </button>
-                );
-              })}
-            </nav>
-
-            <div className="mt-auto flex flex-col gap-1 pt-4">
-              <button
-                onClick={onOpenSettings}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors duration-200 cursor-pointer"
-              >
-                <div className="text-white/40">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                </div>
-                Settings
-              </button>
-              <button
-                onClick={onOpenHelp}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors duration-200 cursor-pointer"
-              >
-                <div className="text-white/40">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                    <line x1="12" x2="12.01" y1="17" y2="17" />
-                  </svg>
-                </div>
-                Help
-              </button>
-            </div>
+          <div className="mt-auto flex flex-col gap-1 pt-4">
+            <button
+              onClick={onOpenSettings}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors duration-200 cursor-pointer"
+            >
+              <div className="text-white/40">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </div>
+              Settings
+            </button>
+            <button
+              onClick={onOpenHelp}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors duration-200 cursor-pointer"
+            >
+              <div className="text-white/40">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" x2="12.01" y1="17" y2="17" />
+                </svg>
+              </div>
+              Help
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Content Area — left-aligned */}
+      {/* Content Area — left-aligned */}
       <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-16 pt-12">
         {children}
       </div>

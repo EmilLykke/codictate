@@ -1,6 +1,10 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AppSettings, AppStatus, ShortcutId } from "../../../../shared/types";
+import type {
+  AppSettings,
+  AppStatus,
+  ShortcutId,
+} from "../../../../shared/types";
 import {
   dictationHoldOnlyShortcutHint,
   dictationShortcutBehaviorHint,
@@ -17,7 +21,10 @@ type Props = {
 };
 
 export function SectionShortcuts({ settings, status }: Props) {
-  const busy = status === "recording" || status === "transcribing" || status === "streaming";
+  const busy =
+    status === "recording" ||
+    status === "transcribing" ||
+    status === "streaming";
   const queryClient = useQueryClient();
 
   const handleShortcutChange = useCallback(

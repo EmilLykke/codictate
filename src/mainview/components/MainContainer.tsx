@@ -312,10 +312,8 @@ export function MainContainer({
 
   const handleDeviceChange = useCallback(
     async (index: number) => {
-      queryClient.setQueryData(
-        ["devices"],
-        (old: DeviceInfo | undefined) =>
-          old ? { ...old, selectedDevice: index } : old,
+      queryClient.setQueryData(["devices"], (old: DeviceInfo | undefined) =>
+        old ? { ...old, selectedDevice: index } : old,
       );
       await setAudioDevice(index);
     },
@@ -426,7 +424,9 @@ export function MainContainer({
         {activeTab === "formatting" && (
           <SectionFormatting settings={settings} />
         )}
-        {activeTab === "shortcuts" && <SectionShortcuts settings={settings} status={status} />}
+        {activeTab === "shortcuts" && (
+          <SectionShortcuts settings={settings} status={status} />
+        )}
         {activeTab === "transcription" && (
           <SectionTranscription
             settings={settings}

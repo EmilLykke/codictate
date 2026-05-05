@@ -1,12 +1,7 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "motion/react";
+import { useState } from "react";
+import * as Select from "@radix-ui/react-select";
+import { motion } from "motion/react";
+import { DropdownChevron } from "./DropdownChevron";
 
 export interface DropdownOption {
   value: string;
@@ -21,31 +16,7 @@ interface DropdownSelectProps {
   disabled?: boolean;
   ariaLabel?: string;
   placeholder?: string;
-  /** Which edge of the trigger the panel aligns to. `start` = left edge, `center` = centered, `end` = right edge. */
   align?: "start" | "center" | "end";
-}
-
-const ANCHOR_GAP = 6;
-const VIEW_MARGIN = 10;
-const PANEL_MAX_WIDTH = 380;
-
-function DropdownChevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      width={12}
-      height={12}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      className={`shrink-0 text-white/45 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
 }
 
 export function DropdownSelect({
@@ -58,121 +29,57 @@ export function DropdownSelect({
   align = "end",
 }: DropdownSelectProps) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{
-    top: number;
-    left: number;
-    minWidth: number;
-    maxWidth: number;
-  } | null>(null);
 
   const selectedOption = options.find((o) => o.value === value);
   const displayLabel = selectedOption?.label ?? placeholder ?? "";
 
-  const reposition = useCallback(() => {
-    const trigger = triggerRef.current;
-    const panel = panelRef.current;
-    if (!trigger || !panel) return;
-
-    const r = trigger.getBoundingClientRect();
-    const contentWidth = panel.scrollWidth;
-    const maxW = Math.max(r.width, PANEL_MAX_WIDTH);
-    const panelWidth = Math.min(Math.max(contentWidth, r.width), maxW);
-
-    let left: number;
-    if (align === "start") {
-      left = r.left;
-    } else if (align === "center") {
-      left = r.left + r.width / 2 - panelWidth / 2;
-    } else {
-      left = r.right - panelWidth;
-    }
-
-    if (left < VIEW_MARGIN) left = VIEW_MARGIN;
-    if (left + panelWidth > window.innerWidth - VIEW_MARGIN) {
-      left = window.innerWidth - VIEW_MARGIN - panelWidth;
-    }
-
-    const panelHeight = panel.offsetHeight;
-    const below = r.bottom + ANCHOR_GAP;
-    const above = r.top - ANCHOR_GAP - panelHeight;
-    const fitsBelow = below + panelHeight <= window.innerHeight - VIEW_MARGIN;
-    const top = fitsBelow ? below : Math.max(VIEW_MARGIN, above);
-
-    setPos({ top, left, minWidth: r.width, maxWidth: maxW });
-  }, [align]);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPos(null);
-      return;
-    }
-    reposition();
-  }, [open, reposition]);
-
-  useLayoutEffect(() => {
-    if (!open || !pos) return;
-    const container = scrollRef.current;
-    if (!container) return;
-    const active = container.querySelector("[aria-selected='true']");
-    if (active) {
-      active.scrollIntoView({ block: "center" });
-    }
-  }, [open, pos]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (
-        triggerRef.current?.contains(target) ||
-        panelRef.current?.contains(target)
-      )
-        return;
-      setOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown, true);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  const pick = (v: string) => {
-    onChange(v);
-    setOpen(false);
-  };
-
-  const panel = open
-    ? createPortal(
-        <AnimatePresence>
+  return (
+    <Select.Root
+      value={value}
+      onValueChange={onChange}
+      open={open}
+      onOpenChange={setOpen}
+      disabled={disabled}
+    >
+      <Select.Trigger asChild>
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          className={`flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left transition-colors duration-200 ${
+            disabled
+              ? "opacity-50 cursor-not-allowed"
+              : "cursor-pointer hover:border-white/20 hover:bg-white/7"
+          }`}
+        >
+          <span
+            className={`min-w-0 flex-1 truncate text-[19px] font-medium ${
+              selectedOption ? "text-white/90" : "text-white/45"
+            }`}
+          >
+            {displayLabel}
+          </span>
+          <DropdownChevron open={open} />
+        </button>
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Content
+          asChild
+          position="popper"
+          align={align}
+          sideOffset={6}
+          collisionPadding={10}
+          style={{
+            minWidth: "var(--radix-select-trigger-width)",
+            maxWidth: 380,
+          }}
+        >
           <motion.div
-            ref={panelRef}
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            role="listbox"
-            aria-label={ariaLabel}
-            className="overflow-hidden rounded-xl border border-white/12 bg-[#141416]/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/8 backdrop-blur-md"
-            style={{
-              position: "fixed",
-              zIndex: 10000,
-              top: pos?.top ?? -9999,
-              left: pos?.left ?? 0,
-              minWidth: pos?.minWidth ?? "auto",
-              maxWidth: pos?.maxWidth ?? PANEL_MAX_WIDTH,
-              opacity: pos ? undefined : 0,
-            }}
+            className="z-[10000] overflow-hidden rounded-xl border border-white/12 bg-[#141416]/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/8 backdrop-blur-md"
           >
-            <div
-              ref={scrollRef}
+            <Select.Viewport
               className="max-h-[min(340px,52vh)] overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
               style={{ scrollbarWidth: "thin" }}
             >
@@ -180,19 +87,17 @@ export function DropdownSelect({
                 {options.map((opt) => {
                   const isActive = opt.value === value;
                   return (
-                    <button
+                    <Select.Item
                       key={opt.value}
-                      type="button"
-                      role="option"
-                      aria-selected={isActive}
+                      value={opt.value}
+                      textValue={opt.label}
                       disabled={opt.disabled}
-                      onClick={() => !opt.disabled && pick(opt.value)}
-                      className={`relative flex items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors duration-200 whitespace-nowrap ${
+                      className={`relative flex items-center gap-2.5 rounded-lg border px-3 py-2 text-left outline-none transition-colors duration-200 whitespace-nowrap ${
                         opt.disabled
                           ? "border-transparent text-white/30 cursor-not-allowed"
                           : isActive
-                            ? "border-white/26 bg-white/6 cursor-pointer"
-                            : "border-transparent hover:border-white/12 hover:bg-white/5 cursor-pointer"
+                            ? "border-white/26 bg-white/6 cursor-pointer data-[highlighted]:bg-white/8"
+                            : "border-transparent cursor-pointer data-[highlighted]:border-white/12 data-[highlighted]:bg-white/5"
                       }`}
                     >
                       <div
@@ -227,43 +132,14 @@ export function DropdownSelect({
                       >
                         {opt.label}
                       </span>
-                    </button>
+                    </Select.Item>
                   );
                 })}
               </div>
-            </div>
+            </Select.Viewport>
           </motion.div>
-        </AnimatePresence>,
-        document.body,
-      )
-    : null;
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => !disabled && setOpen((o) => !o)}
-        disabled={disabled}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        aria-label={ariaLabel}
-        className={`flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left transition-colors duration-200 ${
-          disabled
-            ? "opacity-50 cursor-not-allowed"
-            : "cursor-pointer hover:border-white/20 hover:bg-white/7"
-        }`}
-      >
-        <span
-          className={`min-w-0 flex-1 truncate text-[19px] font-medium ${
-            selectedOption ? "text-white/90" : "text-white/45"
-          }`}
-        >
-          {displayLabel}
-        </span>
-        <DropdownChevron open={open} />
-      </button>
-      {panel}
-    </>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
   );
 }
