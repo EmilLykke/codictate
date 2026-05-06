@@ -11,12 +11,20 @@ import { SectionDebug } from "./Sections/SectionDebug";
 import { SectionShortcuts } from "./Sections/SectionShortcuts";
 import { SectionAudio } from "./Sections/SectionAudio";
 import { SectionFun } from "./Sections/SectionFun";
+import { SectionHistory } from "./Sections/SectionHistory";
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const SECRET_UNLOCK_CLICK_COUNT = 3;
 const SECRET_UNLOCK_WINDOW_MS = 900;
 
-type SettingsTab = "general" | "audio" | "shortcuts" | "ui" | "debug" | "fun";
+type SettingsTab =
+  | "general"
+  | "audio"
+  | "shortcuts"
+  | "ui"
+  | "history"
+  | "debug"
+  | "fun";
 
 const TAB_BUTTON =
   "flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors duration-200 cursor-pointer w-full text-left";
@@ -165,6 +173,16 @@ export function SettingsModal({
                         Shortcuts
                       </button>
                       <button
+                        onClick={() => setActiveTab("history")}
+                        className={`${TAB_BUTTON} ${
+                          activeTab === "history"
+                            ? "bg-white/10 text-white/90"
+                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                        }`}
+                      >
+                        History
+                      </button>
+                      <button
                         onClick={() => setActiveTab("debug")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "debug"
@@ -200,9 +218,11 @@ export function SettingsModal({
                               ? "Indicator"
                               : activeTab === "shortcuts"
                                 ? "Shortcuts"
-                                : activeTab === "debug"
-                                  ? "Debug"
-                                  : "Fun"}
+                                : activeTab === "history"
+                                  ? "History"
+                                  : activeTab === "debug"
+                                    ? "Debug"
+                                    : "Fun"}
                       </h2>
                       <Dialog.Close asChild>
                         <button
@@ -248,6 +268,9 @@ export function SettingsModal({
                         )}
                         {activeTab === "ui" && (
                           <SectionUi settings={settings} />
+                        )}
+                        {activeTab === "history" && (
+                          <SectionHistory settings={settings} />
                         )}
                         {activeTab === "debug" && (
                           <SectionDebug

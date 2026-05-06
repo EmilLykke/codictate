@@ -8,6 +8,8 @@ import type {
   DictionaryCandidate,
   DictionaryEntry,
   FormatterModelTier,
+  HistoryEntry,
+  HistorySettingsPatch,
   SettingsPane,
   ShortcutId,
   StreamTranscriptionMode,
@@ -80,6 +82,9 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
         error?: string
       }) => {
         appEvents.emit('formatterModelProgress', data)
+      },
+      historyEntryAdded: () => {
+        appEvents.emit('historyEntryAdded')
       },
       updateModelAvailability: (data: {
         modelId: string
@@ -539,4 +544,32 @@ export function cancelFormatterModelDownload(): void {
 
 export function deleteFormatterModel(tier: FormatterModelTier): void {
   rpc.send.deleteFormatterModel({ tier })
+}
+
+export function openExternalUrl(url: string): void {
+  rpc.send.openExternalUrl({ url })
+}
+
+export async function fetchHistoryEntries(
+  search?: string
+): Promise<HistoryEntry[]> {
+  return rpc.request.getHistoryEntries({ search })
+}
+
+export async function fetchHistoryAudio(id: string): Promise<string | null> {
+  return rpc.request.getHistoryAudio({ id })
+}
+
+export async function deleteHistoryEntry(id: string): Promise<boolean> {
+  return rpc.request.deleteHistoryEntry({ id })
+}
+
+export async function updateHistorySettings(
+  patch: HistorySettingsPatch
+): Promise<boolean> {
+  return rpc.request.updateHistorySettings({ patch })
+}
+
+export function openHistoryFolder(): void {
+  rpc.send.openHistoryFolder({})
 }

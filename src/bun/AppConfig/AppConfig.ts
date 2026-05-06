@@ -23,6 +23,7 @@ import type {
   FormattingSettings,
   FormattingSettingsPatch,
   GeneralSettingsPatch,
+  HistorySettingsPatch,
   RecordingIndicatorMode,
   ShortcutId,
   StreamTranscriptionMode,
@@ -57,6 +58,7 @@ import {
 } from '../utils/dictionary/auto-learn-candidates'
 import {
   APP_DATA_DIR,
+  DEFAULT_HISTORY_DIR,
   DICTIONARY_CONFIG_PATH,
   LEGACY_CONFIG_PATH,
   MAIN_CONFIG_PATH,
@@ -186,6 +188,10 @@ interface PersistedMainSettings {
   userDisplayName: string
   formatting: Omit<FormattingSettings, 'available' | 'modelAvailability'>
   audioDucking: AudioDuckingSettings
+  historyEnabled: boolean
+  historyStoragePath: string
+  historyMaxEntries: number
+  historySaveAudio: boolean
   debugMode: false
 }
 
@@ -212,6 +218,10 @@ export class AppConfig {
   private formatting: FormattingSettings
   private audioDucking: AudioDuckingSettings
   private dictionary: DictionarySettings
+  private historyEnabled: boolean
+  private historyStoragePath: string
+  private historyMaxEntries: number
+  private historySaveAudio: boolean
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
     null
@@ -242,6 +252,10 @@ export class AppConfig {
     })
     this.audioDucking = defaultAudioDuckingSettings()
     this.dictionary = defaultDictionarySettings()
+    this.historyEnabled = false
+    this.historyStoragePath = ''
+    this.historyMaxEntries = 250
+    this.historySaveAudio = false
   }
 
   private getPersistedMainSettings(): PersistedMainSettings {
@@ -275,6 +289,10 @@ export class AppConfig {
         document: { ...this.formatting.document },
       },
       audioDucking: { ...this.audioDucking },
+      historyEnabled: this.historyEnabled,
+      historyStoragePath: this.historyStoragePath,
+      historyMaxEntries: this.historyMaxEntries,
+      historySaveAudio: this.historySaveAudio,
       debugMode: false,
     }
   }
@@ -515,6 +533,19 @@ export class AppConfig {
         this.audioDucking.includeBuiltInSpeakers =
           audioDucking.includeBuiltInSpeakers
       }
+    }
+
+    if (typeof raw.historyEnabled === 'boolean') {
+      this.historyEnabled = raw.historyEnabled
+    }
+    if (typeof raw.historyStoragePath === 'string') {
+      this.historyStoragePath = raw.historyStoragePath
+    }
+    if (typeof raw.historyMaxEntries === 'number') {
+      this.historyMaxEntries = raw.historyMaxEntries
+    }
+    if (typeof raw.historySaveAudio === 'boolean') {
+      this.historySaveAudio = raw.historySaveAudio
     }
   }
 
@@ -806,6 +837,12 @@ export class AppConfig {
         entries: dictionaryEntries,
         autoLearn: this.dictionary.autoLearn,
         candidates: dictionaryCandidates,
+      },
+      history: {
+        enabled: this.historyEnabled,
+        storagePath: this.historyStoragePath || DEFAULT_HISTORY_DIR,
+        maxEntries: this.historyMaxEntries,
+        saveAudio: this.historySaveAudio,
       },
       modelAvailability: modelManager.getAvailabilityMap(),
     }
@@ -1112,6 +1149,41 @@ export class AppConfig {
       this.dictionary.candidates = parseDictionaryCandidates(patch.candidates)
     }
     await this.saveDictionary()
+    return true
+  }
+
+  public getHistoryEnabled(): boolean {
+    return this.historyEnabled
+  }
+
+  public getHistoryStoragePath(): string {
+    return this.historyStoragePath || DEFAULT_HISTORY_DIR
+  }
+
+  public getHistorySaveAudio(): boolean {
+    return this.historySaveAudio
+  }
+
+  public getHistoryMaxEntries(): number {
+    return this.historyMaxEntries
+  }
+
+  public async updateHistorySettings(
+    patch: HistorySettingsPatch
+  ): Promise<boolean> {
+    if (patch.enabled !== undefined) {
+      this.historyEnabled = patch.enabled
+    }
+    if (patch.storagePath !== undefined) {
+      this.historyStoragePath = patch.storagePath
+    }
+    if (patch.maxEntries !== undefined) {
+      this.historyMaxEntries = patch.maxEntries
+    }
+    if (patch.saveAudio !== undefined) {
+      this.historySaveAudio = patch.saveAudio
+    }
+    await this.saveMain()
     return true
   }
 

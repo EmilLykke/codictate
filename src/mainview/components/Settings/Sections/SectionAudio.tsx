@@ -11,7 +11,6 @@ import {
   setAudioDuckingLevel,
 } from "../../../rpc";
 import { DevicePicker } from "../DevicePicker";
-import { settingsHelperClass } from "../settings-shared";
 
 type Props = {
   settings: AppSettings;
@@ -138,10 +137,6 @@ export function SectionAudio({ settings }: Props) {
           selectedDevice={deviceInfo?.selectedDevice ?? 0}
           onChange={handleDeviceChange}
         />
-        <p className={settingsHelperClass}>
-          Microphone used for dictation. Updates automatically when devices
-          change.
-        </p>
       </div>
 
       <div className="mb-8">
@@ -157,8 +152,7 @@ export function SectionAudio({ settings }: Props) {
                 Built-in speakers
               </span>
               <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                Mute Mac speaker output while dictating (classic recording and
-                stream mode).
+                Mute Mac speaker output while dictating.
               </span>
             </div>
             <Switch
@@ -177,8 +171,7 @@ export function SectionAudio({ settings }: Props) {
                 Headphones & Bluetooth
               </span>
               <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
-                Also lower headphone volume while dictating (classic recording
-                and stream mode).
+                Also lower headphone volume while dictating.
               </span>
             </div>
             <Switch
@@ -228,11 +221,6 @@ export function SectionAudio({ settings }: Props) {
             )}
           </AnimatePresence>
         </div>
-        <p className={settingsHelperClass}>
-          Turn on built-in speakers or headphone ducking to lower those outputs
-          while you dictate. The mute amount is shared and applies to whichever
-          outputs are enabled.
-        </p>
       </div>
     </>
   );

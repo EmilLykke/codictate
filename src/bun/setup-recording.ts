@@ -85,7 +85,8 @@ export const setupRecording = (
   onStatusChange?: (status: AppStatus) => void,
   onPermissions?: (status: PermissionStatus) => void,
   getAudioDevices?: () => AudioDeviceSnapshot,
-  onAutoLearnedEntry?: () => void
+  onAutoLearnedEntry?: () => void,
+  onHistorySave?: (transcript: string) => Promise<void>
 ) => {
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null
   let recordingSession: RecordingSession | null = null
@@ -441,7 +442,8 @@ export const setupRecording = (
           onStatusChange?.('ready')
         },
         recordingSession,
-        getAudioDevices
+        getAudioDevices,
+        onHistorySave
       )
 
       if (pendingHoldReleaseWhileStarting && recordingSession && recorderProc) {

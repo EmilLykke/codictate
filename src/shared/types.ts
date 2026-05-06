@@ -228,6 +228,7 @@ export interface AppSettings {
   formatting: FormattingSettings
   audioDucking: AudioDuckingSettings
   dictionary: DictionarySettings
+  history: HistorySettings
   modelAvailability: Record<string, boolean>
 }
 
@@ -291,6 +292,30 @@ export interface DictionarySettingsPatch {
 
 export type AudioDuckingSettingsPatch = Partial<AudioDuckingSettings>
 
+export interface HistoryEntry {
+  id: string
+  timestamp: number
+  transcript: string
+  audioFilename: string
+  durationMs?: number
+}
+
+export interface HistorySettings {
+  enabled: boolean
+  storagePath: string
+  /** Max number of history entries to keep. 0 = unlimited. */
+  maxEntries: number
+  /** When false, only transcripts are saved (no audio file). */
+  saveAudio: boolean
+}
+
+export interface HistorySettingsPatch {
+  enabled?: boolean
+  storagePath?: string
+  maxEntries?: number
+  saveAudio?: boolean
+}
+
 export type WebviewRPCType = {
   bun: RPCSchema<{
     requests: {
@@ -317,6 +342,22 @@ export type WebviewRPCType = {
       }
       updateDictionarySettings: {
         params: { patch: DictionarySettingsPatch }
+        response: boolean
+      }
+      getHistoryEntries: {
+        params: { search?: string }
+        response: HistoryEntry[]
+      }
+      getHistoryAudio: {
+        params: { id: string }
+        response: string | null
+      }
+      deleteHistoryEntry: {
+        params: { id: string }
+        response: boolean
+      }
+      updateHistorySettings: {
+        params: { patch: HistorySettingsPatch }
         response: boolean
       }
       /** Ephemeral: show the floating indicator during onboarding to preview the chosen mode. */
@@ -348,6 +389,8 @@ export type WebviewRPCType = {
       downloadFormatterModel: { tier: FormatterModelTier }
       cancelFormatterModelDownload: {}
       deleteFormatterModel: { tier: FormatterModelTier }
+      openExternalUrl: { url: string }
+      openHistoryFolder: {}
     }
   }>
   webview: RPCSchema<{
@@ -372,6 +415,7 @@ export type WebviewRPCType = {
         done: boolean
         error?: string
       }
+      historyEntryAdded: {}
     }
   }>
 }

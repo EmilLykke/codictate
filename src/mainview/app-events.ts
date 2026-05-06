@@ -29,6 +29,7 @@ type EventMap = {
     done: boolean
     error?: string
   }
+  historyEntryAdded: void
 }
 
 type Unsubscribe = () => void

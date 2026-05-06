@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { BrowserView, BrowserWindow } from 'electrobun/bun'
 import { getPlatform } from './platform'
 import type {
@@ -9,12 +11,14 @@ import type {
   DictionarySettingsPatch,
   FormattingSettingsPatch,
   GeneralSettingsPatch,
+  HistorySettingsPatch,
   PermissionState,
   SettingsPane,
   TranscriptionSettingsPatch,
   UpdateCheckState,
   WindowResizeEdge,
 } from '../shared/types'
+import type { HistoryManager } from './utils/history/history-manager'
 import { AppConfig } from './AppConfig/AppConfig'
 import { copyLogToClipboard } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
@@ -57,6 +61,7 @@ interface WindowDeps {
   onStreamModeChanged?: () => void
   /** Refresh tray after formatting mode changed from webview. */
   onFormattingModeChanged?: () => void
+  historyManager?: HistoryManager
 }
 
 export interface WindowHandle {
@@ -80,6 +85,7 @@ export interface WindowHandle {
       modelId: string
       available: boolean
     }) => void
+    historyEntryAdded: (data: Record<string, never>) => void
   }
   hasWindow: () => boolean
   /**
@@ -279,6 +285,27 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           deps.onOnboardingIndicatorPreviewChanged?.()
           return true
         },
+        getHistoryEntries: async ({ search }) => {
+          if (!deps.historyManager) return []
+          return deps.historyManager.loadEntries(search)
+        },
+        getHistoryAudio: async ({ id }) => {
+          if (!deps.historyManager) return null
+          return deps.historyManager.getAudioBase64(id)
+        },
+        deleteHistoryEntry: async ({ id }) => {
+          if (!deps.historyManager) return false
+          return deps.historyManager.deleteEntry(id)
+        },
+        updateHistorySettings: async ({
+          patch,
+        }: {
+          patch: HistorySettingsPatch
+        }) => {
+          const ok = await deps.appConfig.updateHistorySettings(patch)
+          if (ok) rpc.send.updateSettings(deps.appConfig.getSettings())
+          return ok
+        },
       },
       messages: {
         logBun: ({ msg }) => console.log('Bun Log:', msg),
@@ -397,6 +424,17 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             rpc.send.updateSettings(deps.appConfig.getSettings())
           }
         },
+        openExternalUrl: ({ url }) => {
+          getPlatform().openUrl(url)
+        },
+        openHistoryFolder: () => {
+          const path = join(
+            deps.appConfig.getHistoryStoragePath(),
+            'recordings'
+          )
+          mkdirSync(path, { recursive: true })
+          getPlatform().openUrl(path)
+        },
       },
     },
   })
@@ -467,6 +505,8 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         sendIfWindowAlive(() => rpc.send.updateModelDownloadProgress(data)),
       updateModelAvailability: (data) =>
         sendIfWindowAlive(() => rpc.send.updateModelAvailability(data)),
+      historyEntryAdded: (data) =>
+        sendIfWindowAlive(() => rpc.send.historyEntryAdded(data)),
     },
     hasWindow,
     getOrCreateWindow,

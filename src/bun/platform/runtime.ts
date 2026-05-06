@@ -75,6 +75,7 @@ export const DICTIONARY_CONFIG_PATH = join(
 )
 export const LEGACY_CONFIG_PATH = join(APP_DATA_DIR, 'app-config.json')
 export const RECORDING_PATH = join(tmpdir(), 'codictate-recording.wav')
+export const DEFAULT_HISTORY_DIR = join(homedir(), 'Documents', 'Codictate')
 
 export interface FormatterModelConfig {
   readonly tier: FormatterModelTier

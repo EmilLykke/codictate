@@ -5,6 +5,7 @@ import { HomeScreen } from "./Home/HomeScreen";
 import { SectionModels } from "./Settings/Sections/SectionModels";
 import { SectionFormatting } from "./Settings/Sections/SectionFormatting";
 import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
+import { HistorySection } from "./History/HistorySection";
 import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
 import type {
   AppStatus,
@@ -417,7 +418,6 @@ export function MainContainer({
           setSettingsInitialTab("general");
           setIsSettingsModalOpen(true);
         }}
-        onOpenHelp={() => {}}
         onWordmarkSecretTap={() => {}}
       >
         {activeTab === "home" && (
@@ -445,6 +445,7 @@ export function MainContainer({
               setSettingsInitialTab("shortcuts");
               setIsSettingsModalOpen(true);
             }}
+            onNavigateToHistory={() => setActiveTab("history")}
           />
         )}
         {activeTab === "dictionary" && (
@@ -463,6 +464,15 @@ export function MainContainer({
         )}
         {activeTab === "formatting" && (
           <SectionFormatting settings={settings} />
+        )}
+        {activeTab === "history" && (
+          <HistorySection
+            settings={settings}
+            onOpenHistorySettings={() => {
+              setSettingsInitialTab("history");
+              setIsSettingsModalOpen(true);
+            }}
+          />
         )}
       </AppLayout>
 

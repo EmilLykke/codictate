@@ -37,6 +37,13 @@ export function SectionModels({
 
   return (
     <div className="min-w-0">
+      <div className="mb-6">
+        <h2 className="text-[28px] tracking-tight text-white/90">Models</h2>
+        <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
+          Speech-to-text engines that power your dictation.
+        </p>
+      </div>
+
       <div className="mb-8">
         <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
           Whisper

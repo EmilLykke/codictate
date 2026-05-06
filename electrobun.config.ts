@@ -67,7 +67,7 @@ export default {
   app: {
     name: APP_NAME,
     identifier: appIdentifier,
-    version: "0.0.40",
+    version: "0.0.41",
   },
   runtime: {
     // Keep the app alive when the window is closed — it lives in the tray

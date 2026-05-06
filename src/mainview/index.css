@@ -70,4 +70,11 @@
     color: rgba(255, 255, 255, 0.9);
     padding: 8px;
   }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
 }
