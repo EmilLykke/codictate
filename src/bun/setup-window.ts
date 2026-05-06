@@ -380,6 +380,9 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             rpc.send.updateSettings(deps.appConfig.getSettings())
           }
         },
+        openExternalUrl: ({ url }) => {
+          getPlatform().openUrl(url)
+        },
       },
     },
   })

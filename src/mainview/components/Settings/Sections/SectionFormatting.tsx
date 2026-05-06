@@ -613,11 +613,14 @@ export function SectionFormatting({ settings }: Props) {
 
   return (
     <>
-      {/* Intro */}
-      <p className="mb-6 text-[14px] text-white/44 leading-relaxed">
-        Automatically cleans up your dictation based on which app you're in.
-        Toggle from the Home screen; configure per-app behavior below.
-      </p>
+      <div className="mb-6">
+        <h2 className="text-[28px] tracking-tight text-white/90">
+          Auto-polish
+        </h2>
+        <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
+          Automatically cleans up your dictation based on which app you're in.
+        </p>
+      </div>
 
       {/* Platform warning */}
       {!formatting.available && (
@@ -776,7 +779,7 @@ export function SectionFormatting({ settings }: Props) {
                             e.stopPropagation();
                             handleDeleteFormatterModel(tier);
                           }}
-                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-white/12 hover:border-red-400/30 bg-white/4 hover:bg-red-500/8 text-white/48 hover:text-red-400/70 transition-colors duration-200 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-red-400/30 bg-red-500/8 text-red-400/70 hover:border-red-400/40 hover:bg-red-500/14 hover:text-red-400/90 transition-colors duration-200 cursor-pointer"
                         >
                           Remove
                         </button>

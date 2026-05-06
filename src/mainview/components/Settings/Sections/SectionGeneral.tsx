@@ -6,7 +6,6 @@ import {
   setMaxRecordingDuration,
   setUserDisplayName,
 } from "../../../rpc";
-import { formatRecordingDurationLabel } from "../../../../shared/recording-duration-presets";
 import { RecordingLimitPicker } from "../RecordingLimitPicker";
 import { settingsHelperClass } from "../settings-shared";
 
@@ -51,10 +50,6 @@ export function SectionGeneral({ settings }: Props) {
     [queryClient],
   );
 
-  const durationLabel = formatRecordingDurationLabel(
-    settings.maxRecordingDuration,
-  );
-
   return (
     <>
       <div className="mb-8">
@@ -79,10 +74,6 @@ export function SectionGeneral({ settings }: Props) {
             className="w-full rounded-lg border border-white/12 bg-white/5 px-4 py-3.5 text-[17px] font-medium text-white/78 outline-none transition-[border-color,background-color,box-shadow] duration-200 placeholder:text-white/24 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
           />
         </label>
-        <p className={settingsHelperClass}>
-          Stored as a general profile value. Formatting can use it for email
-          sign-offs, and future features can reuse it elsewhere.
-        </p>
       </div>
 
       <div className="mb-8">
@@ -94,9 +85,7 @@ export function SectionGeneral({ settings }: Props) {
           onChange={handleMaxRecordingDurationChange}
         />
         <p className={settingsHelperClass}>
-          Recording stops automatically after {durationLabel} to maintain speed
-          and accuracy. Longer limits use more disk space and increase
-          transcription time.
+          Longer limits use more disk space and increase transcription time.
         </p>
       </div>
     </>

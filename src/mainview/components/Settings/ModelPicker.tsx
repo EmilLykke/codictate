@@ -34,7 +34,7 @@ function StatBar({
   const pct = Math.round((value / max) * 100);
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[12px] text-white/35 w-16 text-right">{label}</span>
+      <span className="text-[13px] text-white/45 w-16 text-right">{label}</span>
       <div className="h-[5px] w-20 rounded-full bg-white/8 overflow-hidden">
         <div
           className="h-full rounded-full bg-blue-400/50 transition-all duration-300"
@@ -131,7 +131,7 @@ export function ModelPicker({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[13px] text-white/38 leading-snug">
+                  <p className="mt-1 text-[14px] text-white/48 leading-snug">
                     {desc}
                   </p>
                 </div>
@@ -148,7 +148,7 @@ export function ModelPicker({
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-2">
                   {isMultilang && (
-                    <span className="flex items-center gap-1 text-[12px] text-white/35">
+                    <span className="flex items-center gap-1 text-[13px] text-white/48">
                       <svg
                         width="13"
                         height="13"
@@ -164,40 +164,40 @@ export function ModelPicker({
                         <path d="M2 12h20" />
                       </svg>
                       Multi-language
+                      {model.engine === "whisperkit" && (
+                        <InstantTooltip
+                          text={parakeetLangsTooltip}
+                          side="bottom"
+                          tooltipClassName="pointer-events-auto w-[min(100vw-2rem,26rem)] max-h-[min(55vh,22rem)] overflow-y-auto whitespace-pre-line"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center justify-center rounded text-white/48 hover:text-white/70 transition-colors cursor-pointer"
+                            aria-label="Supported languages"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="M12 16v-4" />
+                              <path d="M12 8h.01" />
+                            </svg>
+                          </button>
+                        </InstantTooltip>
+                      )}
                     </span>
                   )}
-                  {model.engine === "whisperkit" && (
-                    <InstantTooltip
-                      text={parakeetLangsTooltip}
-                      side="bottom"
-                      tooltipClassName="pointer-events-auto w-[min(100vw-2rem,26rem)] max-h-[min(55vh,22rem)] overflow-y-auto whitespace-pre-line"
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex size-5 shrink-0 items-center justify-center rounded text-white/22 hover:text-white/42 transition-colors cursor-pointer"
-                        aria-label="Supported languages"
-                      >
-                        <svg
-                          width="13"
-                          height="13"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden
-                        >
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 16v-4" />
-                          <path d="M12 8h.01" />
-                        </svg>
-                      </button>
-                    </InstantTooltip>
-                  )}
                   {model.translationSupport && (
-                    <span className="flex items-center gap-1 text-[12px] text-white/35">
+                    <span className="flex items-center gap-1 text-[13px] text-white/48">
                       <svg
                         width="13"
                         height="13"
@@ -219,7 +219,7 @@ export function ModelPicker({
                     </span>
                   )}
                   {isStream && (
-                    <span className="flex items-center gap-1 text-[12px] text-white/35">
+                    <span className="flex items-center gap-1 text-[13px] text-white/48">
                       <svg
                         width="13"
                         height="13"
@@ -243,7 +243,7 @@ export function ModelPicker({
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  <span className="text-[12px] text-white/25 tabular-nums">
+                  <span className="text-[13px] text-white/35 tabular-nums">
                     {formatModelSize(model.downloadSizeMB)}
                   </span>
 
@@ -265,7 +265,7 @@ export function ModelPicker({
                         e.stopPropagation();
                         setConfirmDelete(model.id);
                       }}
-                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-white/12 hover:border-red-400/30 bg-white/4 hover:bg-red-500/8 text-white/48 hover:text-red-400/70 transition-colors duration-200 cursor-pointer"
+                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-red-400/30 bg-red-500/8 text-red-400/70 hover:border-red-400/40 hover:bg-red-500/14 hover:text-red-400/90 transition-colors duration-200 cursor-pointer"
                       aria-label={`Remove ${model.label} model`}
                     >
                       Remove

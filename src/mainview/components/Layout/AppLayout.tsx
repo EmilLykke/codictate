@@ -5,6 +5,7 @@ import {
 } from "../Brand/WordmarkCodictate";
 import { WindowTitleBar } from "../Common/WindowTitleBar";
 import type { PlatformRuntime as Platform } from "../../../shared/platform";
+import { openExternalUrl } from "../../rpc";
 
 export type SidebarTab = "home" | "dictionary" | "models" | "formatting";
 
@@ -102,7 +103,6 @@ interface AppLayoutProps {
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
   onOpenSettings: () => void;
-  onOpenHelp: () => void;
   onWordmarkSecretTap: () => void;
   children: ReactNode;
 }
@@ -112,7 +112,6 @@ export function AppLayout({
   activeTab,
   onTabChange,
   onOpenSettings,
-  onOpenHelp,
   onWordmarkSecretTap,
   children,
 }: AppLayoutProps) {
@@ -183,7 +182,9 @@ export function AppLayout({
               Settings
             </button>
             <button
-              onClick={onOpenHelp}
+              onClick={() =>
+                openExternalUrl("https://codictate.app/support")
+              }
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors duration-200 cursor-pointer"
             >
               <div className="text-white/40">

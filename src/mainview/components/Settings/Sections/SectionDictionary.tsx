@@ -45,6 +45,7 @@ export function SectionDictionary({ settings }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editFrom, setEditFrom] = useState("");
@@ -292,6 +293,15 @@ export function SectionDictionary({ settings }: Props) {
     inputValue.trim().length > 0 &&
     (entryKind === "fuzzy" || replacementFromValue.trim().length > 0);
 
+  const q = searchQuery.trim().toLowerCase();
+  const filteredEntries = q
+    ? dictionary.entries.filter(
+        (e) =>
+          e.text.toLowerCase().includes(q) ||
+          (e.from ?? "").toLowerCase().includes(q),
+      )
+    : dictionary.entries;
+
   return (
     <>
       <div className="mb-6">
@@ -345,6 +355,33 @@ export function SectionDictionary({ settings }: Props) {
           </button>
         )}
       </div>
+
+      {/* Search */}
+      {dictionary.entries.length > 0 && (
+        <div className="relative mb-3">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search dictionary..."
+            className="w-full rounded-xl border border-white/12 bg-white/5 pl-10 pr-4 py-2.5 text-[14px] text-white/80 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+          />
+        </div>
+      )}
 
       {/* Inline add form */}
       <AnimatePresence>
@@ -449,9 +486,13 @@ export function SectionDictionary({ settings }: Props) {
           <div className="px-5 py-8 text-center text-[13px] text-white/34">
             No words added yet.
           </div>
+        ) : filteredEntries.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[13px] text-white/34">
+            No matches for "{searchQuery.trim()}"
+          </div>
         ) : (
           <>
-            {hasAutoEntries && (
+            {hasAutoEntries && !q && (
               <div className="flex items-center gap-2 border-b border-white/8 px-5 py-3">
                 <span className="text-[13px] text-amber-300/60">
                   <SparkleIcon />
@@ -462,7 +503,7 @@ export function SectionDictionary({ settings }: Props) {
               </div>
             )}
             <ul>
-              {dictionary.entries.map((entry, i) => {
+              {filteredEntries.map((entry, i) => {
                 const key = entryKey(entry);
                 const isEditing = editingKey === key;
 

@@ -540,3 +540,7 @@ export function cancelFormatterModelDownload(): void {
 export function deleteFormatterModel(tier: FormatterModelTier): void {
   rpc.send.deleteFormatterModel({ tier })
 }
+
+export function openExternalUrl(url: string): void {
+  rpc.send.openExternalUrl({ url })
+}

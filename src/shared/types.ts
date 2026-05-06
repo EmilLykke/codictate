@@ -340,6 +340,7 @@ export type WebviewRPCType = {
       downloadFormatterModel: { tier: FormatterModelTier }
       cancelFormatterModelDownload: {}
       deleteFormatterModel: { tier: FormatterModelTier }
+      openExternalUrl: { url: string }
     }
   }>
   webview: RPCSchema<{

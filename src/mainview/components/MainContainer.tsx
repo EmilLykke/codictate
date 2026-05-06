@@ -417,7 +417,6 @@ export function MainContainer({
           setSettingsInitialTab("general");
           setIsSettingsModalOpen(true);
         }}
-        onOpenHelp={() => {}}
         onWordmarkSecretTap={() => {}}
       >
         {activeTab === "home" && (

@@ -472,22 +472,14 @@ export function HomeScreen({
           </AnimatePresence>
         </div>
 
-        {/* Statistics */}
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-7 flex items-center justify-center">
-          <div className="grid grid-cols-[auto_auto] gap-x-3 gap-y-5 items-baseline">
-            <span className="text-[36px] font-semibold text-white/90 leading-none text-right">
-              42,069
-            </span>
-            <span className="text-[14px] text-white/50">total words</span>
-            <span className="text-[30px] font-semibold text-white/90 leading-none text-right">
-              420
-            </span>
-            <span className="text-[14px] text-white/50">wpm</span>
-            <span className="text-[30px] font-semibold text-white/90 leading-none text-right">
-              4 day
-            </span>
-            <span className="text-[14px] text-white/50">streak</span>
-          </div>
+        {/* Statistics placeholder */}
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-7 flex flex-col items-center justify-center gap-2">
+          <span className="text-[15px] font-medium text-white/40">
+            Statistics coming soon
+          </span>
+          <span className="text-[13px] text-white/25">
+            Word count, speed, streaks and more
+          </span>
         </div>
       </div>
 
