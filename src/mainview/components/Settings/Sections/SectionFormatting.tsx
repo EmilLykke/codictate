@@ -624,7 +624,7 @@ export function SectionFormatting({ settings }: Props) {
 
       {/* Platform warning */}
       {!formatting.available && (
-        <div className="mb-6 rounded-xl border border-overlay/10 bg-overlay/4 px-4 py-3.5">
+        <div className="mb-6 rounded-xl border border-overlay/10 bg-surface-1 px-4 py-3.5">
           <p className="text-[14px] text-overlay/44 leading-relaxed font-sans">
             Auto-polish requires the vendored llama-cli binary, which is
             missing. Run{" "}
@@ -676,7 +676,7 @@ export function SectionFormatting({ settings }: Props) {
               </span>
               <button
                 onClick={() => void handleClearFormattingForce()}
-                className="shrink-0 rounded-lg border border-overlay/14 bg-overlay/6 px-3 py-1.5 text-[15px] font-medium text-overlay/72 hover:bg-overlay/10 hover:text-overlay/90 transition-colors cursor-pointer"
+                className="shrink-0 rounded-lg border border-overlay/14 bg-surface-2 px-3 py-1.5 text-[15px] font-medium text-overlay/72 hover:bg-surface-3 hover:text-overlay/90 transition-colors cursor-pointer"
               >
                 Clear
               </button>
@@ -721,9 +721,9 @@ export function SectionFormatting({ settings }: Props) {
                   key={tier}
                   className={`rounded-xl border transition-colors duration-200 overflow-hidden ${
                     isSelected
-                      ? "border-accent-blue/25 bg-overlay/7"
-                      : "border-overlay/11 bg-overlay/4"
-                  } ${canSelect ? "hover:border-overlay/16 hover:bg-overlay/6 cursor-pointer" : ""}`}
+                      ? "border-accent-blue/25 bg-surface-2"
+                      : "border-overlay/11 bg-surface-1"
+                  } ${canSelect ? "hover:border-overlay/16 hover:bg-surface-2 cursor-pointer" : ""}`}
                   onClick={() => {
                     if (canSelect) void handleFormatterModelTierChange(tier);
                   }}
@@ -768,7 +768,7 @@ export function SectionFormatting({ settings }: Props) {
                             e.stopPropagation();
                             handleDownloadFormatterModel(tier);
                           }}
-                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-overlay/4 hover:bg-overlay/8 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-surface-1 hover:bg-surface-3 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
                         >
                           Download
                         </button>
@@ -803,7 +803,7 @@ export function SectionFormatting({ settings }: Props) {
                           Cancel
                         </button>
                       </div>
-                      <div className="h-1 rounded-full bg-overlay/8 overflow-hidden">
+                      <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
                         <motion.div
                           className="h-full rounded-full bg-accent-blue/40"
                           initial={{ width: 0 }}
@@ -854,8 +854,8 @@ export function SectionFormatting({ settings }: Props) {
                 key={mode.id}
                 className={`rounded-xl border transition-colors duration-200 ${
                   isExpanded
-                    ? "border-accent-blue/25 bg-overlay/7"
-                    : "border-overlay/11 bg-overlay/4 overflow-hidden"
+                    ? "border-accent-blue/25 bg-surface-2"
+                    : "border-overlay/11 bg-surface-1 overflow-hidden"
                 }`}
               >
                 {/* Collapsed row */}
@@ -882,7 +882,7 @@ export function SectionFormatting({ settings }: Props) {
                           {mode.label}
                         </span>
                         {isLightweight && enabled && (
-                          <span className="rounded-md border border-overlay/12 bg-overlay/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-overlay/40">
+                          <span className="rounded-md border border-overlay/12 bg-surface-1 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-overlay/40">
                             Light
                           </span>
                         )}
@@ -1021,7 +1021,7 @@ function EmailSettings({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden">
+      <div className="rounded-xl border border-overlay/8 bg-surface-1 overflow-hidden">
         <SwitchRow
           label="Add my name to email sign-off"
           description="Uses your stored name when the email needs a sign-off and you did not dictate one clearly."
@@ -1056,7 +1056,7 @@ function EmailSettings({
                 onChange={(e) => onCustomGreetingChange(e.target.value)}
                 onBlur={() => void onCustomGreetingCommit()}
                 placeholder="e.g. Dear"
-                className="mt-3 w-full rounded-lg border border-overlay/12 bg-overlay/5 px-3 py-2.5 text-[15px] font-medium text-overlay/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-overlay/24 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12 focus-visible:ring-offset-0"
+                className="mt-3 w-full rounded-lg border border-overlay/12 bg-surface-1 px-3 py-2.5 text-[15px] font-medium text-overlay/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-overlay/24 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12 focus-visible:ring-offset-0"
               />
             </motion.div>
           )}
@@ -1088,7 +1088,7 @@ function EmailSettings({
                 onChange={(e) => onCustomClosingChange(e.target.value)}
                 onBlur={() => void onCustomClosingCommit()}
                 placeholder="e.g. Cheers"
-                className="mt-3 w-full rounded-lg border border-overlay/12 bg-overlay/5 px-3 py-2.5 text-[15px] font-medium text-overlay/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-overlay/24 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12 focus-visible:ring-offset-0"
+                className="mt-3 w-full rounded-lg border border-overlay/12 bg-surface-1 px-3 py-2.5 text-[15px] font-medium text-overlay/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-overlay/24 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12 focus-visible:ring-offset-0"
               />
             </motion.div>
           )}
@@ -1129,7 +1129,7 @@ function ImessageSettings({
         />
       </div>
 
-      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden divide-y divide-overlay/8">
+      <div className="rounded-xl border border-overlay/8 bg-surface-1 overflow-hidden divide-y divide-overlay/8">
         <SwitchRow
           label="Light formatting only"
           description="Skips the LLM rewrite. Tidies spacing only; tone controls capitalization."
@@ -1187,7 +1187,7 @@ function SlackSettings({
         />
       </div>
 
-      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden divide-y divide-overlay/8">
+      <div className="rounded-xl border border-overlay/8 bg-surface-1 overflow-hidden divide-y divide-overlay/8">
         <SwitchRow
           label="Light formatting only"
           description="Skips the LLM rewrite. Tidies spacing; tone controls capitalization."
@@ -1252,7 +1252,7 @@ function DocumentSettings({
         />
       </div>
 
-      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden divide-y divide-overlay/8">
+      <div className="rounded-xl border border-overlay/8 bg-surface-1 overflow-hidden divide-y divide-overlay/8">
         <SwitchRow
           label="Light formatting only"
           description="Skips the LLM rewrite. Tidies spacing; tone controls capitalization."
@@ -1351,7 +1351,7 @@ function DropdownPicker<T extends string>({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ariaLabel}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-overlay/11 bg-overlay/4 px-4 py-2.5 text-left transition-colors duration-200 hover:border-overlay/16 hover:bg-overlay/6"
+        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-overlay/11 bg-surface-1 px-4 py-2.5 text-left transition-colors duration-200 hover:border-overlay/16 hover:bg-surface-2"
       >
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="font-sans text-[14px] font-medium text-overlay/92">
@@ -1373,7 +1373,7 @@ function DropdownPicker<T extends string>({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-overlay/8 backdrop-blur-md"
+            className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[var(--popover-shadow)] ring-1 ring-overlay/8 backdrop-blur-md"
             role="listbox"
             aria-label={ariaLabel}
           >
@@ -1393,8 +1393,8 @@ function DropdownPicker<T extends string>({
                       onClick={() => pick(opt.value)}
                       className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-200 ${
                         isActive
-                          ? "border-overlay/26 bg-overlay/6"
-                          : "border-overlay/11 bg-transparent hover:border-overlay/16 hover:bg-overlay/6"
+                          ? "border-overlay/26 bg-surface-2"
+                          : "border-overlay/11 bg-transparent hover:border-overlay/16 hover:bg-surface-2"
                       }`}
                     >
                       <div
@@ -1486,10 +1486,10 @@ function TileGroup<T extends string>({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(opt.value)}
-            className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden hover:border-overlay/20 hover:bg-overlay/6 ${
+            className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden hover:border-overlay/20 hover:bg-surface-2 ${
               selected
-                ? "border-accent-blue/60 bg-overlay/10 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
-                : "border-overlay/11 bg-overlay/4"
+                ? "border-accent-blue/60 bg-surface-3 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
+                : "border-overlay/11 bg-surface-1"
             }`}
           >
             <div className="p-5 pb-2">
@@ -1517,7 +1517,7 @@ function TileGroup<T extends string>({
                   className={`rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed whitespace-pre-wrap relative ${
                     selected
                       ? "bg-accent-blue/20 text-blue-50"
-                      : "bg-overlay/5 text-overlay/70"
+                      : "bg-surface-1 text-overlay/70"
                   }`}
                 >
                   {opt.preview}

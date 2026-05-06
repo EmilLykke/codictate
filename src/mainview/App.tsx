@@ -77,7 +77,7 @@ export default function App() {
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-          className="w-1.5 h-1.5 rounded-full bg-overlay/20"
+          className="w-1.5 h-1.5 rounded-full bg-surface-4"
         />
       </div>
     );
@@ -99,7 +99,7 @@ export default function App() {
         <motion.div
           animate={{ opacity: [0.2, 0.5, 0.2] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-          className="w-1.5 h-1.5 rounded-full bg-overlay/20"
+          className="w-1.5 h-1.5 rounded-full bg-surface-4"
         />
       </div>
     );

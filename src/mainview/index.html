@@ -7,7 +7,7 @@
   </head>
   <body>
     <script>
-      (function(){var p=localStorage.getItem('codictate-theme')||'system';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark')})()
+      (function(){var p=localStorage.getItem('codictate-theme')||'dark';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark')})()
     </script>
     <div id="root"></div>
     <script type="module" src="/main.tsx"></script>

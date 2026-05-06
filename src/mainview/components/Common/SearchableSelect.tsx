@@ -145,10 +145,10 @@ export function SearchableSelect({
         <button
           type="button"
           aria-label={ariaLabel}
-          className={`flex w-full items-center gap-2 rounded-lg border border-overlay/10 bg-overlay/5 px-3 py-2 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
+          className={`flex w-full items-center gap-2 rounded-lg border border-overlay/10 bg-surface-1 px-3 py-2 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
             disabled
               ? "opacity-50 cursor-not-allowed"
-              : "cursor-pointer hover:border-overlay/20 hover:bg-overlay/7"
+              : "cursor-pointer hover:border-overlay/20 hover:bg-surface-2"
           }`}
         >
           <span
@@ -185,7 +185,7 @@ export function SearchableSelect({
                     ? `ss-opt-${highlightedIndex}`
                     : undefined
                 }
-                className="z-[10000] overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-overlay/8 backdrop-blur-md"
+                className="z-[10000] overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[var(--popover-shadow)] ring-1 ring-overlay/8 backdrop-blur-md"
               >
                 <div className="border-b border-overlay/10 px-3 py-2">
                   <input
@@ -238,12 +238,12 @@ export function SearchableSelect({
                               opt.disabled
                                 ? "border-transparent text-overlay/30 cursor-not-allowed"
                                 : isActive && isHighlighted
-                                  ? "border-overlay/26 bg-overlay/8 cursor-pointer"
+                                  ? "border-overlay/26 bg-surface-3 cursor-pointer"
                                   : isActive
-                                    ? "border-overlay/26 bg-overlay/6 cursor-pointer"
+                                    ? "border-overlay/26 bg-surface-2 cursor-pointer"
                                     : isHighlighted
-                                      ? "border-overlay/12 bg-overlay/5 cursor-pointer"
-                                      : "border-transparent hover:border-overlay/12 hover:bg-overlay/5 cursor-pointer"
+                                      ? "border-overlay/12 bg-surface-1 cursor-pointer"
+                                      : "border-transparent hover:border-overlay/12 hover:bg-surface-1 cursor-pointer"
                             }`}
                           >
                             <div

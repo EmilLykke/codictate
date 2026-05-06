@@ -136,8 +136,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("general")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "general"
-                            ? "bg-overlay/10 text-overlay/90"
-                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                         }`}
                       >
                         General
@@ -146,8 +146,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("audio")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "audio"
-                            ? "bg-overlay/10 text-overlay/90"
-                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                         }`}
                       >
                         Audio
@@ -156,8 +156,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("ui")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "ui"
-                            ? "bg-overlay/10 text-overlay/90"
-                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                         }`}
                       >
                         Indicator
@@ -166,8 +166,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("shortcuts")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "shortcuts"
-                            ? "bg-overlay/10 text-overlay/90"
-                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                         }`}
                       >
                         Shortcuts
@@ -176,8 +176,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("history")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "history"
-                            ? "bg-overlay/10 text-overlay/90"
-                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                         }`}
                       >
                         History
@@ -186,8 +186,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("debug")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "debug"
-                            ? "bg-overlay/10 text-overlay/90"
-                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                         }`}
                       >
                         Debug
@@ -197,8 +197,8 @@ export function SettingsModal({
                           onClick={() => setActiveTab("fun")}
                           className={`${TAB_BUTTON} ${
                             activeTab === "fun"
-                              ? "bg-overlay/10 text-overlay/90"
-                              : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                              ? "bg-surface-3 text-overlay/90"
+                              : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                           }`}
                         >
                           Fun
@@ -226,7 +226,7 @@ export function SettingsModal({
                       </h2>
                       <Dialog.Close asChild>
                         <button
-                          className="rounded-lg p-1.5 text-overlay/40 hover:bg-overlay/8 hover:text-overlay/80 transition-colors cursor-pointer"
+                          className="rounded-lg p-1.5 text-overlay/40 hover:bg-surface-3 hover:text-overlay/80 transition-colors cursor-pointer"
                           aria-label="Close settings"
                         >
                           <svg

@@ -84,7 +84,7 @@ function ControlButton({
       className={`flex h-8 w-11 items-center justify-center text-[15px] leading-none transition-colors duration-150 ${
         danger
           ? "text-overlay/58 hover:bg-accent-red/85 hover:text-white"
-          : "text-overlay/48 hover:bg-overlay/10 hover:text-overlay/78"
+          : "text-overlay/48 hover:bg-surface-3 hover:text-overlay/78"
       }`}
     >
       {children}
@@ -138,7 +138,7 @@ export function WindowTitleBar({
 
   if (platform !== "windows") {
     return (
-      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 z-50 h-7 hover:bg-overlay/10 transition-colors duration-200" />
+      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 z-50 h-7 hover:bg-surface-3 transition-colors duration-200" />
     );
   }
 

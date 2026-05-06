@@ -141,7 +141,7 @@ export function AppLayout({
   children,
 }: AppLayoutProps) {
   return (
-    <div className="flex h-screen overflow-hidden bg-codictate-page text-white select-none">
+    <div className="flex h-screen overflow-hidden bg-codictate-page text-codictate-foreground select-none">
       <WindowTitleBar platform={platform} />
 
       {/* Sidebar — floating glass card */}
@@ -170,8 +170,8 @@ export function AppLayout({
                   onClick={() => onTabChange(c.id)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium transition-colors duration-200 cursor-pointer ${
                     isActive
-                      ? "bg-overlay/10 text-overlay/90"
-                      : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
+                      ? "bg-surface-3 text-overlay/90"
+                      : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
                   }`}
                 >
                   <div
@@ -186,10 +186,10 @@ export function AppLayout({
           </nav>
 
           <div className="mt-auto flex flex-col gap-1 pt-4">
-            <div className="mb-2 h-px bg-overlay/10 mx-3" />
+            <div className="mb-2 h-px bg-surface-3 mx-3" />
             <button
               onClick={onOpenSettings}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-overlay/50 hover:bg-surface-1 hover:text-overlay/70 transition-colors duration-200 cursor-pointer"
             >
               <div className="text-overlay/40">
                 <svg
@@ -210,7 +210,7 @@ export function AppLayout({
             </button>
             <button
               onClick={() => openExternalUrl("https://codictate.app/support")}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-overlay/50 hover:bg-surface-1 hover:text-overlay/70 transition-colors duration-200 cursor-pointer"
             >
               <div className="text-overlay/40">
                 <svg

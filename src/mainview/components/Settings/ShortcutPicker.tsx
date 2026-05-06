@@ -36,10 +36,10 @@ export function ShortcutPicker({
       <Select.Trigger asChild>
         <motion.button
           type="button"
-          className={`flex w-full items-center gap-3 rounded-xl border border-overlay/11 bg-overlay/4 px-4 py-3 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
+          className={`flex w-full items-center gap-3 rounded-xl border border-overlay/11 bg-surface-1 px-4 py-3 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
             disabled
               ? "opacity-50 cursor-not-allowed"
-              : "cursor-pointer hover:border-overlay/16 hover:bg-overlay/6"
+              : "cursor-pointer hover:border-overlay/16 hover:bg-surface-2"
           }`}
         >
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -78,7 +78,7 @@ export function ShortcutPicker({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="z-[10000] overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-overlay/8 backdrop-blur-md"
+            className="z-[10000] overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[var(--popover-shadow)] ring-1 ring-overlay/8 backdrop-blur-md"
           >
             <Select.Viewport
               className="max-h-[min(340px,52vh)] overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
@@ -100,8 +100,8 @@ export function ShortcutPicker({
                             textValue={opt.label}
                             className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 outline-none transition-colors duration-200 ${
                               isActive
-                                ? "border-overlay/26 bg-overlay/6 data-[highlighted]:bg-overlay/8"
-                                : "border-overlay/11 bg-overlay/4 data-[highlighted]:border-overlay/16 data-[highlighted]:bg-overlay/6"
+                                ? "border-overlay/26 bg-surface-2 data-[highlighted]:bg-surface-3"
+                                : "border-overlay/11 bg-surface-1 data-[highlighted]:border-overlay/16 data-[highlighted]:bg-surface-2"
                             }`}
                           >
                             <div

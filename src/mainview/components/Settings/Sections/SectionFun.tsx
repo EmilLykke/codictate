@@ -37,13 +37,13 @@ export function SectionFun({ settings, onBackToSettings }: Props) {
         <button
           type="button"
           onClick={onBackToSettings}
-          className="rounded-lg border border-overlay/12 bg-overlay/5 px-4 py-2 text-[16px] font-medium text-overlay/62 transition-colors duration-200 hover:border-overlay/18 hover:bg-overlay/7 hover:text-overlay/80"
+          className="rounded-lg border border-overlay/12 bg-surface-1 px-4 py-2 text-[16px] font-medium text-overlay/62 transition-colors duration-200 hover:border-overlay/18 hover:bg-surface-2 hover:text-overlay/80"
         >
           Back to settings
         </button>
       </div>
 
-      <div className="mb-8 overflow-hidden rounded-xl border border-overlay/11 bg-overlay/4">
+      <div className="mb-8 overflow-hidden rounded-xl border border-overlay/11 bg-surface-1">
         <div className="flex items-center gap-4 px-5 py-4">
           <div className="min-w-0 flex-1">
             <span

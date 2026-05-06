@@ -43,8 +43,22 @@ function applyThemeClass(theme: ResolvedTheme) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const settings = queryClient.getQueryData<AppSettings>(["settings"]);
-  const preference = settings?.themePreference ?? "system";
+
+  const [preference, setPreferenceState] = useState<ThemePreference>(() => {
+    const settings = queryClient.getQueryData<AppSettings>(["settings"]);
+    return settings?.themePreference ?? "dark";
+  });
+
+  useEffect(() => {
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== "updated" || event.query.queryKey[0] !== "settings")
+        return;
+      const settings = event.query.state.data as AppSettings | undefined;
+      if (settings?.themePreference) {
+        setPreferenceState(settings.themePreference);
+      }
+    });
+  }, [queryClient]);
 
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
   const resolved: ResolvedTheme =
@@ -65,6 +79,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setPreference = useCallback(
     async (pref: ThemePreference) => {
+      setPreferenceState(pref);
       queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
         old ? { ...old, themePreference: pref } : old,
       );

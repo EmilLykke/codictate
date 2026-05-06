@@ -74,8 +74,8 @@ export function PermissionScreen({
   }, [activePane, allGranted]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-codictate-page text-white select-none px-6 overflow-hidden">
-      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 h-7 hover:bg-overlay/10 transition-colors duration-200" />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-codictate-page text-codictate-foreground select-none px-6 overflow-hidden">
+      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 h-7 hover:bg-surface-3 transition-colors duration-200" />
       <div className="w-full max-w-[410px]">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -87,7 +87,7 @@ export function PermissionScreen({
             {[0.4, 0.65, 1, 0.8, 0.55, 0.75, 0.45].map((h, i) => (
               <div
                 key={i}
-                className="w-[3px] rounded-full bg-overlay/20"
+                className="w-[3px] rounded-full bg-surface-4"
                 style={{ height: `${h * 100}%` }}
               />
             ))}
@@ -116,7 +116,7 @@ export function PermissionScreen({
               {grantedCount} / 4
             </span>
           </div>
-          <div className="h-[2px] bg-overlay/6 rounded-full overflow-hidden">
+          <div className="h-[2px] bg-surface-2 rounded-full overflow-hidden">
             <motion.div
               className={`h-full rounded-full ${allGranted ? "bg-accent-emerald" : "bg-overlay/30"}`}
               initial={{ width: 0 }}

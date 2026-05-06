@@ -259,7 +259,7 @@ export class AppConfig {
     this.historyStoragePath = ''
     this.historyMaxEntries = 250
     this.historySaveAudio = false
-    this.themePreference = 'system'
+    this.themePreference = 'dark'
   }
 
   private getPersistedMainSettings(): PersistedMainSettings {

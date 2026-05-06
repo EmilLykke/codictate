@@ -143,7 +143,7 @@ export function SectionAudio({ settings }: Props) {
         <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Audio Ducking
         </h2>
-        <div className="rounded-xl border border-overlay/11 bg-overlay/4 overflow-hidden divide-y divide-overlay/8">
+        <div className="rounded-xl border border-overlay/11 bg-surface-1 overflow-hidden divide-y divide-overlay/8">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span

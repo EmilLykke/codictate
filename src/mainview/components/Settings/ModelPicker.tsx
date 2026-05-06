@@ -37,7 +37,7 @@ function StatBar({
       <span className="text-[13px] text-overlay/45 w-16 text-right">
         {label}
       </span>
-      <div className="h-[5px] w-20 rounded-full bg-overlay/8 overflow-hidden">
+      <div className="h-[5px] w-20 rounded-full bg-surface-3 overflow-hidden">
         <div
           className="h-full rounded-full bg-accent-blue/50 transition-all duration-300"
           style={{ width: `${pct}%` }}
@@ -92,9 +92,9 @@ export function ModelPicker({
             key={model.id}
             className={`relative rounded-xl border transition-colors duration-200 overflow-hidden ${
               isSelected
-                ? "border-accent-blue/25 bg-overlay/7"
-                : "border-overlay/11 bg-overlay/4"
-            } ${isAvailable && !isSelected ? "hover:border-overlay/16 hover:bg-overlay/6 cursor-pointer" : ""}`}
+                ? "border-accent-blue/25 bg-surface-2"
+                : "border-overlay/11 bg-surface-1"
+            } ${isAvailable && !isSelected ? "hover:border-overlay/16 hover:bg-surface-2 cursor-pointer" : ""}`}
             onClick={() => {
               if (confirmDelete) {
                 setConfirmDelete(null);
@@ -255,7 +255,7 @@ export function ModelPicker({
                         e.stopPropagation();
                         onDownload(model.id);
                       }}
-                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-overlay/4 hover:bg-overlay/8 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
+                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-surface-1 hover:bg-surface-3 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
                     >
                       Download
                     </button>
@@ -318,7 +318,7 @@ export function ModelPicker({
                     Cancel
                   </button>
                 </div>
-                <div className="h-1 rounded-full bg-overlay/8 overflow-hidden">
+                <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-accent-blue/40"
                     initial={{ width: 0 }}

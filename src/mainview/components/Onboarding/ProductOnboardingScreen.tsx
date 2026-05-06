@@ -320,7 +320,7 @@ export function ProductOnboardingScreen({
   );
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center overflow-y-auto bg-codictate-page px-6 py-10 text-white select-none sm:px-8 lg:px-12">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center overflow-y-auto bg-codictate-page px-6 py-10 text-codictate-foreground select-none sm:px-8 lg:px-12">
       <WindowTitleBar platform={settings.capabilities.platform} />
       <div className="mx-auto flex w-full max-w-[820px] flex-col items-center">
         <motion.div
@@ -345,7 +345,7 @@ export function ProductOnboardingScreen({
                   ? "w-8 bg-overlay/45"
                   : step > i
                     ? "w-1.5 bg-accent-emerald/50"
-                    : "w-1.5 bg-overlay/10"
+                    : "w-1.5 bg-surface-3"
               }`}
             />
           ))}
@@ -382,13 +382,13 @@ export function ProductOnboardingScreen({
                 placeholder="Your name"
                 autoCapitalize="words"
                 autoComplete="name"
-                className="w-full rounded-xl border border-overlay/12 bg-overlay/4 px-4 py-3.5 text-[17px] text-overlay/85 placeholder:text-overlay/25 outline-none focus-visible:border-overlay/22 focus-visible:ring-2 focus-visible:ring-overlay/10 select-text"
+                className="w-full rounded-xl border border-overlay/12 bg-surface-1 px-4 py-3.5 text-[17px] text-overlay/85 placeholder:text-overlay/25 outline-none focus-visible:border-overlay/22 focus-visible:ring-2 focus-visible:ring-overlay/10 select-text"
               />
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void handleNameContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-surface-4 hover:bg-surface-4 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -424,7 +424,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleShortcutContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-surface-4 hover:bg-surface-4 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -459,7 +459,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleLanguageContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-surface-4 hover:bg-surface-4 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -514,7 +514,7 @@ export function ProductOnboardingScreen({
                 ref={textareaRef}
                 rows={6}
                 placeholder="Your dictation appears here…"
-                className="w-full rounded-xl border border-overlay/12 bg-overlay/4 px-4 py-3 text-[15px] text-overlay/85 placeholder:text-overlay/25 outline-none focus-visible:border-overlay/22 focus-visible:ring-2 focus-visible:ring-overlay/10 resize-y min-h-[140px] select-text"
+                className="w-full rounded-xl border border-overlay/12 bg-surface-1 px-4 py-3 text-[15px] text-overlay/85 placeholder:text-overlay/25 outline-none focus-visible:border-overlay/22 focus-visible:ring-2 focus-visible:ring-overlay/10 resize-y min-h-[140px] select-text"
               />
 
               {!dictationTrialComplete && (
@@ -528,7 +528,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy || !dictationTrialComplete}
                 onClick={handleTryDictationContinue}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-surface-4 hover:bg-surface-4 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -561,8 +561,8 @@ export function ProductOnboardingScreen({
                       onClick={() => setIndicatorDraft(mode)}
                       className={`w-full text-left rounded-xl border px-4 py-3.5 transition-colors duration-200 cursor-pointer ${
                         selected
-                          ? "border-overlay/22 bg-overlay/8"
-                          : "border-overlay/11 bg-overlay/4 hover:border-overlay/16 hover:bg-overlay/6"
+                          ? "border-overlay/22 bg-surface-3"
+                          : "border-overlay/11 bg-surface-1 hover:border-overlay/16 hover:bg-surface-2"
                       }`}
                     >
                       <span
@@ -581,7 +581,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleIndicatorContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-surface-4 hover:bg-surface-4 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -626,8 +626,8 @@ export function ProductOnboardingScreen({
                         onClick={() => setWritingStyleDraft(id)}
                         className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
                           selected
-                            ? "border-accent-blue/60 bg-overlay/10 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
-                            : "border-overlay/11 bg-overlay/4 hover:border-overlay/20 hover:bg-overlay/6"
+                            ? "border-accent-blue/60 bg-surface-3 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
+                            : "border-overlay/11 bg-surface-1 hover:border-overlay/20 hover:bg-surface-2"
                         }`}
                       >
                         <div className="p-5 pb-2">
@@ -652,7 +652,7 @@ export function ProductOnboardingScreen({
                             className={`rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed whitespace-pre-wrap relative ${
                               selected
                                 ? "bg-accent-blue/20 text-blue-50"
-                                : "bg-overlay/5 text-overlay/70"
+                                : "bg-surface-1 text-overlay/70"
                             }`}
                           >
                             {preview}
@@ -664,7 +664,7 @@ export function ProductOnboardingScreen({
                 )}
               </div>
 
-              <div className="mt-6 w-full rounded-xl border border-overlay/11 bg-overlay/4 px-4 py-3.5">
+              <div className="mt-6 w-full rounded-xl border border-overlay/11 bg-surface-1 px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <span className="block text-[15px] font-medium text-overlay/78">
@@ -687,7 +687,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleFinishOnboarding()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-surface-4 hover:bg-surface-4 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue to Codictate
               </button>

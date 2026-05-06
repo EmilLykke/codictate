@@ -49,7 +49,7 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
           <button
             type="button"
             onClick={handleCopy}
-            className="p-1.5 rounded-md text-overlay/30 hover:text-overlay/70 hover:bg-overlay/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-overlay/30 hover:text-overlay/70 hover:bg-surface-3 transition-colors cursor-pointer"
             aria-label="Copy transcript"
           >
             {copied ? (
@@ -84,7 +84,7 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 rounded-md text-overlay/30 hover:text-accent-red/80 hover:bg-overlay/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-overlay/30 hover:text-accent-red/80 hover:bg-surface-3 transition-colors cursor-pointer"
             aria-label="Delete entry"
           >
             <svg

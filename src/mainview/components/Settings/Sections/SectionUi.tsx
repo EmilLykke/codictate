@@ -84,8 +84,8 @@ export function SectionUi({ settings }: Props) {
                 onClick={() => handleRecordingIndicatorModeChange(mode)}
                 className={`w-full text-left rounded-xl border px-4 py-3.5 transition-colors duration-200 ${
                   selected
-                    ? "border-overlay/22 bg-overlay/8"
-                    : "border-overlay/11 bg-overlay/4 hover:border-overlay/16 hover:bg-overlay/6"
+                    ? "border-overlay/22 bg-surface-3"
+                    : "border-overlay/11 bg-surface-1 hover:border-overlay/16 hover:bg-surface-2"
                 } ${indicatorComingSoon ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
               >
                 <span

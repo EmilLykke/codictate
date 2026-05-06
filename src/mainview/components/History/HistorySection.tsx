@@ -71,7 +71,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
             <button
               type="button"
               onClick={onOpenHistorySettings}
-              className="p-1.5 rounded-md text-overlay/40 hover:text-overlay/70 hover:bg-overlay/10 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-overlay/40 hover:text-overlay/70 hover:bg-surface-3 transition-colors cursor-pointer"
               aria-label="History settings"
             >
               <svg
@@ -132,7 +132,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search transcripts..."
-            className="w-full bg-overlay/8 border border-overlay/12 rounded-lg pl-9 pr-3 py-2.5 text-[15px] text-overlay/80 placeholder:text-overlay/35 outline-none focus:border-overlay/25 transition-colors"
+            className="w-full bg-surface-3 border border-overlay/12 rounded-lg pl-9 pr-3 py-2.5 text-[15px] text-overlay/80 placeholder:text-overlay/35 outline-none focus:border-overlay/25 transition-colors"
           />
         </div>
       </div>
@@ -152,7 +152,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl bg-overlay/5 border border-overlay/10 divide-y divide-overlay/8">
+        <div className="rounded-xl bg-surface-1 border border-overlay/10 divide-y divide-overlay/8">
           {entries.map((entry) => (
             <HistoryEntryCard
               key={entry.id}

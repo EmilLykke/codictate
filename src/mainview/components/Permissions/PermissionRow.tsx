@@ -43,10 +43,10 @@ export function PermissionRow({
       layout
       className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-300 ${
         granted
-          ? "border-overlay/6 bg-overlay/3"
+          ? "border-overlay/6 bg-surface-1"
           : isActiveStep
-            ? "border-overlay/18 bg-overlay/4"
-            : "border-overlay/10 bg-overlay/2"
+            ? "border-overlay/18 bg-surface-1"
+            : "border-overlay/10 bg-surface-1"
       }`}
     >
       <div className="shrink-0 w-5 flex items-center justify-center">
@@ -66,7 +66,7 @@ export function PermissionRow({
               initial={{ scale: 0.4, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.4, opacity: 0 }}
-              className="block w-[7px] h-[7px] rounded-full bg-overlay/20"
+              className="block w-[7px] h-[7px] rounded-full bg-surface-4"
             />
           )}
         </AnimatePresence>

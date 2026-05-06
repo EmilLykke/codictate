@@ -15,7 +15,7 @@ export function DevicePicker({
 
   if (entries.length === 0) {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-overlay/11 bg-overlay/4">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-overlay/11 bg-surface-1">
         <svg
           width="14"
           height="14"
@@ -49,8 +49,8 @@ export function DevicePicker({
             onClick={() => onChange(index)}
             className={`relative flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-200 cursor-pointer text-left ${
               isActive
-                ? "border-overlay/26 bg-overlay/6"
-                : "border-overlay/11 bg-overlay/4 hover:border-overlay/16 hover:bg-overlay/6"
+                ? "border-overlay/26 bg-surface-2"
+                : "border-overlay/11 bg-surface-1 hover:border-overlay/16 hover:bg-surface-2"
             }`}
           >
             <div

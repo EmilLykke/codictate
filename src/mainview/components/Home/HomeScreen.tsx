@@ -37,7 +37,7 @@ function ShortcutHelpIcon({ tooltip }: { tooltip: React.ReactNode }) {
     >
       <button
         type="button"
-        className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[5px] border border-overlay/15 bg-overlay/5 text-overlay/40 hover:text-overlay/70 hover:border-overlay/25 transition-colors cursor-help"
+        className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[5px] border border-overlay/15 bg-surface-1 text-overlay/40 hover:text-overlay/70 hover:border-overlay/25 transition-colors cursor-help"
         aria-label="Shortcut help"
       >
         <svg
@@ -66,9 +66,9 @@ const TOGGLE_ON_BLUE =
 const TOGGLE_ON_PURPLE =
   "border-purple-400/30 bg-purple-500/15 hover:bg-purple-500/25 text-purple-400/80";
 const TOGGLE_OFF =
-  "border-overlay/12 bg-overlay/5 hover:border-overlay/18 hover:bg-overlay/7 text-overlay/48 hover:text-overlay/70";
+  "border-overlay/12 bg-surface-1 hover:border-overlay/18 hover:bg-surface-2 text-overlay/48 hover:text-overlay/70";
 const TOGGLE_DIMMED =
-  "border-overlay/8 bg-overlay/3 text-overlay/20 hover:border-overlay/14 hover:text-overlay/30";
+  "border-overlay/8 bg-surface-1 text-overlay/20 hover:border-overlay/14 hover:text-overlay/30";
 
 const TRANSLATE_DEFAULT_PLACEHOLDER = "__translate_pick__";
 
@@ -164,7 +164,7 @@ export function HomeScreen({
     isTranslateOn || isTranslateCapableModelId(settings?.whisperModelId ?? "");
 
   const overviewCard = (
-    <div className="rounded-2xl bg-overlay/5 border border-overlay/10 p-7">
+    <div className="rounded-2xl bg-surface-1 border border-overlay/10 p-7">
       <div className="flex items-center justify-between mb-5">
         <div className="grid grid-cols-3 gap-y-5 gap-x-8">
           <div>
@@ -436,7 +436,7 @@ export function HomeScreen({
                   )}
                   )
                 </p>
-                <div className="mt-2 h-1 rounded-full bg-overlay/10 overflow-hidden">
+                <div className="mt-2 h-1 rounded-full bg-surface-3 overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-accent-blue/60"
                     animate={{
@@ -448,7 +448,7 @@ export function HomeScreen({
               </div>
               <button
                 onClick={() => onCancelDownload(translateDownloadModelId)}
-                className="shrink-0 px-2.5 py-1 rounded-lg text-[13px] font-medium border border-overlay/12 hover:border-overlay/22 bg-overlay/4 hover:bg-overlay/8 text-overlay/44 hover:text-overlay/64 transition-colors duration-200 cursor-pointer"
+                className="shrink-0 px-2.5 py-1 rounded-lg text-[13px] font-medium border border-overlay/12 hover:border-overlay/22 bg-surface-1 hover:bg-surface-3 text-overlay/44 hover:text-overlay/64 transition-colors duration-200 cursor-pointer"
               >
                 Cancel
               </button>
@@ -460,7 +460,7 @@ export function HomeScreen({
   );
 
   const statsCard = (
-    <div className="rounded-2xl bg-overlay/5 border border-overlay/10 p-7 flex flex-col items-center justify-center gap-2">
+    <div className="rounded-2xl bg-surface-1 border border-overlay/10 p-7 flex flex-col items-center justify-center gap-2">
       <span className="text-[15px] font-medium text-overlay/40">
         Statistics coming soon
       </span>

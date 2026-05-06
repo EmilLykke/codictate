@@ -79,7 +79,7 @@ export function RecordingOrb({ status }: { status: AppStatus }) {
               ? "border-accent-amber/20 bg-accent-amber/5"
               : isStreaming
                 ? "border-accent-blue/25 bg-accent-blue/8"
-                : "border-overlay/8 bg-overlay/3"
+                : "border-overlay/8 bg-surface-1"
         }`}
         style={{ transformOrigin: "center center" }}
         animate={{

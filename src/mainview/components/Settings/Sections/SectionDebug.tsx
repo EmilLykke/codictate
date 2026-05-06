@@ -75,7 +75,7 @@ export function SectionDebug({
         <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Updates
         </h2>
-        <div className="rounded-xl border border-overlay/11 bg-overlay/4 overflow-hidden">
+        <div className="rounded-xl border border-overlay/11 bg-surface-1 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="shrink-0 w-4 h-4 flex items-center justify-center">
               <UpdateIcon state={updateState} />
@@ -124,7 +124,7 @@ export function SectionDebug({
         <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Diagnostics
         </h2>
-        <div className="rounded-xl border border-overlay/11 bg-overlay/4 overflow-hidden">
+        <div className="rounded-xl border border-overlay/11 bg-surface-1 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="shrink-0 w-4 h-4 flex items-center justify-center">
               <svg
@@ -175,7 +175,7 @@ export function SectionDebug({
                   className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium border transition-colors duration-200 cursor-pointer ${
                     isCopied
                       ? "bg-accent-emerald/15 border-accent-emerald/25 text-accent-emerald/80"
-                      : "border-overlay/12 hover:border-overlay/20 bg-overlay/4 hover:bg-overlay/7 text-overlay/52 hover:text-overlay/72"
+                      : "border-overlay/12 hover:border-overlay/20 bg-surface-1 hover:bg-surface-2 text-overlay/52 hover:text-overlay/72"
                   }`}
                 >
                   {isCopied ? (
@@ -438,7 +438,7 @@ function UpdateAction({
     return (
       <button
         onClick={onCheck}
-        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-overlay/12 hover:border-overlay/20 bg-overlay/4 hover:bg-overlay/7 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-overlay/12 hover:border-overlay/20 bg-surface-1 hover:bg-surface-2 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
       >
         Retry
       </button>
@@ -450,7 +450,7 @@ function UpdateAction({
   return (
     <button
       onClick={onCheck}
-      className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-overlay/12 hover:border-overlay/20 bg-overlay/4 hover:bg-overlay/7 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
+      className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-overlay/12 hover:border-overlay/20 bg-surface-1 hover:bg-surface-2 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
     >
       Check
     </button>

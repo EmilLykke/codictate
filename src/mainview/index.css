@@ -2,13 +2,19 @@
 
 /* ── Light-mode tokens (default) ───────────────────────────────────────────── */
 :root {
-  --page: hsl(0 0% 97%);
+  --page: hsl(220 4% 91%);
   --canvas: hsl(200 10% 96%);
   --foreground: hsl(200 10% 5%);
   --paper: hsl(0 0% 35% / 0.15);
   --overlay-base: black;
   --overlay-rgb: 0 0 0;
   --elevated: hsl(0 0% 100%);
+
+  /* Surface tiers: white tints that look clearly white on gray page */
+  --surface-1: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(255, 255, 255, 0.82);
+  --surface-3: rgba(255, 255, 255, 0.90);
+  --surface-4: rgba(255, 255, 255, 0.95);
 
   /* Glass opacities */
   --glass-bg: 0.6;
@@ -37,6 +43,7 @@
   --overlay-38: rgba(0, 0, 0, 0.38);
   --overlay-18: rgba(0, 0, 0, 0.18);
   --overlay-06: rgba(0, 0, 0, 0.06);
+  --popover-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
   --accent-blue-rgb: 37 99 235;
   --accent-red-rgb: 220 38 38;
 
@@ -52,6 +59,12 @@
   --overlay-base: white;
   --overlay-rgb: 255 255 255;
   --elevated: #1a1a1a;
+
+  /* Surface tiers: subtle white tints on black */
+  --surface-1: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --surface-3: rgba(255, 255, 255, 0.10);
+  --surface-4: rgba(255, 255, 255, 0.15);
 
   /* Glass opacities */
   --glass-bg: 0.045;
@@ -80,6 +93,7 @@
   --overlay-38: rgba(255, 255, 255, 0.38);
   --overlay-18: rgba(255, 255, 255, 0.18);
   --overlay-06: rgba(255, 255, 255, 0.06);
+  --popover-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
   --accent-blue-rgb: 96 165 250;
   --accent-red-rgb: 248 113 113;
 
@@ -94,6 +108,10 @@
   --color-codictate-foreground: var(--foreground);
   --color-codictate-paper: var(--paper);
   --color-overlay: var(--overlay-base);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
   --color-surface-elevated: var(--elevated);
   --color-accent-blue: var(--accent-blue);
   --color-accent-red: var(--accent-red);
