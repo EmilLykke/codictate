@@ -465,7 +465,10 @@ function startKeyboard() {
     async (transcript) => {
       if (!UserAppConfig.getHistoryEnabled()) return
       try {
-        await historyManager.saveEntry(RECORDING_PATH, transcript)
+        await historyManager.saveEntry(RECORDING_PATH, transcript, {
+          saveAudio: UserAppConfig.getHistorySaveAudio(),
+          maxEntries: UserAppConfig.getHistoryMaxEntries(),
+        })
         try {
           win.send.historyEntryAdded({})
         } catch {

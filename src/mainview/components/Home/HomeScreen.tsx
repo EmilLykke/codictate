@@ -89,6 +89,7 @@ export function HomeScreen({
   onTranslateDefaultLanguageChange,
   onCancelDownload,
   onOpenSettings,
+  onNavigateToHistory,
 }: {
   status: AppStatus;
   deviceInfo?: DeviceInfo;
@@ -106,6 +107,7 @@ export function HomeScreen({
   onTranslateDefaultLanguageChange: (languageId: string) => void;
   onCancelDownload: (modelId: string) => void;
   onOpenSettings: () => void;
+  onNavigateToHistory: () => void;
 }) {
   const isRecording = status === "recording";
   const isTranscribing = status === "transcribing";
@@ -160,8 +162,6 @@ export function HomeScreen({
 
   const canTranslate =
     isTranslateOn || isTranslateCapableModelId(settings?.whisperModelId ?? "");
-
-  const historyEnabled = settings?.history?.enabled ?? false;
 
   const overviewCard = (
     <div className="rounded-2xl bg-white/5 border border-white/10 p-7">
@@ -546,30 +546,6 @@ export function HomeScreen({
     </motion.div>
   );
 
-  if (historyEnabled) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="mb-10">
-          <h2 className="text-[28px] font-semibold text-white/90">
-            Welcome back!
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2">{overviewCard}</div>
-          {statsCard}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0 flex-1">
-          <div className="lg:col-span-2 min-h-0 overflow-y-auto scrollbar-hidden">
-            <HomeHistoryTimeline />
-          </div>
-          <div className="hidden lg:flex flex-col gap-6">{shortcutsBlock}</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full">
       <div className="mb-10">
@@ -578,12 +554,17 @@ export function HomeScreen({
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2">{overviewCard}</div>
         {statsCard}
       </div>
 
-      {shortcutsBlock}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0 flex-1">
+        <div className="lg:col-span-2 min-h-0 overflow-y-auto scrollbar-hidden">
+          <HomeHistoryTimeline historyEnabled={settings?.history?.enabled ?? false} onNavigateToHistory={onNavigateToHistory} />
+        </div>
+        <div className="hidden lg:flex flex-col gap-6">{shortcutsBlock}</div>
+      </div>
     </div>
   );
 }

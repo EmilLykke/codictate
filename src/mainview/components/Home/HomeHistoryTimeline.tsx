@@ -78,10 +78,16 @@ function groupByDate(
   return groups;
 }
 
-export function HomeHistoryTimeline() {
+interface Props {
+  historyEnabled: boolean;
+  onNavigateToHistory: () => void;
+}
+
+export function HomeHistoryTimeline({ historyEnabled, onNavigateToHistory }: Props) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   const loadEntries = useCallback(async () => {
@@ -128,7 +134,21 @@ export function HomeHistoryTimeline() {
   if (entries.length === 0) {
     return (
       <div className="text-[14px] text-white/25 py-8">
-        No dictation history yet. Start dictating to build your timeline.
+        {historyEnabled ? (
+          "No dictation history yet. Start dictating to build your timeline."
+        ) : (
+          <span>
+            No history items.{" "}
+            <button
+              type="button"
+              onClick={onNavigateToHistory}
+              className="text-blue-400/60 hover:text-blue-400 cursor-pointer"
+            >
+              Enable history
+            </button>
+            {" "}to save a copy of each dictation.
+          </span>
+        )}
       </div>
     );
   }
@@ -158,18 +178,35 @@ export function HomeHistoryTimeline() {
                   <span className="text-[14px] text-white/35 tabular-nums shrink-0 min-w-[70px]">
                     {timeFormatter.format(entry.timestamp)}
                   </span>
-                  <span className="text-[15px] text-white/70 leading-relaxed flex-1">
-                    {displayText}
-                    {needsTruncation && (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(entry.id)}
-                        className="ml-1.5 text-blue-400/60 hover:text-blue-400 text-[13px] cursor-pointer"
-                      >
-                        {isExpanded ? "less" : "more"}
-                      </button>
+                  <div className="flex-1 relative">
+                    <span
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(entry.transcript);
+                        setCopiedId(entry.id);
+                        setTimeout(() => setCopiedId((prev) => prev === entry.id ? null : prev), 1500);
+                      }}
+                      className="text-[15px] text-white/70 leading-relaxed cursor-pointer hover:text-white/80 transition-colors"
+                    >
+                      {displayText}
+                      {needsTruncation && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(entry.id);
+                          }}
+                          className="ml-1.5 text-blue-400/60 hover:text-blue-400 text-[13px] cursor-pointer"
+                        >
+                          {isExpanded ? "less" : "more"}
+                        </button>
+                      )}
+                    </span>
+                    {copiedId === entry.id && (
+                      <span className="absolute -top-4 left-0 text-[11px] text-green-400/80 font-medium">
+                        Copied!
+                      </span>
                     )}
-                  </span>
+                  </div>
                   <CopyButton text={entry.transcript} />
                 </div>
               );

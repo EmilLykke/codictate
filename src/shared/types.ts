@@ -295,11 +295,17 @@ export interface HistoryEntry {
 export interface HistorySettings {
   enabled: boolean
   storagePath: string
+  /** Max number of history entries to keep. 0 = unlimited. */
+  maxEntries: number
+  /** When false, only transcripts are saved (no audio file). */
+  saveAudio: boolean
 }
 
 export interface HistorySettingsPatch {
   enabled?: boolean
   storagePath?: string
+  maxEntries?: number
+  saveAudio?: boolean
 }
 
 export type WebviewRPCType = {

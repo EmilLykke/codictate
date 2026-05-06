@@ -103,21 +103,28 @@ export class HistoryManager {
 
   async saveEntry(
     audioSourcePath: string,
-    transcript: string
+    transcript: string,
+    options?: { saveAudio?: boolean; maxEntries?: number }
   ): Promise<HistoryEntry> {
     return this.enqueue(async () => {
       const id = generateId()
-      const audioFilename = `${id}.wav`
-      const destPath = join(this.recordingsDir, audioFilename)
+      const saveAudio = options?.saveAudio ?? true
+      let audioFilename = ''
+      let durationMs = 0
 
       this.ensureStorageDir()
-      const sourceFile = Bun.file(audioSourcePath)
-      if (!(await sourceFile.exists())) {
-        throw new Error(`Source audio not found: ${audioSourcePath}`)
+
+      if (saveAudio) {
+        audioFilename = `${id}.wav`
+        const destPath = join(this.recordingsDir, audioFilename)
+        const sourceFile = Bun.file(audioSourcePath)
+        if (!(await sourceFile.exists())) {
+          throw new Error(`Source audio not found: ${audioSourcePath}`)
+        }
+        const audioBuffer = Buffer.from(await sourceFile.arrayBuffer())
+        await Bun.write(destPath, audioBuffer)
+        durationMs = estimateWavDurationMs(audioBuffer)
       }
-      const audioBuffer = Buffer.from(await sourceFile.arrayBuffer())
-      await Bun.write(destPath, audioBuffer)
-      const durationMs = estimateWavDurationMs(audioBuffer)
 
       const entry: HistoryEntry = {
         id,
@@ -129,9 +136,26 @@ export class HistoryManager {
 
       const index = await this.readIndex()
       index.entries.push(entry)
+
+      const maxEntries = options?.maxEntries ?? 0
+      if (maxEntries > 0 && index.entries.length > maxEntries) {
+        const removed = index.entries.splice(
+          0,
+          index.entries.length - maxEntries
+        )
+        for (const old of removed) {
+          if (old.audioFilename) {
+            try {
+              const p = join(this.recordingsDir, old.audioFilename)
+              if (existsSync(p)) unlinkSync(p)
+            } catch {}
+          }
+        }
+      }
+
       await this.writeIndex(index)
 
-      log('history', 'saved entry', { id, audioFilename })
+      log('history', 'saved entry', { id, audioFilename: audioFilename || '(transcript only)' })
       return entry
     })
   }

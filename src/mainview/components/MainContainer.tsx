@@ -445,6 +445,7 @@ export function MainContainer({
               setSettingsInitialTab("shortcuts");
               setIsSettingsModalOpen(true);
             }}
+            onNavigateToHistory={() => setActiveTab("history")}
           />
         )}
         {activeTab === "dictionary" && (
@@ -464,7 +465,15 @@ export function MainContainer({
         {activeTab === "formatting" && (
           <SectionFormatting settings={settings} />
         )}
-        {activeTab === "history" && <HistorySection settings={settings} />}
+        {activeTab === "history" && (
+          <HistorySection
+            settings={settings}
+            onOpenHistorySettings={() => {
+              setSettingsInitialTab("history");
+              setIsSettingsModalOpen(true);
+            }}
+          />
+        )}
       </AppLayout>
 
       <SettingsModal

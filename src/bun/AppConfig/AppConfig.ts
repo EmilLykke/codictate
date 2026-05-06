@@ -188,6 +188,8 @@ interface PersistedMainSettings {
   audioDucking: AudioDuckingSettings
   historyEnabled: boolean
   historyStoragePath: string
+  historyMaxEntries: number
+  historySaveAudio: boolean
   debugMode: false
 }
 
@@ -215,6 +217,8 @@ export class AppConfig {
   private dictionary: DictionarySettings
   private historyEnabled: boolean
   private historyStoragePath: string
+  private historyMaxEntries: number
+  private historySaveAudio: boolean
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
     null
@@ -246,6 +250,8 @@ export class AppConfig {
     this.dictionary = defaultDictionarySettings()
     this.historyEnabled = false
     this.historyStoragePath = ''
+    this.historyMaxEntries = 250
+    this.historySaveAudio = false
   }
 
   private getPersistedMainSettings(): PersistedMainSettings {
@@ -280,6 +286,8 @@ export class AppConfig {
       audioDucking: { ...this.audioDucking },
       historyEnabled: this.historyEnabled,
       historyStoragePath: this.historyStoragePath,
+      historyMaxEntries: this.historyMaxEntries,
+      historySaveAudio: this.historySaveAudio,
       debugMode: false,
     }
   }
@@ -521,6 +529,12 @@ export class AppConfig {
     }
     if (typeof raw.historyStoragePath === 'string') {
       this.historyStoragePath = raw.historyStoragePath
+    }
+    if (typeof raw.historyMaxEntries === 'number') {
+      this.historyMaxEntries = raw.historyMaxEntries
+    }
+    if (typeof raw.historySaveAudio === 'boolean') {
+      this.historySaveAudio = raw.historySaveAudio
     }
   }
 
@@ -816,6 +830,8 @@ export class AppConfig {
       history: {
         enabled: this.historyEnabled,
         storagePath: this.historyStoragePath || DEFAULT_HISTORY_DIR,
+        maxEntries: this.historyMaxEntries,
+        saveAudio: this.historySaveAudio,
       },
       modelAvailability: modelManager.getAvailabilityMap(),
     }
@@ -1133,6 +1149,14 @@ export class AppConfig {
     return this.historyStoragePath || DEFAULT_HISTORY_DIR
   }
 
+  public getHistorySaveAudio(): boolean {
+    return this.historySaveAudio
+  }
+
+  public getHistoryMaxEntries(): number {
+    return this.historyMaxEntries
+  }
+
   public async updateHistorySettings(
     patch: HistorySettingsPatch
   ): Promise<boolean> {
@@ -1141,6 +1165,12 @@ export class AppConfig {
     }
     if (patch.storagePath !== undefined) {
       this.historyStoragePath = patch.storagePath
+    }
+    if (patch.maxEntries !== undefined) {
+      this.historyMaxEntries = patch.maxEntries
+    }
+    if (patch.saveAudio !== undefined) {
+      this.historySaveAudio = patch.saveAudio
     }
     await this.saveMain()
     return true
