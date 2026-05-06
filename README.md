@@ -114,6 +114,10 @@ bun run build:installer:windows       # after a local Windows Electrobun build, 
 
 Unsigned local builds work without any `.env` configuration. To sign locally, copy `.env.example` to `.env` and fill in Apple developer credentials. See **[docs/MACOS_SIGNING_AND_NOTARIZATION.md](docs/MACOS_SIGNING_AND_NOTARIZATION.md)**.
 
+### macOS app icon workflow
+
+For macOS, the packaged app icon should be a flat square asset without a baked-in rounded border or shadow, because macOS applies its own outer treatment. In this repo, `src/assets/images/MacAppIconFlat.svg` is the canonical source. The build rasterizes it into `src/assets/images/MacDocIcon.png` and regenerates `icon.iconset/` from that output because Electrobun still packages macOS icons through the legacy `.iconset` path.
+
 ## Releasing
 
 ```bash

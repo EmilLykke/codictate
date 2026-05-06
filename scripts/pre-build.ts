@@ -50,6 +50,43 @@ const LLAMA_BUILD_SIGNATURE = [
 const PARAKEET_PKG = join(import.meta.dir, "..", "native", "CodictateParakeetHelper");
 const PARAKEET_DIR = join(VENDORS_DIR, "parakeet");
 const PARAKEET_BINARY = join(PARAKEET_DIR, "CodictateParakeetHelper");
+const MAC_ICON_COMPOSER_EXPORT = join(
+  import.meta.dir,
+  "..",
+  "src",
+  "assets",
+  "images",
+  "MacAppIconFlat.svg",
+);
+const MAC_LEGACY_DOC_ICON = join(
+  import.meta.dir,
+  "..",
+  "src",
+  "assets",
+  "images",
+  "MacDocIcon.png",
+);
+const WINDOWS_APP_ICON = join(
+  import.meta.dir,
+  "..",
+  "src",
+  "assets",
+  "images",
+  "MacDocIcon.ico",
+);
+const MAC_ICONSET_DIR = join(import.meta.dir, "..", "icon.iconset");
+const MAC_ICONSET_SIZES = [
+  { size: 16, scale: 1 },
+  { size: 16, scale: 2 },
+  { size: 32, scale: 1 },
+  { size: 32, scale: 2 },
+  { size: 128, scale: 1 },
+  { size: 128, scale: 2 },
+  { size: 256, scale: 1 },
+  { size: 256, scale: 2 },
+  { size: 512, scale: 1 },
+  { size: 512, scale: 2 },
+];
 
 const OBSERVER_PKG = join(import.meta.dir, "..", "native", "CodictateObserverHelper");
 const OBSERVER_DIR = join(VENDORS_DIR, "observer");
@@ -79,6 +116,104 @@ function resolveCargoExecutable(): string {
 function commandExists(command: string): boolean {
   const checker = process.platform === "win32" ? "where" : "which";
   return Bun.spawnSync([checker, command], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
+}
+
+function syncMacAppIconArtifacts() {
+  if (process.platform !== "darwin") return;
+
+  const sourceVector = existsSync(MAC_ICON_COMPOSER_EXPORT)
+    ? MAC_ICON_COMPOSER_EXPORT
+    : MAC_LEGACY_DOC_ICON;
+
+  if (!existsSync(sourceVector)) {
+    throw new Error("[pre-build] Missing macOS app icon source asset");
+  }
+
+  const tempSourcePng = join(import.meta.dir, "..", ".tmp", "mac-app-icon-source.png");
+  mkdirSync(join(import.meta.dir, "..", ".tmp"), { recursive: true });
+  const rasterize = Bun.spawnSync(
+    ["sips", "-s", "format", "png", sourceVector, "--out", tempSourcePng],
+    { stdio: ["ignore", "ignore", "pipe"] },
+  );
+  if (rasterize.exitCode !== 0 || !existsSync(tempSourcePng)) {
+    throw new Error(`[pre-build] Failed rasterizing macOS app icon source: ${sourceVector}`);
+  }
+
+  const sourcePng = readFileSync(tempSourcePng);
+
+  // Keep the legacy flat PNG in sync because Electrobun and the Windows packaging
+  // path still refer to MacDocIcon.* while the canonical macOS source is a
+  // borderless square icon that lets macOS apply its own outer treatment.
+  if (
+    (!existsSync(MAC_LEGACY_DOC_ICON) ||
+      !readFileSync(MAC_LEGACY_DOC_ICON).equals(sourcePng))
+  ) {
+    writeFileSync(MAC_LEGACY_DOC_ICON, sourcePng);
+    console.log("[pre-build] Synced macOS flat icon source -> MacDocIcon.png");
+  }
+
+  mkdirSync(MAC_ICONSET_DIR, { recursive: true });
+
+  for (const { size, scale } of MAC_ICONSET_SIZES) {
+    const px = size * scale;
+    const label =
+      scale === 1
+        ? `icon_${size}x${size}.png`
+        : `icon_${size}x${size}@2x.png`;
+    const outPath = join(MAC_ICONSET_DIR, label);
+    const result = Bun.spawnSync(
+      ["sips", "-z", String(px), String(px), tempSourcePng, "--out", outPath],
+      { stdio: ["ignore", "ignore", "pipe"] },
+    );
+    if (result.exitCode !== 0) {
+      throw new Error(`[pre-build] Failed generating ${label} from ${sourceVector}`);
+    }
+  }
+
+  console.log("[pre-build] Refreshed icon.iconset from the canonical flat macOS icon source");
+}
+
+function syncWindowsAppIconFromIconset() {
+  const iconEntries = [
+    { file: join(MAC_ICONSET_DIR, "icon_16x16.png"), size: 16 },
+    { file: join(MAC_ICONSET_DIR, "icon_32x32.png"), size: 32 },
+    { file: join(MAC_ICONSET_DIR, "icon_128x128.png"), size: 128 },
+    { file: join(MAC_ICONSET_DIR, "icon_256x256.png"), size: 256 },
+  ].filter(({ file }) => existsSync(file));
+
+  if (iconEntries.length === 0) {
+    throw new Error("[pre-build] Missing icon.iconset PNGs for Windows app icon generation");
+  }
+
+  const images = iconEntries.map(({ file, size }) => ({
+    size,
+    png: readFileSync(file),
+  }));
+  const headerSize = 6 + images.length * 16;
+  const directory = Buffer.alloc(headerSize);
+  directory.writeUInt16LE(0, 0);
+  directory.writeUInt16LE(1, 2);
+  directory.writeUInt16LE(images.length, 4);
+
+  let dataOffset = headerSize;
+  const chunks: Buffer[] = [];
+
+  for (const [index, image] of images.entries()) {
+    const entryOffset = 6 + index * 16;
+    directory.writeUInt8(image.size >= 256 ? 0 : image.size, entryOffset);
+    directory.writeUInt8(image.size >= 256 ? 0 : image.size, entryOffset + 1);
+    directory.writeUInt8(0, entryOffset + 2);
+    directory.writeUInt8(0, entryOffset + 3);
+    directory.writeUInt16LE(1, entryOffset + 4);
+    directory.writeUInt16LE(32, entryOffset + 6);
+    directory.writeUInt32LE(image.png.length, entryOffset + 8);
+    directory.writeUInt32LE(dataOffset, entryOffset + 12);
+    chunks.push(image.png);
+    dataOffset += image.png.length;
+  }
+
+  writeFileSync(WINDOWS_APP_ICON, Buffer.concat([directory, ...chunks]));
+  console.log("[pre-build] Regenerated MacDocIcon.ico from icon.iconset");
 }
 
 async function vendorWhisperBinaries() {
@@ -577,6 +712,7 @@ async function vendorWhisperModel() {
 
 if (process.platform === "win32") {
   ensureWindowsTrayIcon();
+  syncWindowsAppIconFromIconset();
   await vendorWhisperBinaries();
   await vendorLlamaBinaries();
   await vendorWhisperModel();
@@ -598,6 +734,9 @@ if (process.platform !== "darwin") {
   );
   process.exit(0);
 }
+
+syncMacAppIconArtifacts();
+syncWindowsAppIconFromIconset();
 
 if (process.argv.includes("--parakeet-only")) {
   await vendorParakeetHelper();
