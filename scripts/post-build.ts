@@ -33,6 +33,14 @@ console.log(`[post-build] Patching bundle: ${appBundle}`);
 const contentsDir = join(buildDir, appBundle, "Contents");
 const resourcesDir = join(contentsDir, "Resources");
 const plistPath = join(contentsDir, "Info.plist");
+const iconComposerExport = join(
+  import.meta.dir,
+  "..",
+  "src",
+  "assets",
+  "images",
+  "MacAppIconFlat.svg",
+);
 
 // ─── Patch Info.plist ─────────────────────────────────────────────────────────
 
@@ -71,7 +79,17 @@ setOrAdd(
 // ─── Ensure icon.iconset is populated ────────────────────────────────────────
 
 const iconsetDir = join(import.meta.dir, "..", "icon.iconset");
-const sourceIcon = join(import.meta.dir, "..", "src", "assets", "images", "MacDocIcon.png");
+const fallbackSourceIcon = join(
+  import.meta.dir,
+  "..",
+  "src",
+  "assets",
+  "images",
+  "MacDocIcon.png",
+);
+const sourceIcon = existsSync(iconComposerExport)
+  ? iconComposerExport
+  : fallbackSourceIcon;
 
 const iconSizes = [
   { size: 16, scale: 1 }, { size: 16, scale: 2 },
@@ -82,9 +100,20 @@ const iconSizes = [
 ];
 
 if (existsSync(sourceIcon)) {
+  const tempSourcePng = join(import.meta.dir, "..", ".tmp", "mac-app-icon-postbuild-source.png");
+  mkdirSync(join(import.meta.dir, "..", ".tmp"), { recursive: true });
+  const rasterize = Bun.spawnSync(
+    ["sips", "-s", "format", "png", sourceIcon, "--out", tempSourcePng],
+    { stdio: ["ignore", "ignore", "pipe"] },
+  );
+  const iconRasterSource =
+    rasterize.exitCode === 0 && existsSync(tempSourcePng) ? tempSourcePng : sourceIcon;
+
   const missing = iconSizes.filter(({ size, scale }) => {
     const label = scale === 1 ? `icon_${size}x${size}.png` : `icon_${size}x${size}@2x.png`;
-    return !existsSync(join(iconsetDir, label));
+    const target = join(iconsetDir, label);
+    if (!existsSync(target)) return true;
+    return statSync(target).mtimeMs < statSync(sourceIcon).mtimeMs;
   });
 
   if (missing.length > 0) {
@@ -93,11 +122,13 @@ if (existsSync(sourceIcon)) {
       const px = size * scale;
       const label = scale === 1 ? `icon_${size}x${size}.png` : `icon_${size}x${size}@2x.png`;
       Bun.spawnSync(
-        ["sips", "-z", String(px), String(px), sourceIcon, "--out", join(iconsetDir, label)],
+        ["sips", "-z", String(px), String(px), iconRasterSource, "--out", join(iconsetDir, label)],
         { stdio: ["ignore", "ignore", "pipe"] },
       );
     }
-    console.log(`[post-build] Generated ${missing.length} missing icon(s) in icon.iconset/`);
+    console.log(
+      `[post-build] Refreshed ${missing.length} icon(s) in icon.iconset/ from ${sourceIcon.split("/").pop() ?? sourceIcon}`,
+    );
   }
 }
 

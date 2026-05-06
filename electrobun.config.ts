@@ -75,6 +75,9 @@ export default {
     copy: buildCopy,
     watchIgnore: ["dist/**"],
     mac: {
+      // Electrobun still consumes a legacy .iconset. `scripts/pre-build.ts`
+      // regenerates it from `src/assets/images/MacAppIconFlat.svg`, a borderless
+      // square source that lets macOS apply its own outer icon treatment.
       icons: "icon.iconset",
       bundleCEF: false,
       codesign: true,
