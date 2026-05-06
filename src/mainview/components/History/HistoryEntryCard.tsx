@@ -42,14 +42,14 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
   return (
     <div className="group px-5 py-4">
       <div className="flex items-start justify-between mb-3">
-        <span className="text-[14px] font-medium text-white/60">
+        <span className="text-[14px] font-medium text-overlay/60">
           {dateFormatter.format(entry.timestamp)}
         </span>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleCopy}
-            className="p-1.5 rounded-md text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-overlay/30 hover:text-overlay/70 hover:bg-overlay/10 transition-colors cursor-pointer"
             aria-label="Copy transcript"
           >
             {copied ? (
@@ -84,7 +84,7 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
           <button
             type="button"
             onClick={handleDelete}
-            className="p-1.5 rounded-md text-white/30 hover:text-red-400/80 hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-overlay/30 hover:text-accent-red/80 hover:bg-overlay/10 transition-colors cursor-pointer"
             aria-label="Delete entry"
           >
             <svg
@@ -108,7 +108,7 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
       <div className="relative mb-3">
         <p
           onClick={handleCopy}
-          className="text-[15px] text-white/70 italic leading-relaxed cursor-pointer hover:text-white/80 transition-colors"
+          className="text-[15px] text-overlay/70 italic leading-relaxed cursor-pointer hover:text-overlay/80 transition-colors"
         >
           {displayText}
           {needsTruncation && (
@@ -118,14 +118,14 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
                 e.stopPropagation();
                 setExpanded(!expanded);
               }}
-              className="ml-1 text-blue-400/70 hover:text-blue-400 text-[13px] not-italic cursor-pointer"
+              className="ml-1 text-accent-blue/70 hover:text-accent-blue text-[13px] not-italic cursor-pointer"
             >
               {expanded ? "Show less" : "Show more"}
             </button>
           )}
         </p>
         {copied && (
-          <span className="absolute -top-5 left-0 text-[12px] text-green-400/80 font-medium">
+          <span className="absolute -top-5 left-0 text-[12px] text-accent-green/80 font-medium">
             Copied!
           </span>
         )}

@@ -21,6 +21,8 @@ export type {
   FormattingDocumentStructure,
 }
 
+export type ThemePreference = 'system' | 'light' | 'dark'
+
 export interface FocusedAppContext {
   appName: string
   bundleIdentifier: string | null
@@ -229,6 +231,7 @@ export interface AppSettings {
   audioDucking: AudioDuckingSettings
   dictionary: DictionarySettings
   history: HistorySettings
+  themePreference: ThemePreference
   modelAvailability: Record<string, boolean>
 }
 
@@ -261,6 +264,7 @@ export interface GeneralSettingsPatch {
   onboardingCompleted?: boolean
   recordingIndicatorMode?: RecordingIndicatorMode
   recordingIndicatorPosition?: { x: number; y: number } | null
+  themePreference?: ThemePreference
 }
 
 export interface TranscriptionSettingsPatch {

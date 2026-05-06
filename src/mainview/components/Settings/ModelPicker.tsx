@@ -34,10 +34,12 @@ function StatBar({
   const pct = Math.round((value / max) * 100);
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[13px] text-white/45 w-16 text-right">{label}</span>
-      <div className="h-[5px] w-20 rounded-full bg-white/8 overflow-hidden">
+      <span className="text-[13px] text-overlay/45 w-16 text-right">
+        {label}
+      </span>
+      <div className="h-[5px] w-20 rounded-full bg-overlay/8 overflow-hidden">
         <div
-          className="h-full rounded-full bg-blue-400/50 transition-all duration-300"
+          className="h-full rounded-full bg-accent-blue/50 transition-all duration-300"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -90,9 +92,9 @@ export function ModelPicker({
             key={model.id}
             className={`relative rounded-xl border transition-colors duration-200 overflow-hidden ${
               isSelected
-                ? "border-blue-400/25 bg-white/7"
-                : "border-white/11 bg-white/4"
-            } ${isAvailable && !isSelected ? "hover:border-white/16 hover:bg-white/6 cursor-pointer" : ""}`}
+                ? "border-accent-blue/25 bg-overlay/7"
+                : "border-overlay/11 bg-overlay/4"
+            } ${isAvailable && !isSelected ? "hover:border-overlay/16 hover:bg-overlay/6 cursor-pointer" : ""}`}
             onClick={() => {
               if (confirmDelete) {
                 setConfirmDelete(null);
@@ -108,13 +110,13 @@ export function ModelPicker({
                   <div className="flex items-center gap-2.5">
                     <span
                       className={`text-[16px] font-semibold transition-colors duration-200 ${
-                        isSelected ? "text-white/85" : "text-white/60"
+                        isSelected ? "text-overlay/85" : "text-overlay/60"
                       }`}
                     >
                       {model.label}
                     </span>
                     {isSelected && isAvailable && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/15 text-blue-300/80 border border-blue-400/20">
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-blue/15 text-accent-blue/80 border border-accent-blue/20">
                         <svg
                           width="10"
                           height="10"
@@ -131,7 +133,7 @@ export function ModelPicker({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[14px] text-white/48 leading-snug">
+                  <p className="mt-1 text-[14px] text-overlay/48 leading-snug">
                     {desc}
                   </p>
                 </div>
@@ -148,7 +150,7 @@ export function ModelPicker({
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-2">
                   {isMultilang && (
-                    <span className="flex items-center gap-1 text-[13px] text-white/48">
+                    <span className="flex items-center gap-1 text-[13px] text-overlay/48">
                       <svg
                         width="13"
                         height="13"
@@ -173,7 +175,7 @@ export function ModelPicker({
                           <button
                             type="button"
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center justify-center rounded text-white/48 hover:text-white/70 transition-colors cursor-pointer"
+                            className="inline-flex items-center justify-center rounded text-overlay/48 hover:text-overlay/70 transition-colors cursor-pointer"
                             aria-label="Supported languages"
                           >
                             <svg
@@ -197,7 +199,7 @@ export function ModelPicker({
                     </span>
                   )}
                   {model.translationSupport && (
-                    <span className="flex items-center gap-1 text-[13px] text-white/48">
+                    <span className="flex items-center gap-1 text-[13px] text-overlay/48">
                       <svg
                         width="13"
                         height="13"
@@ -219,7 +221,7 @@ export function ModelPicker({
                     </span>
                   )}
                   {isStream && (
-                    <span className="flex items-center gap-1 text-[13px] text-white/48">
+                    <span className="flex items-center gap-1 text-[13px] text-overlay/48">
                       <svg
                         width="13"
                         height="13"
@@ -243,7 +245,7 @@ export function ModelPicker({
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  <span className="text-[13px] text-white/35 tabular-nums">
+                  <span className="text-[13px] text-overlay/35 tabular-nums">
                     {formatModelSize(model.downloadSizeMB)}
                   </span>
 
@@ -253,7 +255,7 @@ export function ModelPicker({
                         e.stopPropagation();
                         onDownload(model.id);
                       }}
-                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
+                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-overlay/4 hover:bg-overlay/8 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
                     >
                       Download
                     </button>
@@ -265,7 +267,7 @@ export function ModelPicker({
                         e.stopPropagation();
                         setConfirmDelete(model.id);
                       }}
-                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-red-400/30 bg-red-500/8 text-red-400/70 hover:border-red-400/40 hover:bg-red-500/14 hover:text-red-400/90 transition-colors duration-200 cursor-pointer"
+                      className="shrink-0 px-2.5 py-1 rounded-lg text-[12px] font-medium border border-accent-red/30 bg-accent-red/8 text-accent-red/70 hover:border-accent-red/40 hover:bg-accent-red/14 hover:text-accent-red/90 transition-colors duration-200 cursor-pointer"
                       aria-label={`Remove ${model.label} model`}
                     >
                       Remove
@@ -274,14 +276,14 @@ export function ModelPicker({
 
                   {isDeletable && isPendingDelete && (
                     <div className="flex items-center gap-2">
-                      <span className="text-[12px] text-white/30">Sure?</span>
+                      <span className="text-[12px] text-overlay/30">Sure?</span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setConfirmDelete(null);
                           onDelete(model.id);
                         }}
-                        className="text-[12px] font-medium text-red-400/75 hover:text-red-400 transition-colors cursor-pointer"
+                        className="text-[12px] font-medium text-accent-red/75 hover:text-accent-red transition-colors cursor-pointer"
                       >
                         Delete
                       </button>
@@ -290,7 +292,7 @@ export function ModelPicker({
                           e.stopPropagation();
                           setConfirmDelete(null);
                         }}
-                        className="text-[12px] font-medium text-white/28 hover:text-white/50 transition-colors cursor-pointer"
+                        className="text-[12px] font-medium text-overlay/28 hover:text-overlay/50 transition-colors cursor-pointer"
                       >
                         Keep
                       </button>
@@ -303,7 +305,7 @@ export function ModelPicker({
             {isDownloading && (
               <div className="px-4 pb-3">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[12px] text-white/30 tabular-nums">
+                  <span className="text-[12px] text-overlay/30 tabular-nums">
                     {Math.round(progress * 100)}%
                   </span>
                   <button
@@ -311,14 +313,14 @@ export function ModelPicker({
                       e.stopPropagation();
                       onCancelDownload(model.id);
                     }}
-                    className="text-[12px] font-medium text-white/28 hover:text-white/50 transition-colors cursor-pointer"
+                    className="text-[12px] font-medium text-overlay/28 hover:text-overlay/50 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                 </div>
-                <div className="h-1 rounded-full bg-white/8 overflow-hidden">
+                <div className="h-1 rounded-full bg-overlay/8 overflow-hidden">
                   <motion.div
-                    className="h-full rounded-full bg-blue-400/40"
+                    className="h-full rounded-full bg-accent-blue/40"
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.round(progress * 100)}%` }}
                     transition={{ duration: 0.2 }}

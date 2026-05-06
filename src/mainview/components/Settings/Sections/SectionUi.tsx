@@ -52,23 +52,23 @@ export function SectionUi({ settings }: Props) {
   return (
     <>
       <div className="mb-8 flex justify-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black border border-white/10 shadow-lg shadow-black/40">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black border border-overlay/10 shadow-lg shadow-black/40">
           <VoiceActivityCore status="recording" variant="indicator" />
         </div>
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Recording indicator
         </h2>
         <div className="flex flex-col gap-2">
           {indicatorComingSoon && (
-            <div className="rounded-xl border border-amber-400/25 bg-amber-500/8 px-4 py-3">
-              <span className="inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
+            <div className="rounded-xl border border-accent-amber/25 bg-accent-amber/8 px-4 py-3">
+              <span className="inline-flex rounded-full border border-accent-amber/28 bg-accent-amber/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-accent-amber/75">
                 Coming soon on{" "}
                 {platformDisplayName(settings.capabilities.platform)}
               </span>
-              <p className="mt-2 text-[13px] text-white/60 leading-snug">
+              <p className="mt-2 text-[13px] text-overlay/60 leading-snug">
                 The floating desktop indicator will arrive after the Windows
                 dictation core is in place.
               </p>
@@ -84,16 +84,16 @@ export function SectionUi({ settings }: Props) {
                 onClick={() => handleRecordingIndicatorModeChange(mode)}
                 className={`w-full text-left rounded-xl border px-4 py-3.5 transition-colors duration-200 ${
                   selected
-                    ? "border-white/22 bg-white/8"
-                    : "border-white/11 bg-white/4 hover:border-white/16 hover:bg-white/6"
+                    ? "border-overlay/22 bg-overlay/8"
+                    : "border-overlay/11 bg-overlay/4 hover:border-overlay/16 hover:bg-overlay/6"
                 } ${indicatorComingSoon ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}
               >
                 <span
-                  className={`block text-[17px] font-medium ${selected ? "text-white/88" : "text-white/62"}`}
+                  className={`block text-[17px] font-medium ${selected ? "text-overlay/88" : "text-overlay/62"}`}
                 >
                   {label}
                 </span>
-                <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
+                <span className="mt-0.5 block text-[13px] text-overlay/40 leading-snug">
                   {hint}
                 </span>
               </button>

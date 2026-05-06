@@ -8,6 +8,12 @@ enum IndicatorStatus: String, Codable {
   case transcribing
 }
 
+enum IndicatorTheme: String, Codable {
+  case light
+  case dark
+  case system
+}
+
 struct IndicatorCommand: Codable {
   let command: String
   let x: Double?
@@ -15,6 +21,7 @@ struct IndicatorCommand: Codable {
   let width: Double?
   let height: Double?
   let status: IndicatorStatus?
+  let theme: IndicatorTheme?
 }
 
 struct IndicatorEvent: Codable {
@@ -37,11 +44,29 @@ final class IndicatorContentView: NSView {
     }
   }
 
+  var theme: IndicatorTheme = .dark {
+    didSet { needsDisplay = true }
+  }
+
   private var animationTime: TimeInterval = 0
   private var currentScale: CGFloat = 38 / 56
   private var targetScale: CGFloat = 38 / 56
 
   override var isOpaque: Bool { false }
+
+  private var isDarkAppearance: Bool {
+    switch theme {
+    case .dark:
+      return true
+    case .light:
+      return false
+    case .system:
+      if let appearance = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) {
+        return appearance == .darkAqua
+      }
+      return true
+    }
+  }
 
   func tick(delta: TimeInterval) {
     animationTime += delta
@@ -55,6 +80,7 @@ final class IndicatorContentView: NSView {
   override func draw(_ dirtyRect: NSRect) {
     dirtyRect.fill(using: .clear)
 
+    let dark = isDarkAppearance
     let isRecording = status == .recording
     let isTranscribing = status == .transcribing
     let displaySize = maxOrbSize * currentScale
@@ -65,27 +91,30 @@ final class IndicatorContentView: NSView {
       height: displaySize
     )
 
+    let orbFill = dark ? NSColor.black : NSColor.white
+    let overlayBase = dark ? NSColor.white : NSColor.black
+
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
-    shadow.shadowBlurRadius = 5
+    shadow.shadowBlurRadius = dark ? 5 : 8
     shadow.shadowOffset = NSSize(width: 0, height: -1)
-    shadow.shadowColor = NSColor.black.withAlphaComponent(0.24)
+    shadow.shadowColor = NSColor.black.withAlphaComponent(dark ? 0.24 : 0.12)
     shadow.set()
-    NSColor.black.setFill()
+    orbFill.setFill()
     NSBezierPath(ovalIn: orbRect).fill()
     NSGraphicsContext.restoreGraphicsState()
 
     let borderColor: NSColor
     let fillColor: NSColor
     if isRecording {
-      borderColor = NSColor.white.withAlphaComponent(0.10)
-      fillColor = NSColor.white.withAlphaComponent(0.04)
+      borderColor = overlayBase.withAlphaComponent(0.10)
+      fillColor = overlayBase.withAlphaComponent(0.04)
     } else if isTranscribing {
       borderColor = NSColor.systemOrange.withAlphaComponent(0.20)
       fillColor = NSColor.systemOrange.withAlphaComponent(0.05)
     } else {
-      borderColor = NSColor.white.withAlphaComponent(0.08)
-      fillColor = NSColor.white.withAlphaComponent(0.03)
+      borderColor = overlayBase.withAlphaComponent(0.08)
+      fillColor = overlayBase.withAlphaComponent(0.03)
     }
 
     fillColor.setFill()
@@ -98,11 +127,11 @@ final class IndicatorContentView: NSView {
     if isTranscribing {
       drawTranscribingBars(in: orbRect)
     } else {
-      drawReadyBars(in: orbRect, active: isRecording)
+      drawReadyBars(in: orbRect, active: isRecording, dark: dark)
     }
   }
 
-  private func drawReadyBars(in orbRect: NSRect, active: Bool) {
+  private func drawReadyBars(in orbRect: NSRect, active: Bool, dark: Bool) {
     let scale = orbRect.width / maxOrbSize
     let rowHeight = 16 as CGFloat * scale
     let barWidth = 3 as CGFloat * scale
@@ -110,6 +139,7 @@ final class IndicatorContentView: NSView {
     let totalWidth = barWidth * 5 + gap * 4
     let originX = orbRect.midX - totalWidth / 2
     let originY = orbRect.midY - rowHeight / 2
+    let overlayBase = dark ? NSColor.white : NSColor.black
 
     for index in 0..<readyBases.count {
       let base = readyBases[index]
@@ -132,7 +162,7 @@ final class IndicatorContentView: NSView {
       let alpha = active ? readyRecOpacity[index] : readyIdleOpacity[index]
       let color = active
         ? NSColor.systemRed.withAlphaComponent(alpha)
-        : NSColor.white.withAlphaComponent(alpha)
+        : overlayBase.withAlphaComponent(alpha)
       color.setFill()
       NSBezierPath(
         roundedRect: rect,
@@ -306,6 +336,10 @@ final class IndicatorController {
     startAnimationTimer()
   }
 
+  func setTheme(_ theme: IndicatorTheme) {
+    contentView?.theme = theme
+  }
+
   func destroyAndQuit() {
     stopAnimationTimer()
     panel?.close()
@@ -333,6 +367,9 @@ DispatchQueue.global(qos: .userInitiated).async {
           let width = cmd.width,
           let height = cmd.height
         else { return }
+        if let theme = cmd.theme {
+          controller.setTheme(theme)
+        }
         controller.show(
           frame: NSRect(x: x, y: y, width: width, height: height),
           status: cmd.status ?? .ready
@@ -342,6 +379,10 @@ DispatchQueue.global(qos: .userInitiated).async {
       case "status":
         if let status = cmd.status {
           controller.setStatus(status)
+        }
+      case "theme":
+        if let theme = cmd.theme {
+          controller.setTheme(theme)
         }
       case "quit":
         controller.destroyAndQuit()

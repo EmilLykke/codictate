@@ -1,19 +1,108 @@
 @import "tailwindcss";
 
+/* ── Light-mode tokens (default) ───────────────────────────────────────────── */
+:root {
+  --page: hsl(0 0% 97%);
+  --canvas: hsl(200 10% 96%);
+  --foreground: hsl(200 10% 5%);
+  --paper: hsl(0 0% 35% / 0.15);
+  --overlay-base: black;
+  --overlay-rgb: 0 0 0;
+  --elevated: hsl(0 0% 100%);
+
+  /* Glass opacities */
+  --glass-bg: 0.6;
+  --glass-border: 0.7;
+  --glass-hl-top: 0.9;
+  --glass-hl-bottom: 0;
+  --glass-shadow-lg: 0.08;
+  --glass-shadow-sm: 0.04;
+  --glass-grad-start: 0.2;
+  --glass-grad-mid: 0.06;
+  --glass-grad-end: 0.1;
+
+  /* Select */
+  --select-bg: hsl(0 0% 95%);
+  --select-fg: hsl(0 0% 10% / 0.9);
+  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='rgba(0,0,0,0.4)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  /* Accent colors (-600 shades for light) */
+  --accent-blue: oklch(0.546 0.245 262.881);
+  --accent-red: oklch(0.577 0.245 27.325);
+  --accent-amber: oklch(0.666 0.179 58.318);
+  --accent-emerald: oklch(0.596 0.145 163.225);
+  --accent-green: oklch(0.627 0.194 149.214);
+
+  /* Inline style helpers */
+  --overlay-38: rgba(0, 0, 0, 0.38);
+  --overlay-18: rgba(0, 0, 0, 0.18);
+  --overlay-06: rgba(0, 0, 0, 0.06);
+  --accent-blue-rgb: 37 99 235;
+  --accent-red-rgb: 220 38 38;
+
+  color-scheme: light;
+}
+
+/* ── Dark-mode tokens ──────────────────────────────────────────────────────── */
+.dark {
+  --page: hsl(0 0% 0%);
+  --canvas: hsl(200 10% 0%);
+  --foreground: hsl(200 10% 100%);
+  --paper: hsl(0 0% 65% / 0.2);
+  --overlay-base: white;
+  --overlay-rgb: 255 255 255;
+  --elevated: #1a1a1a;
+
+  /* Glass opacities */
+  --glass-bg: 0.045;
+  --glass-border: 0.09;
+  --glass-hl-top: 0.08;
+  --glass-hl-bottom: 0.02;
+  --glass-shadow-lg: 0.5;
+  --glass-shadow-sm: 0.3;
+  --glass-grad-start: 0.12;
+  --glass-grad-mid: 0.03;
+  --glass-grad-end: 0.06;
+
+  /* Select */
+  --select-bg: #1a1a1a;
+  --select-fg: rgba(255, 255, 255, 0.9);
+  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='rgba(255,255,255,0.5)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  /* Accent colors (-400 shades for dark) */
+  --accent-blue: oklch(0.707 0.165 254.624);
+  --accent-red: oklch(0.704 0.191 22.216);
+  --accent-amber: oklch(0.817 0.174 74.477);
+  --accent-emerald: oklch(0.765 0.177 163.223);
+  --accent-green: oklch(0.792 0.209 151.711);
+
+  /* Inline style helpers */
+  --overlay-38: rgba(255, 255, 255, 0.38);
+  --overlay-18: rgba(255, 255, 255, 0.18);
+  --overlay-06: rgba(255, 255, 255, 0.06);
+  --accent-blue-rgb: 96 165 250;
+  --accent-red-rgb: 248 113 113;
+
+  color-scheme: dark;
+}
+
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-brand: "Iceberg", "Iceland", ui-sans-serif, system-ui, sans-serif;
-  --color-codictate-page: hsl(0 0% 0%);
-  --color-codictate-canvas: hsl(200 10% 0%);
-  --color-codictate-foreground: hsl(200 10% 100%);
-  --color-codictate-paper: hsl(0 0% 65% / 0.2);
+  --color-codictate-page: var(--page);
+  --color-codictate-canvas: var(--canvas);
+  --color-codictate-foreground: var(--foreground);
+  --color-codictate-paper: var(--paper);
+  --color-overlay: var(--overlay-base);
+  --color-surface-elevated: var(--elevated);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-red: var(--accent-red);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-emerald: var(--accent-emerald);
+  --color-accent-green: var(--accent-green);
 }
 
 @layer base {
-  html {
-    color-scheme: dark;
-  }
-
   body {
     margin: 0;
     font-family: var(--font-sans);
@@ -27,13 +116,13 @@
     --glass-radius: 20px;
     position: relative;
     border-radius: var(--glass-radius);
-    background: rgba(255, 255, 255, 0.045);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, var(--glass-bg));
+    border: 1px solid rgba(255, 255, 255, var(--glass-border));
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.02),
-      0 8px 40px rgba(0, 0, 0, 0.5),
-      0 2px 12px rgba(0, 0, 0, 0.3);
+      inset 0 1px 0 rgba(255, 255, 255, var(--glass-hl-top)),
+      inset 0 -1px 0 rgba(255, 255, 255, var(--glass-hl-bottom)),
+      0 8px 40px rgba(0, 0, 0, var(--glass-shadow-lg)),
+      0 2px 12px rgba(0, 0, 0, var(--glass-shadow-sm));
     overflow: hidden;
   }
 
@@ -45,10 +134,10 @@
     padding: 1px;
     background: linear-gradient(
       165deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.03) 40%,
+      rgba(255, 255, 255, var(--glass-grad-start)) 0%,
+      rgba(255, 255, 255, var(--glass-grad-mid)) 40%,
       rgba(255, 255, 255, 0.0) 60%,
-      rgba(255, 255, 255, 0.06) 100%
+      rgba(255, 255, 255, var(--glass-grad-end)) 100%
     );
     mask:
       linear-gradient(white 0 0) content-box,
@@ -58,7 +147,7 @@
   }
 
   select.home-select {
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='rgba(255,255,255,0.5)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: var(--select-arrow);
     background-repeat: no-repeat;
     background-position: right 10px center;
     background-size: 16px;
@@ -66,8 +155,8 @@
   }
 
   select.home-select option {
-    background: #1a1a1a;
-    color: rgba(255, 255, 255, 0.9);
+    background: var(--select-bg);
+    color: var(--select-fg);
     padding: 8px;
   }
 

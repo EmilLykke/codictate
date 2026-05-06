@@ -237,7 +237,7 @@ export function setupIndicatorWindow(deps: {
     const frame = resolveInitialIndicatorFrame()
     const nativeHelper = getOrCreateHelper()
     if (!nativeHelper) return
-    nativeHelper.show(frame, status)
+    nativeHelper.show(frame, status, deps.getSettings().themePreference)
   }
 
   function parkIndicatorWindow() {
@@ -268,6 +268,7 @@ export function setupIndicatorWindow(deps: {
   }
 
   const onConfigChanged = () => {
+    helper?.setTheme(deps.getSettings().themePreference)
     onAppStatus(lastStatus)
   }
 

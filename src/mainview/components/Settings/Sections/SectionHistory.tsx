@@ -33,16 +33,16 @@ export function SectionHistory({ settings }: { settings: AppSettings }) {
 
   return (
     <div className="flex flex-col gap-8">
-      <p className="text-[14px] text-white/40 leading-relaxed">
+      <p className="text-[14px] text-overlay/40 leading-relaxed">
         Audio recordings are saved to disk and take up storage space.
       </p>
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-[16px] font-medium text-white/80">
+          <div className="text-[16px] font-medium text-overlay/80">
             Enable history
           </div>
-          <div className="text-[14px] text-white/40 mt-1">
+          <div className="text-[14px] text-overlay/40 mt-1">
             Save a copy of each dictation for later review
           </div>
         </div>
@@ -55,10 +55,10 @@ export function SectionHistory({ settings }: { settings: AppSettings }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-[16px] font-medium text-white/80">
+          <div className="text-[16px] font-medium text-overlay/80">
             Save audio recordings
           </div>
-          <div className="text-[14px] text-white/40 mt-1">
+          <div className="text-[14px] text-overlay/40 mt-1">
             When off, only transcripts are saved
           </div>
         </div>
@@ -71,10 +71,10 @@ export function SectionHistory({ settings }: { settings: AppSettings }) {
 
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-[16px] font-medium text-white/80">
+          <div className="text-[16px] font-medium text-overlay/80">
             Maximum entries
           </div>
-          <div className="text-[14px] text-white/40 mt-1">
+          <div className="text-[14px] text-overlay/40 mt-1">
             Oldest entries are removed when the limit is reached
           </div>
         </div>
@@ -87,10 +87,10 @@ export function SectionHistory({ settings }: { settings: AppSettings }) {
       </div>
 
       <div>
-        <div className="text-[16px] font-medium text-white/80">
+        <div className="text-[16px] font-medium text-overlay/80">
           Storage location
         </div>
-        <div className="text-[14px] text-white/40 mt-1 font-mono">
+        <div className="text-[14px] text-overlay/40 mt-1 font-mono">
           {history.storagePath}
         </div>
       </div>

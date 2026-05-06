@@ -56,7 +56,7 @@ export function SectionShortcuts({ settings, status }: Props) {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Main shortcut
         </h2>
         <ShortcutPicker
@@ -67,14 +67,14 @@ export function SectionShortcuts({ settings, status }: Props) {
         />
         <p className={settingsHelperClass}>{dictationShortcutBehaviorHint()}</p>
         {platformShortcutSupportHint(settings.capabilities.platform) && (
-          <p className={`${settingsHelperClass} text-amber-200/55`}>
+          <p className={`${settingsHelperClass} text-accent-amber/55`}>
             {platformShortcutSupportHint(settings.capabilities.platform)}
           </p>
         )}
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Hold-only shortcut
         </h2>
         <HoldOnlyShortcutPicker

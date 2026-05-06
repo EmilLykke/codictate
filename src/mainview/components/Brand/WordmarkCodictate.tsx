@@ -5,7 +5,7 @@ const trayIconUrl = new URL(
 
 /** Weight, tracking, and color shared by Ready and Settings so the mark reads the same. */
 export const wordmarkCodictateTypographyClass =
-  "font-semibold tracking-[-0.02em] text-white/90";
+  "font-semibold tracking-[-0.02em] text-overlay/90";
 
 type WordmarkCodictateProps = {
   className?: string;

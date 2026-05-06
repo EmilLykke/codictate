@@ -83,8 +83,8 @@ function ControlButton({
       style={noDragStyle}
       className={`flex h-8 w-11 items-center justify-center text-[15px] leading-none transition-colors duration-150 ${
         danger
-          ? "text-white/58 hover:bg-red-500/85 hover:text-white"
-          : "text-white/48 hover:bg-white/10 hover:text-white/78"
+          ? "text-overlay/58 hover:bg-accent-red/85 hover:text-white"
+          : "text-overlay/48 hover:bg-overlay/10 hover:text-overlay/78"
       }`}
     >
       {children}
@@ -138,7 +138,7 @@ export function WindowTitleBar({
 
   if (platform !== "windows") {
     return (
-      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 z-50 h-7 hover:bg-white/10 transition-colors duration-200" />
+      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 z-50 h-7 hover:bg-overlay/10 transition-colors duration-200" />
     );
   }
 
@@ -146,9 +146,9 @@ export function WindowTitleBar({
     <>
       <div
         style={dragStyle}
-        className="absolute top-0 left-0 right-0 z-50 flex h-8 items-center justify-between border-b border-white/8 bg-black/82 backdrop-blur-xl"
+        className="absolute top-0 left-0 right-0 z-50 flex h-8 items-center justify-between border-b border-overlay/8 bg-codictate-page/82 backdrop-blur-xl"
       >
-        <div className="flex min-w-0 items-center gap-2 px-3 text-[12px] font-medium tracking-wide text-white/38">
+        <div className="flex min-w-0 items-center gap-2 px-3 text-[12px] font-medium tracking-wide text-overlay/38">
           <span className="h-2 w-2 rounded-full bg-cyan-300/75 shadow-[0_0_12px_rgba(103,232,249,0.45)]" />
           <span>Codictate</span>
         </div>

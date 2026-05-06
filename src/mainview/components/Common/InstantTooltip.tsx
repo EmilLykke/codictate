@@ -30,7 +30,7 @@ export function InstantTooltip({
           side={side}
           sideOffset={6}
           collisionPadding={10}
-          className={`pointer-events-auto max-w-[260px] rounded-lg border border-white/14 bg-[#1c1c1f]/98 px-3 py-2 text-left text-[13px] leading-snug text-white/90 shadow-lg whitespace-normal z-[10000] ${tooltipClassName ?? ""}`}
+          className={`pointer-events-auto max-w-[260px] rounded-lg border border-overlay/14 bg-surface-elevated/98 px-3 py-2 text-left text-[13px] leading-snug text-overlay/90 shadow-lg whitespace-normal z-[10000] ${tooltipClassName ?? ""}`}
         >
           {text}
         </Tooltip.Content>

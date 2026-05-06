@@ -13,7 +13,7 @@ export function RecordingOrb({ status }: { status: AppStatus }) {
         {isRecording && (
           <motion.span
             key="pulse-ring"
-            className="absolute inset-0 rounded-full border border-red-500/30"
+            className="absolute inset-0 rounded-full border border-accent-red/30"
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1.35, opacity: 0 }}
             exit={{ opacity: 0 }}
@@ -26,7 +26,7 @@ export function RecordingOrb({ status }: { status: AppStatus }) {
         {isRecording && (
           <motion.span
             key="mid-ring"
-            className="absolute inset-0 rounded-full border border-red-500/20"
+            className="absolute inset-0 rounded-full border border-accent-red/20"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1.18, opacity: 0 }}
             exit={{ opacity: 0 }}
@@ -44,7 +44,7 @@ export function RecordingOrb({ status }: { status: AppStatus }) {
         {isStreaming && (
           <motion.span
             key="stream-pulse-ring"
-            className="absolute inset-0 rounded-full border border-blue-400/30"
+            className="absolute inset-0 rounded-full border border-accent-blue/30"
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1.35, opacity: 0 }}
             exit={{ opacity: 0 }}
@@ -57,7 +57,7 @@ export function RecordingOrb({ status }: { status: AppStatus }) {
         {isStreaming && (
           <motion.span
             key="stream-mid-ring"
-            className="absolute inset-0 rounded-full border border-blue-400/20"
+            className="absolute inset-0 rounded-full border border-accent-blue/20"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1.18, opacity: 0 }}
             exit={{ opacity: 0 }}
@@ -74,12 +74,12 @@ export function RecordingOrb({ status }: { status: AppStatus }) {
       <motion.div
         className={`relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border transition-colors duration-500 ${
           isRecording
-            ? "border-red-500/25 bg-red-500/8"
+            ? "border-accent-red/25 bg-accent-red/8"
             : isTranscribing
-              ? "border-amber-400/20 bg-amber-400/5"
+              ? "border-accent-amber/20 bg-accent-amber/5"
               : isStreaming
-                ? "border-blue-400/25 bg-blue-400/8"
-                : "border-white/8 bg-white/3"
+                ? "border-accent-blue/25 bg-accent-blue/8"
+                : "border-overlay/8 bg-overlay/3"
         }`}
         style={{ transformOrigin: "center center" }}
         animate={{

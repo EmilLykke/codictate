@@ -16,7 +16,7 @@ export function TranscriptionLanguageHintButton({
     >
       <button
         type="button"
-        className={`inline-flex aspect-square w-10 shrink-0 self-stretch items-center justify-center rounded-lg border border-white/12 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] text-white/42 hover:text-white/58 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0 transition-[border-color,background-color,box-shadow] duration-200 cursor-pointer ${className}`}
+        className={`inline-flex aspect-square w-10 shrink-0 self-stretch items-center justify-center rounded-lg border border-overlay/12 bg-overlay/5 shadow-[inset_0_1px_0_var(--overlay-06)] text-overlay/42 hover:text-overlay/58 hover:border-overlay/18 hover:bg-overlay/7 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12 focus-visible:ring-offset-0 transition-[border-color,background-color,box-shadow] duration-200 cursor-pointer ${className}`}
         aria-label={TRANSCRIPTION_LANGUAGE_HINT}
       >
         <svg

@@ -8,7 +8,7 @@ interface Props {
 export function HistoryEmptyState({ storagePath }: Props) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="mb-6 text-white/20">
+      <div className="mb-6 text-overlay/20">
         <svg
           width="48"
           height="48"
@@ -24,14 +24,14 @@ export function HistoryEmptyState({ storagePath }: Props) {
           <path d="M12 7v5l4 2" />
         </svg>
       </div>
-      <h2 className="text-[18px] font-medium text-white/80 mb-2">
+      <h2 className="text-[18px] font-medium text-overlay/80 mb-2">
         Dictation History
       </h2>
-      <p className="text-[15px] text-white/50 mb-6 max-w-sm leading-relaxed">
+      <p className="text-[15px] text-overlay/50 mb-6 max-w-sm leading-relaxed">
         Save a copy of each dictation (audio + transcript) to your computer.
       </p>
       <div className="flex items-center gap-3">
-        <span className="text-[15px] text-white/60">Enable History</span>
+        <span className="text-[15px] text-overlay/60">Enable History</span>
         <Switch
           checked={false}
           onCheckedChange={(checked) => {
@@ -40,7 +40,7 @@ export function HistoryEmptyState({ storagePath }: Props) {
           aria-label="Enable dictation history"
         />
       </div>
-      <p className="text-[13px] text-white/30 mt-4">
+      <p className="text-[13px] text-overlay/30 mt-4">
         Recordings saved to {storagePath}
       </p>
     </div>

@@ -38,14 +38,14 @@ export function SectionModels({
   return (
     <div className="min-w-0">
       <div className="mb-6">
-        <h2 className="text-[28px] tracking-tight text-white/90">Models</h2>
-        <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
+        <h2 className="text-[28px] tracking-tight text-overlay/90">Models</h2>
+        <p className="mt-3 text-[14px] text-overlay/44 leading-relaxed font-sans font-normal">
           Speech-to-text engines that power your dictation.
         </p>
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Whisper
         </h2>
         <ModelPicker
@@ -65,7 +65,7 @@ export function SectionModels({
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           NVIDIA
         </h2>
         <ModelPicker
@@ -82,7 +82,7 @@ export function SectionModels({
           Parakeet enables live stream dictation with local NVIDIA ASR. Does not
           support translation.
         </p>
-        <p className={`${settingsHelperClass} text-amber-200/55`}>
+        <p className={`${settingsHelperClass} text-accent-amber/55`}>
           {PARAKEET_FIRST_RUN_SETTINGS_HINT}
         </p>
       </div>

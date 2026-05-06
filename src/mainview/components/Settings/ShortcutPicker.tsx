@@ -36,10 +36,10 @@ export function ShortcutPicker({
       <Select.Trigger asChild>
         <motion.button
           type="button"
-          className={`flex w-full items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-3 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-white/20 ${
+          className={`flex w-full items-center gap-3 rounded-xl border border-overlay/11 bg-overlay/4 px-4 py-3 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
             disabled
               ? "opacity-50 cursor-not-allowed"
-              : "cursor-pointer hover:border-white/16 hover:bg-white/6"
+              : "cursor-pointer hover:border-overlay/16 hover:bg-overlay/6"
           }`}
         >
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -49,7 +49,7 @@ export function ShortcutPicker({
                 className="flex items-center gap-1.5"
               >
                 {i > 0 && (
-                  <span className="text-[18px] font-light text-white/40">
+                  <span className="text-[18px] font-light text-overlay/40">
                     +
                   </span>
                 )}
@@ -57,7 +57,7 @@ export function ShortcutPicker({
               </span>
             ))}
           </div>
-          <span className="hidden min-w-0 max-w-[min(11rem,46%)] shrink-0 truncate text-right font-sans text-[13px] text-white/62 sm:block sm:text-[15px]">
+          <span className="hidden min-w-0 max-w-[min(11rem,46%)] shrink-0 truncate text-right font-sans text-[13px] text-overlay/62 sm:block sm:text-[15px]">
             {selected.label}
           </span>
           <DropdownChevron open={open} />
@@ -78,7 +78,7 @@ export function ShortcutPicker({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="z-[10000] overflow-hidden rounded-xl border border-white/12 bg-[#141416]/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/8 backdrop-blur-md"
+            className="z-[10000] overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-overlay/8 backdrop-blur-md"
           >
             <Select.Viewport
               className="max-h-[min(340px,52vh)] overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
@@ -87,7 +87,7 @@ export function ShortcutPicker({
               <div className="flex flex-col gap-4 p-1">
                 {groups.map(({ family, title, options }) => (
                   <Select.Group key={family}>
-                    <Select.Label className="px-3 pb-1.5 pt-2 text-[14px] font-medium uppercase tracking-wider text-white/36">
+                    <Select.Label className="px-3 pb-1.5 pt-2 text-[14px] font-medium uppercase tracking-wider text-overlay/36">
                       {title}
                     </Select.Label>
                     <div className="flex flex-col gap-1">
@@ -100,16 +100,16 @@ export function ShortcutPicker({
                             textValue={opt.label}
                             className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 outline-none transition-colors duration-200 ${
                               isActive
-                                ? "border-white/26 bg-white/6 data-[highlighted]:bg-white/8"
-                                : "border-white/11 bg-white/4 data-[highlighted]:border-white/16 data-[highlighted]:bg-white/6"
+                                ? "border-overlay/26 bg-overlay/6 data-[highlighted]:bg-overlay/8"
+                                : "border-overlay/11 bg-overlay/4 data-[highlighted]:border-overlay/16 data-[highlighted]:bg-overlay/6"
                             }`}
                           >
                             <div
                               className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors duration-200"
                               style={{
                                 borderColor: isActive
-                                  ? "rgba(255,255,255,0.38)"
-                                  : "rgba(255,255,255,0.18)",
+                                  ? "var(--overlay-38)"
+                                  : "var(--overlay-18)",
                               }}
                             >
                               {isActive ? (
@@ -121,7 +121,7 @@ export function ShortcutPicker({
                                     stiffness: 500,
                                     damping: 25,
                                   }}
-                                  className="h-2 w-2 rounded-full bg-white/60"
+                                  className="h-2 w-2 rounded-full bg-overlay/60"
                                 />
                               ) : null}
                             </div>
@@ -133,7 +133,7 @@ export function ShortcutPicker({
                                   className="flex items-center gap-1.5"
                                 >
                                   {i > 0 && (
-                                    <span className="text-[18px] font-light text-white/40">
+                                    <span className="text-[18px] font-light text-overlay/40">
                                       +
                                     </span>
                                   )}
@@ -144,7 +144,7 @@ export function ShortcutPicker({
 
                             <span
                               className={`max-w-[min(11rem,42%)] shrink-0 text-right font-sans text-[13px] leading-snug transition-colors duration-200 sm:text-[15px] ${
-                                isActive ? "text-white/72" : "text-white/56"
+                                isActive ? "text-overlay/72" : "text-overlay/56"
                               }`}
                             >
                               {opt.label}

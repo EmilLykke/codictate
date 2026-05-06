@@ -114,7 +114,7 @@ export function SettingsModal({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="fixed inset-0 z-50 m-auto flex max-h-[85vh] w-full max-w-[820px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1A] shadow-2xl"
+                className="fixed inset-0 z-50 m-auto flex max-h-[85vh] w-full max-w-[820px] flex-col overflow-hidden rounded-2xl border border-overlay/10 bg-surface-elevated shadow-2xl"
               >
                 <Dialog.Title className="sr-only">Settings</Dialog.Title>
                 <Dialog.Description className="sr-only">
@@ -122,11 +122,11 @@ export function SettingsModal({
                 </Dialog.Description>
 
                 <div className="flex flex-1 overflow-hidden">
-                  <div className="w-[200px] shrink-0 border-r border-white/8 p-5 pt-7">
+                  <div className="w-[200px] shrink-0 border-r border-overlay/8 p-5 pt-7">
                     <button
                       type="button"
                       onClick={handleTitleSecretTap}
-                      className="mb-5 px-3 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/40 outline-none focus-visible:ring-2 focus-visible:ring-white/20 rounded cursor-default"
+                      className="mb-5 px-3 text-[13px] font-semibold uppercase tracking-[0.12em] text-overlay/40 outline-none focus-visible:ring-2 focus-visible:ring-overlay/20 rounded cursor-default"
                     >
                       Settings
                     </button>
@@ -136,8 +136,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("general")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "general"
-                            ? "bg-white/10 text-white/90"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                            ? "bg-overlay/10 text-overlay/90"
+                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                         }`}
                       >
                         General
@@ -146,8 +146,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("audio")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "audio"
-                            ? "bg-white/10 text-white/90"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                            ? "bg-overlay/10 text-overlay/90"
+                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                         }`}
                       >
                         Audio
@@ -156,8 +156,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("ui")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "ui"
-                            ? "bg-white/10 text-white/90"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                            ? "bg-overlay/10 text-overlay/90"
+                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                         }`}
                       >
                         Indicator
@@ -166,8 +166,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("shortcuts")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "shortcuts"
-                            ? "bg-white/10 text-white/90"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                            ? "bg-overlay/10 text-overlay/90"
+                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                         }`}
                       >
                         Shortcuts
@@ -176,8 +176,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("history")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "history"
-                            ? "bg-white/10 text-white/90"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                            ? "bg-overlay/10 text-overlay/90"
+                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                         }`}
                       >
                         History
@@ -186,8 +186,8 @@ export function SettingsModal({
                         onClick={() => setActiveTab("debug")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "debug"
-                            ? "bg-white/10 text-white/90"
-                            : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                            ? "bg-overlay/10 text-overlay/90"
+                            : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                         }`}
                       >
                         Debug
@@ -197,8 +197,8 @@ export function SettingsModal({
                           onClick={() => setActiveTab("fun")}
                           className={`${TAB_BUTTON} ${
                             activeTab === "fun"
-                              ? "bg-white/10 text-white/90"
-                              : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                              ? "bg-overlay/10 text-overlay/90"
+                              : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                           }`}
                         >
                           Fun
@@ -209,7 +209,7 @@ export function SettingsModal({
 
                   <div className="flex-1 overflow-y-auto p-8 pt-7">
                     <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-[22px] font-semibold text-white/90">
+                      <h2 className="text-[22px] font-semibold text-overlay/90">
                         {activeTab === "general"
                           ? "General"
                           : activeTab === "audio"
@@ -226,7 +226,7 @@ export function SettingsModal({
                       </h2>
                       <Dialog.Close asChild>
                         <button
-                          className="rounded-lg p-1.5 text-white/40 hover:bg-white/8 hover:text-white/80 transition-colors cursor-pointer"
+                          className="rounded-lg p-1.5 text-overlay/40 hover:bg-overlay/8 hover:text-overlay/80 transition-colors cursor-pointer"
                           aria-label="Close settings"
                         >
                           <svg

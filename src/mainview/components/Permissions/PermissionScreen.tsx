@@ -75,7 +75,7 @@ export function PermissionScreen({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-codictate-page text-white select-none px-6 overflow-hidden">
-      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 h-7 hover:bg-white/10 transition-colors duration-200" />
+      <div className="electrobun-webkit-app-region-drag absolute top-0 left-0 right-0 h-7 hover:bg-overlay/10 transition-colors duration-200" />
       <div className="w-full max-w-[410px]">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -87,7 +87,7 @@ export function PermissionScreen({
             {[0.4, 0.65, 1, 0.8, 0.55, 0.75, 0.45].map((h, i) => (
               <div
                 key={i}
-                className="w-[3px] rounded-full bg-white/20"
+                className="w-[3px] rounded-full bg-overlay/20"
                 style={{ height: `${h * 100}%` }}
               />
             ))}
@@ -95,9 +95,9 @@ export function PermissionScreen({
           <WordmarkCodictate
             as="h1"
             showMark
-            className="text-[19px] font-semibold tracking-tight text-white/80"
+            className="text-[19px] font-semibold tracking-tight text-overlay/80"
           />
-          <p className="text-[15px] text-white/25 mt-0.5">
+          <p className="text-[15px] text-overlay/25 mt-0.5">
             A few things before we start
           </p>
         </motion.div>
@@ -109,16 +109,16 @@ export function PermissionScreen({
           className="mb-4"
         >
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-[14px] text-white/25 font-medium uppercase tracking-wider">
+            <span className="text-[14px] text-overlay/25 font-medium uppercase tracking-wider">
               Permissions
             </span>
-            <span className="text-[14px] text-white/25">
+            <span className="text-[14px] text-overlay/25">
               {grantedCount} / 4
             </span>
           </div>
-          <div className="h-[2px] bg-white/6 rounded-full overflow-hidden">
+          <div className="h-[2px] bg-overlay/6 rounded-full overflow-hidden">
             <motion.div
-              className={`h-full rounded-full ${allGranted ? "bg-emerald-400" : "bg-white/30"}`}
+              className={`h-full rounded-full ${allGranted ? "bg-accent-emerald" : "bg-overlay/30"}`}
               initial={{ width: 0 }}
               animate={{ width: `${(grantedCount / 4) * 100}%` }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -168,7 +168,7 @@ export function PermissionScreen({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.5, duration: 0.3 }}
-              className="mt-5 text-[14px] text-white/15 text-center leading-relaxed"
+              className="mt-5 text-[14px] text-overlay/15 text-center leading-relaxed"
             >
               One system prompt at a time — return here after each step.
             </motion.p>
@@ -182,7 +182,7 @@ export function PermissionScreen({
               animate={{ opacity: 1, y: 0 }}
               className="mt-5 flex flex-col items-center gap-1"
             >
-              <div className="text-[15px] text-emerald-400/70 font-medium">
+              <div className="text-[15px] text-accent-emerald/70 font-medium">
                 All set — ready to dictate
               </div>
             </motion.div>

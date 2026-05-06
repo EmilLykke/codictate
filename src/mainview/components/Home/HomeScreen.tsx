@@ -37,7 +37,7 @@ function ShortcutHelpIcon({ tooltip }: { tooltip: React.ReactNode }) {
     >
       <button
         type="button"
-        className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[5px] border border-white/15 bg-white/5 text-white/40 hover:text-white/70 hover:border-white/25 transition-colors cursor-help"
+        className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-[5px] border border-overlay/15 bg-overlay/5 text-overlay/40 hover:text-overlay/70 hover:border-overlay/25 transition-colors cursor-help"
         aria-label="Shortcut help"
       >
         <svg
@@ -60,15 +60,15 @@ function ShortcutHelpIcon({ tooltip }: { tooltip: React.ReactNode }) {
 }
 
 const TOGGLE_BASE =
-  "inline-flex aspect-square w-10 shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[border-color,background-color,box-shadow] duration-200 cursor-pointer";
+  "inline-flex aspect-square w-10 shrink-0 items-center justify-center rounded-lg border shadow-[inset_0_1px_0_var(--overlay-06)] transition-[border-color,background-color,box-shadow] duration-200 cursor-pointer";
 const TOGGLE_ON_BLUE =
-  "border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400/80";
+  "border-accent-blue/30 bg-accent-blue/15 hover:bg-accent-blue/25 text-accent-blue/80";
 const TOGGLE_ON_PURPLE =
   "border-purple-400/30 bg-purple-500/15 hover:bg-purple-500/25 text-purple-400/80";
 const TOGGLE_OFF =
-  "border-white/12 bg-white/5 hover:border-white/18 hover:bg-white/7 text-white/48 hover:text-white/70";
+  "border-overlay/12 bg-overlay/5 hover:border-overlay/18 hover:bg-overlay/7 text-overlay/48 hover:text-overlay/70";
 const TOGGLE_DIMMED =
-  "border-white/8 bg-white/3 text-white/20 hover:border-white/14 hover:text-white/30";
+  "border-overlay/8 bg-overlay/3 text-overlay/20 hover:border-overlay/14 hover:text-overlay/30";
 
 const TRANSLATE_DEFAULT_PLACEHOLDER = "__translate_pick__";
 
@@ -164,11 +164,11 @@ export function HomeScreen({
     isTranslateOn || isTranslateCapableModelId(settings?.whisperModelId ?? "");
 
   const overviewCard = (
-    <div className="rounded-2xl bg-white/5 border border-white/10 p-7">
+    <div className="rounded-2xl bg-overlay/5 border border-overlay/10 p-7">
       <div className="flex items-center justify-between mb-5">
         <div className="grid grid-cols-3 gap-y-5 gap-x-8">
           <div>
-            <div className="text-[16px] text-white/40 mb-2">Model</div>
+            <div className="text-[16px] text-overlay/40 mb-2">Model</div>
             <DropdownSelect
               value={settings?.whisperModelId ?? ""}
               onChange={onModelChange}
@@ -181,7 +181,7 @@ export function HomeScreen({
             />
           </div>
           <div>
-            <div className="text-[16px] text-white/40 mb-2">Language</div>
+            <div className="text-[16px] text-overlay/40 mb-2">Language</div>
             <LanguagePicker
               value={currentLanguageId}
               onChange={onLanguageChange}
@@ -189,7 +189,7 @@ export function HomeScreen({
             />
           </div>
           <div>
-            <div className="text-[16px] text-white/40 mb-2">Microphone</div>
+            <div className="text-[16px] text-overlay/40 mb-2">Microphone</div>
             <DropdownSelect
               value={String(deviceInfo?.selectedDevice ?? 0)}
               onChange={(v) => onDeviceChange(Number(v))}
@@ -378,8 +378,8 @@ export function HomeScreen({
                         onClick={() => onStreamTranscriptionModeChange(mode.id)}
                         className={`rounded-lg border px-3 py-1.5 text-[14px] font-medium transition-colors duration-200 cursor-pointer ${
                           active
-                            ? "border-blue-400/30 bg-blue-500/15 text-blue-300/90"
-                            : "border-white/12 bg-transparent text-white/40 hover:border-white/20 hover:text-white/60"
+                            ? "border-accent-blue/30 bg-accent-blue/15 text-accent-blue/90"
+                            : "border-overlay/12 bg-transparent text-overlay/40 hover:border-overlay/20 hover:text-overlay/60"
                         }`}
                       >
                         {mode.label}
@@ -391,7 +391,7 @@ export function HomeScreen({
             )}
             {isTranslateOn && (
               <div className="flex items-center gap-2">
-                <span className="text-[13px] text-white/38 shrink-0">
+                <span className="text-[13px] text-overlay/38 shrink-0">
                   Source
                 </span>
                 <LanguagePicker
@@ -426,7 +426,7 @@ export function HomeScreen({
           >
             <div className="mt-3 flex items-center gap-3">
               <div className="flex-1">
-                <p className="text-[13px] text-white/50 leading-relaxed">
+                <p className="text-[13px] text-overlay/50 leading-relaxed">
                   Downloading{" "}
                   {getWhisperModel(translateDownloadModelId)?.label ??
                     translateDownloadModelId}{" "}
@@ -436,9 +436,9 @@ export function HomeScreen({
                   )}
                   )
                 </p>
-                <div className="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
+                <div className="mt-2 h-1 rounded-full bg-overlay/10 overflow-hidden">
                   <motion.div
-                    className="h-full rounded-full bg-blue-400/60"
+                    className="h-full rounded-full bg-accent-blue/60"
                     animate={{
                       width: `${Math.round((downloadProgress[translateDownloadModelId] ?? 0) * 100)}%`,
                     }}
@@ -448,7 +448,7 @@ export function HomeScreen({
               </div>
               <button
                 onClick={() => onCancelDownload(translateDownloadModelId)}
-                className="shrink-0 px-2.5 py-1 rounded-lg text-[13px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/44 hover:text-white/64 transition-colors duration-200 cursor-pointer"
+                className="shrink-0 px-2.5 py-1 rounded-lg text-[13px] font-medium border border-overlay/12 hover:border-overlay/22 bg-overlay/4 hover:bg-overlay/8 text-overlay/44 hover:text-overlay/64 transition-colors duration-200 cursor-pointer"
               >
                 Cancel
               </button>
@@ -460,11 +460,11 @@ export function HomeScreen({
   );
 
   const statsCard = (
-    <div className="rounded-2xl bg-white/5 border border-white/10 p-7 flex flex-col items-center justify-center gap-2">
-      <span className="text-[15px] font-medium text-white/40">
+    <div className="rounded-2xl bg-overlay/5 border border-overlay/10 p-7 flex flex-col items-center justify-center gap-2">
+      <span className="text-[15px] font-medium text-overlay/40">
         Statistics coming soon
       </span>
-      <span className="text-[13px] text-white/25">
+      <span className="text-[13px] text-overlay/25">
         Word count, speed, streaks and more
       </span>
     </div>
@@ -479,18 +479,18 @@ export function HomeScreen({
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-white/70 whitespace-nowrap">
+          <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-overlay/70 whitespace-nowrap">
             Main shortcut
           </span>
           <ShortcutHelpIcon
             tooltip={
               <span className="text-[15px] leading-snug">
-                <span className="font-bold text-white/80">Hold</span>
+                <span className="font-bold text-overlay/80">Hold</span>
                 {" - "}
                 {dictationShortcutSummaryHoldBody}
                 <br />
                 <br />
-                <span className="font-bold text-white/80">Tap</span>
+                <span className="font-bold text-overlay/80">Tap</span>
                 {" - "}
                 {dictationShortcutSummaryTapBody}
               </span>
@@ -504,7 +504,9 @@ export function HomeScreen({
               className="flex items-center gap-1.5"
             >
               {i > 0 && (
-                <span className="text-white/30 text-[18px] font-light">+</span>
+                <span className="text-overlay/30 text-[18px] font-light">
+                  +
+                </span>
               )}
               <Kbd>{key}</Kbd>
             </span>
@@ -513,7 +515,7 @@ export function HomeScreen({
         <button
           type="button"
           onClick={onOpenSettings}
-          className="self-start text-[13px] text-white/35 hover:text-white/60 transition-colors cursor-pointer"
+          className="self-start text-[13px] text-overlay/35 hover:text-overlay/60 transition-colors cursor-pointer"
         >
           Edit →
         </button>
@@ -521,8 +523,8 @@ export function HomeScreen({
 
       {holdDisplayKeys && (
         <>
-          <div className="flex flex-col gap-3 @sm:border-l @xs:border-white/12 @sm:pl-6">
-            <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-white/70 whitespace-nowrap">
+          <div className="flex flex-col gap-3 @sm:border-l @xs:border-overlay/12 @sm:pl-6">
+            <span className="text-[14px] font-semibold uppercase tracking-[0.12em] text-overlay/70 whitespace-nowrap">
               Push-to-talk
             </span>
             <div className="flex items-center gap-1.5">
@@ -532,7 +534,7 @@ export function HomeScreen({
                   className="flex items-center gap-1.5"
                 >
                   {i > 0 && (
-                    <span className="text-white/30 text-[18px] font-light">
+                    <span className="text-overlay/30 text-[18px] font-light">
                       +
                     </span>
                   )}
@@ -549,7 +551,7 @@ export function HomeScreen({
   return (
     <div className="flex flex-col h-full">
       <div className="mb-10">
-        <h2 className="text-[28px] font-semibold text-white/90">
+        <h2 className="text-[28px] font-semibold text-overlay/90">
           Welcome back!
         </h2>
       </div>

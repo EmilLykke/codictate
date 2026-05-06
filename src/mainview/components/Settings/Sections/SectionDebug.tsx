@@ -72,10 +72,10 @@ export function SectionDebug({
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Updates
         </h2>
-        <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
+        <div className="rounded-xl border border-overlay/11 bg-overlay/4 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="shrink-0 w-4 h-4 flex items-center justify-center">
               <UpdateIcon state={updateState} />
@@ -108,7 +108,7 @@ export function SectionDebug({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="border-t border-white/10 px-4 py-2.5"
+                className="border-t border-overlay/10 px-4 py-2.5"
               >
                 <p className="text-[14px] text-orange-300/85 leading-relaxed font-sans font-normal">
                   {updateMessage ??
@@ -121,10 +121,10 @@ export function SectionDebug({
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Diagnostics
         </h2>
-        <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden">
+        <div className="rounded-xl border border-overlay/11 bg-overlay/4 overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="shrink-0 w-4 h-4 flex items-center justify-center">
               <svg
@@ -137,7 +137,9 @@ export function SectionDebug({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className={
-                  settings.debugMode ? "text-amber-400/70" : "text-white/38"
+                  settings.debugMode
+                    ? "text-accent-amber/70"
+                    : "text-overlay/38"
                 }
               >
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
@@ -147,7 +149,7 @@ export function SectionDebug({
             </div>
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[17px] font-medium ${settings.debugMode ? "text-amber-400/80" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${settings.debugMode ? "text-accent-amber/80" : "text-overlay/58"}`}
               >
                 {settings.debugMode ? "Debug logging active" : "Debug logging"}
               </span>
@@ -166,14 +168,14 @@ export function SectionDebug({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="border-t border-white/10 px-4 py-3"
+                className="border-t border-overlay/10 px-4 py-3"
               >
                 <button
                   onClick={handleCopyLog}
                   className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[15px] font-medium border transition-colors duration-200 cursor-pointer ${
                     isCopied
-                      ? "bg-emerald-500/15 border-emerald-400/25 text-emerald-400/80"
-                      : "border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/52 hover:text-white/72"
+                      ? "bg-accent-emerald/15 border-accent-emerald/25 text-accent-emerald/80"
+                      : "border-overlay/12 hover:border-overlay/20 bg-overlay/4 hover:bg-overlay/7 text-overlay/52 hover:text-overlay/72"
                   }`}
                 >
                   {isCopied ? (
@@ -230,7 +232,7 @@ export function SectionDebug({
 
       {showDevTools && (
         <div className="mb-8">
-          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
             Development
           </h2>
           <div className="relative group">
@@ -240,21 +242,30 @@ export function SectionDebug({
               className={devPreviewSelectClass}
               aria-label="Preview root screen"
             >
-              <option value="" className="bg-zinc-900 text-white/78">
+              <option value="" className="bg-surface-elevated text-overlay/78">
                 Default (normal routing)
               </option>
-              <option value="permissions" className="bg-zinc-900 text-white">
+              <option
+                value="permissions"
+                className="bg-surface-elevated text-codictate-foreground"
+              >
                 Permissions
               </option>
-              <option value="onboarding" className="bg-zinc-900 text-white">
+              <option
+                value="onboarding"
+                className="bg-surface-elevated text-codictate-foreground"
+              >
                 Product onboarding
               </option>
-              <option value="ready" className="bg-zinc-900 text-white">
+              <option
+                value="ready"
+                className="bg-surface-elevated text-codictate-foreground"
+              >
                 Ready (main)
               </option>
             </select>
             <span
-              className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-white/38 transition-colors duration-200 group-hover:text-white/50 right-3.5"
+              className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-overlay/38 transition-colors duration-200 group-hover:text-overlay/50 right-3.5"
               aria-hidden
             >
               <svg
@@ -300,13 +311,13 @@ function updateStateLabel(state: UpdateCheckState, message?: string): string {
 function updateStateTextClass(state: UpdateCheckState): string {
   switch (state) {
     case "up-to-date":
-      return "text-emerald-400/70";
+      return "text-accent-emerald/70";
     case "ready":
-      return "text-blue-400/80";
+      return "text-accent-blue/80";
     case "error":
       return "text-orange-400/70";
     default:
-      return "text-white/55";
+      return "text-overlay/55";
   }
 }
 
@@ -322,7 +333,7 @@ function UpdateIcon({ state }: { state: UpdateCheckState }) {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-white/45 animate-spin"
+        className="text-overlay/45 animate-spin"
       >
         <path d="M21 12a9 9 0 1 1-6.219-8.56" />
       </svg>
@@ -339,7 +350,7 @@ function UpdateIcon({ state }: { state: UpdateCheckState }) {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-emerald-400/70"
+        className="text-accent-emerald/70"
       >
         <polyline points="20 6 9 17 4 12" />
       </svg>
@@ -356,7 +367,7 @@ function UpdateIcon({ state }: { state: UpdateCheckState }) {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-blue-400/80"
+        className="text-accent-blue/80"
       >
         <path d="M12 2v10m0 0 3-3m-3 3-3-3" />
         <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
@@ -392,7 +403,7 @@ function UpdateIcon({ state }: { state: UpdateCheckState }) {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/38"
+      className="text-overlay/38"
     >
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
@@ -417,7 +428,7 @@ function UpdateAction({
     return (
       <button
         onClick={onRestart}
-        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-semibold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/20 hover:border-blue-400/35 text-blue-300/90 transition-colors duration-200 cursor-pointer"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-semibold bg-accent-blue/20 hover:bg-accent-blue/30 border border-accent-blue/20 hover:border-accent-blue/35 text-accent-blue/90 transition-colors duration-200 cursor-pointer"
       >
         Restart
       </button>
@@ -427,7 +438,7 @@ function UpdateAction({
     return (
       <button
         onClick={onCheck}
-        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
+        className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-overlay/12 hover:border-overlay/20 bg-overlay/4 hover:bg-overlay/7 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
       >
         Retry
       </button>
@@ -439,7 +450,7 @@ function UpdateAction({
   return (
     <button
       onClick={onCheck}
-      className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-white/12 hover:border-white/20 bg-white/4 hover:bg-white/7 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
+      className="shrink-0 px-3 py-1.5 rounded-lg text-[15px] font-medium border border-overlay/12 hover:border-overlay/20 bg-overlay/4 hover:bg-overlay/7 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
     >
       Check
     </button>

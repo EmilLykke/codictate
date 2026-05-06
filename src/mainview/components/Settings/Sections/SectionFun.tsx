@@ -27,31 +27,31 @@ export function SectionFun({ settings, onBackToSettings }: Props) {
     <>
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <span className="block text-[16px] uppercase tracking-[0.18em] text-amber-300/55">
+          <span className="block text-[16px] uppercase tracking-[0.18em] text-accent-amber/55">
             Hidden Settings
           </span>
-          <h2 className="mt-2 text-[28px] tracking-tight text-white/90">
+          <h2 className="mt-2 text-[28px] tracking-tight text-overlay/90">
             Fun Mode
           </h2>
         </div>
         <button
           type="button"
           onClick={onBackToSettings}
-          className="rounded-lg border border-white/12 bg-white/5 px-4 py-2 text-[16px] font-medium text-white/62 transition-colors duration-200 hover:border-white/18 hover:bg-white/7 hover:text-white/80"
+          className="rounded-lg border border-overlay/12 bg-overlay/5 px-4 py-2 text-[16px] font-medium text-overlay/62 transition-colors duration-200 hover:border-overlay/18 hover:bg-overlay/7 hover:text-overlay/80"
         >
           Back to settings
         </button>
       </div>
 
-      <div className="mb-8 overflow-hidden rounded-xl border border-white/11 bg-white/4">
+      <div className="mb-8 overflow-hidden rounded-xl border border-overlay/11 bg-overlay/4">
         <div className="flex items-center gap-4 px-5 py-4">
           <div className="min-w-0 flex-1">
             <span
-              className={`block text-[18px] font-medium ${settings.funModeEnabled ? "text-amber-100" : "text-white/68"}`}
+              className={`block text-[18px] font-medium ${settings.funModeEnabled ? "text-accent-amber" : "text-overlay/68"}`}
             >
               {settings.funModeEnabled ? "Fun Mode enabled" : "Fun Mode"}
             </span>
-            <span className="mt-1 block text-[13px] leading-snug text-white/46">
+            <span className="mt-1 block text-[13px] leading-snug text-overlay/46">
               Swaps the normal dictation start and stop sounds for the secret
               set.
             </span>

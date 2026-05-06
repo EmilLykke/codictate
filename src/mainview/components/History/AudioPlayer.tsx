@@ -88,11 +88,11 @@ export function AudioPlayer({ entryId, durationMs }: Props) {
         type="button"
         onClick={togglePlay}
         disabled={loading}
-        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/15 text-white/70 hover:text-white/90 transition-colors cursor-pointer disabled:opacity-40"
+        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-overlay/10 hover:bg-overlay/15 text-overlay/70 hover:text-overlay/90 transition-colors cursor-pointer disabled:opacity-40"
         aria-label={playing ? "Pause" : "Play"}
       >
         {loading ? (
-          <div className="w-3 h-3 border-2 border-white/30 border-t-white/70 rounded-full animate-spin" />
+          <div className="w-3 h-3 border-2 border-overlay/30 border-t-overlay/70 rounded-full animate-spin" />
         ) : playing ? (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <rect x="6" y="4" width="4" height="16" rx="1" />
@@ -104,21 +104,21 @@ export function AudioPlayer({ entryId, durationMs }: Props) {
           </svg>
         )}
       </button>
-      <span className="text-[13px] text-white/40 tabular-nums w-9 text-right shrink-0">
+      <span className="text-[13px] text-overlay/40 tabular-nums w-9 text-right shrink-0">
         {formatTime(currentTime)}
       </span>
       <div
-        className="flex-1 h-1.5 bg-white/10 rounded-full cursor-pointer group"
+        className="flex-1 h-1.5 bg-overlay/10 rounded-full cursor-pointer group"
         onClick={handleSeek}
       >
         <div
-          className="h-full bg-blue-400/60 group-hover:bg-blue-400/80 rounded-full transition-colors relative"
+          className="h-full bg-accent-blue/60 group-hover:bg-accent-blue/80 rounded-full transition-colors relative"
           style={{ width: `${progress}%` }}
         >
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-overlay/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
       </div>
-      <span className="text-[13px] text-white/40 tabular-nums w-9 shrink-0">
+      <span className="text-[13px] text-overlay/40 tabular-nums w-9 shrink-0">
         {formatTime(duration)}
       </span>
     </div>

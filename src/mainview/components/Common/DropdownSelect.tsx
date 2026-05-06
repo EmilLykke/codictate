@@ -45,15 +45,15 @@ export function DropdownSelect({
         <button
           type="button"
           aria-label={ariaLabel}
-          className={`flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-white/20 ${
+          className={`flex w-full items-center gap-2 rounded-lg border border-overlay/10 bg-overlay/5 px-3 py-2 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
             disabled
               ? "opacity-50 cursor-not-allowed"
-              : "cursor-pointer hover:border-white/20 hover:bg-white/7"
+              : "cursor-pointer hover:border-overlay/20 hover:bg-overlay/7"
           }`}
         >
           <span
             className={`min-w-0 flex-1 truncate text-[15px] font-medium ${
-              selectedOption ? "text-white/90" : "text-white/45"
+              selectedOption ? "text-overlay/90" : "text-overlay/45"
             }`}
           >
             {displayLabel}
@@ -77,7 +77,7 @@ export function DropdownSelect({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="z-[10000] overflow-hidden rounded-xl border border-white/12 bg-[#141416]/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/8 backdrop-blur-md"
+            className="z-[10000] overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-overlay/8 backdrop-blur-md"
           >
             <Select.Viewport
               className="max-h-[min(340px,52vh)] overflow-y-auto overflow-x-hidden pr-1 [scrollbar-gutter:stable]"
@@ -94,18 +94,18 @@ export function DropdownSelect({
                       disabled={opt.disabled}
                       className={`relative flex items-center gap-2.5 rounded-lg border px-3 py-2 text-left outline-none transition-colors duration-200 whitespace-nowrap ${
                         opt.disabled
-                          ? "border-transparent text-white/30 cursor-not-allowed"
+                          ? "border-transparent text-overlay/30 cursor-not-allowed"
                           : isActive
-                            ? "border-white/26 bg-white/6 cursor-pointer data-[highlighted]:bg-white/8"
-                            : "border-transparent cursor-pointer data-[highlighted]:border-white/12 data-[highlighted]:bg-white/5"
+                            ? "border-overlay/26 bg-overlay/6 cursor-pointer data-[highlighted]:bg-overlay/8"
+                            : "border-transparent cursor-pointer data-[highlighted]:border-overlay/12 data-[highlighted]:bg-overlay/5"
                       }`}
                     >
                       <div
                         className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border transition-colors duration-200"
                         style={{
                           borderColor: isActive
-                            ? "rgba(255,255,255,0.38)"
-                            : "rgba(255,255,255,0.18)",
+                            ? "var(--overlay-38)"
+                            : "var(--overlay-18)",
                         }}
                       >
                         {isActive && (
@@ -117,17 +117,17 @@ export function DropdownSelect({
                               stiffness: 500,
                               damping: 25,
                             }}
-                            className="h-1.5 w-1.5 rounded-full bg-white/60"
+                            className="h-1.5 w-1.5 rounded-full bg-overlay/60"
                           />
                         )}
                       </div>
                       <span
                         className={`text-[14px] font-medium transition-colors duration-200 ${
                           opt.disabled
-                            ? "text-white/30"
+                            ? "text-overlay/30"
                             : isActive
-                              ? "text-white/85"
-                              : "text-white/65"
+                              ? "text-overlay/85"
+                              : "text-overlay/65"
                         }`}
                       >
                         {opt.label}

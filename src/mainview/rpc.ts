@@ -13,6 +13,7 @@ import type {
   SettingsPane,
   ShortcutId,
   StreamTranscriptionMode,
+  ThemePreference,
   UpdateCheckState,
   RecordingIndicatorMode,
   AppStatus,
@@ -211,6 +212,12 @@ export async function setMaxRecordingDuration(
   return rpc.request.updateTranscriptionSettings({
     patch: { maxRecordingDuration },
   })
+}
+
+export async function setThemePreference(
+  themePreference: ThemePreference
+): Promise<boolean> {
+  return rpc.request.updateGeneralSettings({ patch: { themePreference } })
 }
 
 export async function setRecordingIndicatorMode(

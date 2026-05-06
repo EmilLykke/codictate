@@ -27,6 +27,7 @@ import type {
   RecordingIndicatorMode,
   ShortcutId,
   StreamTranscriptionMode,
+  ThemePreference,
   TranscriptionSettingsPatch,
 } from '../../shared/types'
 import {
@@ -192,6 +193,7 @@ interface PersistedMainSettings {
   historyStoragePath: string
   historyMaxEntries: number
   historySaveAudio: boolean
+  themePreference: ThemePreference
   debugMode: false
 }
 
@@ -222,6 +224,7 @@ export class AppConfig {
   private historyStoragePath: string
   private historyMaxEntries: number
   private historySaveAudio: boolean
+  private themePreference: ThemePreference
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
     null
@@ -256,6 +259,7 @@ export class AppConfig {
     this.historyStoragePath = ''
     this.historyMaxEntries = 250
     this.historySaveAudio = false
+    this.themePreference = 'system'
   }
 
   private getPersistedMainSettings(): PersistedMainSettings {
@@ -293,6 +297,7 @@ export class AppConfig {
       historyStoragePath: this.historyStoragePath,
       historyMaxEntries: this.historyMaxEntries,
       historySaveAudio: this.historySaveAudio,
+      themePreference: this.themePreference,
       debugMode: false,
     }
   }
@@ -423,6 +428,13 @@ export class AppConfig {
     }
     if (typeof raw.userDisplayName === 'string') {
       this.userDisplayName = raw.userDisplayName.trim()
+    }
+    if (
+      raw.themePreference === 'system' ||
+      raw.themePreference === 'light' ||
+      raw.themePreference === 'dark'
+    ) {
+      this.themePreference = raw.themePreference
     }
     if (typeof raw.debugMode === 'boolean') {
       this.debugMode = raw.debugMode
@@ -844,6 +856,7 @@ export class AppConfig {
         maxEntries: this.historyMaxEntries,
         saveAudio: this.historySaveAudio,
       },
+      themePreference: this.themePreference,
       modelAvailability: modelManager.getAvailabilityMap(),
     }
   }
@@ -898,6 +911,14 @@ export class AppConfig {
     ) {
       return false
     }
+    if (
+      patch.themePreference !== undefined &&
+      patch.themePreference !== 'system' &&
+      patch.themePreference !== 'light' &&
+      patch.themePreference !== 'dark'
+    ) {
+      return false
+    }
     if (patch.recordingIndicatorPosition !== undefined) {
       const pos = patch.recordingIndicatorPosition
       if (
@@ -943,6 +964,9 @@ export class AppConfig {
     }
     if (patch.recordingIndicatorPosition !== undefined) {
       this.recordingIndicatorPosition = patch.recordingIndicatorPosition
+    }
+    if (patch.themePreference !== undefined) {
+      this.themePreference = patch.themePreference
     }
     await this.saveMain()
     return true

@@ -1,4 +1,4 @@
-import type { AppStatus } from '../../../shared/types'
+import type { AppStatus, ThemePreference } from '../../../shared/types'
 import { getPlatform } from '../../platform'
 import { getPlatformRuntime } from '../../platform/runtime'
 
@@ -20,10 +20,12 @@ function statusToWire(
 export type NativeIndicatorHelper = {
   show: (
     frame: { x: number; y: number; width: number; height: number },
-    status: AppStatus
+    status: AppStatus,
+    theme?: ThemePreference
   ) => void
   hide: () => void
   setStatus: (status: AppStatus) => void
+  setTheme: (theme: ThemePreference) => void
   dispose: () => void
 }
 
@@ -81,14 +83,22 @@ export function createNativeIndicatorHelper(
   }
 
   return {
-    show(frame, status) {
-      send({ command: 'show', ...frame, status: statusToWire(status) })
+    show(frame, status, theme) {
+      send({
+        command: 'show',
+        ...frame,
+        status: statusToWire(status),
+        ...(theme ? { theme } : {}),
+      })
     },
     hide() {
       send({ command: 'hide' })
     },
     setStatus(status) {
       send({ command: 'status', status: statusToWire(status) })
+    },
+    setTheme(theme) {
+      send({ command: 'theme', theme })
     },
     dispose() {
       try {

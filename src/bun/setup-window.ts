@@ -176,7 +176,10 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             await deps.onSettingsChanged()
           } else {
             rpc.send.updateSettings(deps.appConfig.getSettings())
-            if (patch.recordingIndicatorMode !== undefined) {
+            if (
+              patch.recordingIndicatorMode !== undefined ||
+              patch.themePreference !== undefined
+            ) {
               deps.onRecordingIndicatorModeChanged?.()
             }
             if (patch.onboardingCompleted) {

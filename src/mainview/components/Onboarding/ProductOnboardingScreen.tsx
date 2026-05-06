@@ -333,7 +333,7 @@ export function ProductOnboardingScreen({
             as="h1"
             className={`text-[24px] ${wordmarkCodictateTypographyClass}`}
           />
-          <p className="text-[14px] text-white/28 mt-1">Quick setup</p>
+          <p className="text-[14px] text-overlay/28 mt-1">Quick setup</p>
         </motion.div>
 
         <div className="flex gap-2 mb-6">
@@ -342,10 +342,10 @@ export function ProductOnboardingScreen({
               key={i}
               className={`h-1 rounded-full transition-all duration-300 ${
                 step === i
-                  ? "w-8 bg-white/45"
+                  ? "w-8 bg-overlay/45"
                   : step > i
-                    ? "w-1.5 bg-emerald-400/50"
-                    : "w-1.5 bg-white/10"
+                    ? "w-1.5 bg-accent-emerald/50"
+                    : "w-1.5 bg-overlay/10"
               }`}
             />
           ))}
@@ -361,10 +361,10 @@ export function ProductOnboardingScreen({
               transition={{ duration: 0.3, ease: EASE }}
               className="w-full"
             >
-              <p className="text-[16px] text-white/55 text-center mb-4 leading-snug">
+              <p className="text-[16px] text-overlay/55 text-center mb-4 leading-snug">
                 What should we call you?
               </p>
-              <p className="text-[13px] text-white/38 text-center mb-5 leading-relaxed">
+              <p className="text-[13px] text-overlay/38 text-center mb-5 leading-relaxed">
                 We use your name to personalize formatted output — e.g. email
                 sign-offs. You can change this anytime in settings.
               </p>
@@ -382,13 +382,13 @@ export function ProductOnboardingScreen({
                 placeholder="Your name"
                 autoCapitalize="words"
                 autoComplete="name"
-                className="w-full rounded-xl border border-white/12 bg-white/4 px-4 py-3.5 text-[17px] text-white/85 placeholder:text-white/25 outline-none focus-visible:border-white/22 focus-visible:ring-2 focus-visible:ring-white/10 select-text"
+                className="w-full rounded-xl border border-overlay/12 bg-overlay/4 px-4 py-3.5 text-[17px] text-overlay/85 placeholder:text-overlay/25 outline-none focus-visible:border-overlay/22 focus-visible:ring-2 focus-visible:ring-overlay/10 select-text"
               />
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void handleNameContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-white/12 hover:bg-white/18 border border-white/14 text-white/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -396,7 +396,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={handleNameSkip}
-                className="mt-2 w-full py-2 rounded-xl text-[16px] text-white/38 hover:text-white/55 transition-colors cursor-pointer"
+                className="mt-2 w-full py-2 rounded-xl text-[16px] text-overlay/38 hover:text-overlay/55 transition-colors cursor-pointer"
               >
                 Skip for now
               </button>
@@ -412,7 +412,7 @@ export function ProductOnboardingScreen({
               transition={{ duration: 0.3, ease: EASE }}
               className="w-full"
             >
-              <p className="text-[16px] text-white/55 text-center mb-4 leading-snug">
+              <p className="text-[16px] text-overlay/55 text-center mb-4 leading-snug">
                 Choose a shortcut to dictate from any app.
               </p>
               <ShortcutPicker
@@ -424,7 +424,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleShortcutContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-white/12 hover:bg-white/18 border border-white/14 text-white/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -440,13 +440,13 @@ export function ProductOnboardingScreen({
               transition={{ duration: 0.3, ease: EASE }}
               className="w-full"
             >
-              <p className="text-[16px] text-white/55 text-center mb-4 leading-snug">
+              <p className="text-[16px] text-overlay/55 text-center mb-4 leading-snug">
                 Choose your mother toungue language or leave it at English. This
                 is the language which should be translted{" "}
                 <span className="font-bold">from</span>, when you use "Translate
                 Mode".
               </p>
-              <p className="text-[16px] text-white/50 text-center mb-4 leading-relaxed">
+              <p className="text-[16px] text-overlay/50 text-center mb-4 leading-relaxed">
                 You can change this anytime in settings.
               </p>
               <LanguagePicker
@@ -459,7 +459,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleLanguageContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-white/12 hover:bg-white/18 border border-white/14 text-white/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -475,7 +475,7 @@ export function ProductOnboardingScreen({
               transition={{ duration: 0.3, ease: EASE }}
               className="w-full flex flex-col items-center"
             >
-              <p className="mb-3 text-center text-[16px] leading-snug text-white/55">
+              <p className="mb-3 text-center text-[16px] leading-snug text-overlay/55">
                 Try dictation once to continue. Click in the box, use your
                 shortcut to speak, then stop the same way when you are done.
               </p>
@@ -487,7 +487,7 @@ export function ProductOnboardingScreen({
                       className="flex items-center gap-1.5"
                     >
                       {i > 0 && (
-                        <span className="text-[18px] font-light text-white/42">
+                        <span className="text-[18px] font-light text-overlay/42">
                           +
                         </span>
                       )}
@@ -502,7 +502,7 @@ export function ProductOnboardingScreen({
                   <div className="flex h-20 shrink-0 items-center justify-center">
                     <RecordingOrb status={status} />
                   </div>
-                  <span className="min-h-[1.35rem] text-center text-[13px] text-white/35 leading-snug">
+                  <span className="min-h-[1.35rem] text-center text-[13px] text-overlay/35 leading-snug">
                     {status === "recording" && "Listening…"}
                     {status === "transcribing" && "Transcribing…"}
                     {status === "ready" && "Idle"}
@@ -514,11 +514,11 @@ export function ProductOnboardingScreen({
                 ref={textareaRef}
                 rows={6}
                 placeholder="Your dictation appears here…"
-                className="w-full rounded-xl border border-white/12 bg-white/4 px-4 py-3 text-[15px] text-white/85 placeholder:text-white/25 outline-none focus-visible:border-white/22 focus-visible:ring-2 focus-visible:ring-white/10 resize-y min-h-[140px] select-text"
+                className="w-full rounded-xl border border-overlay/12 bg-overlay/4 px-4 py-3 text-[15px] text-overlay/85 placeholder:text-overlay/25 outline-none focus-visible:border-overlay/22 focus-visible:ring-2 focus-visible:ring-overlay/10 resize-y min-h-[140px] select-text"
               />
 
               {!dictationTrialComplete && (
-                <p className="mt-4 text-center text-[16px] text-amber-200/55 leading-snug">
+                <p className="mt-4 text-center text-[16px] text-accent-amber/55 leading-snug">
                   Finish one dictation session (recording or transcribing, then
                   idle) to unlock the next step.
                 </p>
@@ -528,7 +528,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy || !dictationTrialComplete}
                 onClick={handleTryDictationContinue}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-white/12 hover:bg-white/18 border border-white/14 text-white/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -544,10 +544,10 @@ export function ProductOnboardingScreen({
               transition={{ duration: 0.3, ease: EASE }}
               className="w-full flex flex-col items-center"
             >
-              <p className="mb-2 text-center text-[16px] leading-snug text-white/55">
+              <p className="mb-2 text-center text-[16px] leading-snug text-overlay/55">
                 Desktop recording indicator
               </p>
-              <p className="mb-5 text-center text-[13px] leading-snug text-white/38">
+              <p className="mb-5 text-center text-[13px] leading-snug text-overlay/38">
                 The floating chip updates on your desktop as you choose — try
                 each option. You can change this anytime in settings.
               </p>
@@ -561,16 +561,16 @@ export function ProductOnboardingScreen({
                       onClick={() => setIndicatorDraft(mode)}
                       className={`w-full text-left rounded-xl border px-4 py-3.5 transition-colors duration-200 cursor-pointer ${
                         selected
-                          ? "border-white/22 bg-white/8"
-                          : "border-white/11 bg-white/4 hover:border-white/16 hover:bg-white/6"
+                          ? "border-overlay/22 bg-overlay/8"
+                          : "border-overlay/11 bg-overlay/4 hover:border-overlay/16 hover:bg-overlay/6"
                       }`}
                     >
                       <span
-                        className={`block text-[15px] font-medium ${selected ? "text-white/88" : "text-white/62"}`}
+                        className={`block text-[15px] font-medium ${selected ? "text-overlay/88" : "text-overlay/62"}`}
                       >
                         {label}
                       </span>
-                      <span className="mt-0.5 block text-[16px] text-white/40 leading-snug">
+                      <span className="mt-0.5 block text-[16px] text-overlay/40 leading-snug">
                         {hint}
                       </span>
                     </button>
@@ -581,7 +581,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleIndicatorContinue()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-white/12 hover:bg-white/18 border border-white/14 text-white/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue
               </button>
@@ -597,16 +597,16 @@ export function ProductOnboardingScreen({
               transition={{ duration: 0.3, ease: EASE }}
               className="flex w-full flex-col items-stretch"
             >
-              <p className="mb-2 text-center text-[16px] leading-snug text-white/55 sm:text-[17px]">
+              <p className="mb-2 text-center text-[16px] leading-snug text-overlay/55 sm:text-[17px]">
                 How do you usually write?
               </p>
-              <p className="mb-5 text-center text-[13px] leading-snug text-white/38 sm:text-[14px]">
+              <p className="mb-5 text-center text-[13px] leading-snug text-overlay/38 sm:text-[14px]">
                 We’ll use this for auto-polish defaults (Messages, Slack, and
                 documents). Email greeting and closing stay on Auto where it
                 helps. You can refine everything in Settings later.
               </p>
 
-              <h2 className="mb-2 text-left text-[14px] font-medium uppercase tracking-wider text-white/48">
+              <h2 className="mb-2 text-left text-[14px] font-medium uppercase tracking-wider text-overlay/48">
                 Writing style
               </h2>
               <div
@@ -626,21 +626,21 @@ export function ProductOnboardingScreen({
                         onClick={() => setWritingStyleDraft(id)}
                         className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
                           selected
-                            ? "border-blue-400/60 bg-white/10 ring-1 ring-blue-400/40 shadow-lg shadow-blue-500/10"
-                            : "border-white/11 bg-white/4 hover:border-white/20 hover:bg-white/6"
+                            ? "border-accent-blue/60 bg-overlay/10 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
+                            : "border-overlay/11 bg-overlay/4 hover:border-overlay/20 hover:bg-overlay/6"
                         }`}
                       >
                         <div className="p-5 pb-2">
                           <span
                             className={`block text-[26px] tracking-tight ${
                               id === "formal" ? "font-serif" : "font-sans"
-                            } ${selected ? "text-white" : "text-white/80"}`}
+                            } ${selected ? "text-white" : "text-overlay/80"}`}
                           >
                             {label}
                           </span>
                           <span
                             className={`mt-1 block text-[13px] font-medium ${
-                              selected ? "text-white/60" : "text-white/40"
+                              selected ? "text-overlay/60" : "text-overlay/40"
                             }`}
                           >
                             {sublabel}
@@ -651,8 +651,8 @@ export function ProductOnboardingScreen({
                           <div
                             className={`rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed whitespace-pre-wrap relative ${
                               selected
-                                ? "bg-blue-500/20 text-blue-50"
-                                : "bg-white/5 text-white/70"
+                                ? "bg-accent-blue/20 text-blue-50"
+                                : "bg-overlay/5 text-overlay/70"
                             }`}
                           >
                             {preview}
@@ -664,13 +664,13 @@ export function ProductOnboardingScreen({
                 )}
               </div>
 
-              <div className="mt-6 w-full rounded-xl border border-white/11 bg-white/4 px-4 py-3.5">
+              <div className="mt-6 w-full rounded-xl border border-overlay/11 bg-overlay/4 px-4 py-3.5">
                 <div className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-medium text-white/78">
+                    <span className="block text-[15px] font-medium text-overlay/78">
                       Emoji when polishing
                     </span>
-                    <span className="mt-0.5 block text-[16px] text-white/40 leading-snug">
+                    <span className="mt-0.5 block text-[16px] text-overlay/40 leading-snug">
                       Allow emoji in polished Messages and Slack output. Off by
                       default.
                     </span>
@@ -687,7 +687,7 @@ export function ProductOnboardingScreen({
                 type="button"
                 disabled={busy}
                 onClick={() => void handleFinishOnboarding()}
-                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-white/12 hover:bg-white/18 border border-white/14 text-white/85 transition-colors disabled:opacity-40"
+                className="mt-5 w-full py-3 rounded-xl text-[15px] font-medium bg-overlay/12 hover:bg-overlay/18 border border-overlay/14 text-overlay/85 transition-colors disabled:opacity-40"
               >
                 Continue to Codictate
               </button>

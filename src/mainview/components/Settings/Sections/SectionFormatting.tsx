@@ -257,7 +257,7 @@ function LightLockedShell({
         {children}
       </div>
       {locked ? (
-        <p className="px-4 pb-3.5 pt-0.5 text-[15px] text-white/44 leading-snug">
+        <p className="px-4 pb-3.5 pt-0.5 text-[15px] text-overlay/44 leading-snug">
           {hint}
         </p>
       ) : null}
@@ -282,11 +282,11 @@ function SwitchRow({
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="flex-1 min-w-0">
         <span
-          className={`block text-[15px] font-medium ${checked ? "text-white/78" : "text-white/58"}`}
+          className={`block text-[15px] font-medium ${checked ? "text-overlay/78" : "text-overlay/58"}`}
         >
           {label}
         </span>
-        <span className="mt-0.5 block text-[12px] text-white/40 leading-snug">
+        <span className="mt-0.5 block text-[12px] text-overlay/40 leading-snug">
           {description}
         </span>
       </div>
@@ -614,25 +614,25 @@ export function SectionFormatting({ settings }: Props) {
   return (
     <>
       <div className="mb-6">
-        <h2 className="text-[28px] tracking-tight text-white/90">
+        <h2 className="text-[28px] tracking-tight text-overlay/90">
           Auto-polish
         </h2>
-        <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
+        <p className="mt-3 text-[14px] text-overlay/44 leading-relaxed font-sans font-normal">
           Automatically cleans up your dictation based on which app you're in.
         </p>
       </div>
 
       {/* Platform warning */}
       {!formatting.available && (
-        <div className="mb-6 rounded-xl border border-white/10 bg-white/4 px-4 py-3.5">
-          <p className="text-[14px] text-white/44 leading-relaxed font-sans">
+        <div className="mb-6 rounded-xl border border-overlay/10 bg-overlay/4 px-4 py-3.5">
+          <p className="text-[14px] text-overlay/44 leading-relaxed font-sans">
             Auto-polish requires the vendored llama-cli binary, which is
             missing. Run{" "}
-            <span className="text-white/62 font-medium">
+            <span className="text-overlay/62 font-medium">
               bun scripts/pre-build.ts
             </span>{" "}
             and relaunch on{" "}
-            <span className="text-white/62 font-medium">
+            <span className="text-overlay/62 font-medium">
               {platformDisplayName(settings.capabilities.platform)}
             </span>
             .
@@ -650,7 +650,7 @@ export function SectionFormatting({ settings }: Props) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-400/25 bg-amber-400/8 px-4 py-3">
+            <div className="mb-6 flex items-center gap-3 rounded-xl border border-accent-amber/25 bg-accent-amber/8 px-4 py-3">
               <svg
                 width="18"
                 height="18"
@@ -660,15 +660,15 @@ export function SectionFormatting({ settings }: Props) {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="shrink-0 text-amber-300/90"
+                className="shrink-0 text-accent-amber/90"
               >
                 <path d="M12 9v4" />
                 <path d="M12 17h.01" />
                 <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
               </svg>
-              <span className="flex-1 text-[13px] text-white/72 leading-snug">
+              <span className="flex-1 text-[13px] text-overlay/72 leading-snug">
                 Force mode active:{" "}
-                <span className="font-medium text-amber-200/90">
+                <span className="font-medium text-accent-amber/90">
                   {formattingModeLabel(formatting.forceModeId)}
                 </span>{" "}
                 -- always applied, even if auto-polish is off or the format is
@@ -676,7 +676,7 @@ export function SectionFormatting({ settings }: Props) {
               </span>
               <button
                 onClick={() => void handleClearFormattingForce()}
-                className="shrink-0 rounded-lg border border-white/14 bg-white/6 px-3 py-1.5 text-[15px] font-medium text-white/72 hover:bg-white/10 hover:text-white/90 transition-colors cursor-pointer"
+                className="shrink-0 rounded-lg border border-overlay/14 bg-overlay/6 px-3 py-1.5 text-[15px] font-medium text-overlay/72 hover:bg-overlay/10 hover:text-overlay/90 transition-colors cursor-pointer"
               >
                 Clear
               </button>
@@ -688,7 +688,7 @@ export function SectionFormatting({ settings }: Props) {
       {/* Model tier picker */}
       {formatting.available && (
         <div className="mb-8">
-          <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+          <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
             Model
           </h2>
           <div className="flex flex-col gap-2">
@@ -721,9 +721,9 @@ export function SectionFormatting({ settings }: Props) {
                   key={tier}
                   className={`rounded-xl border transition-colors duration-200 overflow-hidden ${
                     isSelected
-                      ? "border-blue-400/25 bg-white/7"
-                      : "border-white/11 bg-white/4"
-                  } ${canSelect ? "hover:border-white/16 hover:bg-white/6 cursor-pointer" : ""}`}
+                      ? "border-accent-blue/25 bg-overlay/7"
+                      : "border-overlay/11 bg-overlay/4"
+                  } ${canSelect ? "hover:border-overlay/16 hover:bg-overlay/6 cursor-pointer" : ""}`}
                   onClick={() => {
                     if (canSelect) void handleFormatterModelTierChange(tier);
                   }}
@@ -732,12 +732,12 @@ export function SectionFormatting({ settings }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2.5">
                         <span
-                          className={`text-[16px] font-semibold ${isSelected ? "text-white/85" : "text-white/60"}`}
+                          className={`text-[16px] font-semibold ${isSelected ? "text-overlay/85" : "text-overlay/60"}`}
                         >
                           {label}
                         </span>
                         {isSelected && isInstalled && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/15 text-blue-300/80 border border-blue-400/20">
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-blue/15 text-accent-blue/80 border border-accent-blue/20">
                             <svg
                               width="10"
                               height="10"
@@ -754,12 +754,12 @@ export function SectionFormatting({ settings }: Props) {
                           </span>
                         )}
                       </div>
-                      <p className="mt-0.5 text-[13px] text-white/38">
+                      <p className="mt-0.5 text-[13px] text-overlay/38">
                         {model} - {desc}
                       </p>
                     </div>
                     <div className="flex items-center gap-2.5 shrink-0">
-                      <span className="text-[12px] text-white/25 tabular-nums">
+                      <span className="text-[12px] text-overlay/25 tabular-nums">
                         {size}
                       </span>
                       {needsDownload && (
@@ -768,7 +768,7 @@ export function SectionFormatting({ settings }: Props) {
                             e.stopPropagation();
                             handleDownloadFormatterModel(tier);
                           }}
-                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-white/12 hover:border-white/22 bg-white/4 hover:bg-white/8 text-white/48 hover:text-white/68 transition-colors duration-200 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-overlay/4 hover:bg-overlay/8 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
                         >
                           Download
                         </button>
@@ -779,7 +779,7 @@ export function SectionFormatting({ settings }: Props) {
                             e.stopPropagation();
                             handleDeleteFormatterModel(tier);
                           }}
-                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-red-400/30 bg-red-500/8 text-red-400/70 hover:border-red-400/40 hover:bg-red-500/14 hover:text-red-400/90 transition-colors duration-200 cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-accent-red/30 bg-accent-red/8 text-accent-red/70 hover:border-accent-red/40 hover:bg-accent-red/14 hover:text-accent-red/90 transition-colors duration-200 cursor-pointer"
                         >
                           Remove
                         </button>
@@ -790,7 +790,7 @@ export function SectionFormatting({ settings }: Props) {
                   {isDownloading && (
                     <div className="px-4 pb-3">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[12px] text-white/30 tabular-nums">
+                        <span className="text-[12px] text-overlay/30 tabular-nums">
                           {Math.round(dl.fraction * 100)}%
                         </span>
                         <button
@@ -798,14 +798,14 @@ export function SectionFormatting({ settings }: Props) {
                             e.stopPropagation();
                             handleCancelFormatterDownload();
                           }}
-                          className="text-[12px] font-medium text-white/28 hover:text-white/50 transition-colors cursor-pointer"
+                          className="text-[12px] font-medium text-overlay/28 hover:text-overlay/50 transition-colors cursor-pointer"
                         >
                           Cancel
                         </button>
                       </div>
-                      <div className="h-1 rounded-full bg-white/8 overflow-hidden">
+                      <div className="h-1 rounded-full bg-overlay/8 overflow-hidden">
                         <motion.div
-                          className="h-full rounded-full bg-blue-400/40"
+                          className="h-full rounded-full bg-accent-blue/40"
                           initial={{ width: 0 }}
                           animate={{
                             width: `${Math.round(dl.fraction * 100)}%`,
@@ -837,7 +837,7 @@ export function SectionFormatting({ settings }: Props) {
 
       {/* Modes accordion */}
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Formats
         </h2>
         <div className="flex flex-col gap-2">
@@ -854,8 +854,8 @@ export function SectionFormatting({ settings }: Props) {
                 key={mode.id}
                 className={`rounded-xl border transition-colors duration-200 ${
                   isExpanded
-                    ? "border-blue-400/25 bg-white/7"
-                    : "border-white/11 bg-white/4 overflow-hidden"
+                    ? "border-accent-blue/25 bg-overlay/7"
+                    : "border-overlay/11 bg-overlay/4 overflow-hidden"
                 }`}
               >
                 {/* Collapsed row */}
@@ -866,7 +866,7 @@ export function SectionFormatting({ settings }: Props) {
                     className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer"
                   >
                     <div
-                      className={`shrink-0 ${isExpanded || enabled ? "text-white/60" : "text-white/30"}`}
+                      className={`shrink-0 ${isExpanded || enabled ? "text-overlay/60" : "text-overlay/30"}`}
                     >
                       {MODE_ICONS[mode.id]}
                     </div>
@@ -875,19 +875,19 @@ export function SectionFormatting({ settings }: Props) {
                         <span
                           className={`text-[16px] font-semibold ${
                             isExpanded || enabled
-                              ? "text-white/85"
-                              : "text-white/55"
+                              ? "text-overlay/85"
+                              : "text-overlay/55"
                           }`}
                         >
                           {mode.label}
                         </span>
                         {isLightweight && enabled && (
-                          <span className="rounded-md border border-white/12 bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                          <span className="rounded-md border border-overlay/12 bg-overlay/5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-overlay/40">
                             Light
                           </span>
                         )}
                       </div>
-                      <span className="text-[13px] text-white/38">
+                      <span className="text-[13px] text-overlay/38">
                         {MODE_DESCRIPTIONS[mode.id]}
                       </span>
                     </div>
@@ -900,7 +900,7 @@ export function SectionFormatting({ settings }: Props) {
                       strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className={`shrink-0 text-white/30 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                      className={`shrink-0 text-overlay/30 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
                     >
                       <path d="m6 9 6 6 6-6" />
                     </svg>
@@ -927,7 +927,7 @@ export function SectionFormatting({ settings }: Props) {
                       exit={{ height: 0, opacity: 0, overflow: "hidden" }}
                       transition={{ duration: 0.2, overflow: { delay: 0.2 } }}
                     >
-                      <div className="border-t border-white/8 px-4 pt-3 pb-4">
+                      <div className="border-t border-overlay/8 px-4 pt-3 pb-4">
                         {mode.id === "email" && (
                           <EmailSettings
                             formatting={formatting}
@@ -1021,7 +1021,7 @@ function EmailSettings({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden">
+      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden">
         <SwitchRow
           label="Add my name to email sign-off"
           description="Uses your stored name when the email needs a sign-off and you did not dictate one clearly."
@@ -1032,7 +1032,7 @@ function EmailSettings({
       </div>
 
       <div>
-        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+        <span className="mb-2 block text-[13px] text-overlay/44 font-sans">
           Greeting style
         </span>
         <DropdownPicker
@@ -1056,7 +1056,7 @@ function EmailSettings({
                 onChange={(e) => onCustomGreetingChange(e.target.value)}
                 onBlur={() => void onCustomGreetingCommit()}
                 placeholder="e.g. Dear"
-                className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+                className="mt-3 w-full rounded-lg border border-overlay/12 bg-overlay/5 px-3 py-2.5 text-[15px] font-medium text-overlay/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-overlay/24 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12 focus-visible:ring-offset-0"
               />
             </motion.div>
           )}
@@ -1064,7 +1064,7 @@ function EmailSettings({
       </div>
 
       <div>
-        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+        <span className="mb-2 block text-[13px] text-overlay/44 font-sans">
           Closing style
         </span>
         <DropdownPicker
@@ -1088,7 +1088,7 @@ function EmailSettings({
                 onChange={(e) => onCustomClosingChange(e.target.value)}
                 onBlur={() => void onCustomClosingCommit()}
                 placeholder="e.g. Cheers"
-                className="mt-3 w-full rounded-lg border border-white/12 bg-white/5 px-3 py-2.5 text-[15px] font-medium text-white/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-white/24 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12 focus-visible:ring-offset-0"
+                className="mt-3 w-full rounded-lg border border-overlay/12 bg-overlay/5 px-3 py-2.5 text-[15px] font-medium text-overlay/78 outline-none transition-[border-color,background-color] duration-200 placeholder:text-overlay/24 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12 focus-visible:ring-offset-0"
               />
             </motion.div>
           )}
@@ -1117,7 +1117,7 @@ function ImessageSettings({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+        <span className="mb-2 block text-[13px] text-overlay/44 font-sans">
           Tone
         </span>
         <TileGroup
@@ -1129,7 +1129,7 @@ function ImessageSettings({
         />
       </div>
 
-      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden divide-y divide-white/8">
+      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden divide-y divide-overlay/8">
         <SwitchRow
           label="Light formatting only"
           description="Skips the LLM rewrite. Tidies spacing only; tone controls capitalization."
@@ -1175,7 +1175,7 @@ function SlackSettings({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+        <span className="mb-2 block text-[13px] text-overlay/44 font-sans">
           Tone
         </span>
         <TileGroup
@@ -1187,7 +1187,7 @@ function SlackSettings({
         />
       </div>
 
-      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden divide-y divide-white/8">
+      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden divide-y divide-overlay/8">
         <SwitchRow
           label="Light formatting only"
           description="Skips the LLM rewrite. Tidies spacing; tone controls capitalization."
@@ -1199,7 +1199,7 @@ function SlackSettings({
           locked={formatting.slack.lightweight}
           hint={LIGHT_AI_LOCKED_HINT}
         >
-          <div className="divide-y divide-white/8">
+          <div className="divide-y divide-overlay/8">
             <SwitchRow
               label="Use Slack markdown"
               description="Adds *bold*, _italic_, `code` and bullet lists when helpful."
@@ -1240,7 +1240,7 @@ function DocumentSettings({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <span className="mb-2 block text-[13px] text-white/44 font-sans">
+        <span className="mb-2 block text-[13px] text-overlay/44 font-sans">
           Tone
         </span>
         <TileGroup
@@ -1252,7 +1252,7 @@ function DocumentSettings({
         />
       </div>
 
-      <div className="rounded-xl border border-white/8 bg-white/3 overflow-hidden divide-y divide-white/8">
+      <div className="rounded-xl border border-overlay/8 bg-overlay/3 overflow-hidden divide-y divide-overlay/8">
         <SwitchRow
           label="Light formatting only"
           description="Skips the LLM rewrite. Tidies spacing; tone controls capitalization."
@@ -1267,7 +1267,7 @@ function DocumentSettings({
         hint={LIGHT_AI_LOCKED_HINT}
       >
         <div>
-          <span className="mb-2 block text-[13px] text-white/44 font-sans">
+          <span className="mb-2 block text-[13px] text-overlay/44 font-sans">
             Structure
           </span>
           <TileGroup
@@ -1300,7 +1300,7 @@ function DropdownChevron({ open }: { open: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      className={`shrink-0 text-white/45 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+      className={`shrink-0 text-overlay/45 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
     >
       <path d="m6 9 6 6 6-6" />
     </svg>
@@ -1351,14 +1351,14 @@ function DropdownPicker<T extends string>({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ariaLabel}
-        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-white/11 bg-white/4 px-4 py-2.5 text-left transition-colors duration-200 hover:border-white/16 hover:bg-white/6"
+        className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-overlay/11 bg-overlay/4 px-4 py-2.5 text-left transition-colors duration-200 hover:border-overlay/16 hover:bg-overlay/6"
       >
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="font-sans text-[14px] font-medium text-white/92">
+          <span className="font-sans text-[14px] font-medium text-overlay/92">
             {selected.label}
           </span>
           {selected.sublabel && (
-            <span className="mt-0.5 text-[12px] text-white/55">
+            <span className="mt-0.5 text-[12px] text-overlay/55">
               {selected.sublabel}
             </span>
           )}
@@ -1373,7 +1373,7 @@ function DropdownPicker<T extends string>({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-white/12 bg-[#141416]/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/8 backdrop-blur-md"
+            className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-overlay/12 bg-surface-elevated/98 shadow-[0_16px_48px_rgba(0,0,0,0.55)] ring-1 ring-overlay/8 backdrop-blur-md"
             role="listbox"
             aria-label={ariaLabel}
           >
@@ -1393,16 +1393,16 @@ function DropdownPicker<T extends string>({
                       onClick={() => pick(opt.value)}
                       className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-200 ${
                         isActive
-                          ? "border-white/26 bg-white/6"
-                          : "border-white/11 bg-transparent hover:border-white/16 hover:bg-white/6"
+                          ? "border-overlay/26 bg-overlay/6"
+                          : "border-overlay/11 bg-transparent hover:border-overlay/16 hover:bg-overlay/6"
                       }`}
                     >
                       <div
                         className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors duration-200"
                         style={{
                           borderColor: isActive
-                            ? "rgba(255,255,255,0.38)"
-                            : "rgba(255,255,255,0.18)",
+                            ? "var(--overlay-38)"
+                            : "var(--overlay-18)",
                         }}
                       >
                         {isActive ? (
@@ -1414,7 +1414,7 @@ function DropdownPicker<T extends string>({
                               stiffness: 500,
                               damping: 25,
                             }}
-                            className="h-2 w-2 rounded-full bg-white/60"
+                            className="h-2 w-2 rounded-full bg-overlay/60"
                           />
                         ) : null}
                       </div>
@@ -1422,8 +1422,8 @@ function DropdownPicker<T extends string>({
                         <span
                           className={`font-sans text-[14px] leading-snug transition-colors duration-200 ${
                             isActive
-                              ? "text-white/92 font-medium"
-                              : "text-white/72"
+                              ? "text-overlay/92 font-medium"
+                              : "text-overlay/72"
                           }`}
                         >
                           {opt.label}
@@ -1431,7 +1431,7 @@ function DropdownPicker<T extends string>({
                         {opt.sublabel && (
                           <span
                             className={`mt-0.5 text-[12px] transition-colors duration-200 ${
-                              isActive ? "text-white/55" : "text-white/40"
+                              isActive ? "text-overlay/55" : "text-overlay/40"
                             }`}
                           >
                             {opt.sublabel}
@@ -1486,24 +1486,24 @@ function TileGroup<T extends string>({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(opt.value)}
-            className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden hover:border-white/20 hover:bg-white/6 ${
+            className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden hover:border-overlay/20 hover:bg-overlay/6 ${
               selected
-                ? "border-blue-400/60 bg-white/10 ring-1 ring-blue-400/40 shadow-lg shadow-blue-500/10"
-                : "border-white/11 bg-white/4"
+                ? "border-accent-blue/60 bg-overlay/10 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
+                : "border-overlay/11 bg-overlay/4"
             }`}
           >
             <div className="p-5 pb-2">
               <span
                 className={`block text-[26px] tracking-tight ${
                   opt.label === "Formal." ? "font-serif" : "font-sans"
-                } ${selected ? "text-white" : "text-white/80"}`}
+                } ${selected ? "text-white" : "text-overlay/80"}`}
               >
                 {opt.label}
               </span>
               {opt.sublabel && (
                 <span
                   className={`mt-1 block text-[13px] font-medium ${
-                    selected ? "text-white/60" : "text-white/40"
+                    selected ? "text-overlay/60" : "text-overlay/40"
                   }`}
                 >
                   {opt.sublabel}
@@ -1516,8 +1516,8 @@ function TileGroup<T extends string>({
                 <div
                   className={`rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed whitespace-pre-wrap relative ${
                     selected
-                      ? "bg-blue-500/20 text-blue-50"
-                      : "bg-white/5 text-white/70"
+                      ? "bg-accent-blue/20 text-blue-50"
+                      : "bg-overlay/5 text-overlay/70"
                   }`}
                 >
                   {opt.preview}

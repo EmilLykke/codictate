@@ -55,7 +55,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-[13px] font-semibold tracking-widest text-white/40 uppercase">
+          <h2 className="text-[13px] font-semibold tracking-widest text-overlay/40 uppercase">
             History
           </h2>
           <Switch
@@ -71,7 +71,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
             <button
               type="button"
               onClick={onOpenHistorySettings}
-              className="p-1.5 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-1.5 rounded-md text-overlay/40 hover:text-overlay/70 hover:bg-overlay/10 transition-colors cursor-pointer"
               aria-label="History settings"
             >
               <svg
@@ -92,7 +92,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
           <button
             type="button"
             onClick={() => openHistoryFolder()}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-white/15 text-[13px] text-white/60 hover:text-white/80 hover:border-white/25 transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-overlay/15 text-[13px] text-overlay/60 hover:text-overlay/80 hover:border-overlay/25 transition-colors cursor-pointer"
           >
             <svg
               width="14"
@@ -114,7 +114,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
       <div className="mb-4">
         <div className="relative">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-overlay/40"
             width="15"
             height="15"
             viewBox="0 0 24 24"
@@ -132,18 +132,18 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search transcripts..."
-            className="w-full bg-white/8 border border-white/12 rounded-lg pl-9 pr-3 py-2.5 text-[15px] text-white/80 placeholder:text-white/35 outline-none focus:border-white/25 transition-colors"
+            className="w-full bg-overlay/8 border border-overlay/12 rounded-lg pl-9 pr-3 py-2.5 text-[15px] text-overlay/80 placeholder:text-overlay/35 outline-none focus:border-overlay/25 transition-colors"
           />
         </div>
       </div>
 
       {loading && entries.length === 0 ? (
-        <div className="text-center py-16 text-[14px] text-white/30">
+        <div className="text-center py-16 text-[14px] text-overlay/30">
           Loading...
         </div>
       ) : entries.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-[14px] text-white/30">
+          <p className="text-[14px] text-overlay/30">
             {search
               ? "No entries match your search."
               : settings.history.enabled
@@ -152,7 +152,7 @@ export function HistorySection({ settings, onOpenHistorySettings }: Props) {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl bg-white/5 border border-white/10 divide-y divide-white/8">
+        <div className="rounded-xl bg-overlay/5 border border-overlay/10 divide-y divide-overlay/8">
           {entries.map((entry) => (
             <HistoryEntryCard
               key={entry.id}

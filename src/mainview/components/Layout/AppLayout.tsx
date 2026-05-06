@@ -151,7 +151,7 @@ export function AppLayout({
             <button
               type="button"
               onClick={onWordmarkSecretTap}
-              className="cursor-pointer rounded-lg outline-none transition-opacity duration-200 hover:opacity-95 focus-visible:ring-2 focus-visible:ring-white/20"
+              className="cursor-pointer rounded-lg outline-none transition-opacity duration-200 hover:opacity-95 focus-visible:ring-2 focus-visible:ring-overlay/20"
               aria-label="Codictate"
             >
               <WordmarkCodictate
@@ -170,11 +170,13 @@ export function AppLayout({
                   onClick={() => onTabChange(c.id)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium transition-colors duration-200 cursor-pointer ${
                     isActive
-                      ? "bg-white/10 text-white/90"
-                      : "text-white/50 hover:bg-white/5 hover:text-white/70"
+                      ? "bg-overlay/10 text-overlay/90"
+                      : "text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70"
                   }`}
                 >
-                  <div className={isActive ? "text-white/80" : "text-white/40"}>
+                  <div
+                    className={isActive ? "text-overlay/80" : "text-overlay/40"}
+                  >
                     {c.icon}
                   </div>
                   {c.label}
@@ -184,12 +186,12 @@ export function AppLayout({
           </nav>
 
           <div className="mt-auto flex flex-col gap-1 pt-4">
-            <div className="mb-2 h-px bg-white/10 mx-3" />
+            <div className="mb-2 h-px bg-overlay/10 mx-3" />
             <button
               onClick={onOpenSettings}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70 transition-colors duration-200 cursor-pointer"
             >
-              <div className="text-white/40">
+              <div className="text-overlay/40">
                 <svg
                   width="18"
                   height="18"
@@ -208,9 +210,9 @@ export function AppLayout({
             </button>
             <button
               onClick={() => openExternalUrl("https://codictate.app/support")}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-white/50 hover:bg-white/5 hover:text-white/70 transition-colors duration-200 cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[16px] font-medium text-overlay/50 hover:bg-overlay/5 hover:text-overlay/70 transition-colors duration-200 cursor-pointer"
             >
-              <div className="text-white/40">
+              <div className="text-overlay/40">
                 <svg
                   width="18"
                   height="18"

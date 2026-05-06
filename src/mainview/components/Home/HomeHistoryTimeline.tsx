@@ -16,7 +16,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="p-1 rounded text-white/20 hover:text-white/60 transition-colors cursor-pointer shrink-0 opacity-0 group-hover:opacity-100"
+      className="p-1 rounded text-overlay/20 hover:text-overlay/60 transition-colors cursor-pointer shrink-0 opacity-0 group-hover:opacity-100"
       aria-label="Copy transcript"
     >
       {copied ? (
@@ -147,12 +147,12 @@ export function HomeHistoryTimeline({
   const groups = groupByDate(entries);
 
   if (loading && entries.length === 0) {
-    return <div className="text-[14px] text-white/25 py-8">Loading...</div>;
+    return <div className="text-[14px] text-overlay/25 py-8">Loading...</div>;
   }
 
   if (entries.length === 0) {
     return (
-      <div className="text-[14px] text-white/25 py-8">
+      <div className="text-[14px] text-overlay/25 py-8">
         {historyEnabled ? (
           "No dictation history yet. Start dictating to build your timeline."
         ) : (
@@ -161,7 +161,7 @@ export function HomeHistoryTimeline({
             <button
               type="button"
               onClick={onNavigateToHistory}
-              className="text-blue-400/60 hover:text-blue-400 cursor-pointer"
+              className="text-accent-blue/60 hover:text-accent-blue cursor-pointer"
             >
               Enable history
             </button>{" "}
@@ -176,10 +176,10 @@ export function HomeHistoryTimeline({
     <div className="flex flex-col gap-5 pb-6">
       {groups.map((group) => (
         <div key={group.label}>
-          <h3 className="text-[12px] font-semibold tracking-[0.12em] uppercase text-white/35 mb-2.5 sticky top-0 bg-codictate-page py-2 z-10">
+          <h3 className="text-[12px] font-semibold tracking-[0.12em] uppercase text-overlay/35 mb-2.5 sticky top-0 bg-codictate-page py-2 z-10">
             {group.label}
           </h3>
-          <div className="rounded-xl bg-white/5 border border-white/10 divide-y divide-white/8">
+          <div className="rounded-xl bg-overlay/5 border border-overlay/10 divide-y divide-overlay/8">
             {group.entries.map((entry) => {
               const needsTruncation = entry.transcript.length > TRUNCATE_LENGTH;
               const isExpanded = expandedIds.has(entry.id);
@@ -193,7 +193,7 @@ export function HomeHistoryTimeline({
                   key={entry.id}
                   className="group flex items-baseline gap-6 px-5 py-3.5"
                 >
-                  <span className="text-[14px] text-white/35 tabular-nums shrink-0 min-w-[70px]">
+                  <span className="text-[14px] text-overlay/35 tabular-nums shrink-0 min-w-[70px]">
                     {timeFormatter.format(entry.timestamp)}
                   </span>
                   <div className="flex-1 relative">
@@ -209,7 +209,7 @@ export function HomeHistoryTimeline({
                           1500,
                         );
                       }}
-                      className="text-[15px] text-white/70 leading-relaxed cursor-pointer hover:text-white/80 transition-colors"
+                      className="text-[15px] text-overlay/70 leading-relaxed cursor-pointer hover:text-overlay/80 transition-colors"
                     >
                       {displayText}
                       {needsTruncation && (
@@ -219,14 +219,14 @@ export function HomeHistoryTimeline({
                             e.stopPropagation();
                             toggleExpand(entry.id);
                           }}
-                          className="ml-1.5 text-blue-400/60 hover:text-blue-400 text-[13px] cursor-pointer"
+                          className="ml-1.5 text-accent-blue/60 hover:text-accent-blue text-[13px] cursor-pointer"
                         >
                           {isExpanded ? "less" : "more"}
                         </button>
                       )}
                     </span>
                     {copiedId === entry.id && (
-                      <span className="absolute -top-4 left-0 text-[11px] text-green-400/80 font-medium">
+                      <span className="absolute -top-4 left-0 text-[11px] text-accent-green/80 font-medium">
                         Copied!
                       </span>
                     )}

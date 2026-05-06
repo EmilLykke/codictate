@@ -18,12 +18,12 @@ const variantClass: Record<
   ready: {
     row: "flex items-end gap-[2px] h-4",
     bar: "block w-[3px] rounded-full",
-    transcribeBar: "block w-[3px] rounded-full bg-amber-400/60",
+    transcribeBar: "block w-[3px] rounded-full bg-accent-amber/60",
   },
   compact: {
     row: "flex items-end gap-[1.5px] h-3",
     bar: "block w-[2.5px] rounded-full",
-    transcribeBar: "block w-[2.5px] rounded-full bg-amber-400/65",
+    transcribeBar: "block w-[2.5px] rounded-full bg-accent-amber/65",
   },
   /** Desktop HUD — black circle; white bars only; motion encodes state. */
   indicator: {
@@ -129,10 +129,10 @@ export function VoiceActivityCore({
   }
 
   const barColor = isStreaming
-    ? (opacity: string) => `rgb(96 165 250 / ${opacity})`
+    ? (opacity: string) => `rgb(var(--accent-blue-rgb) / ${opacity})`
     : isRecording
-      ? (opacity: string) => `rgb(248 113 113 / ${opacity})`
-      : (opacity: string) => `rgb(255 255 255 / ${opacity})`;
+      ? (opacity: string) => `rgb(var(--accent-red-rgb) / ${opacity})`
+      : (opacity: string) => `rgb(var(--overlay-rgb) / ${opacity})`;
 
   return (
     <motion.div className={vc.row} animate={isActive ? "active" : "idle"}>

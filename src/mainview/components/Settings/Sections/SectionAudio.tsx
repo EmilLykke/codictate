@@ -129,7 +129,7 @@ export function SectionAudio({ settings }: Props) {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Input Device
         </h2>
         <DevicePicker
@@ -140,18 +140,18 @@ export function SectionAudio({ settings }: Props) {
       </div>
 
       <div className="mb-8">
-        <h2 className="text-[14px] text-white/48 font-medium uppercase tracking-wider mb-3">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Audio Ducking
         </h2>
-        <div className="rounded-xl border border-white/11 bg-white/4 overflow-hidden divide-y divide-white/8">
+        <div className="rounded-xl border border-overlay/11 bg-overlay/4 overflow-hidden divide-y divide-overlay/8">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[17px] font-medium ${audioDucking.includeBuiltInSpeakers ? "text-white/78" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${audioDucking.includeBuiltInSpeakers ? "text-overlay/78" : "text-overlay/58"}`}
               >
                 Built-in speakers
               </span>
-              <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
+              <span className="mt-0.5 block text-[13px] text-overlay/40 leading-snug">
                 Mute Mac speaker output while dictating.
               </span>
             </div>
@@ -166,11 +166,11 @@ export function SectionAudio({ settings }: Props) {
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[17px] font-medium ${audioDucking.includeHeadphones ? "text-white/78" : "text-white/58"}`}
+                className={`block text-[17px] font-medium ${audioDucking.includeHeadphones ? "text-overlay/78" : "text-overlay/58"}`}
               >
                 Headphones & Bluetooth
               </span>
-              <span className="mt-0.5 block text-[13px] text-white/40 leading-snug">
+              <span className="mt-0.5 block text-[13px] text-overlay/40 leading-snug">
                 Also lower headphone volume while dictating.
               </span>
             </div>
@@ -189,13 +189,13 @@ export function SectionAudio({ settings }: Props) {
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="border-t border-white/8 px-4 py-3.5"
+                className="border-t border-overlay/8 px-4 py-3.5"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[13px] text-white/44 font-sans">
+                  <span className="text-[13px] text-overlay/44 font-sans">
                     Mute amount
                   </span>
-                  <span className="text-[13px] text-white/55 font-medium tabular-nums">
+                  <span className="text-[13px] text-overlay/55 font-medium tabular-nums">
                     {audioDucking.level === 0
                       ? "Fully mute"
                       : audioDucking.level === 100
@@ -210,12 +210,14 @@ export function SectionAudio({ settings }: Props) {
                   step={5}
                   value={audioDucking.level}
                   onChange={handleAudioDuckingLevelChange}
-                  className="w-full accent-blue-400 cursor-pointer"
+                  className="w-full accent-accent-blue cursor-pointer"
                   aria-label="Audio duck amount"
                 />
                 <div className="flex justify-between mt-1">
-                  <span className="text-[14px] text-white/28">Fully mute</span>
-                  <span className="text-[14px] text-white/28">No change</span>
+                  <span className="text-[14px] text-overlay/28">
+                    Fully mute
+                  </span>
+                  <span className="text-[14px] text-overlay/28">No change</span>
                 </div>
               </motion.div>
             )}

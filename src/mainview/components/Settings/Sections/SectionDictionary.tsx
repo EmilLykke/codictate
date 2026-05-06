@@ -305,26 +305,28 @@ export function SectionDictionary({ settings }: Props) {
   return (
     <>
       <div className="mb-6">
-        <h2 className="text-[28px] tracking-tight text-white/90">Dictionary</h2>
-        <p className="mt-3 text-[14px] text-white/44 leading-relaxed font-sans font-normal">
+        <h2 className="text-[28px] tracking-tight text-overlay/90">
+          Dictionary
+        </h2>
+        <p className="mt-3 text-[14px] text-overlay/44 leading-relaxed font-sans font-normal">
           Teach Codictate how to spell your terms and abbreviations.
         </p>
       </div>
 
       {/* Auto-learn toggle */}
-      <div className="mb-6 overflow-hidden rounded-xl border border-white/12 bg-white/5">
+      <div className="mb-6 overflow-hidden rounded-xl border border-overlay/12 bg-overlay/5">
         <div className="flex items-center gap-4 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <span className="block text-[14px] font-medium text-white/85">
+            <span className="block text-[14px] font-medium text-overlay/85">
               Auto-learn corrections
             </span>
-            <span className="mt-1 block text-[15px] leading-snug text-white/44">
+            <span className="mt-1 block text-[15px] leading-snug text-overlay/44">
               {autoLearnComingSoon
                 ? "Learns replacements from post-dictation edits once Windows text observation lands."
                 : "Learns replacements from corrections you make after dictating."}
             </span>
             {autoLearnComingSoon && (
-              <span className="mt-2 inline-flex rounded-full border border-amber-400/28 bg-amber-500/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-amber-100/75">
+              <span className="mt-2 inline-flex rounded-full border border-accent-amber/28 bg-accent-amber/10 px-2 py-0.5 text-[13px] font-medium uppercase tracking-wide text-accent-amber/75">
                 Coming soon on{" "}
                 {platformDisplayName(settings.capabilities.platform)}
               </span>
@@ -342,14 +344,14 @@ export function SectionDictionary({ settings }: Props) {
 
       {/* Header row: label + Add word button */}
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[13px] uppercase tracking-[0.14em] text-white/35">
+        <span className="text-[13px] uppercase tracking-[0.14em] text-overlay/35">
           Words
         </span>
         {!showAddForm && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[14px] font-medium text-white/50 transition-colors duration-200 hover:border-white/20 hover:bg-white/8 hover:text-white/75 cursor-pointer"
+            className="rounded-lg border border-overlay/12 bg-overlay/5 px-3 py-1.5 text-[14px] font-medium text-overlay/50 transition-colors duration-200 hover:border-overlay/20 hover:bg-overlay/8 hover:text-overlay/75 cursor-pointer"
           >
             + Add word
           </button>
@@ -368,7 +370,7 @@ export function SectionDictionary({ settings }: Props) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-overlay/30 pointer-events-none"
           >
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
@@ -378,7 +380,7 @@ export function SectionDictionary({ settings }: Props) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search dictionary..."
-            className="w-full rounded-xl border border-white/12 bg-white/5 pl-10 pr-4 py-2.5 text-[14px] text-white/80 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+            className="w-full rounded-xl border border-overlay/12 bg-overlay/5 pl-10 pr-4 py-2.5 text-[14px] text-overlay/80 placeholder-overlay/28 outline-none transition-[border-color,background-color] duration-200 hover:border-overlay/18 hover:bg-overlay/7 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12"
           />
         </div>
       )}
@@ -392,10 +394,10 @@ export function SectionDictionary({ settings }: Props) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden rounded-xl border border-white/14 bg-white/5"
+            className="overflow-hidden rounded-xl border border-overlay/14 bg-overlay/5"
           >
             {/* Type selector */}
-            <div className="flex gap-2 border-b border-white/10 px-4 pt-4 pb-3">
+            <div className="flex gap-2 border-b border-overlay/10 px-4 pt-4 pb-3">
               <button
                 type="button"
                 onClick={() => {
@@ -405,8 +407,8 @@ export function SectionDictionary({ settings }: Props) {
                 }}
                 className={`rounded-lg border px-3 py-1.5 text-[15px] transition-colors duration-200 ${
                   entryKind === "fuzzy"
-                    ? "border-white/24 bg-white/12 text-white/88"
-                    : "border-white/10 bg-transparent text-white/42 hover:border-white/16 hover:text-white/65"
+                    ? "border-overlay/24 bg-overlay/12 text-overlay/88"
+                    : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
                 }`}
               >
                 Fuzzy term
@@ -420,8 +422,8 @@ export function SectionDictionary({ settings }: Props) {
                 }}
                 className={`rounded-lg border px-3 py-1.5 text-[15px] transition-colors duration-200 ${
                   entryKind === "replacement"
-                    ? "border-white/24 bg-white/12 text-white/88"
-                    : "border-white/10 bg-transparent text-white/42 hover:border-white/16 hover:text-white/65"
+                    ? "border-overlay/24 bg-overlay/12 text-overlay/88"
+                    : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
                 }`}
               >
                 Exact replacement
@@ -437,7 +439,7 @@ export function SectionDictionary({ settings }: Props) {
                   onChange={(e) => setReplacementFromValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Replace this, e.g. BTW"
-                  className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                  className="min-w-0 flex-1 rounded-xl border border-overlay/12 bg-overlay/5 px-4 py-3 text-[14px] text-overlay/90 placeholder-overlay/28 outline-none transition-[border-color,background-color] duration-200 hover:border-overlay/18 hover:bg-overlay/7 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12"
                 />
               )}
               <input
@@ -451,19 +453,19 @@ export function SectionDictionary({ settings }: Props) {
                     ? "With this, e.g. by the way"
                     : "Canonical term, e.g. Electrobun"
                 }
-                className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-4 py-3 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 hover:bg-white/7 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                className="min-w-0 flex-1 rounded-xl border border-overlay/12 bg-overlay/5 px-4 py-3 text-[14px] text-overlay/90 placeholder-overlay/28 outline-none transition-[border-color,background-color] duration-200 hover:border-overlay/18 hover:bg-overlay/7 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12"
               />
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-2 border-t border-white/10 px-4 py-3">
+            <div className="flex justify-end gap-2 border-t border-overlay/10 px-4 py-3">
               <button
                 type="button"
                 onClick={() => {
                   resetForm();
                   setShowAddForm(false);
                 }}
-                className="rounded-xl border border-white/10 bg-transparent px-4 py-2 text-[16px] text-white/48 transition-colors duration-200 hover:border-white/18 hover:text-white/72 cursor-pointer"
+                className="rounded-xl border border-overlay/10 bg-transparent px-4 py-2 text-[16px] text-overlay/48 transition-colors duration-200 hover:border-overlay/18 hover:text-overlay/72 cursor-pointer"
               >
                 Cancel
               </button>
@@ -471,7 +473,7 @@ export function SectionDictionary({ settings }: Props) {
                 type="button"
                 onClick={handleAdd}
                 disabled={!canAdd}
-                className="rounded-xl border border-white/14 bg-white/7 px-5 py-2 text-[16px] font-medium text-white/75 transition-colors duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                className="rounded-xl border border-overlay/14 bg-overlay/7 px-5 py-2 text-[16px] font-medium text-overlay/75 transition-colors duration-200 hover:border-overlay/20 hover:bg-overlay/10 hover:text-overlay/90 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
               >
                 Add
               </button>
@@ -481,23 +483,23 @@ export function SectionDictionary({ settings }: Props) {
       </AnimatePresence>
 
       {/* Entries list */}
-      <div className="overflow-hidden rounded-xl border border-white/12 bg-white/5">
+      <div className="overflow-hidden rounded-xl border border-overlay/12 bg-overlay/5">
         {dictionary.entries.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[13px] text-white/34">
+          <div className="px-5 py-8 text-center text-[13px] text-overlay/34">
             No words added yet.
           </div>
         ) : filteredEntries.length === 0 ? (
-          <div className="px-5 py-8 text-center text-[13px] text-white/34">
+          <div className="px-5 py-8 text-center text-[13px] text-overlay/34">
             No matches for "{searchQuery.trim()}"
           </div>
         ) : (
           <>
             {hasAutoEntries && !q && (
-              <div className="flex items-center gap-2 border-b border-white/8 px-5 py-3">
-                <span className="text-[13px] text-amber-300/60">
+              <div className="flex items-center gap-2 border-b border-overlay/8 px-5 py-3">
+                <span className="text-[13px] text-accent-amber/60">
                   <SparkleIcon />
                 </span>
-                <span className="text-[14px] text-white/34">
+                <span className="text-[14px] text-overlay/34">
                   learned automatically from your corrections
                 </span>
               </div>
@@ -511,7 +513,7 @@ export function SectionDictionary({ settings }: Props) {
                   <li
                     key={key}
                     className={`px-5 py-4 ${
-                      i > 0 || hasAutoEntries ? "border-t border-white/8" : ""
+                      i > 0 || hasAutoEntries ? "border-t border-overlay/8" : ""
                     }`}
                   >
                     {isEditing ? (
@@ -522,8 +524,8 @@ export function SectionDictionary({ settings }: Props) {
                             onClick={() => setEditKind("fuzzy")}
                             className={`rounded-lg border px-2.5 py-1 text-[14px] transition-colors duration-200 ${
                               editKind === "fuzzy"
-                                ? "border-white/24 bg-white/12 text-white/88"
-                                : "border-white/10 bg-transparent text-white/42 hover:border-white/16 hover:text-white/65"
+                                ? "border-overlay/24 bg-overlay/12 text-overlay/88"
+                                : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
                             }`}
                           >
                             Fuzzy
@@ -533,8 +535,8 @@ export function SectionDictionary({ settings }: Props) {
                             onClick={() => setEditKind("replacement")}
                             className={`rounded-lg border px-2.5 py-1 text-[14px] transition-colors duration-200 ${
                               editKind === "replacement"
-                                ? "border-white/24 bg-white/12 text-white/88"
-                                : "border-white/10 bg-transparent text-white/42 hover:border-white/16 hover:text-white/65"
+                                ? "border-overlay/24 bg-overlay/12 text-overlay/88"
+                                : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
                             }`}
                           >
                             Replacement
@@ -548,7 +550,7 @@ export function SectionDictionary({ settings }: Props) {
                               onChange={(e) => setEditFrom(e.target.value)}
                               onKeyDown={(e) => handleEditKeyDown(e, entry)}
                               placeholder="From"
-                              className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                              className="min-w-0 flex-1 rounded-xl border border-overlay/12 bg-overlay/5 px-3 py-2.5 text-[14px] text-overlay/90 placeholder-overlay/28 outline-none transition-[border-color,background-color] duration-200 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12"
                             />
                           )}
                           <input
@@ -560,14 +562,14 @@ export function SectionDictionary({ settings }: Props) {
                             placeholder={
                               editKind === "replacement" ? "To" : "Term"
                             }
-                            className="min-w-0 flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-[14px] text-white/90 placeholder-white/28 outline-none transition-[border-color,background-color] duration-200 hover:border-white/18 focus-visible:border-white/26 focus-visible:ring-2 focus-visible:ring-white/12"
+                            className="min-w-0 flex-1 rounded-xl border border-overlay/12 bg-overlay/5 px-3 py-2.5 text-[14px] text-overlay/90 placeholder-overlay/28 outline-none transition-[border-color,background-color] duration-200 hover:border-overlay/18 focus-visible:border-overlay/26 focus-visible:ring-2 focus-visible:ring-overlay/12"
                           />
                         </div>
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
                             onClick={cancelEditing}
-                            className="rounded-xl border border-white/10 bg-transparent px-3 py-1.5 text-[15px] text-white/48 transition-colors duration-200 hover:border-white/18 hover:text-white/72 cursor-pointer"
+                            className="rounded-xl border border-overlay/10 bg-transparent px-3 py-1.5 text-[15px] text-overlay/48 transition-colors duration-200 hover:border-overlay/18 hover:text-overlay/72 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -578,7 +580,7 @@ export function SectionDictionary({ settings }: Props) {
                               !editText.trim() ||
                               (editKind === "replacement" && !editFrom.trim())
                             }
-                            className="rounded-xl border border-white/14 bg-white/7 px-4 py-1.5 text-[15px] font-medium text-white/75 transition-colors duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                            className="rounded-xl border border-overlay/14 bg-overlay/7 px-4 py-1.5 text-[15px] font-medium text-overlay/75 transition-colors duration-200 hover:border-overlay/20 hover:bg-overlay/10 hover:text-overlay/90 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
                           >
                             Save
                           </button>
@@ -592,7 +594,7 @@ export function SectionDictionary({ settings }: Props) {
                         >
                           {entry.source === "auto" && (
                             <span
-                              className="shrink-0 text-amber-300/55"
+                              className="shrink-0 text-accent-amber/55"
                               title="Added automatically from a correction"
                             >
                               <SparkleIcon />
@@ -602,7 +604,7 @@ export function SectionDictionary({ settings }: Props) {
                             entry.confidence !== undefined &&
                             entry.confidence < 3 && (
                               <span
-                                className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.1em] text-amber-300/70"
+                                className="shrink-0 rounded-full border border-accent-amber/30 bg-accent-amber/10 px-2 py-0.5 text-[11px] uppercase tracking-[0.1em] text-accent-amber/70"
                                 title={`Provisional - accepted ${entry.timesAccepted ?? 0} time${(entry.timesAccepted ?? 0) !== 1 ? "s" : ""} without revert`}
                               >
                                 provisional
@@ -613,8 +615,8 @@ export function SectionDictionary({ settings }: Props) {
                               <div
                                 className={`truncate text-[16px] font-medium ${
                                   entry.source === "auto"
-                                    ? "text-amber-100/80"
-                                    : "text-white/88"
+                                    ? "text-accent-amber/80"
+                                    : "text-overlay/88"
                                 }`}
                               >
                                 {entry.from?.toLowerCase()} {"→"} {entry.text}
@@ -623,14 +625,14 @@ export function SectionDictionary({ settings }: Props) {
                               <span
                                 className={`text-[16px] font-medium truncate ${
                                   entry.source === "auto"
-                                    ? "text-amber-100/80"
-                                    : "text-white/88"
+                                    ? "text-accent-amber/80"
+                                    : "text-overlay/88"
                                 }`}
                               >
                                 {entry.text}
                               </span>
                             )}
-                            <div className="mt-0.5 text-[12px] uppercase tracking-[0.12em] text-white/28">
+                            <div className="mt-0.5 text-[12px] uppercase tracking-[0.12em] text-overlay/28">
                               {entry.kind === "replacement"
                                 ? "exact replacement"
                                 : "fuzzy match"}
@@ -642,7 +644,7 @@ export function SectionDictionary({ settings }: Props) {
                             type="button"
                             onClick={() => startEditing(entry)}
                             aria-label={`Edit ${entry.kind === "replacement" ? `${entry.from} to ${entry.text}` : entry.text}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/40 transition-colors duration-200 hover:border-white/18 hover:bg-white/8 hover:text-white/70"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-overlay/10 bg-overlay/5 text-overlay/40 transition-colors duration-200 hover:border-overlay/18 hover:bg-overlay/8 hover:text-overlay/70"
                           >
                             <svg
                               width="13"
@@ -662,7 +664,7 @@ export function SectionDictionary({ settings }: Props) {
                             type="button"
                             onClick={() => handleRemove(entry)}
                             aria-label={`Remove ${entry.kind === "replacement" ? `${entry.from} to ${entry.text}` : entry.text}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/40 transition-colors duration-200 hover:border-white/18 hover:bg-white/8 hover:text-white/70"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-overlay/10 bg-overlay/5 text-overlay/40 transition-colors duration-200 hover:border-overlay/18 hover:bg-overlay/8 hover:text-overlay/70"
                           >
                             <svg
                               width="14"
@@ -691,12 +693,12 @@ export function SectionDictionary({ settings }: Props) {
 
       {/* Pending auto-learn candidates — shown at bottom */}
       {dictionary.candidates.length > 0 && (
-        <div className="mt-6 overflow-hidden rounded-xl border border-amber-200/12 bg-amber-200/[0.04]">
-          <div className="border-b border-amber-200/10 px-5 py-4">
-            <div className="text-[14px] font-medium text-amber-50/88">
+        <div className="mt-6 overflow-hidden rounded-xl border border-accent-amber/12 bg-accent-amber/[0.04]">
+          <div className="border-b border-accent-amber/10 px-5 py-4">
+            <div className="text-[14px] font-medium text-accent-amber/88">
               Pending auto-learn
             </div>
-            <div className="mt-1 text-[15px] leading-snug text-white/44">
+            <div className="mt-1 text-[15px] leading-snug text-overlay/44">
               These were pending before auto-learn was updated. They won't be
               applied automatically.
             </div>
@@ -706,14 +708,14 @@ export function SectionDictionary({ settings }: Props) {
               <li
                 key={`${candidate.from}=>${candidate.to}`}
                 className={`flex items-center justify-between gap-4 px-5 py-4 ${
-                  i > 0 ? "border-t border-amber-200/10" : ""
+                  i > 0 ? "border-t border-accent-amber/10" : ""
                 }`}
               >
                 <div className="min-w-0">
-                  <div className="truncate text-[16px] font-medium text-amber-50/82">
+                  <div className="truncate text-[16px] font-medium text-accent-amber/82">
                     {candidate.from.toLowerCase()} {"→"} {candidate.to}
                   </div>
-                  <div className="mt-0.5 text-[12px] uppercase tracking-[0.12em] text-white/28">
+                  <div className="mt-0.5 text-[12px] uppercase tracking-[0.12em] text-overlay/28">
                     {candidate.corrections} of 2 confirmations
                   </div>
                 </div>
@@ -721,7 +723,7 @@ export function SectionDictionary({ settings }: Props) {
                   type="button"
                   onClick={() => handleRemoveCandidate(candidate)}
                   aria-label={`Dismiss candidate ${candidate.from} to ${candidate.to}`}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/40 transition-colors duration-200 hover:border-white/18 hover:bg-white/8 hover:text-white/70"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-overlay/10 bg-overlay/5 text-overlay/40 transition-colors duration-200 hover:border-overlay/18 hover:bg-overlay/8 hover:text-overlay/70"
                 >
                   <svg
                     width="14"
