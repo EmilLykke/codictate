@@ -21,9 +21,7 @@ export function SectionHistory({ settings }: { settings: AppSettings }) {
   const update = useCallback(
     async (patch: Parameters<typeof updateHistorySettings>[0]) => {
       queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
-        old
-          ? { ...old, history: { ...old.history, ...patch } }
-          : old,
+        old ? { ...old, history: { ...old.history, ...patch } } : old,
       );
       const ok = await updateHistorySettings(patch);
       if (!ok) {

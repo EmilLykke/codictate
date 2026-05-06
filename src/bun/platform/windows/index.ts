@@ -120,9 +120,11 @@ export class WindowsPlatformProvider implements PlatformProvider {
   }
 
   findParakeetHelperBinary(): string {
-    throw new Error(
-      '[Windows] CodictateParakeetHelper (Core ML) is macOS-only.\n' +
-        'Stream mode is not available on Windows.'
-    )
+    const found = resolveWindowsHelperBinary()
+    if (!found)
+      throw new Error(
+        'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
+      )
+    return found
   }
 }

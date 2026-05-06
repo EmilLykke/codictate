@@ -24,6 +24,7 @@ import {
   type FormattingModeId,
 } from '../shared/formatting-modes'
 import { getPlatformRuntime } from './platform/runtime'
+import type { AudioDeviceDetails } from '../shared/types'
 
 export type TrayHandlers = {
   setTrayIdle: () => void
@@ -34,7 +35,8 @@ export type TrayHandlers = {
   rebuildDeviceMenu: (selectedDevice: number) => void
   updateDeviceList: (
     newDevices: Record<string, string>,
-    selectedDevice: number
+    selectedDevice: number,
+    newDeviceDetails?: Record<string, AudioDeviceDetails>
   ) => void
   setUpdateChecking: () => void
   showUpdateReady: () => void
@@ -53,6 +55,7 @@ const trayIconPath =
 export const setupTray = (
   getOrCreateWindow: (onAction?: () => void) => BrowserWindow,
   devices: Record<string, string>,
+  deviceDetails: Record<string, AudioDeviceDetails> | undefined,
   appConfig: AppConfig,
   onQuit: () => void,
   onDeviceSelected?: (device: number) => void,
@@ -81,6 +84,10 @@ export const setupTray = (
   })
 
   let currentDevices = devices
+  let currentDeviceDetails = deviceDetails
+
+  const resolveCurrentDevice = () =>
+    appConfig.resolveAudioDevice(currentDevices, currentDeviceDetails)
 
   type UpdateState = 'idle' | 'checking' | 'ready'
   let updateState: UpdateState = 'idle'
@@ -260,7 +267,7 @@ export const setupTray = (
     },
   ]
 
-  tray.setMenu(buildMenu(appConfig.resolveAudioDevice(devices)))
+  tray.setMenu(buildMenu(resolveCurrentDevice()))
 
   type TrayVisualState = 'idle' | 'recording' | 'transcribing' | 'streaming'
   let trayVisualState: TrayVisualState = 'idle'
@@ -284,21 +291,22 @@ export const setupTray = (
       (device) => {
         tray.setMenu(buildMenu(device))
         onDeviceSelected?.(device)
-      }
+      },
+      currentDeviceDetails
     )
     handleTranscriptionLanguageAction(event.data.action, appConfig, () => {
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
       onTranscriptionLanguageChanged?.()
     })
     handleModelAction(event.data.action, appConfig, () => {
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
       onModelChanged?.()
     })
     if (event.data.action === 'toggle-stream-mode') {
       void (async () => {
         const next = !appConfig.getStreamMode()
         const ok = await appConfig.setStreamMode(next)
-        tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+        tray.setMenu(buildMenu(resolveCurrentDevice()))
         if (ok) {
           onStreamModeToggled?.()
         } else if (next) {
@@ -313,17 +321,13 @@ export const setupTray = (
           const forcedBefore = appConfig.getFormattingForceModeId()
           if (forcedBefore !== null) {
             const ok = await appConfig.setFormattingForceModeId(null)
-            tray.setMenu(
-              buildMenu(appConfig.resolveAudioDevice(currentDevices))
-            )
+            tray.setMenu(buildMenu(resolveCurrentDevice()))
             if (ok) onFormattingModeChanged?.()
           } else {
             const ok = await appConfig.setFormattingEnabled(
               !appConfig.getFormattingEnabled()
             )
-            tray.setMenu(
-              buildMenu(appConfig.resolveAudioDevice(currentDevices))
-            )
+            tray.setMenu(buildMenu(resolveCurrentDevice()))
             if (ok) onFormattingModeChanged?.()
           }
           return
@@ -332,7 +336,7 @@ export const setupTray = (
           ? suffix
           : null
         const ok = await appConfig.setFormattingForceModeId(next)
-        tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+        tray.setMenu(buildMenu(resolveCurrentDevice()))
         if (ok) onFormattingModeChanged?.()
       })()
     }
@@ -348,18 +352,14 @@ export const setupTray = (
           )
           if (readiness.kind !== 'ready') {
             onOpenSettings?.()
-            tray.setMenu(
-              buildMenu(appConfig.resolveAudioDevice(currentDevices))
-            )
+            tray.setMenu(buildMenu(resolveCurrentDevice()))
             return
           }
           if (appConfig.getTranscriptionLanguageId() === 'auto') {
             const srcLang = appConfig.getTranslateDefaultLanguageId()
             if (srcLang === 'auto') {
               onOpenSettings?.()
-              tray.setMenu(
-                buildMenu(appConfig.resolveAudioDevice(currentDevices))
-              )
+              tray.setMenu(buildMenu(resolveCurrentDevice()))
               return
             }
             await appConfig.setTranslateOn(srcLang)
@@ -369,7 +369,7 @@ export const setupTray = (
         } else {
           await appConfig.setTranslateOff()
         }
-        tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+        tray.setMenu(buildMenu(resolveCurrentDevice()))
         onTranslateToggled?.()
       })()
     }
@@ -379,7 +379,7 @@ export const setupTray = (
 
   return {
     refreshTrayShortcutTitle: () => {
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
       if (trayVisualState === 'idle') tray.setTitle('')
     },
     setTrayIdle: () => {
@@ -402,34 +402,36 @@ export const setupTray = (
       tray.setMenu(buildMenu(selectedDevice)),
     updateDeviceList: (
       newDevices: Record<string, string>,
-      selectedDevice: number
+      selectedDevice: number,
+      newDeviceDetails?: Record<string, AudioDeviceDetails>
     ) => {
       currentDevices = newDevices
+      currentDeviceDetails = newDeviceDetails
       tray.setMenu(buildMenu(selectedDevice))
     },
     setUpdateChecking: () => {
       updateState = 'checking'
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
     },
     showUpdateReady: () => {
       updateState = 'ready'
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
     },
     resetUpdateState: () => {
       updateState = 'idle'
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
     },
     syncTranslateState: () => {
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
     },
     syncStreamModeState: () => {
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
     },
     syncFormattingModeState: () => {
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
     },
     syncModelState: () => {
-      tray.setMenu(buildMenu(appConfig.resolveAudioDevice(currentDevices)))
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
     },
   }
 }

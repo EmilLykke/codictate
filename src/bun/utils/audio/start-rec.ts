@@ -2,7 +2,7 @@ import { AppConfig } from '../../AppConfig/AppConfig'
 import { speech2text } from '../whisper/speech2text'
 import { duckDelayAfterStartChimeMs, playEndSound } from '../sound/play-sound'
 import { findMicRecorderBinary } from './find-mic-recorder'
-import { findDevices } from './devices'
+import { findDevices, type AudioDeviceSnapshot } from './devices'
 import { log } from '../logger'
 import { stat } from 'node:fs/promises'
 import { RECORDING_PATH } from '../../platform/runtime'
@@ -102,7 +102,7 @@ export const startRecording = async (
   onDone: () => void,
   session: RecordingSession,
   /** Live snapshot from the main process (refreshed at startup + on an interval). Avoids spawning `MicRecorder --list-devices` on every shortcut press. */
-  getDeviceMap?: () => Record<string, string>,
+  getDeviceSnapshot?: () => AudioDeviceSnapshot,
   onHistorySave?: (transcript: string) => Promise<void>
 ) => {
   if (appConfig.getStreamMode()) {
@@ -114,11 +114,16 @@ export const startRecording = async (
 
   const micPath = await findMicRecorderBinary()
 
-  let currentDevices = getDeviceMap?.() ?? {}
-  if (Object.keys(currentDevices).length === 0) {
-    currentDevices = await findDevices()
+  let currentSnapshot = getDeviceSnapshot?.() ?? { devices: {}, details: {} }
+  if (Object.keys(currentSnapshot.devices).length === 0) {
+    currentSnapshot = await findDevices()
   }
-  const resolved = appConfig.resolveAudioDevice(currentDevices)
+  const currentDevices = currentSnapshot.devices
+  const currentDeviceDetails = currentSnapshot.details
+  const resolved = appConfig.resolveAudioDevice(
+    currentDevices,
+    currentDeviceDetails
+  )
 
   const deviceExists = resolved.toString() in currentDevices
   const device = deviceExists
@@ -132,11 +137,13 @@ export const startRecording = async (
   }
 
   const deviceLabel = currentDevices[device.toString()]?.trim() || 'default'
+  const deviceId = currentDeviceDetails[device.toString()]?.id ?? null
 
   log('mic', 'resolved audio device', {
     index: device,
     name: deviceLabel,
     requestedIndex: resolved,
+    endpointId: deviceId ?? undefined,
     deviceExists,
     binary: micPath,
   })
@@ -154,7 +161,7 @@ export const startRecording = async (
       micPath,
       'record',
       RECORDING_PATH,
-      String(device),
+      deviceId ?? String(device),
       String(maxRecordSeconds),
       String(outputDuckDelayMs),
       String(duckLevel),

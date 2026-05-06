@@ -20,11 +20,29 @@ function CopyButton({ text }: { text: string }) {
       aria-label="Copy transcript"
     >
       {copied ? (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M20 6 9 17l-5-5" />
         </svg>
       ) : (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
           <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
         </svg>
@@ -83,7 +101,10 @@ interface Props {
   onNavigateToHistory: () => void;
 }
 
-export function HomeHistoryTimeline({ historyEnabled, onNavigateToHistory }: Props) {
+export function HomeHistoryTimeline({
+  historyEnabled,
+  onNavigateToHistory,
+}: Props) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -126,9 +147,7 @@ export function HomeHistoryTimeline({ historyEnabled, onNavigateToHistory }: Pro
   const groups = groupByDate(entries);
 
   if (loading && entries.length === 0) {
-    return (
-      <div className="text-[14px] text-white/25 py-8">Loading...</div>
-    );
+    return <div className="text-[14px] text-white/25 py-8">Loading...</div>;
   }
 
   if (entries.length === 0) {
@@ -145,8 +164,8 @@ export function HomeHistoryTimeline({ historyEnabled, onNavigateToHistory }: Pro
               className="text-blue-400/60 hover:text-blue-400 cursor-pointer"
             >
               Enable history
-            </button>
-            {" "}to save a copy of each dictation.
+            </button>{" "}
+            to save a copy of each dictation.
           </span>
         )}
       </div>
@@ -162,8 +181,7 @@ export function HomeHistoryTimeline({ historyEnabled, onNavigateToHistory }: Pro
           </h3>
           <div className="rounded-xl bg-white/5 border border-white/10 divide-y divide-white/8">
             {group.entries.map((entry) => {
-              const needsTruncation =
-                entry.transcript.length > TRUNCATE_LENGTH;
+              const needsTruncation = entry.transcript.length > TRUNCATE_LENGTH;
               const isExpanded = expandedIds.has(entry.id);
               const displayText =
                 needsTruncation && !isExpanded
@@ -183,7 +201,13 @@ export function HomeHistoryTimeline({ historyEnabled, onNavigateToHistory }: Pro
                       onClick={async () => {
                         await navigator.clipboard.writeText(entry.transcript);
                         setCopiedId(entry.id);
-                        setTimeout(() => setCopiedId((prev) => prev === entry.id ? null : prev), 1500);
+                        setTimeout(
+                          () =>
+                            setCopiedId((prev) =>
+                              prev === entry.id ? null : prev,
+                            ),
+                          1500,
+                        );
                       }}
                       className="text-[15px] text-white/70 leading-relaxed cursor-pointer hover:text-white/80 transition-colors"
                     >

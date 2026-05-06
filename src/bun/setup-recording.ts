@@ -22,6 +22,7 @@ import {
 import { playCancelSound, playStartSound } from './utils/sound/play-sound'
 import { AppConfig } from './AppConfig/AppConfig'
 import type { TrayHandlers } from './setup-tray'
+import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
 import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
 import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
@@ -83,7 +84,7 @@ export const setupRecording = (
   }: TrayHandlers,
   onStatusChange?: (status: AppStatus) => void,
   onPermissions?: (status: PermissionStatus) => void,
-  getAudioDevices?: () => Record<string, string>,
+  getAudioDevices?: () => AudioDeviceSnapshot,
   onAutoLearnedEntry?: () => void,
   onHistorySave?: (transcript: string) => Promise<void>
 ) => {
@@ -104,6 +105,40 @@ export const setupRecording = (
   let activeStreamShortcutMode: 'hybrid' | 'holdOnly' | null = null
   /** Monotonic id for log correlation with Parakeet helper stderr (`[sN]`). */
   let streamDebugSeq = 0
+
+  const resolveStreamDeviceRef = async (): Promise<string | undefined> => {
+    if (getPlatformRuntime() !== 'windows') return undefined
+
+    let currentSnapshot = getAudioDevices?.() ?? { devices: {}, details: {} }
+    if (Object.keys(currentSnapshot.devices).length === 0) {
+      currentSnapshot = await findDevices()
+    }
+
+    const currentDevices = currentSnapshot.devices
+    const currentDeviceDetails = currentSnapshot.details
+    const resolved = appConfig.resolveAudioDevice(
+      currentDevices,
+      currentDeviceDetails
+    )
+    const deviceExists = resolved.toString() in currentDevices
+    const device = deviceExists
+      ? resolved
+      : Number(Object.keys(currentDevices)[0] ?? '0')
+    const deviceLabel = currentDevices[device.toString()]?.trim() || 'default'
+    const deviceId = currentDeviceDetails[device.toString()]?.id ?? null
+    const deviceRef = deviceId ?? String(device)
+
+    log('stream', 'resolved stream audio device', {
+      index: device,
+      name: deviceLabel,
+      requestedIndex: resolved,
+      endpointId: deviceId ?? undefined,
+      deviceRef,
+      deviceExists,
+    })
+
+    return deviceRef
+  }
 
   let holdArmTimer: ReturnType<typeof setTimeout> | null = null
   /** True after HOLD_QUALIFY_MS with no qualifying release cancelling the arm timer. */
@@ -278,12 +313,14 @@ export const setupRecording = (
     const streamDebugId = ++streamDebugSeq
     activeStreamShortcutMode = shortcutMode
     try {
+      const streamDeviceRef = await resolveStreamDeviceRef()
       log('stream', 'starting Parakeet stream session', {
         streamMode: appConfig.getStreamMode(),
         streamTranscriptionMode: appConfig.getStreamTranscriptionMode(),
         whisperModelId: appConfig.getWhisperModelId(),
         shortcutMode,
         streamDebugId,
+        deviceRef: streamDeviceRef,
       })
       playStartSound(appConfig.getFunModeEnabled())
       setTrayStreaming()
@@ -306,6 +343,7 @@ export const setupRecording = (
           outputDuckBuiltIn: appConfig.getAudioDuckingIncludeBuiltInSpeakers(),
           outputDuckHeadphones: appConfig.getAudioDuckingIncludeHeadphones(),
           outputDuckLevel: appConfig.getAudioDuckingLevel(),
+          deviceRef: streamDeviceRef,
         }
       )
       if (pendingStreamHoldReleaseWhileStarting && streamSession !== null) {

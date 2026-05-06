@@ -1,6 +1,6 @@
 /**
- * Speech model catalog: whisper.cpp GGML files and Parakeet TDT v3 (Core ML via
- * CodictateParakeetHelper). `engine: 'whisperkit'` labels the Apple Neural Engine path.
+ * Speech model catalog: whisper.cpp GGML files and Parakeet TDT v3 (Core ML on macOS,
+ * ONNX on Windows). `engine: 'whisperkit'` is the historical Parakeet engine label.
  */
 
 import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
@@ -15,11 +15,11 @@ export const PARAKEET_COREML_PREP_STORAGE_KEY =
 
 /** One line under Transcribing… / Streaming… on first Parakeet use. */
 export const PARAKEET_FIRST_RUN_READY_SUBTITLE =
-  'First run: macOS takes 1-2 minutes to prepare the model. Later runs are fast.'
+  'First run: preparing the model can take 1-2 minutes. Later runs are fast.'
 
 /** Settings / model row: why the first session can feel stuck. */
 export const PARAKEET_FIRST_RUN_SETTINGS_HINT =
-  'First run: macOS takes 1-2 minutes to prepare Parakeet for your Mac. It may look stuck, but subsequent runs are fast.'
+  'First run: Codictate may take 1-2 minutes to prepare Parakeet for this device. It may look stuck, but subsequent runs are fast.'
 
 /** Stream mode helper (Transcription section has the full explanation). */
 export const PARAKEET_FIRST_RUN_STREAM_HELPER =

@@ -79,8 +79,8 @@ export function SectionModels({
           onDelete={onModelDelete}
         />
         <p className={settingsHelperClass}>
-          Parakeet enables live stream dictation via Apple Neural Engine. Does
-          not support translation.
+          Parakeet enables live stream dictation with local NVIDIA ASR. Does not
+          support translation.
         </p>
         <p className={`${settingsHelperClass} text-amber-200/55`}>
           {PARAKEET_FIRST_RUN_SETTINGS_HINT}

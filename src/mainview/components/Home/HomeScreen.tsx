@@ -561,7 +561,10 @@ export function HomeScreen({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0 flex-1">
         <div className="lg:col-span-2 min-h-0 overflow-y-auto scrollbar-hidden">
-          <HomeHistoryTimeline historyEnabled={settings?.history?.enabled ?? false} onNavigateToHistory={onNavigateToHistory} />
+          <HomeHistoryTimeline
+            historyEnabled={settings?.history?.enabled ?? false}
+            onNavigateToHistory={onNavigateToHistory}
+          />
         </div>
         <div className="hidden lg:flex flex-col gap-6">{shortcutsBlock}</div>
       </div>

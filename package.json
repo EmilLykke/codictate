@@ -30,6 +30,7 @@
     "build:installer:windows": "powershell -ExecutionPolicy Bypass -File scripts/build-inno-installer.ps1",
     "build:native": "src/scripts/build-swift.sh",
     "build:native:windows-helper": "cargo build --release --manifest-path native/CodictateWindowsHelper/Cargo.toml",
+    "check:native:windows-helper": "cargo fmt --check --manifest-path native/CodictateWindowsHelper/Cargo.toml && cargo check --manifest-path native/CodictateWindowsHelper/Cargo.toml && cargo clippy --manifest-path native/CodictateWindowsHelper/Cargo.toml -- -D warnings && cargo test --manifest-path native/CodictateWindowsHelper/Cargo.toml",
     "start": "bun run build:native && vite build && CODICTATE_CHANNEL=dev electrobun dev",
     "start:windows": "bun run build:native:windows-helper && vite build && CODICTATE_CHANNEL=dev electrobun dev",
     "postbuild": "chmod +x build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/KeyListener build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/MicRecorder"

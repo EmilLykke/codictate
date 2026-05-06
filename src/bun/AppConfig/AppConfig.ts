@@ -11,6 +11,7 @@ import {
 } from '../../shared/transcription-languages'
 import type {
   AppSettings,
+  AudioDeviceDetails,
   AudioDuckingSettings,
   AudioDuckingSettingsPatch,
   DictionaryCandidate,
@@ -168,6 +169,7 @@ function defaultDictionarySettings(): DictionarySettings {
 
 interface PersistedMainSettings {
   audioDeviceName: string | null
+  audioDeviceId: string | null
   audioDevice: number
   shortcutId: ShortcutId
   shortcutHoldOnlyId: ShortcutId | null
@@ -195,6 +197,7 @@ interface PersistedMainSettings {
 
 export class AppConfig {
   private audioDeviceName: string | null
+  private audioDeviceId: string | null
   private audioDevice: number
   private shortcutId: ShortcutId
   private shortcutHoldOnlyId: ShortcutId | null
@@ -225,6 +228,7 @@ export class AppConfig {
 
   constructor() {
     this.audioDeviceName = null
+    this.audioDeviceId = null
     this.audioDevice = 0
     this.shortcutId = 'option-space'
     this.shortcutHoldOnlyId = null
@@ -257,6 +261,7 @@ export class AppConfig {
   private getPersistedMainSettings(): PersistedMainSettings {
     return {
       audioDeviceName: this.audioDeviceName,
+      audioDeviceId: this.audioDeviceId,
       audioDevice: this.audioDevice,
       shortcutId: this.shortcutId,
       shortcutHoldOnlyId: this.shortcutHoldOnlyId,
@@ -326,6 +331,12 @@ export class AppConfig {
         typeof raw.audioDeviceName === 'string' || raw.audioDeviceName === null
           ? raw.audioDeviceName
           : this.audioDeviceName
+    }
+    if (raw.audioDeviceId !== undefined) {
+      this.audioDeviceId =
+        typeof raw.audioDeviceId === 'string' || raw.audioDeviceId === null
+          ? raw.audioDeviceId
+          : this.audioDeviceId
     }
     if (typeof raw.audioDevice === 'number') this.audioDevice = raw.audioDevice
     if (isValidShortcutId(raw.shortcutId)) this.shortcutId = raw.shortcutId
@@ -1176,7 +1187,17 @@ export class AppConfig {
     return true
   }
 
-  public resolveAudioDevice(devices: Record<string, string>): number {
+  public resolveAudioDevice(
+    devices: Record<string, string>,
+    details?: Record<string, AudioDeviceDetails>
+  ): number {
+    if (this.audioDeviceId !== null && details !== undefined) {
+      const entry = Object.entries(details).find(
+        ([, device]) => device.id === this.audioDeviceId
+      )
+      if (entry) return Number(entry[0])
+    }
+
     if (this.audioDeviceName !== null) {
       const entry = Object.entries(devices).find(
         ([, name]) => name === this.audioDeviceName
@@ -1186,9 +1207,22 @@ export class AppConfig {
     return this.audioDevice
   }
 
-  public async setAudioDevice(index: number, name?: string) {
+  public resolveAudioDeviceId(
+    devices: Record<string, string>,
+    details?: Record<string, AudioDeviceDetails>
+  ): string | null {
+    const index = this.resolveAudioDevice(devices, details)
+    return details?.[index.toString()]?.id ?? this.audioDeviceId
+  }
+
+  public async setAudioDevice(
+    index: number,
+    name?: string,
+    id?: string | null
+  ) {
     this.audioDevice = index
     if (name !== undefined) this.audioDeviceName = name
+    if (id !== undefined) this.audioDeviceId = id
     await this.saveMain()
   }
 
@@ -1410,7 +1444,9 @@ export class AppConfig {
   public async setFormattingImessageLightweight(
     enabled: boolean
   ): Promise<boolean> {
-    return this.updateFormattingSettings({ imessage: { lightweight: enabled } })
+    return this.updateFormattingSettings({
+      imessage: { lightweight: enabled },
+    })
   }
 
   public async setFormattingSlackTone(
@@ -1452,7 +1488,9 @@ export class AppConfig {
   public async setFormattingDocumentLightweight(
     enabled: boolean
   ): Promise<boolean> {
-    return this.updateFormattingSettings({ document: { lightweight: enabled } })
+    return this.updateFormattingSettings({
+      document: { lightweight: enabled },
+    })
   }
 
   public getAudioDuckingLevel(): number {

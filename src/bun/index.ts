@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import Electrobun, { Updater, Utils } from 'electrobun/bun'
 import type { PermissionState, SettingsPane } from '../shared/types'
-import { findDevices } from './utils/audio/devices'
+import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
 import { duckDelayAfterStartChimeMs } from './utils/sound/play-sound'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { checkNativePermissions } from './utils/keyboard/check-native-permissions'
@@ -113,7 +113,8 @@ if (UserAppConfig.getStreamMode()) {
   }
 }
 
-let devices = await findDevices()
+let deviceSnapshot: AudioDeviceSnapshot = await findDevices()
+let devices = deviceSnapshot.devices
 duckDelayAfterStartChimeMs()
 
 let currentPermissions: PermissionState = {
@@ -179,7 +180,7 @@ const win = setupWindow({
   url,
   appConfig: UserAppConfig,
   openWindowOnLaunch: true,
-  getCurrentDevices: () => devices,
+  getCurrentDeviceSnapshot: () => deviceSnapshot,
   getPermissions: async () => {
     let accessibility = currentPermissions.accessibility
     let inputMonitoring = currentPermissions.inputMonitoring
@@ -214,7 +215,8 @@ const win = setupWindow({
   },
   onAudioDeviceSelected: async (index) => {
     const deviceName = devices[index.toString()]
-    await UserAppConfig.setAudioDevice(index, deviceName)
+    const deviceId = deviceSnapshot.details[index.toString()]?.id ?? null
+    await UserAppConfig.setAudioDevice(index, deviceName, deviceId)
     trayHandlers.rebuildDeviceMenu(index)
     menuHandlers.rebuildDeviceMenu(index)
   },
@@ -227,7 +229,9 @@ const win = setupWindow({
   // Re-push app state whenever the window is re-opened after being closed.
   onNewWindowReady: () => pushInitialState(),
   onTranscriptionMenuSync: () => {
-    trayHandlers.rebuildDeviceMenu(UserAppConfig.resolveAudioDevice(devices))
+    trayHandlers.rebuildDeviceMenu(
+      UserAppConfig.resolveAudioDevice(devices, deviceSnapshot.details)
+    )
   },
   onTranslateChanged: () => {
     trayHandlers.syncTranslateState()
@@ -301,21 +305,42 @@ setOnAutoDisable(async () => {
 const onDeviceSelected = (device: number) => {
   trayHandlers.rebuildDeviceMenu(device)
   menuHandlers.rebuildDeviceMenu(device)
-  win.send.updateDevice({ devices, selectedDevice: device })
+  win.send.updateDevice({
+    devices,
+    deviceDetails: deviceSnapshot.details,
+    selectedDevice: device,
+    selectedDeviceId: deviceSnapshot.details[device.toString()]?.id ?? null,
+  })
 }
 
 function startDeviceMonitor() {
-  let snapshot = JSON.stringify(devices)
+  let snapshot = JSON.stringify(deviceSnapshot)
   setInterval(async () => {
-    const newDevices = await findDevices()
-    const newSnapshot = JSON.stringify(newDevices)
+    const newDeviceSnapshot = await findDevices()
+    const newSnapshot = JSON.stringify(newDeviceSnapshot)
     if (newSnapshot === snapshot) return
     snapshot = newSnapshot
-    devices = newDevices
-    const selected = UserAppConfig.resolveAudioDevice(newDevices)
-    trayHandlers.updateDeviceList(newDevices, selected)
-    menuHandlers.updateDeviceList(newDevices, selected)
-    win.send.updateDevice({ devices: newDevices, selectedDevice: selected })
+    deviceSnapshot = newDeviceSnapshot
+    devices = newDeviceSnapshot.devices
+    const selected = UserAppConfig.resolveAudioDevice(
+      newDeviceSnapshot.devices,
+      newDeviceSnapshot.details
+    )
+    trayHandlers.updateDeviceList(
+      newDeviceSnapshot.devices,
+      selected,
+      newDeviceSnapshot.details
+    )
+    menuHandlers.updateDeviceList(newDeviceSnapshot.devices, selected)
+    win.send.updateDevice({
+      devices: newDeviceSnapshot.devices,
+      deviceDetails: newDeviceSnapshot.details,
+      selectedDevice: selected,
+      selectedDeviceId: UserAppConfig.resolveAudioDeviceId(
+        newDeviceSnapshot.devices,
+        newDeviceSnapshot.details
+      ),
+    })
   }, 5000)
 }
 
@@ -352,6 +377,7 @@ if (
 trayHandlers = setupTray(
   (onAction) => win.getOrCreateWindow(onAction),
   devices,
+  deviceSnapshot.details,
   UserAppConfig,
   () => {
     void (async () => {
@@ -458,7 +484,7 @@ function startKeyboard() {
         }, 3000)
       }
     },
-    () => devices,
+    () => deviceSnapshot,
     () => {
       win.send.updateSettings(UserAppConfig.getSettings())
     },

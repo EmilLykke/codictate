@@ -28,13 +28,14 @@ import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
 import { warmupParakeet } from './utils/whisper/speech2text'
 import { getPlatformRuntime } from './platform/runtime'
 import { setWindowsWindowIcon } from './utils/window/windows-window-icon'
+import type { AudioDeviceSnapshot } from './utils/audio/devices'
 
 interface WindowDeps {
   url: string
   appConfig: AppConfig
   openWindowOnLaunch?: boolean
   /** Returns the live device list — called on every request so it's always fresh. */
-  getCurrentDevices: () => Record<string, string>
+  getCurrentDeviceSnapshot: () => AudioDeviceSnapshot
   getPermissions: () => Promise<PermissionState>
   onSettingsChanged: () => Promise<void>
   /** Called when the user selects a device from the settings screen. Should persist the choice and update menus. */
@@ -143,10 +144,18 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         startMicSession: async () => true,
         getPermissions: deps.getPermissions,
         getDevices: async () => {
-          const current = deps.getCurrentDevices()
+          const current = deps.getCurrentDeviceSnapshot()
           return {
-            devices: current,
-            selectedDevice: deps.appConfig.resolveAudioDevice(current),
+            devices: current.devices,
+            deviceDetails: current.details,
+            selectedDevice: deps.appConfig.resolveAudioDevice(
+              current.devices,
+              current.details
+            ),
+            selectedDeviceId: deps.appConfig.resolveAudioDeviceId(
+              current.devices,
+              current.details
+            ),
           }
         },
         getSettings: async () => deps.appConfig.getSettings(),
@@ -220,10 +229,18 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         },
         setAudioDevice: async ({ index }) => {
           await deps.onAudioDeviceSelected?.(index)
-          const current = deps.getCurrentDevices()
+          const current = deps.getCurrentDeviceSnapshot()
           rpc.send.updateDevice({
-            devices: current,
-            selectedDevice: deps.appConfig.resolveAudioDevice(current),
+            devices: current.devices,
+            deviceDetails: current.details,
+            selectedDevice: deps.appConfig.resolveAudioDevice(
+              current.devices,
+              current.details
+            ),
+            selectedDeviceId: deps.appConfig.resolveAudioDeviceId(
+              current.devices,
+              current.details
+            ),
           })
 
           return true

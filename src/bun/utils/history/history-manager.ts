@@ -148,14 +148,22 @@ export class HistoryManager {
             try {
               const p = join(this.recordingsDir, old.audioFilename)
               if (existsSync(p)) unlinkSync(p)
-            } catch {}
+            } catch (err) {
+              log('history', 'failed to delete old audio file', {
+                id: old.id,
+                err: String(err),
+              })
+            }
           }
         }
       }
 
       await this.writeIndex(index)
 
-      log('history', 'saved entry', { id, audioFilename: audioFilename || '(transcript only)' })
+      log('history', 'saved entry', {
+        id,
+        audioFilename: audioFilename || '(transcript only)',
+      })
       return entry
     })
   }

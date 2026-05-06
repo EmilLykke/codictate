@@ -18,7 +18,7 @@ import {
 } from '../../../shared/speech-models'
 import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 import { log } from '../logger'
-import { MODELS_DIR } from '../../platform/runtime'
+import { MODELS_DIR, getPlatformRuntime } from '../../platform/runtime'
 
 const BUNDLED_MODEL_PATH = join(
   import.meta.dir,
@@ -37,7 +37,16 @@ function downloadErrorMessage(err: unknown): string {
   return 'Download failed'
 }
 
-function parakeetInstallComplete(dir: string): boolean {
+const WINDOWS_PARAKEET_ONNX_REPO_ID = 'istupakov/parakeet-tdt-0.6b-v3-onnx'
+const WINDOWS_PARAKEET_ONNX_ARTIFACT_NAME = 'parakeet-tdt-0.6b-v3-onnx'
+const WINDOWS_PARAKEET_ONNX_REQUIRED_FILES = [
+  'encoder-model.onnx',
+  'encoder-model.onnx.data',
+  'decoder_joint-model.onnx',
+  'vocab.txt',
+] as const
+
+function parakeetCoreMlInstallComplete(dir: string): boolean {
   if (!existsSync(dir)) return false
   const vocab =
     existsSync(join(dir, 'parakeet_vocab.json')) ||
@@ -48,6 +57,40 @@ function parakeetInstallComplete(dir: string): boolean {
   } catch {
     return false
   }
+}
+
+function parakeetOnnxInstallComplete(dir: string): boolean {
+  if (!existsSync(dir)) return false
+  const hasFullPrecision =
+    existsSync(join(dir, 'encoder-model.onnx')) &&
+    existsSync(join(dir, 'encoder-model.onnx.data')) &&
+    existsSync(join(dir, 'decoder_joint-model.onnx'))
+  const hasInt8 =
+    existsSync(join(dir, 'encoder-model.int8.onnx')) &&
+    existsSync(join(dir, 'decoder_joint-model.int8.onnx'))
+  return existsSync(join(dir, 'vocab.txt')) && (hasFullPrecision || hasInt8)
+}
+
+function parakeetInstallComplete(dir: string): boolean {
+  if (getPlatformRuntime() === 'windows')
+    return parakeetOnnxInstallComplete(dir)
+  return parakeetCoreMlInstallComplete(dir)
+}
+
+function parakeetArtifactName(model: SpeechModel): string {
+  if (getPlatformRuntime() === 'windows')
+    return WINDOWS_PARAKEET_ONNX_ARTIFACT_NAME
+  return model.artifactName
+}
+
+function parakeetRepoId(model: SpeechModel): string | undefined {
+  if (getPlatformRuntime() === 'windows') return WINDOWS_PARAKEET_ONNX_REPO_ID
+  return model.huggingFaceRepoId
+}
+
+function parakeetDownloadAllowList(): ReadonlySet<string> | null {
+  if (getPlatformRuntime() !== 'windows') return null
+  return new Set(WINDOWS_PARAKEET_ONNX_REQUIRED_FILES)
 }
 
 class ModelManager {
@@ -77,13 +120,13 @@ class ModelManager {
     return join(MODELS_DIR, model.artifactName)
   }
 
-  /** Directory passed to CodictateParakeetHelper (Core ML bundles + vocab). */
+  /** Directory passed to the platform Parakeet helper (Core ML on macOS, ONNX on Windows). */
   getParakeetInstallDir(modelId: string): string {
     const model = this.modelInfo(modelId)
     if (!model || model.engine !== 'whisperkit') {
       throw new Error(`Not a Parakeet / WhisperKit model: ${modelId}`)
     }
-    return join(MODELS_DIR, model.artifactName)
+    return join(MODELS_DIR, parakeetArtifactName(model))
   }
 
   getAvailabilityMap(): Record<string, boolean> {
@@ -143,24 +186,40 @@ class ModelManager {
     })
   }
 
-  private async downloadParakeetCoreML(
+  private async downloadParakeetModel(
     model: SpeechModel,
     destDir: string,
     tempDir: string,
     controller: AbortController,
     onProgress: ModelProgressCallback
   ): Promise<void> {
-    const repoId = model.huggingFaceRepoId
+    const repoId = parakeetRepoId(model)
     if (!repoId) throw new Error('Parakeet model missing huggingFaceRepoId')
 
     const repo = { type: 'model' as const, name: repoId }
+    const allowList = parakeetDownloadAllowList()
     const entries: { path: string; size: number }[] = []
 
     for await (const e of listFiles({ repo, recursive: true })) {
       controller.signal.throwIfAborted()
-      if (e.type === 'file' && e.path !== '.gitattributes') {
+      if (
+        e.type === 'file' &&
+        e.path !== '.gitattributes' &&
+        (allowList === null || allowList.has(e.path))
+      ) {
         const size = e.lfs?.size ?? e.size
         entries.push({ path: e.path, size })
+      }
+    }
+
+    if (allowList !== null) {
+      const found = new Set(entries.map((entry) => entry.path))
+      for (const required of allowList) {
+        if (!found.has(required)) {
+          throw new Error(
+            `Parakeet ONNX repo missing required file: ${required}`
+          )
+        }
       }
     }
 
@@ -226,12 +285,12 @@ class ModelManager {
     this.downloads.set(modelId, controller)
 
     if (model.engine === 'whisperkit') {
-      const destDir = join(MODELS_DIR, model.artifactName)
+      const destDir = join(MODELS_DIR, parakeetArtifactName(model))
       const tempDir = destDir + '.tmp'
       try {
         if (existsSync(tempDir))
           rmSync(tempDir, { recursive: true, force: true })
-        await this.downloadParakeetCoreML(
+        await this.downloadParakeetModel(
           model,
           destDir,
           tempDir,
@@ -316,7 +375,7 @@ class ModelManager {
     const model = this.modelInfo(modelId)
     if (!model || model.bundled) return false
     if (model.engine === 'whisperkit') {
-      const dir = join(MODELS_DIR, model.artifactName)
+      const dir = join(MODELS_DIR, parakeetArtifactName(model))
       if (!existsSync(dir)) return false
       return this.tryRemoveDownloadedModel(modelId, () =>
         rmSync(dir, { recursive: true, force: true })

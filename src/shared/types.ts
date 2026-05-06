@@ -239,9 +239,17 @@ export interface PermissionState {
   documents: boolean
 }
 
+export interface AudioDeviceDetails {
+  index: number
+  name: string
+  id: string | null
+}
+
 export interface DeviceInfo {
   devices: Record<string, string>
+  deviceDetails?: Record<string, AudioDeviceDetails>
   selectedDevice: number
+  selectedDeviceId?: string | null
 }
 
 export interface GeneralSettingsPatch {

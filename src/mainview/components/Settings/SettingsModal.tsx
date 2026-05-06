@@ -17,7 +17,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 const SECRET_UNLOCK_CLICK_COUNT = 3;
 const SECRET_UNLOCK_WINDOW_MS = 900;
 
-type SettingsTab = "general" | "audio" | "shortcuts" | "ui" | "history" | "debug" | "fun";
+type SettingsTab =
+  | "general"
+  | "audio"
+  | "shortcuts"
+  | "ui"
+  | "history"
+  | "debug"
+  | "fun";
 
 const TAB_BUTTON =
   "flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors duration-200 cursor-pointer w-full text-left";

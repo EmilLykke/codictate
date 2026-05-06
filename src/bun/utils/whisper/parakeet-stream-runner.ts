@@ -1,4 +1,4 @@
-// Parakeet stream mode: spawn CodictateParakeetHelper only. The helper captures mic,
+// Parakeet stream mode: spawn the platform Parakeet helper. The helper captures mic,
 // runs the model, and pastes — nothing is read from stdout.
 //
 // Live-mode tracing: set CODICTATE_LIVE_DEBUG=1 in the environment before starting
@@ -28,6 +28,8 @@ export type ParakeetStreamStartOptions = {
   outputDuckHeadphones?: boolean
   /** Duck target for enabled outputs: 0 = fully mute, 100 = no change. */
   outputDuckLevel?: number
+  /** Windows helper input device ref: stable endpoint ID preferred, numeric index fallback. */
+  deviceRef?: string
 }
 
 const PARAKEET_MODEL_ID = 'parakeet-tdt-0.6b-v3'
@@ -51,6 +53,7 @@ export async function startParakeetStream(
   const modelDir = modelManager.getParakeetInstallDir(PARAKEET_MODEL_ID)
   const modeArg = streamTranscriptionMode === 'vad' ? 'vad' : 'live'
   const args = [binary, 'stream', modeArg, modelDir]
+  if (options?.deviceRef) args.push(options.deviceRef)
   const streamDebugId = options?.streamDebugId
   const outputDuckDelayMs = duckDelayAfterStartChimeMs()
   const outputDuckBuiltIn = options?.outputDuckBuiltIn !== false
@@ -60,21 +63,18 @@ export async function startParakeetStream(
     Math.min(100, Math.round(options?.outputDuckLevel ?? 0))
   )
 
-  log(
-    'stream',
-    'spawning CodictateParakeetHelper (helper handles capture + paste)',
-    {
-      binary,
-      streamArgs: ['stream', modeArg, modelDir],
-      streamTranscriptionMode,
-      modelDir,
-      streamDebugId,
-      outputDuckDelayMs,
-      outputDuckBuiltIn,
-      outputDuckHeadphones,
-      outputDuckLevel,
-    }
-  )
+  log('stream', 'spawning Parakeet helper (helper handles capture + paste)', {
+    binary,
+    streamArgs: args.slice(1),
+    streamTranscriptionMode,
+    modelDir,
+    deviceRef: options?.deviceRef,
+    streamDebugId,
+    outputDuckDelayMs,
+    outputDuckBuiltIn,
+    outputDuckHeadphones,
+    outputDuckLevel,
+  })
 
   const proc = Bun.spawn(args, {
     stdout: 'ignore',
