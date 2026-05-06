@@ -304,7 +304,7 @@ export const speech2text = async (
   dictionaryEntries: DictionaryEntry[] = [],
   onBeforeTranscription?: () => Promise<void>,
   onAppliedEntries?: (entries: DictionaryEntry[]) => void
-) => {
+): Promise<string> => {
   if (onBeforeTranscription) await onBeforeTranscription()
 
   let transcript = await transcribe(
@@ -329,4 +329,5 @@ export const speech2text = async (
     transcript = await applyFormatting(formatterRequest)
   }
   await pasteTranscript(transcript)
+  return transcript
 }

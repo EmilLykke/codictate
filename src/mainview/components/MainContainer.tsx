@@ -5,6 +5,7 @@ import { HomeScreen } from "./Home/HomeScreen";
 import { SectionModels } from "./Settings/Sections/SectionModels";
 import { SectionFormatting } from "./Settings/Sections/SectionFormatting";
 import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
+import { HistorySection } from "./History/HistorySection";
 import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
 import type {
   AppStatus,
@@ -463,6 +464,7 @@ export function MainContainer({
         {activeTab === "formatting" && (
           <SectionFormatting settings={settings} />
         )}
+        {activeTab === "history" && <HistorySection settings={settings} />}
       </AppLayout>
 
       <SettingsModal

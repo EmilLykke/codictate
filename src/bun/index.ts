@@ -16,7 +16,9 @@ import {
   setupIndicatorWindow,
   type IndicatorWindowHandle,
 } from './setup-indicator-window'
-import { setOnAutoDisable } from './utils/logger'
+import { setOnAutoDisable, log } from './utils/logger'
+import { HistoryManager } from './utils/history/history-manager'
+import { RECORDING_PATH } from './platform/runtime'
 import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
 import {
@@ -81,6 +83,10 @@ const url = await getMainViewUrl()
 
 export const UserAppConfig = new AppConfig()
 await UserAppConfig.load()
+
+const historyManager = new HistoryManager(() =>
+  UserAppConfig.getHistoryStoragePath()
+)
 
 // Heal disk state if translate was left on without a runnable model/language combo.
 if (UserAppConfig.getTranslateToEnglish()) {
@@ -235,6 +241,7 @@ const win = setupWindow({
   onFormattingModeChanged: () => {
     trayHandlers.syncFormattingModeState()
   },
+  historyManager,
   onTriggerPermissionPrompt: (pane: SettingsPane) => {
     if (pane === 'inputMonitoring') {
       if (keyboard.isAlive) {
@@ -454,6 +461,19 @@ function startKeyboard() {
     () => devices,
     () => {
       win.send.updateSettings(UserAppConfig.getSettings())
+    },
+    async (transcript) => {
+      if (!UserAppConfig.getHistoryEnabled()) return
+      try {
+        await historyManager.saveEntry(RECORDING_PATH, transcript)
+        try {
+          win.send.historyEntryAdded({})
+        } catch {
+          /* window may be closed */
+        }
+      } catch (err) {
+        log('history', 'save failed in pipeline', { err: String(err) })
+      }
     }
   )
 }

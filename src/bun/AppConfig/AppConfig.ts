@@ -22,6 +22,7 @@ import type {
   FormattingSettings,
   FormattingSettingsPatch,
   GeneralSettingsPatch,
+  HistorySettingsPatch,
   RecordingIndicatorMode,
   ShortcutId,
   StreamTranscriptionMode,
@@ -56,6 +57,7 @@ import {
 } from '../utils/dictionary/auto-learn-candidates'
 import {
   APP_DATA_DIR,
+  DEFAULT_HISTORY_DIR,
   DICTIONARY_CONFIG_PATH,
   LEGACY_CONFIG_PATH,
   MAIN_CONFIG_PATH,
@@ -184,6 +186,8 @@ interface PersistedMainSettings {
   userDisplayName: string
   formatting: Omit<FormattingSettings, 'available' | 'modelAvailability'>
   audioDucking: AudioDuckingSettings
+  historyEnabled: boolean
+  historyStoragePath: string
   debugMode: false
 }
 
@@ -209,6 +213,8 @@ export class AppConfig {
   private formatting: FormattingSettings
   private audioDucking: AudioDuckingSettings
   private dictionary: DictionarySettings
+  private historyEnabled: boolean
+  private historyStoragePath: string
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
     null
@@ -238,6 +244,8 @@ export class AppConfig {
     })
     this.audioDucking = defaultAudioDuckingSettings()
     this.dictionary = defaultDictionarySettings()
+    this.historyEnabled = false
+    this.historyStoragePath = ''
   }
 
   private getPersistedMainSettings(): PersistedMainSettings {
@@ -270,6 +278,8 @@ export class AppConfig {
         document: { ...this.formatting.document },
       },
       audioDucking: { ...this.audioDucking },
+      historyEnabled: this.historyEnabled,
+      historyStoragePath: this.historyStoragePath,
       debugMode: false,
     }
   }
@@ -504,6 +514,13 @@ export class AppConfig {
         this.audioDucking.includeBuiltInSpeakers =
           audioDucking.includeBuiltInSpeakers
       }
+    }
+
+    if (typeof raw.historyEnabled === 'boolean') {
+      this.historyEnabled = raw.historyEnabled
+    }
+    if (typeof raw.historyStoragePath === 'string') {
+      this.historyStoragePath = raw.historyStoragePath
     }
   }
 
@@ -795,6 +812,10 @@ export class AppConfig {
         entries: dictionaryEntries,
         autoLearn: this.dictionary.autoLearn,
         candidates: dictionaryCandidates,
+      },
+      history: {
+        enabled: this.historyEnabled,
+        storagePath: this.historyStoragePath || DEFAULT_HISTORY_DIR,
       },
       modelAvailability: modelManager.getAvailabilityMap(),
     }
@@ -1101,6 +1122,27 @@ export class AppConfig {
       this.dictionary.candidates = parseDictionaryCandidates(patch.candidates)
     }
     await this.saveDictionary()
+    return true
+  }
+
+  public getHistoryEnabled(): boolean {
+    return this.historyEnabled
+  }
+
+  public getHistoryStoragePath(): string {
+    return this.historyStoragePath || DEFAULT_HISTORY_DIR
+  }
+
+  public async updateHistorySettings(
+    patch: HistorySettingsPatch
+  ): Promise<boolean> {
+    if (patch.enabled !== undefined) {
+      this.historyEnabled = patch.enabled
+    }
+    if (patch.storagePath !== undefined) {
+      this.historyStoragePath = patch.storagePath
+    }
+    await this.saveMain()
     return true
   }
 

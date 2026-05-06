@@ -102,7 +102,8 @@ export const startRecording = async (
   onDone: () => void,
   session: RecordingSession,
   /** Live snapshot from the main process (refreshed at startup + on an interval). Avoids spawning `MicRecorder --list-devices` on every shortcut press. */
-  getDeviceMap?: () => Record<string, string>
+  getDeviceMap?: () => Record<string, string>,
+  onHistorySave?: (transcript: string) => Promise<void>
 ) => {
   if (appConfig.getStreamMode()) {
     log(
@@ -197,7 +198,7 @@ export const startRecording = async (
         if (!skipPipeline) {
           onComplete()
           playEndSound(appConfig.getFunModeEnabled())
-          await speech2text(
+          const transcript = await speech2text(
             appConfig.getRuntimeTranscriptionWhisperCode(),
             appConfig.getWhisperModelId(),
             appConfig.getTranslateToEnglish(),
@@ -206,6 +207,13 @@ export const startRecording = async (
             () => appConfig.acceptPreviouslyAppliedEntries(),
             (entries) => appConfig.notifyAppliedEntries(entries)
           )
+          if (onHistorySave) {
+            try {
+              await onHistorySave(transcript)
+            } catch (err) {
+              log('history', 'failed to save entry', { err: String(err) })
+            }
+          }
           if (
             getSpeechModel(appConfig.getWhisperModelId())?.engine ===
               'whisperkit' &&
