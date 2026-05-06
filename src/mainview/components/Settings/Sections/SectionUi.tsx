@@ -7,6 +7,7 @@ import type {
 import { fetchSettings, setRecordingIndicatorMode } from "../../../rpc";
 import { platformDisplayName } from "../../../../shared/platform";
 import { VoiceActivityCore } from "../../Common/VoiceActivityCore";
+import { useTheme } from "../../../hooks/useTheme";
 
 type Props = {
   settings: AppSettings;
@@ -32,6 +33,7 @@ const INDICATOR_OPTIONS = [
 
 export function SectionUi({ settings }: Props) {
   const queryClient = useQueryClient();
+  const { resolved: theme } = useTheme();
   const indicatorComingSoon = !settings.capabilities.supportsNativeIndicator;
 
   const handleRecordingIndicatorModeChange = useCallback(
@@ -52,8 +54,8 @@ export function SectionUi({ settings }: Props) {
   return (
     <>
       <div className="mb-8 flex justify-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black border border-overlay/10 shadow-lg shadow-black/40">
-          <VoiceActivityCore status="recording" variant="indicator" />
+        <div className={`flex h-16 w-16 items-center justify-center rounded-full border border-overlay/10 shadow-lg ${theme === "dark" ? "bg-black shadow-black/40" : "bg-white shadow-black/10"}`}>
+          <VoiceActivityCore status="recording" variant="indicator" theme={theme} />
         </div>
       </div>
 

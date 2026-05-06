@@ -719,11 +719,11 @@ export function SectionFormatting({ settings }: Props) {
               return (
                 <div
                   key={tier}
-                  className={`rounded-xl border transition-colors duration-200 overflow-hidden ${
+                  className={`rounded-xl border transition-all duration-200 overflow-hidden ${
                     isSelected
-                      ? "border-accent-blue/25 bg-surface-2"
-                      : "border-overlay/11 bg-surface-1"
-                  } ${canSelect ? "hover:border-overlay/16 hover:bg-surface-2 cursor-pointer" : ""}`}
+                      ? "border-overlay/18 bg-surface-3"
+                      : "border-overlay/8 bg-surface-1 opacity-65"
+                  } ${canSelect ? "hover:opacity-90 hover:border-overlay/14 hover:bg-surface-2 cursor-pointer" : ""}`}
                   onClick={() => {
                     if (canSelect) void handleFormatterModelTierChange(tier);
                   }}
@@ -803,7 +803,7 @@ export function SectionFormatting({ settings }: Props) {
                           Cancel
                         </button>
                       </div>
-                      <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
+                      <div className="h-1 rounded-full bg-overlay/10 overflow-hidden">
                         <motion.div
                           className="h-full rounded-full bg-accent-blue/40"
                           initial={{ width: 0 }}
@@ -854,7 +854,7 @@ export function SectionFormatting({ settings }: Props) {
                 key={mode.id}
                 className={`rounded-xl border transition-colors duration-200 ${
                   isExpanded
-                    ? "border-accent-blue/25 bg-surface-2"
+                    ? "border-overlay/18 bg-surface-3"
                     : "border-overlay/11 bg-surface-1 overflow-hidden"
                 }`}
               >
@@ -1486,10 +1486,10 @@ function TileGroup<T extends string>({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(opt.value)}
-            className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden hover:border-overlay/20 hover:bg-surface-2 ${
+            className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden hover:opacity-90 hover:border-overlay/16 hover:bg-surface-2 ${
               selected
-                ? "border-accent-blue/60 bg-surface-3 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
-                : "border-overlay/11 bg-surface-1"
+                ? "border-overlay/22 bg-surface-3"
+                : "border-overlay/8 bg-surface-1 opacity-65"
             }`}
           >
             <div className="p-5 pb-2">

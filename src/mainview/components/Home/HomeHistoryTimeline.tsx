@@ -179,7 +179,7 @@ export function HomeHistoryTimeline({
           <h3 className="text-[12px] font-semibold tracking-[0.12em] uppercase text-overlay/35 mb-2.5 sticky top-0 bg-codictate-page py-2 z-10">
             {group.label}
           </h3>
-          <div className="rounded-xl bg-surface-1 border border-overlay/10 divide-y divide-overlay/8">
+          <div className="rounded-xl bg-surface-1 border border-overlay/14 divide-y divide-overlay/10">
             {group.entries.map((entry) => {
               const needsTruncation = entry.transcript.length > TRUNCATE_LENGTH;
               const isExpanded = expandedIds.has(entry.id);

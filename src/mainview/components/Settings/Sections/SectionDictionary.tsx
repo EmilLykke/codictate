@@ -397,7 +397,7 @@ export function SectionDictionary({ settings }: Props) {
             className="overflow-hidden rounded-xl border border-overlay/14 bg-surface-1"
           >
             {/* Type selector */}
-            <div className="flex gap-2 border-b border-overlay/10 px-4 pt-4 pb-3">
+            <div className="flex gap-2 border-b border-overlay/14 px-4 pt-4 pb-3">
               <button
                 type="button"
                 onClick={() => {
@@ -408,7 +408,7 @@ export function SectionDictionary({ settings }: Props) {
                 className={`rounded-lg border px-3 py-1.5 text-[15px] transition-colors duration-200 ${
                   entryKind === "fuzzy"
                     ? "border-overlay/24 bg-surface-4 text-overlay/88"
-                    : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
+                    : "border-overlay/14 bg-transparent text-overlay/50 hover:border-overlay/16 hover:text-overlay/65"
                 }`}
               >
                 Fuzzy term
@@ -423,7 +423,7 @@ export function SectionDictionary({ settings }: Props) {
                 className={`rounded-lg border px-3 py-1.5 text-[15px] transition-colors duration-200 ${
                   entryKind === "replacement"
                     ? "border-overlay/24 bg-surface-4 text-overlay/88"
-                    : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
+                    : "border-overlay/14 bg-transparent text-overlay/50 hover:border-overlay/16 hover:text-overlay/65"
                 }`}
               >
                 Exact replacement
@@ -458,14 +458,14 @@ export function SectionDictionary({ settings }: Props) {
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-2 border-t border-overlay/10 px-4 py-3">
+            <div className="flex justify-end gap-2 border-t border-overlay/14 px-4 py-3">
               <button
                 type="button"
                 onClick={() => {
                   resetForm();
                   setShowAddForm(false);
                 }}
-                className="rounded-xl border border-overlay/10 bg-transparent px-4 py-2 text-[16px] text-overlay/48 transition-colors duration-200 hover:border-overlay/18 hover:text-overlay/72 cursor-pointer"
+                className="rounded-xl border border-overlay/14 bg-transparent px-4 py-2 text-[16px] text-overlay/48 transition-colors duration-200 hover:border-overlay/18 hover:text-overlay/72 cursor-pointer"
               >
                 Cancel
               </button>
@@ -495,7 +495,7 @@ export function SectionDictionary({ settings }: Props) {
         ) : (
           <>
             {hasAutoEntries && !q && (
-              <div className="flex items-center gap-2 border-b border-overlay/8 px-5 py-3">
+              <div className="flex items-center gap-2 border-b border-overlay/12 px-5 py-3">
                 <span className="text-[13px] text-accent-amber/60">
                   <SparkleIcon />
                 </span>
@@ -513,7 +513,7 @@ export function SectionDictionary({ settings }: Props) {
                   <li
                     key={key}
                     className={`px-5 py-4 ${
-                      i > 0 || hasAutoEntries ? "border-t border-overlay/8" : ""
+                      i > 0 || hasAutoEntries ? "border-t border-overlay/12" : ""
                     }`}
                   >
                     {isEditing ? (
@@ -525,7 +525,7 @@ export function SectionDictionary({ settings }: Props) {
                             className={`rounded-lg border px-2.5 py-1 text-[14px] transition-colors duration-200 ${
                               editKind === "fuzzy"
                                 ? "border-overlay/24 bg-surface-4 text-overlay/88"
-                                : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
+                                : "border-overlay/14 bg-transparent text-overlay/50 hover:border-overlay/16 hover:text-overlay/65"
                             }`}
                           >
                             Fuzzy
@@ -536,7 +536,7 @@ export function SectionDictionary({ settings }: Props) {
                             className={`rounded-lg border px-2.5 py-1 text-[14px] transition-colors duration-200 ${
                               editKind === "replacement"
                                 ? "border-overlay/24 bg-surface-4 text-overlay/88"
-                                : "border-overlay/10 bg-transparent text-overlay/42 hover:border-overlay/16 hover:text-overlay/65"
+                                : "border-overlay/14 bg-transparent text-overlay/50 hover:border-overlay/16 hover:text-overlay/65"
                             }`}
                           >
                             Replacement
@@ -569,7 +569,7 @@ export function SectionDictionary({ settings }: Props) {
                           <button
                             type="button"
                             onClick={cancelEditing}
-                            className="rounded-xl border border-overlay/10 bg-transparent px-3 py-1.5 text-[15px] text-overlay/48 transition-colors duration-200 hover:border-overlay/18 hover:text-overlay/72 cursor-pointer"
+                            className="rounded-xl border border-overlay/14 bg-transparent px-3 py-1.5 text-[15px] text-overlay/48 transition-colors duration-200 hover:border-overlay/18 hover:text-overlay/72 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -644,7 +644,7 @@ export function SectionDictionary({ settings }: Props) {
                             type="button"
                             onClick={() => startEditing(entry)}
                             aria-label={`Edit ${entry.kind === "replacement" ? `${entry.from} to ${entry.text}` : entry.text}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-overlay/10 bg-surface-1 text-overlay/40 transition-colors duration-200 hover:border-overlay/18 hover:bg-surface-3 hover:text-overlay/70"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-overlay/14 bg-surface-1 text-overlay/50 transition-colors duration-200 hover:border-overlay/18 hover:bg-surface-3 hover:text-overlay/70"
                           >
                             <svg
                               width="13"
@@ -664,7 +664,7 @@ export function SectionDictionary({ settings }: Props) {
                             type="button"
                             onClick={() => handleRemove(entry)}
                             aria-label={`Remove ${entry.kind === "replacement" ? `${entry.from} to ${entry.text}` : entry.text}`}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-overlay/10 bg-surface-1 text-overlay/40 transition-colors duration-200 hover:border-overlay/18 hover:bg-surface-3 hover:text-overlay/70"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-overlay/14 bg-surface-1 text-overlay/50 transition-colors duration-200 hover:border-overlay/18 hover:bg-surface-3 hover:text-overlay/70"
                           >
                             <svg
                               width="14"
@@ -723,7 +723,7 @@ export function SectionDictionary({ settings }: Props) {
                   type="button"
                   onClick={() => handleRemoveCandidate(candidate)}
                   aria-label={`Dismiss candidate ${candidate.from} to ${candidate.to}`}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-overlay/10 bg-surface-1 text-overlay/40 transition-colors duration-200 hover:border-overlay/18 hover:bg-surface-3 hover:text-overlay/70"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-overlay/14 bg-surface-1 text-overlay/50 transition-colors duration-200 hover:border-overlay/18 hover:bg-surface-3 hover:text-overlay/70"
                 >
                   <svg
                     width="14"

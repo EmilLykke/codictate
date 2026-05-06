@@ -66,9 +66,9 @@ const TOGGLE_ON_BLUE =
 const TOGGLE_ON_PURPLE =
   "border-purple-400/30 bg-purple-500/15 hover:bg-purple-500/25 text-purple-400/80";
 const TOGGLE_OFF =
-  "border-overlay/12 bg-surface-1 hover:border-overlay/18 hover:bg-surface-2 text-overlay/48 hover:text-overlay/70";
+  "border-overlay/16 bg-surface-1 hover:border-overlay/22 hover:bg-surface-2 text-overlay/55 hover:text-overlay/75";
 const TOGGLE_DIMMED =
-  "border-overlay/8 bg-surface-1 text-overlay/20 hover:border-overlay/14 hover:text-overlay/30";
+  "border-overlay/12 bg-surface-1 text-overlay/30 hover:border-overlay/18 hover:text-overlay/45";
 
 const TRANSLATE_DEFAULT_PLACEHOLDER = "__translate_pick__";
 
@@ -164,7 +164,7 @@ export function HomeScreen({
     isTranslateOn || isTranslateCapableModelId(settings?.whisperModelId ?? "");
 
   const overviewCard = (
-    <div className="rounded-2xl bg-surface-1 border border-overlay/10 p-7">
+    <div className="rounded-2xl bg-surface-1 border border-overlay/14 p-7">
       <div className="flex items-center justify-between mb-5">
         <div className="grid grid-cols-3 gap-y-5 gap-x-8">
           <div>
@@ -460,7 +460,7 @@ export function HomeScreen({
   );
 
   const statsCard = (
-    <div className="rounded-2xl bg-surface-1 border border-overlay/10 p-7 flex flex-col items-center justify-center gap-2">
+    <div className="rounded-2xl bg-surface-1 border border-overlay/14 p-7 flex flex-col items-center justify-center gap-2">
       <span className="text-[15px] font-medium text-overlay/40">
         Statistics coming soon
       </span>

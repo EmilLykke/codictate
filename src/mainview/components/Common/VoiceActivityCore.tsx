@@ -36,15 +36,18 @@ const variantClass: Record<
 export function VoiceActivityCore({
   status,
   variant,
+  theme,
 }: {
   status: AppStatus;
   variant: Variant;
+  theme?: "light" | "dark";
 }) {
   const isRecording = status === "recording";
   const isTranscribing = status === "transcribing";
   const isStreaming = status === "streaming";
   const isActive = isRecording || isStreaming;
   const vc = variantClass[variant];
+  const indicatorRgb = theme === "light" ? "0 0 0" : "255 255 255";
 
   if (isTranscribing) {
     if (variant === "indicator") {
@@ -64,7 +67,7 @@ export function VoiceActivityCore({
               style={{
                 height: "100%",
                 transformOrigin: "bottom",
-                backgroundColor: "rgb(255 255 255 / 0.88)",
+                backgroundColor: `rgb(${indicatorRgb} / 0.88)`,
               }}
             />
           ))}
@@ -102,8 +105,8 @@ export function VoiceActivityCore({
               height: "100%",
               transformOrigin: "bottom",
               backgroundColor: isActive
-                ? `rgb(255 255 255 / ${INDICATOR_REC_OPACITY[i]})`
-                : `rgb(255 255 255 / ${INDICATOR_IDLE_OPACITY[i]})`,
+                ? `rgb(${indicatorRgb} / ${INDICATOR_REC_OPACITY[i]})`
+                : `rgb(${indicatorRgb} / ${INDICATOR_IDLE_OPACITY[i]})`,
             }}
             animate={
               isActive

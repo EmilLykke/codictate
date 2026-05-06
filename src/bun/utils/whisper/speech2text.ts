@@ -61,6 +61,7 @@ const BRAND_TRANSCRIPT_FIXES: [RegExp, string][] = [
   [/\bcodictate\b/gi, 'Codictate'],
   [/\bCodigTate\b/gi, 'Codictate'],
   [/\bCodig\s+Tate\b/gi, 'Codictate'],
+  [/\bCodeictate\b/gi, 'Codictate'],
 ]
 
 export function fixBrandMishearings(text: string): string {

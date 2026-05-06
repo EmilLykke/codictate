@@ -88,7 +88,7 @@ export function AudioPlayer({ entryId, durationMs }: Props) {
         type="button"
         onClick={togglePlay}
         disabled={loading}
-        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-surface-3 hover:bg-surface-4 text-overlay/70 hover:text-overlay/90 transition-colors cursor-pointer disabled:opacity-40"
+        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-overlay/10 hover:bg-overlay/15 text-overlay/70 hover:text-overlay/90 transition-colors cursor-pointer disabled:opacity-40"
         aria-label={playing ? "Pause" : "Play"}
       >
         {loading ? (
@@ -108,7 +108,7 @@ export function AudioPlayer({ entryId, durationMs }: Props) {
         {formatTime(currentTime)}
       </span>
       <div
-        className="flex-1 h-1.5 bg-surface-3 rounded-full cursor-pointer group"
+        className="flex-1 h-1.5 bg-overlay/10 rounded-full cursor-pointer group"
         onClick={handleSeek}
       >
         <div

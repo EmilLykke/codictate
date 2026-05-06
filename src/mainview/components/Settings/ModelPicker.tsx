@@ -12,7 +12,7 @@ const MODEL_STATS: Record<string, { speed: number; accuracy: number }> = {
   "small-q5_1": { speed: 8, accuracy: 5 },
   "large-v3-turbo-q5_0": { speed: 8, accuracy: 8 },
   "large-v3-q5_0": { speed: 6, accuracy: 10 },
-  "parakeet-tdt-0.6b-v3": { speed: 10, accuracy: 8 },
+  "parakeet-tdt-0.6b-v3": { speed: 10, accuracy: 7 },
 };
 
 const SHORT_DESC: Record<string, string> = {
@@ -37,7 +37,7 @@ function StatBar({
       <span className="text-[13px] text-overlay/45 w-16 text-right">
         {label}
       </span>
-      <div className="h-[5px] w-20 rounded-full bg-surface-3 overflow-hidden">
+      <div className="h-[5px] w-20 rounded-full bg-overlay/10 overflow-hidden">
         <div
           className="h-full rounded-full bg-accent-blue/50 transition-all duration-300"
           style={{ width: `${pct}%` }}
@@ -77,7 +77,7 @@ export function ModelPicker({
           modelAvailability[model.id] ?? model.bundled ?? false;
         const progress = downloadProgress[model.id];
         const isDownloading = progress !== undefined;
-        const isDeletable = isAvailable && !model.bundled && !isSelected;
+        const isDeletable = isAvailable && !model.bundled;
         const isPendingDelete = confirmDelete === model.id;
         const stats = MODEL_STATS[model.id];
         const desc = SHORT_DESC[model.id] ?? "";
@@ -92,9 +92,9 @@ export function ModelPicker({
             key={model.id}
             className={`relative rounded-xl border transition-colors duration-200 overflow-hidden ${
               isSelected
-                ? "border-accent-blue/25 bg-surface-2"
-                : "border-overlay/11 bg-surface-1"
-            } ${isAvailable && !isSelected ? "hover:border-overlay/16 hover:bg-surface-2 cursor-pointer" : ""}`}
+                ? "border-overlay/18 bg-surface-3"
+                : "border-overlay/8 bg-surface-1 opacity-65"
+            } ${isAvailable && !isSelected ? "hover:opacity-90 hover:border-overlay/14 hover:bg-surface-2 cursor-pointer" : ""}`}
             onClick={() => {
               if (confirmDelete) {
                 setConfirmDelete(null);
@@ -281,6 +281,14 @@ export function ModelPicker({
                         onClick={(e) => {
                           e.stopPropagation();
                           setConfirmDelete(null);
+                          if (isSelected) {
+                            const fallback = (models ?? SPEECH_MODELS).find(
+                              (m) =>
+                                m.id !== model.id &&
+                                (modelAvailability[m.id] ?? m.bundled ?? false),
+                            );
+                            if (fallback) onSelect(fallback.id);
+                          }
                           onDelete(model.id);
                         }}
                         className="text-[12px] font-medium text-accent-red/75 hover:text-accent-red transition-colors cursor-pointer"
@@ -318,7 +326,7 @@ export function ModelPicker({
                     Cancel
                   </button>
                 </div>
-                <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
+                <div className="h-1 rounded-full bg-overlay/10 overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-accent-blue/40"
                     initial={{ width: 0 }}

@@ -157,10 +157,10 @@ export function SectionGeneral({ settings }: Props) {
                 key={value}
                 type="button"
                 onClick={() => setThemePref(value)}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-[15px] font-medium cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-[15px] font-medium cursor-pointer transition-all duration-200 ${
                   selected
                     ? "border-overlay/22 bg-surface-3 text-overlay/88"
-                    : "border-overlay/11 bg-surface-1 text-overlay/52 hover:border-overlay/16 hover:bg-surface-2 hover:text-overlay/68"
+                    : "border-overlay/8 bg-surface-1 text-overlay/40 opacity-55 hover:opacity-85 hover:border-overlay/14 hover:bg-surface-2 hover:text-overlay/65"
                 }`}
               >
                 {icon}
