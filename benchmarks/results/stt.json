@@ -1,0 +1,268 @@
+{
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.4.1"
+  },
+  "runDate": "2026-05-07T19:32:31.350Z",
+  "config": {
+    "sampleSize": 200,
+    "warmupCount": 3,
+    "normalization": "whisper-basic"
+  },
+  "librispeech": {
+    "test-clean": {
+      "small-q5_1": {
+        "wer": 0.045454545454545456,
+        "meanRTF": 0.13801762052530878,
+        "peakRSS_MB": {
+          "min": 473,
+          "avg": 475,
+          "max": 477
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 28.745,
+        "totalWallSec": 3.967316502000001
+      },
+      "large-v3-turbo-q5_0": {
+        "wer": 0.045454545454545456,
+        "meanRTF": 0.2240850683945037,
+        "peakRSS_MB": {
+          "min": 797,
+          "avg": 799,
+          "max": 801
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 28.745,
+        "totalWallSec": 6.441325291000009
+      },
+      "large-v3-q5_0": {
+        "wer": 0.022727272727272728,
+        "meanRTF": 0.2766980662723945,
+        "peakRSS_MB": {
+          "min": 1984,
+          "avg": 1987,
+          "max": 1989
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 28.745,
+        "totalWallSec": 7.95368591499998
+      },
+      "parakeet-tdt-0.6b-v3": {
+        "wer": 0.011363636363636364,
+        "meanRTF": 0.0411747405113943,
+        "peakRSS_MB": {
+          "min": 77,
+          "avg": 79,
+          "max": 80
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 28.745,
+        "totalWallSec": 1.1835679160000292
+      }
+    },
+    "test-other": {
+      "small-q5_1": {
+        "wer": 0.10576923076923077,
+        "meanRTF": 0.05101289588534962,
+        "peakRSS_MB": {
+          "min": 473,
+          "avg": 476,
+          "max": 479
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 77.57493749999999,
+        "totalWallSec": 3.9573222100000036
+      },
+      "large-v3-turbo-q5_0": {
+        "wer": 0.0625,
+        "meanRTF": 0.08920845514055371,
+        "peakRSS_MB": {
+          "min": 798,
+          "avg": 800,
+          "max": 804
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 77.57493749999999,
+        "totalWallSec": 6.920340332000007
+      },
+      "large-v3-q5_0": {
+        "wer": 0.0625,
+        "meanRTF": 0.1289052102168946,
+        "peakRSS_MB": {
+          "min": 1984,
+          "avg": 1988,
+          "max": 1990
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 77.57493749999999,
+        "totalWallSec": 9.999813625999959
+      },
+      "parakeet-tdt-0.6b-v3": {
+        "wer": 0.11538461538461539,
+        "meanRTF": 0.01775064596088206,
+        "peakRSS_MB": {
+          "min": 78,
+          "avg": 81,
+          "max": 86
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 77.57493749999999,
+        "totalWallSec": 1.3770052510000532
+      }
+    }
+  },
+  "fleurs": {
+    "es_419": {
+      "small-q5_1": {
+        "wer": 0.06167400881057269,
+        "meanRTF": 0.04564821361963191,
+        "peakRSS_MB": {
+          "min": 475,
+          "avg": 477,
+          "max": 480
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 97.8,
+        "totalWallSec": 4.464395292000001
+      },
+      "large-v3-turbo-q5_0": {
+        "wer": 0.030837004405286344,
+        "meanRTF": 0.07620057728016352,
+        "peakRSS_MB": {
+          "min": 800,
+          "avg": 802,
+          "max": 806
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 97.8,
+        "totalWallSec": 7.452416457999993
+      },
+      "large-v3-q5_0": {
+        "wer": 0.039647577092511016,
+        "meanRTF": 0.11785764868098184,
+        "peakRSS_MB": {
+          "min": 1986,
+          "avg": 1989,
+          "max": 1993
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 97.8,
+        "totalWallSec": 11.526478041000024
+      },
+      "parakeet-tdt-0.6b-v3": {
+        "wer": 0.02643171806167401,
+        "meanRTF": 0.015076255981595179,
+        "peakRSS_MB": {
+          "min": 79,
+          "avg": 82,
+          "max": 87
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 97.8,
+        "totalWallSec": 1.4744578350000084
+      }
+    },
+    "da_dk": {
+      "small-q5_1": {
+        "wer": 0.3584905660377358,
+        "meanRTF": 0.055567877884615195,
+        "peakRSS_MB": {
+          "min": 476,
+          "avg": 478,
+          "max": 480
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 71.75999999999999,
+        "totalWallSec": 3.987550916999986
+      },
+      "large-v3-turbo-q5_0": {
+        "wer": 0.16981132075471697,
+        "meanRTF": 0.10462260367892927,
+        "peakRSS_MB": {
+          "min": 799,
+          "avg": 801,
+          "max": 803
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 71.75999999999999,
+        "totalWallSec": 7.507718039999963
+      },
+      "large-v3-q5_0": {
+        "wer": 0.14150943396226415,
+        "meanRTF": 0.14608577373188442,
+        "peakRSS_MB": {
+          "min": 1987,
+          "avg": 1989,
+          "max": 1991
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 71.75999999999999,
+        "totalWallSec": 10.483115123000024
+      },
+      "parakeet-tdt-0.6b-v3": {
+        "wer": 0.19811320754716982,
+        "meanRTF": 0.01737946741917384,
+        "peakRSS_MB": {
+          "min": 78,
+          "avg": 79,
+          "max": 80
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 71.75999999999999,
+        "totalWallSec": 1.2471505819999147
+      }
+    },
+    "hu_hu": {
+      "small-q5_1": {
+        "wer": 0.36764705882352944,
+        "meanRTF": 0.046282954143059385,
+        "peakRSS_MB": {
+          "min": 475,
+          "avg": 477,
+          "max": 482
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 84.72,
+        "totalWallSec": 3.921091874999991
+      },
+      "large-v3-turbo-q5_0": {
+        "wer": 0.125,
+        "meanRTF": 0.08789849750944297,
+        "peakRSS_MB": {
+          "min": 800,
+          "avg": 803,
+          "max": 805
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 84.72,
+        "totalWallSec": 7.446760709000008
+      },
+      "large-v3-q5_0": {
+        "wer": 0.08088235294117647,
+        "meanRTF": 0.14776662045561895,
+        "peakRSS_MB": {
+          "min": 1987,
+          "avg": 1989,
+          "max": 1993
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 84.72,
+        "totalWallSec": 12.518788085000036
+      },
+      "parakeet-tdt-0.6b-v3": {
+        "wer": 0.08088235294117647,
+        "meanRTF": 0.015927579095845055,
+        "peakRSS_MB": {
+          "min": 79,
+          "avg": 80,
+          "max": 83
+        },
+        "utteranceCount": 7,
+        "totalAudioSec": 84.72,
+        "totalWallSec": 1.349384500999993
+      }
+    }
+  }
+}

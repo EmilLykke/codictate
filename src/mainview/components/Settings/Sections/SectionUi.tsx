@@ -54,8 +54,14 @@ export function SectionUi({ settings }: Props) {
   return (
     <>
       <div className="mb-8 flex justify-center">
-        <div className={`flex h-16 w-16 items-center justify-center rounded-full border border-overlay/10 shadow-lg ${theme === "dark" ? "bg-black shadow-black/40" : "bg-white shadow-black/10"}`}>
-          <VoiceActivityCore status="recording" variant="indicator" theme={theme} />
+        <div
+          className={`flex h-16 w-16 items-center justify-center rounded-full border border-overlay/10 shadow-lg ${theme === "dark" ? "bg-black shadow-black/40" : "bg-white shadow-black/10"}`}
+        >
+          <VoiceActivityCore
+            status="recording"
+            variant="indicator"
+            theme={theme}
+          />
         </div>
       </div>
 

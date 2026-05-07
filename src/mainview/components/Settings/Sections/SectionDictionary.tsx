@@ -513,7 +513,9 @@ export function SectionDictionary({ settings }: Props) {
                   <li
                     key={key}
                     className={`px-5 py-4 ${
-                      i > 0 || hasAutoEntries ? "border-t border-overlay/12" : ""
+                      i > 0 || hasAutoEntries
+                        ? "border-t border-overlay/12"
+                        : ""
                     }`}
                   >
                     {isEditing ? (

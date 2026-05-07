@@ -33,7 +33,8 @@
     "check:native:windows-helper": "cargo fmt --check --manifest-path native/CodictateWindowsHelper/Cargo.toml && cargo check --manifest-path native/CodictateWindowsHelper/Cargo.toml && cargo clippy --manifest-path native/CodictateWindowsHelper/Cargo.toml -- -D warnings && cargo test --manifest-path native/CodictateWindowsHelper/Cargo.toml",
     "start": "bun run build:native && vite build && CODICTATE_CHANNEL=dev electrobun dev",
     "start:windows": "bun run build:native:windows-helper && vite build && CODICTATE_CHANNEL=dev electrobun dev",
-    "postbuild": "chmod +x build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/KeyListener build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/MicRecorder"
+    "postbuild": "chmod +x build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/KeyListener build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/MicRecorder",
+    "bench:stt": "bun run benchmarks/run-stt.ts"
   },
   "dependencies": {
     "@fontsource/iceberg": "^5.2.8",
