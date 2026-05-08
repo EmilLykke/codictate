@@ -8,11 +8,14 @@ import {
 } from "../../../shared/speech-models";
 import { InstantTooltip } from "../Common/InstantTooltip";
 
-const MODEL_STATS: Record<string, { speed: number; accuracy: number }> = {
-  "small-q5_1": { speed: 8, accuracy: 5 },
-  "large-v3-turbo-q5_0": { speed: 8, accuracy: 8 },
-  "large-v3-q5_0": { speed: 6, accuracy: 10 },
-  "parakeet-tdt-0.6b-v3": { speed: 10, accuracy: 7 },
+const MODEL_STATS: Record<
+  string,
+  { speed: number; accuracy: number; languages: number }
+> = {
+  "small-q5_1": { speed: 8, accuracy: 6, languages: 4 },
+  "large-v3-turbo-q5_0": { speed: 7, accuracy: 9, languages: 9 },
+  "large-v3-q5_0": { speed: 6, accuracy: 10, languages: 10 },
+  "parakeet-tdt-0.6b-v3": { speed: 10, accuracy: 8, languages: 8 },
 };
 
 const SHORT_DESC: Record<string, string> = {
@@ -142,6 +145,7 @@ export function ModelPicker({
                   <div className="flex flex-col gap-1 shrink-0 pt-0.5">
                     <StatBar label="accuracy" value={stats.accuracy} />
                     <StatBar label="speed" value={stats.speed} />
+                    <StatBar label="languages" value={stats.languages} />
                   </div>
                 )}
               </div>

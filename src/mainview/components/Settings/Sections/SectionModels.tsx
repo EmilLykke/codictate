@@ -6,6 +6,7 @@ import {
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
 import { settingsHelperClass } from "../settings-shared";
+import { openExternalUrl } from "../../../rpc";
 
 type Props = {
   settings: AppSettings;
@@ -38,7 +39,30 @@ export function SectionModels({
   return (
     <div className="min-w-0">
       <div className="mb-6">
-        <h2 className="text-[28px] tracking-tight text-overlay/90">Models</h2>
+        <div className="flex items-start justify-between">
+          <h2 className="text-[28px] tracking-tight text-overlay/90">Models</h2>
+          <button
+            type="button"
+            onClick={() => openExternalUrl("https://codictate.app/about")}
+            className="flex items-center gap-1.5 mt-2 text-[13px] text-overlay/40 hover:text-accent-blue/70 transition-colors cursor-pointer"
+          >
+            View benchmarks
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            </svg>
+          </button>
+        </div>
         <p className="mt-3 text-[14px] text-overlay/44 leading-relaxed font-sans font-normal">
           Speech-to-text engines that power your dictation.
         </p>

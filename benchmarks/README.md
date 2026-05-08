@@ -74,4 +74,8 @@ The download script fetches only the test split (not full dataset).
 | `small-q5_1` | Whisper | 181 MB | Good accuracy |
 | `large-v3-turbo-q5_0` | Whisper | 574 MB | Default, fast + accurate, bundled in `vendors/` |
 | `large-v3-q5_0` | Whisper | 1100 MB | Most accurate |
-| `parakeet-tdt-0.6b-v3` | FluidAudio | 2500 MB | Fastest, macOS CoreML / Windows ONNX |
+| `parakeet-tdt-0.6b-v3` | FluidAudio | 500 MB | Fastest, macOS CoreML / Windows ONNX |
+
+## Keeping the UI in sync
+
+When benchmark results change, update `MODEL_STATS` in `src/mainview/components/Settings/ModelPicker.tsx` to match. The speed, accuracy, and languages bars in the model picker are derived from benchmark data and should reflect the latest results.

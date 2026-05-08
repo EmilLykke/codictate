@@ -46,6 +46,56 @@ const WINDOWS_PARAKEET_ONNX_REQUIRED_FILES = [
   'vocab.txt',
 ] as const
 
+const MACOS_PARAKEET_COREML_REQUIRED_DIRS = [
+  'Preprocessor.mlmodelc',
+  'Encoder.mlmodelc',
+  'Decoder.mlmodelc',
+  'JointDecision.mlmodelc',
+] as const
+
+const MACOS_PARAKEET_COREML_REQUIRED_FILES = [
+  'parakeet_vocab.json',
+  'parakeet_v3_vocab.json',
+] as const
+
+function shouldDownloadParakeetFile(path: string): boolean {
+  if (getPlatformRuntime() === 'windows') {
+    return (WINDOWS_PARAKEET_ONNX_REQUIRED_FILES as readonly string[]).includes(
+      path
+    )
+  }
+  if (
+    (MACOS_PARAKEET_COREML_REQUIRED_FILES as readonly string[]).includes(path)
+  )
+    return true
+  return MACOS_PARAKEET_COREML_REQUIRED_DIRS.some(
+    (dir) => path === dir || path.startsWith(dir + '/')
+  )
+}
+
+function isRequiredCoreMlEntry(name: string): boolean {
+  return (
+    (MACOS_PARAKEET_COREML_REQUIRED_FILES as readonly string[]).includes(
+      name
+    ) ||
+    MACOS_PARAKEET_COREML_REQUIRED_DIRS.some((dir) => name === dir)
+  )
+}
+
+function cleanupParakeetCoreMlInstall(dir: string): void {
+  if (getPlatformRuntime() === 'windows') return
+  try {
+    for (const entry of readdirSync(dir)) {
+      if (!isRequiredCoreMlEntry(entry)) {
+        const fullPath = join(dir, entry)
+        rmSync(fullPath, { recursive: true, force: true })
+      }
+    }
+  } catch {
+    // non-critical — stale files just waste disk space
+  }
+}
+
 function parakeetCoreMlInstallComplete(dir: string): boolean {
   if (!existsSync(dir)) return false
   const vocab =
@@ -88,13 +138,9 @@ function parakeetRepoId(model: SpeechModel): string | undefined {
   return model.huggingFaceRepoId
 }
 
-function parakeetDownloadAllowList(): ReadonlySet<string> | null {
-  if (getPlatformRuntime() !== 'windows') return null
-  return new Set(WINDOWS_PARAKEET_ONNX_REQUIRED_FILES)
-}
-
 class ModelManager {
   private downloads = new Map<string, AbortController>()
+  private coreMlCleaned = new Set<string>()
 
   private modelInfo(modelId: string): SpeechModel | undefined {
     return getSpeechModel(modelId)
@@ -105,7 +151,13 @@ class ModelManager {
     if (!model) return false
     if (model.bundled) return true
     if (model.engine === 'whisperkit') {
-      return parakeetInstallComplete(this.getParakeetInstallDir(modelId))
+      const dir = this.getParakeetInstallDir(modelId)
+      if (!parakeetInstallComplete(dir)) return false
+      if (!this.coreMlCleaned.has(dir)) {
+        cleanupParakeetCoreMlInstall(dir)
+        this.coreMlCleaned.add(dir)
+      }
+      return true
     }
     return existsSync(join(MODELS_DIR, model.artifactName))
   }
@@ -197,7 +249,6 @@ class ModelManager {
     if (!repoId) throw new Error('Parakeet model missing huggingFaceRepoId')
 
     const repo = { type: 'model' as const, name: repoId }
-    const allowList = parakeetDownloadAllowList()
     const entries: { path: string; size: number }[] = []
 
     for await (const e of listFiles({ repo, recursive: true })) {
@@ -205,16 +256,16 @@ class ModelManager {
       if (
         e.type === 'file' &&
         e.path !== '.gitattributes' &&
-        (allowList === null || allowList.has(e.path))
+        shouldDownloadParakeetFile(e.path)
       ) {
         const size = e.lfs?.size ?? e.size
         entries.push({ path: e.path, size })
       }
     }
 
-    if (allowList !== null) {
+    if (getPlatformRuntime() === 'windows') {
       const found = new Set(entries.map((entry) => entry.path))
-      for (const required of allowList) {
+      for (const required of WINDOWS_PARAKEET_ONNX_REQUIRED_FILES) {
         if (!found.has(required)) {
           throw new Error(
             `Parakeet ONNX repo missing required file: ${required}`

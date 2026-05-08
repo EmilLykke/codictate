@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync, cpSync } from "node:fs";
 import { arch, cpus, totalmem } from "node:os";
 import { downloadLibriSpeech } from "./scripts/download-librispeech";
 import {
@@ -17,7 +17,19 @@ import {
 import { SPEECH_MODEL_IDS } from "../src/shared/speech-models";
 
 const DATASETS_DIR = join(import.meta.dir, "datasets");
-const RESULTS_DIR = join(import.meta.dir, "results");
+const RESULTS_BASE_DIR = join(import.meta.dir, "results");
+
+function makeRunDir(): string {
+  const now = new Date();
+  const stamp = now
+    .toISOString()
+    .replace(/T/, "_")
+    .replace(/:/g, "-")
+    .replace(/\.\d+Z$/, "");
+  const dir = join(RESULTS_BASE_DIR, stamp);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 // -- CLI arg parsing --
 
@@ -100,11 +112,25 @@ async function main() {
   }
   console.log("");
 
-  // Report-only mode: regenerate from existing JSON
+  // Report-only mode: regenerate from latest run's JSON
   if (flags.reportOnly) {
-    const jsonPath = join(RESULTS_DIR, "stt.json");
+    const runs = readdirSync(RESULTS_BASE_DIR)
+      .filter((d) => /^\d{4}-\d{2}-\d{2}/.test(d))
+      .sort();
+    const latest = runs[runs.length - 1];
+    if (!latest) {
+      console.error("No existing benchmark runs found in results/");
+      process.exit(1);
+    }
+    const latestDir = join(RESULTS_BASE_DIR, latest);
+    const jsonPath = join(latestDir, "stt.json");
     const existing = (await Bun.file(jsonPath).json()) as BenchmarkResults;
-    await writeReport(existing, RESULTS_DIR);
+    await writeReport(existing, latestDir);
+    for (const file of readdirSync(latestDir)) {
+      cpSync(join(latestDir, file), join(RESULTS_BASE_DIR, file), {
+        recursive: true,
+      });
+    }
     console.log("\n" + generateMarkdownReport(existing));
     return;
   }
@@ -168,7 +194,7 @@ async function main() {
   }
 
   // Step 5: Write results
-  mkdirSync(RESULTS_DIR, { recursive: true });
+  const runDir = makeRunDir();
 
   const results: BenchmarkResults = {
     hardware: getHardwareInfo(),
@@ -182,12 +208,21 @@ async function main() {
     fleurs: fleursResults,
   };
 
-  const jsonPath = join(RESULTS_DIR, "stt.json");
+  const jsonPath = join(runDir, "stt.json");
   await Bun.write(jsonPath, JSON.stringify(results, null, 2));
   console.log(`\nJSON written to ${jsonPath}`);
 
-  // Step 6: Write report + charts
-  await writeReport(results, RESULTS_DIR);
+  // Step 6: Write report + charts to run folder
+  await writeReport(results, runDir);
+
+  // Step 7: Copy latest results to root results/ folder
+  for (const file of readdirSync(runDir)) {
+    cpSync(join(runDir, file), join(RESULTS_BASE_DIR, file), {
+      recursive: true,
+    });
+  }
+  console.log(`Latest results copied to ${RESULTS_BASE_DIR}`);
+
   console.log("\n" + generateMarkdownReport(results));
 }
 

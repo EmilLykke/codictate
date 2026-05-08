@@ -367,13 +367,13 @@ DispatchQueue.global(qos: .userInitiated).async {
           let width = cmd.width,
           let height = cmd.height
         else { return }
-        if let theme = cmd.theme {
-          controller.setTheme(theme)
-        }
         controller.show(
           frame: NSRect(x: x, y: y, width: width, height: height),
           status: cmd.status ?? .ready
         )
+        if let theme = cmd.theme {
+          controller.setTheme(theme)
+        }
       case "hide":
         controller.hide()
       case "status":

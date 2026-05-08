@@ -30,7 +30,7 @@ const MODEL_DISK_MB: Record<string, number> = {
   "small-q5_1": 181,
   "large-v3-turbo-q5_0": 574,
   "large-v3-q5_0": 1100,
-  "parakeet-tdt-0.6b-v3": 2500,
+  "parakeet-tdt-0.6b-v3": 500,
 };
 
 const CONDITION_LABELS: Record<string, string> = {

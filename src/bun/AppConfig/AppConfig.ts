@@ -160,9 +160,13 @@ function defaultAudioDuckingSettings(): AudioDuckingSettings {
   }
 }
 
+const BUILTIN_DICTIONARY_ENTRIES: DictionaryEntry[] = [
+  { kind: 'fuzzy', text: 'Codictate', source: 'manual' },
+]
+
 function defaultDictionarySettings(): DictionarySettings {
   return {
-    entries: [],
+    entries: [...BUILTIN_DICTIONARY_ENTRIES],
     autoLearn: true,
     candidates: [],
   }
@@ -641,6 +645,16 @@ export class AppConfig {
     }
     if (Array.isArray(raw.candidates)) {
       this.dictionary.candidates = parseDictionaryCandidates(raw.candidates)
+    }
+    this.ensureBuiltinDictionaryEntries()
+  }
+
+  private ensureBuiltinDictionaryEntries(): void {
+    for (const builtin of BUILTIN_DICTIONARY_ENTRIES) {
+      const exists = this.dictionary.entries.some(
+        (e) => e.text.toLowerCase() === builtin.text.toLowerCase()
+      )
+      if (!exists) this.dictionary.entries.push({ ...builtin })
     }
   }
 

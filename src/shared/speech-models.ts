@@ -108,7 +108,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
     engine: 'whisperkit',
     modeSupport: 'both',
     artifactName: 'parakeet-tdt-0.6b-v3-coreml',
-    downloadSizeMB: 2500,
+    downloadSizeMB: 500,
     label: 'Parakeet TDT v3',
     description:
       'Nvidia model · fastest & live dictation · first session may need model prep (minutes)',
