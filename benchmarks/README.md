@@ -13,9 +13,9 @@ Measures Word Error Rate (WER), Real-Time Factor (RTF), and peak memory (RSS) fo
 
 | Dataset | Language | Purpose |
 |---------|----------|---------|
-| LibriSpeech test-clean | English | Standard WER benchmark (comparable to published numbers) |
-| LibriSpeech test-other | English | Harder/noisier speakers |
-| FLEURS test split | es, da, hu (expandable) | Multilingual WER |
+| [LibriSpeech](https://www.openslr.org/12) test-clean | English | Standard WER benchmark (comparable to published numbers) |
+| [LibriSpeech](https://www.openslr.org/12) test-other | English | Harder/noisier speakers |
+| [FLEURS](https://huggingface.co/datasets/google/fleurs) test split | es, da, hu (expandable) | Multilingual WER |
 
 LibriSpeech downloads automatically. FLEURS downloads via `hf`.
 
