@@ -165,6 +165,57 @@ def generate_scatter(results: dict, out_path: Path) -> None:
     print(f"Chart: {out_path}")
 
 
+def generate_averages_bar(results: dict, out_path: Path) -> None:
+    points = extract_data(results)
+    if not points:
+        return
+
+    models = list(dict.fromkeys(p["model"] for p in points))
+
+    english_keys = {"English (clean)", "English (noisy)"}
+    categories = ["Avg English", "Avg Multilingual", "Avg Overall"]
+
+    x = np.arange(len(categories))
+    bar_width = 0.8 / max(len(models), 1)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    fig.set_facecolor(DARK_BG)
+    style_ax(ax)
+
+    for i, model in enumerate(models):
+        model_points = [p for p in points if p["model"] == model]
+        en_accs = [(1 - p["wer"]) * 100 for p in model_points if p["condition"] in english_keys]
+        multi_accs = [(1 - p["wer"]) * 100 for p in model_points if p["condition"] not in english_keys]
+        all_accs = [(1 - p["wer"]) * 100 for p in model_points]
+
+        avgs = [
+            sum(en_accs) / len(en_accs) if en_accs else 0,
+            sum(multi_accs) / len(multi_accs) if multi_accs else 0,
+            sum(all_accs) / len(all_accs) if all_accs else 0,
+        ]
+
+        offset = (i - len(models) / 2 + 0.5) * bar_width
+        bars = ax.bar(x + offset, avgs, bar_width * 0.9, label=model_name(model),
+                       color=COLORS[i % len(COLORS)], zorder=3)
+        for bar, a in zip(bars, avgs):
+            if a > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.15,
+                        f"{a:.1f}%", ha="center", va="bottom", fontsize=8, color=DARK_LABEL)
+
+    ax.set_ylabel("Accuracy %")
+    ax.set_title("Average Accuracy by Category", fontweight="bold", pad=12)
+    ax.set_xticks(x)
+    ax.set_xticklabels(categories, fontsize=10)
+    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=9)
+    ax.grid(axis="y", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
+    ax.set_axisbelow(True)
+
+    fig.tight_layout()
+    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG)
+    plt.close(fig)
+    print(f"Chart: {out_path}")
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: charts.py <results-dir>", file=sys.stderr)
@@ -182,6 +233,7 @@ def main() -> None:
 
     generate_accuracy_bar(results, results_dir / "accuracy-comparison.png")
     generate_scatter(results, results_dir / "speed-accuracy.png")
+    generate_averages_bar(results, results_dir / "accuracy-averages.png")
 
 
 if __name__ == "__main__":

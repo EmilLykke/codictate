@@ -41,6 +41,13 @@ const CONDITION_LABELS: Record<string, string> = {
   hu_hu: "Hungarian",
 };
 
+const MODEL_SUPPORTED_LANGUAGES: Record<string, number> = {
+  "small-q5_1": 99,
+  "large-v3-turbo-q5_0": 99,
+  "large-v3-q5_0": 99,
+  "parakeet-tdt-0.6b-v3": 25,
+};
+
 function modelName(id: string): string {
   return MODEL_NAMES[id] ?? id;
 }
@@ -90,6 +97,30 @@ function buildConditions(results: BenchmarkResults): ConditionData[] {
   return conditions;
 }
 
+function avgAccuracyForConditions(
+  modelId: string,
+  conditions: ConditionData[],
+): number {
+  const accs = conditions
+    .map((c) => c.models[modelId]?.wer)
+    .filter((w): w is number => w !== undefined && w >= 0);
+  if (accs.length === 0) return -1;
+  return 1 - accs.reduce((s, w) => s + w, 0) / accs.length;
+}
+
+function splitConditions(conditions: ConditionData[]): {
+  english: ConditionData[];
+  multilingual: ConditionData[];
+} {
+  const english: ConditionData[] = [];
+  const multilingual: ConditionData[] = [];
+  for (const c of conditions) {
+    if (c.key.startsWith("test-")) english.push(c);
+    else multilingual.push(c);
+  }
+  return { english, multilingual };
+}
+
 function collectModelIds(conditions: ConditionData[]): string[] {
   const ids = new Set<string>();
   for (const c of conditions) {
@@ -129,6 +160,59 @@ function avgRtf(modelId: string, conditions: ConditionData[]): number {
   return totalWall / totalAudio;
 }
 
+interface ModelRatings {
+  speed: number;
+  accuracy: number;
+  languages: number;
+}
+
+function rateSpeed(rtf: number): number {
+  if (rtf <= 0) return 1;
+  const score = Math.round(10 - rtf * 9);
+  return Math.max(1, Math.min(10, score));
+}
+
+function rateAccuracy(accuracy: number): number {
+  const score = Math.round((accuracy - 0.5) * 18 + 1);
+  return Math.max(1, Math.min(10, score));
+}
+
+function rateLanguages(count: number): number {
+  if (count >= 90) return 10;
+  if (count >= 50) return 9;
+  if (count >= 25) return 8;
+  if (count >= 10) return 6;
+  if (count >= 5) return 4;
+  return Math.max(1, Math.min(3, count));
+}
+
+function computeRatings(
+  modelIds: string[],
+  conditions: ConditionData[],
+): Record<string, ModelRatings> {
+  const ratings: Record<string, ModelRatings> = {};
+
+  for (const id of modelIds) {
+    const rtf = avgRtf(id, conditions);
+    const accs = conditions
+      .map((c) => c.models[id]?.wer)
+      .filter((w): w is number => w !== undefined && w >= 0);
+    const avgAccuracy =
+      accs.length > 0
+        ? 1 - accs.reduce((sum, w) => sum + w, 0) / accs.length
+        : 0;
+    const langCount = MODEL_SUPPORTED_LANGUAGES[id] ?? 1;
+
+    ratings[id] = {
+      speed: rateSpeed(rtf),
+      accuracy: rateAccuracy(avgAccuracy),
+      languages: rateLanguages(langCount),
+    };
+  }
+
+  return ratings;
+}
+
 export function generateMarkdownReport(results: BenchmarkResults): string {
   const lines: string[] = [];
   const conditions = buildConditions(results);
@@ -150,6 +234,8 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
   lines.push("## Summary");
   lines.push("");
 
+  const { english, multilingual } = splitConditions(conditions);
+
   const summaryHeader = [
     "Model",
     "Disk",
@@ -158,6 +244,9 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
     "Max Peak RSS",
     "Transcribe Time / sec Audio",
     ...conditions.map((c) => c.label),
+    "Avg English",
+    "Avg Multilingual",
+    "Avg Overall",
   ];
   lines.push(`| ${summaryHeader.join(" | ")} |`);
   lines.push(`| ${summaryHeader.map(() => "---").join(" | ")} |`);
@@ -167,6 +256,9 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
     const disk = diskMB ? fmtSize(diskMB) : "N/A";
     const rss = aggregateRss(modelId, conditions);
     const rtf = avgRtf(modelId, conditions);
+    const avgEn = avgAccuracyForConditions(modelId, english);
+    const avgMulti = avgAccuracyForConditions(modelId, multilingual);
+    const avgAll = avgAccuracyForConditions(modelId, conditions);
 
     const row = [
       modelName(modelId),
@@ -179,8 +271,23 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
         const r = c.models[modelId];
         return r ? fmtAccuracy(r.wer) : "-";
       }),
+      avgEn >= 0 ? `${(avgEn * 100).toFixed(1)}%` : "-",
+      avgMulti >= 0 ? `${(avgMulti * 100).toFixed(1)}%` : "-",
+      avgAll >= 0 ? `${(avgAll * 100).toFixed(1)}%` : "-",
     ];
     lines.push(`| ${row.join(" | ")} |`);
+  }
+  lines.push("");
+
+  // Ratings
+  const ratings = computeRatings(modelIds, conditions);
+  lines.push("## Ratings (1-10)");
+  lines.push("");
+  lines.push("| Model | Speed | Accuracy | Languages |");
+  lines.push("| --- | --- | --- | --- |");
+  for (const modelId of modelIds) {
+    const r = ratings[modelId];
+    lines.push(`| ${modelName(modelId)} | ${r.speed} | ${r.accuracy} | ${r.languages} |`);
   }
   lines.push("");
 
@@ -190,6 +297,8 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
   lines.push("![Accuracy Comparison](accuracy-comparison.png)");
   lines.push("");
   lines.push("![Accuracy vs Speed](speed-accuracy.png)");
+  lines.push("");
+  lines.push("![Average Accuracy](accuracy-averages.png)");
   lines.push("");
 
   // Accuracy by condition

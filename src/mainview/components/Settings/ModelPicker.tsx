@@ -6,17 +6,8 @@ import {
   formatModelSize,
   parakeetSupportedLanguagesTooltipText,
 } from "../../../shared/speech-models";
+import { MODEL_RATINGS } from "../../../shared/model-ratings";
 import { InstantTooltip } from "../Common/InstantTooltip";
-
-const MODEL_STATS: Record<
-  string,
-  { speed: number; accuracy: number; languages: number }
-> = {
-  "small-q5_1": { speed: 8, accuracy: 6, languages: 4 },
-  "large-v3-turbo-q5_0": { speed: 7, accuracy: 9, languages: 9 },
-  "large-v3-q5_0": { speed: 6, accuracy: 10, languages: 10 },
-  "parakeet-tdt-0.6b-v3": { speed: 10, accuracy: 8, languages: 8 },
-};
 
 const SHORT_DESC: Record<string, string> = {
   "small-q5_1": "Lightweight and capable.",
@@ -82,7 +73,7 @@ export function ModelPicker({
         const isDownloading = progress !== undefined;
         const isDeletable = isAvailable && !model.bundled;
         const isPendingDelete = confirmDelete === model.id;
-        const stats = MODEL_STATS[model.id];
+        const stats = MODEL_RATINGS[model.id];
         const desc = SHORT_DESC[model.id] ?? "";
         const isStream =
           model.modeSupport === "both" || model.modeSupport === "stream";
