@@ -139,9 +139,9 @@ def generate_scatter(results: dict, out_path: Path) -> None:
         color = COLORS[mi % len(COLORS)]
         marker = markers[ci % len(markers)]
         accuracy = (1 - p["wer"]) * 100
-        speed = 1 / p["rtf"] if p["rtf"] > 0 else 0
+        speed_ms = p["rtf"] * 1000
 
-        ax.scatter(speed, accuracy, c=color, marker=marker, s=100,
+        ax.scatter(speed_ms, accuracy, c=color, marker=marker, s=100,
                    zorder=3, alpha=0.85, edgecolors="none")
 
         if p["model"] not in plotted_models:
@@ -151,8 +151,8 @@ def generate_scatter(results: dict, out_path: Path) -> None:
     for ci, cond in enumerate(conditions):
         ax.scatter([], [], c=DARK_LABEL, marker=markers[ci % len(markers)], s=60, label=cond)
 
-    ax.set_xlabel("Speed (x realtime)")
-    ax.set_ylabel("Accuracy %")
+    ax.set_xlabel("Transcribe Time (ms / sec audio) - lower is better")
+    ax.set_ylabel("Accuracy % - higher is better")
     ax.set_title("Accuracy vs Speed", fontweight="bold", pad=12)
     ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=9,
               bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
