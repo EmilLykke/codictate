@@ -14,7 +14,7 @@ export function parseModelTags(id: string): string[] {
   if (qMatch) tags.push(qMatch[1]);
   else tags.push("full");
 
-  if (id.includes(".en")) tags.push("English");
+  if (id.includes(".en")) tags.push("\u{1F1EC}\u{1F1E7} (only)");
   else tags.push("Multilingual");
 
   if (id.includes("-tdrz")) tags.push("TDRZ");
