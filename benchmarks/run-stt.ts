@@ -210,6 +210,39 @@ async function main() {
     return;
   }
 
+  if (!flags.name) {
+    console.error(
+      "Error: --name is required. Used as URL slug for the benchmark page.",
+    );
+    console.error(
+      "  Format: lowercase letters, numbers, and hyphens (e.g. tiny-base-triage)",
+    );
+    process.exit(1);
+  }
+
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(flags.name)) {
+    console.error(`Error: invalid name "${flags.name}".`);
+    console.error(
+      "  Must be lowercase, alphanumeric, separated by hyphens (e.g. tiny-base-triage)",
+    );
+    console.error(
+      "  No uppercase, spaces, underscores, or leading/trailing hyphens.",
+    );
+    process.exit(1);
+  }
+
+  if (existsSync(RESULTS_BASE_DIR)) {
+    const existing = readdirSync(RESULTS_BASE_DIR).find((d) =>
+      d.endsWith(`_${flags.name}`),
+    );
+    if (existing) {
+      console.error(
+        `Error: name "${flags.name}" already used in ${existing}. Choose a unique name.`,
+      );
+      process.exit(1);
+    }
+  }
+
   if (!flags.description) {
     console.error(
       "Error: --description is required. Describe the goal of this benchmark run.",

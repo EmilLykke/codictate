@@ -47,7 +47,7 @@ bun run bench:stt -- --report-only
 |------|---------|-------------|
 | `--description` | **required** | Goal/context for this benchmark run (stored in stt.json, shown in report) |
 | `--models` | all | Comma-separated model IDs (all 34 models if omitted) |
-| `--name` | none | Human-readable name appended to results directory |
+| `--name` | **required** | Slug appended to results directory, used as URL path on website |
 | `--samples` | 200 | Max utterances per dataset/language |
 | `--languages` | es_419,da_dk,hu_hu | FLEURS language codes |
 | `--skip-download` | false | Skip dataset and model download step |
