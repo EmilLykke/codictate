@@ -401,8 +401,8 @@ def generate_averages_bar(results: dict, out_path: Path) -> None:
             has_val = raw > 0
             fy = mi + (idx - (total - 1) / 2) * flag_ystep
             if text_label:
-                ax.annotate(text_label, xy=(0.020, fy),
-                            xycoords=flag_trans, fontsize=7,
+                ax.annotate(text_label, xy=(0.035, fy),
+                            xycoords=flag_trans, fontsize=12,
                             color="#FFFFFF" if has_val else "#555555",
                             ha="center", va="center",
                             annotation_clip=False)
