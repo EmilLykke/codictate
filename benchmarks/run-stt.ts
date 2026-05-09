@@ -1,10 +1,5 @@
 import { join } from "node:path";
-import {
-  mkdirSync,
-  readdirSync,
-  existsSync,
-  unlinkSync,
-} from "node:fs";
+import { mkdirSync, readdirSync, existsSync, unlinkSync } from "node:fs";
 import { arch, cpus, totalmem } from "node:os";
 import { downloadLibriSpeech } from "./scripts/download-librispeech";
 import {
