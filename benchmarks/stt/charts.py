@@ -16,6 +16,49 @@ CONDITION_LABELS = {
     "hu_hu": "Hungarian",
 }
 
+CONDITION_FLAGS = {
+    "English (clean)": "\U0001f1ec\U0001f1e7",
+    "English (noisy)": "\U0001f1ec\U0001f1e7",
+    "Spanish": "\U0001f1ea\U0001f1f8",
+    "Danish": "\U0001f1e9\U0001f1f0",
+    "Hungarian": "\U0001f1ed\U0001f1fa",
+}
+
+_flag_cache: dict[str, "np.ndarray"] = {}
+
+
+def _render_flag(emoji: str) -> "np.ndarray | None":
+    if emoji in _flag_cache:
+        return _flag_cache[emoji]
+    import subprocess, tempfile, os
+    from PIL import Image
+    tmp = tempfile.mktemp(suffix=".png")
+    swift = f'''
+import AppKit
+let font = NSFont.systemFont(ofSize: 36)
+let attrs: [NSAttributedString.Key: Any] = [.font: font]
+let str = NSAttributedString(string: "{emoji}", attributes: attrs)
+let size = str.size()
+let img = NSImage(size: size)
+img.lockFocus()
+str.draw(at: .zero)
+img.unlockFocus()
+let tiff = img.tiffRepresentation!
+let rep = NSBitmapImageRep(data: tiff)!
+let png = rep.representation(using: .png, properties: [:])!
+try! png.write(to: URL(fileURLWithPath: "{tmp}"))
+'''
+    try:
+        subprocess.run(["swift", "-e", swift], capture_output=True, timeout=10)
+        if os.path.exists(tmp):
+            img = np.array(Image.open(tmp)) / 255.0
+            _flag_cache[emoji] = img
+            os.unlink(tmp)
+            return img
+    except Exception:
+        pass
+    return None
+
 _TAB20 = plt.cm.tab20(np.linspace(0, 1, 20))
 _TAB20B = plt.cm.tab20b(np.linspace(0, 1, 20))
 COLORS = [matplotlib.colors.to_hex(c) for c in np.vstack((_TAB20, _TAB20B))]
@@ -146,7 +189,8 @@ def generate_accuracy_bar(results: dict, out_path: Path) -> None:
         for bar, val in zip(bars, accs):
             if val > 0:
                 is_best = val == best and val > 0
-                ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
+                label_x = max(bar.get_width() + 0.3, 6)
+                ax.text(label_x, bar.get_y() + bar.get_height() / 2,
                         f"{val:.1f}%", va="center", ha="left",
                         fontsize=11,
                         color=WINNER_COLOR if is_best else DARK_LABEL,
@@ -157,19 +201,52 @@ def generate_accuracy_bar(results: dict, out_path: Path) -> None:
     ax.set_title("Accuracy by Model and Condition", fontweight="bold", pad=12)
     ax.set_yticks(y)
     ax.set_yticklabels([model_label(m) for m in models], fontsize=11)
-    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=8,
-              bbox_to_anchor=(0, -0.04), loc="upper left", borderaxespad=0,
-              ncol=len(conditions), framealpha=0.9, handlelength=1.2,
-              handletextpad=0.4, columnspacing=1.0)
     ax.grid(axis="x", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
     ax.set_axisbelow(True)
     ax.invert_yaxis()
+
+    from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
+    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG,
+              fontsize=8, bbox_to_anchor=(0, -0.04), loc="upper left",
+              borderaxespad=0, ncol=len(conditions), framealpha=0.9,
+              handlelength=1.2, handletextpad=0.4, columnspacing=1.5)
     if has_negative:
         fig.text(0.5, -0.005, "* Negative accuracy values (WER > 100%) clamped to 0%",
                  ha="center", fontsize=7, color=DARK_LABEL)
 
     fig.tight_layout()
-    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG, bbox_inches="tight")
+    fig.subplots_adjust(left=0.18)
+
+    from matplotlib.transforms import blended_transform_factory
+    flag_trans = blended_transform_factory(ax.transAxes, ax.transData)
+    flag_ystep = 0.18
+    for mi, model in enumerate(models):
+        flag_conds = [c for c in conditions if CONDITION_FLAGS.get(c)]
+        total = len(flag_conds)
+        for idx, cond in enumerate(flag_conds):
+            flag_emoji = CONDITION_FLAGS[cond]
+            flag_img = _render_flag(flag_emoji)
+            if flag_img is None:
+                continue
+            has_data = any(p for p in points
+                          if p["model"] == model and p["condition"] == cond
+                          and (1 - p["wer"]) * 100 > 0)
+            fy = mi + (idx - (total - 1) / 2) * flag_ystep
+            im = OffsetImage(flag_img, zoom=0.3, alpha=1.0 if has_data else 0.2)
+            ab = AnnotationBbox(im, (0.015, fy), frameon=False,
+                                xycoords=flag_trans, box_alignment=(0.5, 0.5),
+                                zorder=10, clip_on=False)
+            ax.add_artist(ab)
+            if cond == "English (noisy)" and has_data:
+                ax.annotate("(noisy)", xy=(0.03, fy),
+                            xycoords=flag_trans, fontsize=7,
+                            fontweight="normal", color="#000000",
+                            ha="left", va="center",
+                            annotation_clip=False)
+
+    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG,
+                bbox_inches="tight", pad_inches=0.3)
     plt.close(fig)
     print(f"Chart: {out_path}")
 
@@ -272,7 +349,8 @@ def generate_averages_bar(results: dict, out_path: Path) -> None:
         for bar, val in zip(bars, vals):
             if val > 0:
                 is_best = val == best and val > 0
-                ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
+                label_x = max(bar.get_width() + 0.3, 6)
+                ax.text(label_x, bar.get_y() + bar.get_height() / 2,
                         f"{val:.1f}%", va="center", ha="left",
                         fontsize=11,
                         color=WINNER_COLOR if is_best else DARK_LABEL,
@@ -295,7 +373,51 @@ def generate_averages_bar(results: dict, out_path: Path) -> None:
                  ha="center", fontsize=7, color=DARK_LABEL)
 
     fig.tight_layout()
-    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG, bbox_inches="tight")
+    fig.subplots_adjust(left=0.18)
+
+    from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+    from matplotlib.transforms import blended_transform_factory
+    flag_trans = blended_transform_factory(ax.transAxes, ax.transData)
+    avg_indicators = [
+        ("Avg Overall", None, "(overall)"),
+        ("Avg English", "\U0001f1ec\U0001f1e7", None),
+        ("Avg Multilingual", "\U0001f30d", None),
+    ]
+    flag_ystep = 0.30
+    for mi, model in enumerate(models):
+        model_points = [p for p in points if p["model"] == model]
+        total = len(avg_indicators)
+        def avg_acc(subset):
+            accs = [(1 - p["wer"]) * 100 for p in subset]
+            return sum(accs) / len(accs) if accs else 0
+
+        for idx, (cat, emoji, text_label) in enumerate(avg_indicators):
+            if cat == "Avg English":
+                raw = avg_acc([p for p in model_points if p["condition"] in english_keys])
+            elif cat == "Avg Multilingual":
+                raw = avg_acc([p for p in model_points if p["condition"] not in english_keys])
+            else:
+                raw = avg_acc(model_points)
+            has_val = raw > 0
+            fy = mi + (idx - (total - 1) / 2) * flag_ystep
+            if text_label:
+                ax.annotate(text_label, xy=(0.020, fy),
+                            xycoords=flag_trans, fontsize=7,
+                            color="#FFFFFF" if has_val else "#555555",
+                            ha="center", va="center",
+                            annotation_clip=False)
+            elif emoji:
+                flag_img = _render_flag(emoji)
+                if flag_img is None:
+                    continue
+                im = OffsetImage(flag_img, zoom=0.3, alpha=1.0 if has_val else 0.2)
+                ab = AnnotationBbox(im, (0.015, fy), frameon=False,
+                                    xycoords=flag_trans, box_alignment=(0.5, 0.5),
+                                    zorder=10, clip_on=False)
+                ax.add_artist(ab)
+
+    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG,
+                bbox_inches="tight", pad_inches=0.3)
     plt.close(fig)
     print(f"Chart: {out_path}")
 
