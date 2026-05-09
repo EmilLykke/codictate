@@ -1,5 +1,7 @@
 # STT Benchmark Report
 
+**Description:** Comparison of Codictate's curated speech models (Small q5_1, Large V3 Turbo q5_0, Large V3 q5_0, Parakeet) to determine the best-performing default model.
+
 - **Date:** 2026-05-08T07:56:46.176Z
 - **Hardware:** Apple M4 Max / 36 GB / macOS 26.4.1
 - **Samples per dataset:** 200

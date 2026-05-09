@@ -23,21 +23,21 @@ LibriSpeech downloads automatically. FLEURS downloads via `hf`.
 
 ```bash
 # Full run: download + convert + benchmark all models
-bun run bench:stt
+bun run bench:stt -- --description "Full benchmark of all models"
 
 # Named run (results saved as 2026-05-09_12-00-00_tiny-base-triage)
-bun run bench:stt -- --name tiny-base-triage --models tiny,tiny-q5_1,base,base-q5_1 --samples 50
+bun run bench:stt -- --name tiny-base-triage --description "Triage tiny and base model families" --models tiny,tiny-q5_1,base,base-q5_1 --samples 50
 
 # Single model, skip download
-bun run bench:stt -- --models large-v3-turbo-q5_0 --skip-download
+bun run bench:stt -- --description "Test turbo model" --models large-v3-turbo-q5_0 --skip-download
 
 # Subset of models + specific FLEURS languages (es, da, hu)
-bun run bench:stt -- --models small-q5_1,large-v3-turbo-q5_0 --languages es_419,da_dk,hu_hu
+bun run bench:stt -- --description "Multilingual comparison" --models small-q5_1,large-v3-turbo-q5_0 --languages es_419,da_dk,hu_hu
 
 # Quick test run with fewer samples
-bun run bench:stt -- --samples 10
+bun run bench:stt -- --description "Quick smoke test" --samples 10
 
-# Regenerate report from existing results
+# Regenerate reports + charts for all runs
 bun run bench:stt -- --report-only
 ```
 
@@ -45,6 +45,7 @@ bun run bench:stt -- --report-only
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--description` | **required** | Goal/context for this benchmark run (stored in stt.json, shown in report) |
 | `--models` | all | Comma-separated model IDs (all 34 models if omitted) |
 | `--name` | none | Human-readable name appended to results directory |
 | `--samples` | 200 | Max utterances per dataset/language |

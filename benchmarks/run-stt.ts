@@ -107,6 +107,7 @@ function parseArgs() {
     skipConvert: false,
     reportOnly: false,
     name: undefined as string | undefined,
+    description: undefined as string | undefined,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -131,6 +132,9 @@ function parseArgs() {
         break;
       case "--name":
         flags.name = args[++i];
+        break;
+      case "--description":
+        flags.description = args[++i];
         break;
     }
   }
@@ -204,6 +208,13 @@ async function main() {
       console.log("\n" + generateMarkdownReport(latest));
     }
     return;
+  }
+
+  if (!flags.description) {
+    console.error(
+      "Error: --description is required. Describe the goal of this benchmark run.",
+    );
+    process.exit(1);
   }
 
   // Step 1: Download datasets
@@ -392,6 +403,7 @@ async function main() {
 
   // Step 7: Write final results
   const results: BenchmarkResults = {
+    description: flags.description,
     hardware: getHardwareInfo(),
     runDate: new Date().toISOString(),
     config: {

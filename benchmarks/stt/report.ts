@@ -4,6 +4,7 @@ import type { ModelDatasetResult, PeakRSSStats } from "./runner";
 import { getSpeechModel } from "../../src/shared/speech-models";
 
 export interface BenchmarkResults {
+  description: string;
   hardware: {
     chip: string;
     ram: string;
@@ -222,6 +223,10 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
   // Header
   lines.push("# STT Benchmark Report");
   lines.push("");
+  if (results.description) {
+    lines.push(`**Description:** ${results.description}`);
+    lines.push("");
+  }
   lines.push(`- **Date:** ${results.runDate}`);
   lines.push(
     `- **Hardware:** ${results.hardware.chip} / ${results.hardware.ram} / ${results.hardware.os} ${results.hardware.osVersion}`,

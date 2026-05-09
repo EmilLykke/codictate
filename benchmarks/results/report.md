@@ -1,5 +1,7 @@
 # STT Benchmark Report
 
+**Description:** Triage of Tiny and Base model families (all quantization and language variants) to evaluate whether these smaller models are worth further benchmarking.
+
 - **Date:** 2026-05-09T10:12:34.798Z
 - **Hardware:** Apple M4 Max / 36 GB / macOS 26.4.1
 - **Samples per dataset:** 50
