@@ -21,12 +21,12 @@
 
 | Model | Speed | Accuracy | Languages |
 | --- | --- | --- | --- |
-| Large V3 q5_0 | 9 | 9 | 10 |
-| Large V3 Turbo q5_0 | 9 | 8 | 10 |
-| Parakeet TDT v3 full | 10 | 8 | 8 |
-| Small q5_1 | 9 | 7 | 10 |
+| Large V3 q5_0 | 5 | 9 | 10 |
+| Large V3 Turbo q5_0 | 6 | 8 | 10 |
+| Parakeet TDT v3 full | 9 | 8 | 8 |
+| Small q5_1 | 8 | 7 | 10 |
 
-## Charts
+## Charts (All Models)
 
 ![Accuracy Comparison](accuracy-comparison.png)
 

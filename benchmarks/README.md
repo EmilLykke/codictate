@@ -23,19 +23,31 @@ LibriSpeech downloads automatically. FLEURS downloads via `hf`.
 
 ```bash
 # Full run: download + convert + benchmark all models
-bun run bench:stt -- --description "Full benchmark of all models"
+bun run bench:stt -- --name full-run --description "Full benchmark of all models"
 
 # Named run (results saved as 2026-05-09_12-00-00_tiny-base-triage)
 bun run bench:stt -- --name tiny-base-triage --description "Triage tiny and base model families" --models tiny,tiny-q5_1,base,base-q5_1 --samples 50
 
 # Single model, skip download
-bun run bench:stt -- --description "Test turbo model" --models large-v3-turbo-q5_0 --skip-download
+bun run bench:stt -- --name turbo-only --description "Test turbo model" --models large-v3-turbo-q5_0 --skip-download
 
 # Subset of models + specific FLEURS languages (es, da, hu)
-bun run bench:stt -- --description "Multilingual comparison" --models small-q5_1,large-v3-turbo-q5_0 --languages es_419,da_dk,hu_hu
+bun run bench:stt -- --name multilingual --description "Multilingual comparison" --models small-q5_1,large-v3-turbo-q5_0 --languages es_419,da_dk,hu_hu
 
 # Quick test run with fewer samples
-bun run bench:stt -- --description "Quick smoke test" --samples 10
+bun run bench:stt -- --name smoke --description "Quick smoke test" --samples 10
+
+# Continue a previous run - only benchmark models not yet in stt.json
+bun run bench:stt -- --name small-medium --description "Add small and medium models" --models small,small-q5_1,medium,medium-q5_1 --skip-existing
+
+# Benchmark all models, free disk space as each model finishes
+bun run bench:stt -- --name full-run --description "All models, cleanup after" --offload-models
+
+# Combine both: skip already-benchmarked models and offload when done
+bun run bench:stt -- --name full-run --description "Continue full run, free disk" --skip-existing --offload-models
+
+# Benchmark new models without re-downloading datasets
+bun run bench:stt -- --name new-models --description "Test new quantizations" --models large-v3-q8_0,medium-q8_0 --skip-download --skip-convert --skip-existing
 
 # Regenerate reports + charts for all runs
 bun run bench:stt -- --report-only
@@ -45,13 +57,15 @@ bun run bench:stt -- --report-only
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--name` | **required** | Slug appended to results directory, used as URL path on website |
 | `--description` | **required** | Goal/context for this benchmark run (stored in stt.json, shown in report) |
 | `--models` | all | Comma-separated model IDs (all 34 models if omitted) |
-| `--name` | **required** | Slug appended to results directory, used as URL path on website |
 | `--samples` | 200 | Max utterances per dataset/language |
 | `--languages` | es_419,da_dk,hu_hu | FLEURS language codes |
 | `--skip-download` | false | Skip dataset and model download step |
 | `--skip-convert` | false | Skip audio conversion step |
+| `--skip-existing` | false | Load latest stt.json and skip model/dataset combos already benchmarked |
+| `--offload-models` | false | Delete downloaded models from disk after all benchmarks complete |
 | `--report-only` | false | Regenerate markdown from existing stt.json |
 
 ## Output

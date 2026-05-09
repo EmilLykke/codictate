@@ -29,15 +29,16 @@ interface DatasetResult {
   totalWallSec: number;
 }
 
+const SPEED_RATING_THRESHOLD = 250;
+
 function rateSpeed(rtf: number): number {
   if (rtf <= 0) return 1;
-  const score = Math.round(10 - rtf * 9);
-  return Math.max(1, Math.min(10, score));
+  const ms = rtf * 1000;
+  return Math.max(1, Math.min(10, Math.round(10 - 9 * ms / SPEED_RATING_THRESHOLD)));
 }
 
 function rateAccuracy(accuracy: number): number {
-  const score = Math.round((accuracy - 0.5) * 18 + 1);
-  return Math.max(1, Math.min(10, score));
+  return Math.max(1, Math.min(10, Math.round(1 + 9 * Math.max(0, accuracy - 0.5) / 0.5)));
 }
 
 function rateLanguages(count: number): number {

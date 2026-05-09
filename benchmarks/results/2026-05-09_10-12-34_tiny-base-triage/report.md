@@ -29,20 +29,36 @@
 
 | Model | Speed | Accuracy | Languages |
 | --- | --- | --- | --- |
-| Base full | 9 | 4 | 10 |
-| Base q5_1 | 9 | 4 | 10 |
-| Base q8_0 | 9 | 4 | 10 |
-| Base full en | 9 | 1 | 1 |
-| Base q5_1 en | 9 | 1 | 1 |
-| Base q8_0 en | 9 | 1 | 1 |
-| Tiny full | 9 | 2 | 10 |
-| Tiny q5_1 | 9 | 2 | 10 |
-| Tiny q8_0 | 9 | 2 | 10 |
-| Tiny full en | 9 | 1 | 1 |
-| Tiny q5_1 en | 9 | 1 | 1 |
-| Tiny q8_0 en | 9 | 1 | 1 |
+| Base full | 8 | 4 | 10 |
+| Base q5_1 | 8 | 4 | 10 |
+| Base q8_0 | 8 | 4 | 10 |
+| Base full en | 8 | 1 | 1 |
+| Base q5_1 en | 8 | 1 | 1 |
+| Base q8_0 en | 8 | 1 | 1 |
+| Tiny full | 8 | 2 | 10 |
+| Tiny q5_1 | 8 | 2 | 10 |
+| Tiny q8_0 | 8 | 2 | 10 |
+| Tiny full en | 8 | 1 | 1 |
+| Tiny q5_1 en | 8 | 1 | 1 |
+| Tiny q8_0 en | 8 | 1 | 1 |
 
-## Charts
+## Charts (Base full - Tiny q5_1)
+
+![Accuracy Comparison 1](accuracy-comparison-1.png)
+
+![Speed Comparison 1](speed-comparison-1.png)
+
+![Average Accuracy 1](accuracy-averages-1.png)
+
+## Charts (Tiny q8_0 - Tiny q8_0 en)
+
+![Accuracy Comparison 2](accuracy-comparison-2.png)
+
+![Speed Comparison 2](speed-comparison-2.png)
+
+![Average Accuracy 2](accuracy-averages-2.png)
+
+## Charts (All Models)
 
 ![Accuracy Comparison](accuracy-comparison.png)
 

@@ -168,15 +168,16 @@ interface ModelRatings {
   languages: number;
 }
 
+const SPEED_RATING_THRESHOLD = 250;
+
 function rateSpeed(rtf: number): number {
   if (rtf <= 0) return 1;
-  const score = Math.round(10 - rtf * 9);
-  return Math.max(1, Math.min(10, score));
+  const ms = rtf * 1000;
+  return Math.max(1, Math.min(10, Math.round(10 - 9 * ms / SPEED_RATING_THRESHOLD)));
 }
 
 function rateAccuracy(accuracy: number): number {
-  const score = Math.round((accuracy - 0.5) * 18 + 1);
-  return Math.max(1, Math.min(10, score));
+  return Math.max(1, Math.min(10, Math.round(1 + 9 * Math.max(0, accuracy - 0.5) / 0.5)));
 }
 
 function rateLanguages(count: number): number {
@@ -317,9 +318,7 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
       d.avgAll === bestAvgAll && d.avgAll > -Infinity
         ? bold(avgAllStr)
         : avgAllStr,
-      d.avgEn === bestAvgEn && d.avgEn > -Infinity
-        ? bold(avgEnStr)
-        : avgEnStr,
+      d.avgEn === bestAvgEn && d.avgEn > -Infinity ? bold(avgEnStr) : avgEnStr,
       d.avgMulti === bestAvgMulti && d.avgMulti > -Infinity
         ? bold(avgMultiStr)
         : avgMultiStr,
@@ -349,7 +348,28 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
   lines.push("");
 
   // Charts
-  lines.push("## Charts");
+  const CHUNK_SIZE = 8;
+  const chunkCount = Math.ceil(modelIds.length / CHUNK_SIZE);
+  const hasChunks = modelIds.length > CHUNK_SIZE;
+
+  if (hasChunks) {
+    for (let i = 1; i <= chunkCount; i++) {
+      const start = (i - 1) * CHUNK_SIZE;
+      const chunkModels = modelIds.slice(start, start + CHUNK_SIZE);
+      const first = modelName(chunkModels[0]);
+      const last = modelName(chunkModels[chunkModels.length - 1]);
+      lines.push(`## Charts (${first} - ${last})`);
+      lines.push("");
+      lines.push(`![Accuracy Comparison ${i}](accuracy-comparison-${i}.png)`);
+      lines.push("");
+      lines.push(`![Speed Comparison ${i}](speed-comparison-${i}.png)`);
+      lines.push("");
+      lines.push(`![Average Accuracy ${i}](accuracy-averages-${i}.png)`);
+      lines.push("");
+    }
+  }
+
+  lines.push("## Charts (All Models)");
   lines.push("");
   lines.push("![Accuracy Comparison](accuracy-comparison.png)");
   lines.push("");

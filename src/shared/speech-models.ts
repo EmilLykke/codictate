@@ -299,17 +299,6 @@ export const SPEECH_MODELS: SpeechModel[] = [
     description: 'Whisper model · good accuracy English-only, Q8 quantized',
     translationSupport: false,
   },
-  {
-    id: 'small.en-tdrz',
-    engine: 'whisper_cpp',
-    modeSupport: 'normal',
-    artifactName: 'ggml-small.en-tdrz.bin',
-    downloadSizeMB: 465,
-    label: 'Small',
-    description:
-      'Whisper model · English-only with tinydiarize speaker detection',
-    translationSupport: false,
-  },
   // Medium
   {
     id: 'medium',

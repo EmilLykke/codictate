@@ -1,5 +1,11 @@
 import { join } from "node:path";
-import { mkdirSync, readdirSync, existsSync, unlinkSync } from "node:fs";
+import {
+  mkdirSync,
+  readdirSync,
+  existsSync,
+  unlinkSync,
+  readFileSync,
+} from "node:fs";
 import { arch, cpus, totalmem } from "node:os";
 import { downloadLibriSpeech } from "./scripts/download-librispeech";
 import {
@@ -71,6 +77,41 @@ function findIncompleteRun(): string | null {
   return null;
 }
 
+function isFullyCovered(
+  prev: BenchmarkResults,
+  modelId: string,
+  languages: string[],
+): boolean {
+  const libriSplits = Object.keys(prev.librispeech);
+  for (const split of libriSplits) {
+    const r = prev.librispeech[split]?.[modelId];
+    if (!r || r.utteranceCount === 0) return false;
+  }
+  for (const lang of languages) {
+    const r = prev.fleurs[lang]?.[modelId];
+    if (!r || r.utteranceCount === 0) return false;
+  }
+  return libriSplits.length > 0;
+}
+
+function loadLatestResults(): BenchmarkResults | null {
+  if (!existsSync(RESULTS_BASE_DIR)) return null;
+  const runs = readdirSync(RESULTS_BASE_DIR)
+    .filter((d) => /^\d{4}-\d{2}-\d{2}/.test(d))
+    .sort();
+  for (let i = runs.length - 1; i >= 0; i--) {
+    const jsonPath = join(RESULTS_BASE_DIR, runs[i], "stt.json");
+    if (existsSync(jsonPath)) {
+      try {
+        return JSON.parse(readFileSync(jsonPath, "utf-8")) as BenchmarkResults;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return null;
+}
+
 const DATASETS_DIR = join(import.meta.dir, "datasets");
 const RESULTS_BASE_DIR = join(import.meta.dir, "results");
 
@@ -99,6 +140,8 @@ function parseArgs() {
     samples: 200,
     skipDownload: false,
     skipConvert: false,
+    skipExisting: false,
+    offloadModels: false,
     reportOnly: false,
     name: undefined as string | undefined,
     description: undefined as string | undefined,
@@ -120,6 +163,12 @@ function parseArgs() {
         break;
       case "--skip-convert":
         flags.skipConvert = true;
+        break;
+      case "--skip-existing":
+        flags.skipExisting = true;
+        break;
+      case "--offload-models":
+        flags.offloadModels = true;
         break;
       case "--report-only":
         flags.reportOnly = true;
@@ -170,6 +219,8 @@ async function main() {
   console.log(`Models: ${flags.models.join(", ")}`);
   console.log(`FLEURS languages: ${flags.languages.join(", ")}`);
   console.log(`Samples: ${flags.samples}`);
+  if (flags.skipExisting) console.log("Skip existing: ON");
+  if (flags.offloadModels) console.log("Offload models: ON");
   console.log("");
 
   // Report-only mode: regenerate reports + charts for all runs
@@ -232,7 +283,21 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 1: Download datasets
+  // Step 1: Load previous results for --skip-existing
+  const skippedModels = new Set<string>();
+  const previousResults = flags.skipExisting ? loadLatestResults() : null;
+  if (flags.skipExisting) {
+    if (previousResults) {
+      console.log("--- Loaded previous results for --skip-existing ---");
+    } else {
+      console.log(
+        "--- No previous results found, --skip-existing has no effect ---",
+      );
+    }
+    console.log("");
+  }
+
+  // Step 2: Download datasets
   if (!flags.skipDownload) {
     console.log("--- Downloading datasets ---");
     await downloadLibriSpeech();
@@ -240,20 +305,28 @@ async function main() {
     console.log("");
   }
 
-  // Step 2: Convert audio
+  // Step 3: Convert audio
   if (!flags.skipConvert) {
     console.log("--- Converting audio ---");
     await convertLibriSpeech(DATASETS_DIR);
     console.log("");
   }
 
-  // Step 3: Download models
+  // Step 4: Download models (skip fully-covered models when --skip-existing)
   if (!flags.skipDownload) {
     console.log("--- Downloading models ---");
     for (const modelId of flags.models) {
       const model = getSpeechModel(modelId);
       if (!model || model.engine !== "whisper_cpp") {
         console.log(`  [${modelId}] skipped (not a whisper_cpp model)`);
+        continue;
+      }
+      if (
+        previousResults &&
+        isFullyCovered(previousResults, modelId, flags.languages)
+      ) {
+        console.log(`  [${modelId}] skipped (already benchmarked)`);
+        skippedModels.add(modelId);
         continue;
       }
       if (modelManager.isModelAvailable(modelId)) {
@@ -278,7 +351,7 @@ async function main() {
     console.log("");
   }
 
-  // Step 4: Build manifests
+  // Step 5: Build manifests
   console.log("--- Building manifests ---");
   const manifests = buildAllManifests(
     DATASETS_DIR,
@@ -287,7 +360,7 @@ async function main() {
   );
   console.log("");
 
-  // Step 5: Set up run directory + checkpoint
+  // Step 6: Set up run directory + checkpoint
   const existingRunDir = findIncompleteRun();
   const runDir = existingRunDir ?? makeRunDir(flags.name);
   const checkpoint = existingRunDir
@@ -307,7 +380,39 @@ async function main() {
     Record<string, ModelDatasetResult>
   > = checkpoint?.fleurs ?? {};
 
-  // Step 6: Run benchmarks
+  // Pre-fill results from previous run
+  if (previousResults) {
+    let skippedCount = 0;
+    for (const [split, models] of Object.entries(previousResults.librispeech)) {
+      for (const [modelId, result] of Object.entries(models)) {
+        if (
+          flags.models.includes(modelId) &&
+          result.utteranceCount > 0 &&
+          !librispeechResults[split]?.[modelId]
+        ) {
+          if (!librispeechResults[split]) librispeechResults[split] = {};
+          librispeechResults[split][modelId] = result;
+          skippedCount++;
+        }
+      }
+    }
+    for (const [lang, models] of Object.entries(previousResults.fleurs)) {
+      for (const [modelId, result] of Object.entries(models)) {
+        if (
+          flags.models.includes(modelId) &&
+          result.utteranceCount > 0 &&
+          !fleursResults[lang]?.[modelId]
+        ) {
+          if (!fleursResults[lang]) fleursResults[lang] = {};
+          fleursResults[lang][modelId] = result;
+          skippedCount++;
+        }
+      }
+    }
+    console.log(`  ${skippedCount} model/dataset combinations pre-filled`);
+  }
+
+  // Step 7: Run benchmarks
   console.log("--- Running benchmarks ---");
 
   function isCompleted(
@@ -343,7 +448,7 @@ async function main() {
     for (const [split, entries] of Object.entries(manifests.librispeech)) {
       if (isCompleted("librispeech", split, modelId)) {
         console.log(
-          `  [${modelId}] LibriSpeech ${split}: skipped (checkpoint)`,
+          `  [${modelId}] LibriSpeech ${split}: skipped (already done)`,
         );
         continue;
       }
@@ -381,7 +486,7 @@ async function main() {
     // FLEURS
     for (const [lang, entries] of Object.entries(manifests.fleurs)) {
       if (isCompleted("fleurs", lang, modelId)) {
-        console.log(`  [${modelId}] FLEURS ${lang}: skipped (checkpoint)`);
+        console.log(`  [${modelId}] FLEURS ${lang}: skipped (already done)`);
         continue;
       }
       if (!fleursResults[lang]) fleursResults[lang] = {};
@@ -416,7 +521,20 @@ async function main() {
     }
   }
 
-  // Step 7: Write final results
+  // Step 8: Offload models from disk
+  if (flags.offloadModels) {
+    console.log("\n--- Offloading models ---");
+    for (const modelId of flags.models) {
+      const deleted = modelManager.deleteModel(modelId);
+      if (deleted) {
+        console.log(`  [${modelId}] offloaded (deleted from disk)`);
+      } else {
+        console.log(`  [${modelId}] offload skipped (bundled or not found)`);
+      }
+    }
+  }
+
+  // Step 9: Write final results
   const results: BenchmarkResults = {
     description: flags.description,
     hardware: getHardwareInfo(),
@@ -434,10 +552,10 @@ async function main() {
   await Bun.write(jsonPath, JSON.stringify(results, null, 2));
   console.log(`\nJSON written to ${jsonPath}`);
 
-  // Step 8: Delete checkpoint (run complete)
+  // Step 10: Delete checkpoint (run complete)
   deleteCheckpoint(runDir);
 
-  // Step 9: Write report + charts to run folder
+  // Step 11: Write report + charts to run folder
   await writeReport(results, runDir);
 
   console.log("\n" + generateMarkdownReport(results));

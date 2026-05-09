@@ -422,6 +422,29 @@ def generate_averages_bar(results: dict, out_path: Path) -> None:
     print(f"Chart: {out_path}")
 
 
+CHUNK_SIZE = 8
+
+
+def chunk_list(lst: list, size: int) -> list[list]:
+    return [lst[i:i + size] for i in range(0, len(lst), size)]
+
+
+def filter_results(results: dict, model_subset: set[str]) -> dict:
+    filtered = {**results}
+    filtered["librispeech"] = {}
+    for key, models in results.get("librispeech", {}).items():
+        filtered["librispeech"][key] = {m: r for m, r in models.items() if m in model_subset}
+    filtered["fleurs"] = {}
+    for key, models in results.get("fleurs", {}).items():
+        filtered["fleurs"][key] = {m: r for m, r in models.items() if m in model_subset}
+    return filtered
+
+
+def get_all_models(results: dict) -> list[str]:
+    points = extract_data(results)
+    return list(dict.fromkeys(p["model"] for p in points))
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: charts.py <results-dir>", file=sys.stderr)
@@ -437,9 +460,21 @@ def main() -> None:
     with open(json_path) as f:
         results = json.load(f)
 
+    # Full charts (all models)
     generate_accuracy_bar(results, results_dir / "accuracy-comparison.png")
     generate_speed_bar(results, results_dir / "speed-comparison.png")
     generate_averages_bar(results, results_dir / "accuracy-averages.png")
+
+    # Chunked charts
+    all_models = get_all_models(results)
+    if len(all_models) > CHUNK_SIZE:
+        chunks = chunk_list(all_models, CHUNK_SIZE)
+        for ci, chunk in enumerate(chunks, 1):
+            subset = set(chunk)
+            filtered = filter_results(results, subset)
+            generate_accuracy_bar(filtered, results_dir / f"accuracy-comparison-{ci}.png")
+            generate_speed_bar(filtered, results_dir / f"speed-comparison-{ci}.png")
+            generate_averages_bar(filtered, results_dir / f"accuracy-averages-{ci}.png")
 
 
 if __name__ == "__main__":
