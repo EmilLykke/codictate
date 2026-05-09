@@ -8,6 +8,7 @@ import {
 } from "../../../shared/speech-models";
 import { MODEL_RATINGS } from "../../../shared/model-ratings";
 import { InstantTooltip } from "../Common/InstantTooltip";
+import { parseModelTags } from "./ModelBrowseModal";
 
 const SHORT_DESC: Record<string, string> = {
   "small-q5_1": "Lightweight and capable.",
@@ -75,6 +76,7 @@ export function ModelPicker({
         const isPendingDelete = confirmDelete === model.id;
         const stats = MODEL_RATINGS[model.id];
         const desc = SHORT_DESC[model.id] ?? "";
+        const quantTag = parseModelTags(model.id)[0];
         const isStream =
           model.modeSupport === "both" || model.modeSupport === "stream";
         const isMultilang =
@@ -109,6 +111,11 @@ export function ModelPicker({
                     >
                       {model.label}
                     </span>
+                    {quantTag && (
+                      <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-overlay/8 text-overlay/45">
+                        {quantTag}
+                      </span>
+                    )}
                     {isSelected && isAvailable && (
                       <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-blue/15 text-accent-blue/80 border border-accent-blue/20">
                         <svg

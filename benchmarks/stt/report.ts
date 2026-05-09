@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 import type { ModelDatasetResult, PeakRSSStats } from "./runner";
+import { getSpeechModel } from "../../src/shared/speech-models";
 
 export interface BenchmarkResults {
   hardware: {
@@ -19,20 +20,6 @@ export interface BenchmarkResults {
   fleurs: Record<string, Record<string, ModelDatasetResult>>;
 }
 
-const MODEL_NAMES: Record<string, string> = {
-  "small-q5_1": "Whisper Small",
-  "large-v3-turbo-q5_0": "Whisper Large Turbo",
-  "large-v3-q5_0": "Whisper Large",
-  "parakeet-tdt-0.6b-v3": "Parakeet 0.6B",
-};
-
-const MODEL_DISK_MB: Record<string, number> = {
-  "small-q5_1": 181,
-  "large-v3-turbo-q5_0": 574,
-  "large-v3-q5_0": 1100,
-  "parakeet-tdt-0.6b-v3": 500,
-};
-
 const CONDITION_LABELS: Record<string, string> = {
   "test-clean": "English (clean)",
   "test-other": "English (noisy)",
@@ -41,15 +28,29 @@ const CONDITION_LABELS: Record<string, string> = {
   hu_hu: "Hungarian",
 };
 
-const MODEL_SUPPORTED_LANGUAGES: Record<string, number> = {
-  "small-q5_1": 99,
-  "large-v3-turbo-q5_0": 99,
-  "large-v3-q5_0": 99,
-  "parakeet-tdt-0.6b-v3": 25,
-};
-
 function modelName(id: string): string {
-  return MODEL_NAMES[id] ?? id;
+  const model = getSpeechModel(id);
+  if (!model) return id;
+  const parts = [model.label];
+  const qMatch = id.match(/-?(q\d+_\d+)/);
+  if (qMatch) parts.push(qMatch[1]);
+  else parts.push("full");
+  if (id.includes(".en")) parts.push("en");
+  if (id.includes("-tdrz")) parts.push("tdrz");
+  return parts.join(" ");
+}
+
+function modelDiskMB(id: string): number | null {
+  return getSpeechModel(id)?.downloadSizeMB ?? null;
+}
+
+function modelSupportedLanguages(id: string): number {
+  const model = getSpeechModel(id);
+  if (!model) return 1;
+  if (model.engine === "whisperkit")
+    return model.supportedTranscriptionLanguageIds?.length ?? 1;
+  if (id.includes(".en")) return 1;
+  return 99;
 }
 
 function conditionLabel(key: string): string {
@@ -103,8 +104,8 @@ function avgAccuracyForConditions(
 ): number {
   const accs = conditions
     .map((c) => c.models[modelId]?.wer)
-    .filter((w): w is number => w !== undefined && w >= 0);
-  if (accs.length === 0) return -1;
+    .filter((w): w is number => w !== undefined);
+  if (accs.length === 0) return -Infinity;
   return 1 - accs.reduce((s, w) => s + w, 0) / accs.length;
 }
 
@@ -201,7 +202,7 @@ function computeRatings(
       accs.length > 0
         ? 1 - accs.reduce((sum, w) => sum + w, 0) / accs.length
         : 0;
-    const langCount = MODEL_SUPPORTED_LANGUAGES[id] ?? 1;
+    const langCount = modelSupportedLanguages(id);
 
     ratings[id] = {
       speed: rateSpeed(rtf),
@@ -243,37 +244,86 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
     "Avg Peak RSS",
     "Max Peak RSS",
     "Transcribe Time / sec Audio",
-    ...conditions.map((c) => c.label),
+    "Avg Overall",
     "Avg English",
     "Avg Multilingual",
-    "Avg Overall",
+    ...conditions.map((c) => c.label),
   ];
   lines.push(`| ${summaryHeader.join(" | ")} |`);
   lines.push(`| ${summaryHeader.map(() => "---").join(" | ")} |`);
 
-  for (const modelId of modelIds) {
-    const diskMB = MODEL_DISK_MB[modelId];
-    const disk = diskMB ? fmtSize(diskMB) : "N/A";
-    const rss = aggregateRss(modelId, conditions);
-    const rtf = avgRtf(modelId, conditions);
+  const modelData = modelIds.map((modelId) => {
     const avgEn = avgAccuracyForConditions(modelId, english);
     const avgMulti = avgAccuracyForConditions(modelId, multilingual);
     const avgAll = avgAccuracyForConditions(modelId, conditions);
+    const rtf = avgRtf(modelId, conditions);
+    const diskMB = modelDiskMB(modelId);
+    const rss = aggregateRss(modelId, conditions);
+    const condAccs = conditions.map((c) => {
+      const r = c.models[modelId];
+      return r ? 1 - r.wer : -Infinity;
+    });
+    return { modelId, avgAll, avgEn, avgMulti, rtf, diskMB, rss, condAccs };
+  });
+
+  const pos = (v: number) => v > 0;
+  const bestSpeed = Math.min(...modelData.map((d) => d.rtf).filter(pos));
+  const bestDisk = Math.min(
+    ...modelData.map((d) => d.diskMB ?? Infinity).filter(pos),
+  );
+  const bestRssMin = Math.min(
+    ...modelData.map((d) => d.rss?.min ?? Infinity).filter(pos),
+  );
+  const bestRssAvg = Math.min(
+    ...modelData.map((d) => d.rss?.avg ?? Infinity).filter(pos),
+  );
+  const bestRssMax = Math.min(
+    ...modelData.map((d) => d.rss?.max ?? Infinity).filter(pos),
+  );
+  const bestAvgAll = Math.max(...modelData.map((d) => d.avgAll));
+  const bestAvgEn = Math.max(...modelData.map((d) => d.avgEn));
+  const bestAvgMulti = Math.max(...modelData.map((d) => d.avgMulti));
+  const bestPerCond = conditions.map((_, ci) =>
+    Math.max(...modelData.map((d) => d.condAccs[ci])),
+  );
+
+  const bold = (s: string) => `**${s}**`;
+
+  for (const d of modelData) {
+    const disk = d.diskMB ? fmtSize(d.diskMB) : "N/A";
+    const rssMinStr = fmtRss(d.rss?.min ?? null);
+    const rssAvgStr = fmtRss(d.rss?.avg ?? null);
+    const rssMaxStr = fmtRss(d.rss?.max ?? null);
+    const speedStr = fmtSpeed(d.rtf);
+    const avgAllStr =
+      d.avgAll > -Infinity ? `${(d.avgAll * 100).toFixed(1)}%` : "-";
+    const avgEnStr =
+      d.avgEn > -Infinity ? `${(d.avgEn * 100).toFixed(1)}%` : "-";
+    const avgMultiStr =
+      d.avgMulti > -Infinity ? `${(d.avgMulti * 100).toFixed(1)}%` : "-";
 
     const row = [
-      modelName(modelId),
-      disk,
-      fmtRss(rss?.min ?? null),
-      fmtRss(rss?.avg ?? null),
-      fmtRss(rss?.max ?? null),
-      fmtSpeed(rtf),
-      ...conditions.map((c) => {
-        const r = c.models[modelId];
-        return r ? fmtAccuracy(r.wer) : "-";
+      modelName(d.modelId),
+      d.diskMB && d.diskMB === bestDisk ? bold(disk) : disk,
+      d.rss?.min && d.rss.min === bestRssMin ? bold(rssMinStr) : rssMinStr,
+      d.rss?.avg && d.rss.avg === bestRssAvg ? bold(rssAvgStr) : rssAvgStr,
+      d.rss?.max && d.rss.max === bestRssMax ? bold(rssMaxStr) : rssMaxStr,
+      d.rtf > 0 && d.rtf === bestSpeed ? bold(speedStr) : speedStr,
+      d.avgAll === bestAvgAll && d.avgAll > -Infinity
+        ? bold(avgAllStr)
+        : avgAllStr,
+      d.avgEn === bestAvgEn && d.avgEn > -Infinity
+        ? bold(avgEnStr)
+        : avgEnStr,
+      d.avgMulti === bestAvgMulti && d.avgMulti > -Infinity
+        ? bold(avgMultiStr)
+        : avgMultiStr,
+      ...conditions.map((c, ci) => {
+        const r = c.models[d.modelId];
+        if (!r) return "-";
+        const acc = fmtAccuracy(r.wer);
+        return d.condAccs[ci] === bestPerCond[ci] ? bold(acc) : acc;
       }),
-      avgEn >= 0 ? `${(avgEn * 100).toFixed(1)}%` : "-",
-      avgMulti >= 0 ? `${(avgMulti * 100).toFixed(1)}%` : "-",
-      avgAll >= 0 ? `${(avgAll * 100).toFixed(1)}%` : "-",
     ];
     lines.push(`| ${row.join(" | ")} |`);
   }
@@ -287,7 +337,9 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
   lines.push("| --- | --- | --- | --- |");
   for (const modelId of modelIds) {
     const r = ratings[modelId];
-    lines.push(`| ${modelName(modelId)} | ${r.speed} | ${r.accuracy} | ${r.languages} |`);
+    lines.push(
+      `| ${modelName(modelId)} | ${r.speed} | ${r.accuracy} | ${r.languages} |`,
+    );
   }
   lines.push("");
 
@@ -296,7 +348,7 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
   lines.push("");
   lines.push("![Accuracy Comparison](accuracy-comparison.png)");
   lines.push("");
-  lines.push("![Accuracy vs Speed](speed-accuracy.png)");
+  lines.push("![Speed Comparison](speed-comparison.png)");
   lines.push("");
   lines.push("![Average Accuracy](accuracy-averages.png)");
   lines.push("");

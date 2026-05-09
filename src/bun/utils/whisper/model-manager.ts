@@ -77,8 +77,7 @@ function isRequiredCoreMlEntry(name: string): boolean {
   return (
     (MACOS_PARAKEET_COREML_REQUIRED_FILES as readonly string[]).includes(
       name
-    ) ||
-    MACOS_PARAKEET_COREML_REQUIRED_DIRS.some((dir) => name === dir)
+    ) || MACOS_PARAKEET_COREML_REQUIRED_DIRS.some((dir) => name === dir)
   )
 }
 

@@ -1,6 +1,6 @@
 /** Secondary copy under each block: readable, softer than card content. */
 export const settingsHelperClass =
-  'mt-3 text-[18px] text-overlay/44 leading-relaxed font-sans font-normal'
+  'mt-3 text-[14px] text-overlay/44 leading-relaxed font-sans font-normal'
 
 /** Shared dark dropdown styling used by every section-level <select>. */
 export const devPreviewSelectClass =

@@ -8,13 +8,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-MODEL_NAMES = {
-    "small-q5_1": "Whisper Small",
-    "large-v3-turbo-q5_0": "Whisper Large Turbo",
-    "large-v3-q5_0": "Whisper Large",
-    "parakeet-tdt-0.6b-v3": "Parakeet 0.6B",
-}
-
 CONDITION_LABELS = {
     "test-clean": "English (clean)",
     "test-other": "English (noisy)",
@@ -23,16 +16,63 @@ CONDITION_LABELS = {
     "hu_hu": "Hungarian",
 }
 
-COLORS = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948"]
+_TAB20 = plt.cm.tab20(np.linspace(0, 1, 20))
+_TAB20B = plt.cm.tab20b(np.linspace(0, 1, 20))
+COLORS = [matplotlib.colors.to_hex(c) for c in np.vstack((_TAB20, _TAB20B))]
 
 DARK_BG = "#1a1a1a"
 DARK_FG = "#eeeeee"
 DARK_GRID = "#333333"
 DARK_LABEL = "#999999"
+WINNER_COLOR = "#ffd700"
 
 
 def model_name(model_id: str) -> str:
-    return MODEL_NAMES.get(model_id, model_id)
+    import re
+    parts = []
+    # Base name: everything before quant suffix and .en
+    base = model_id.replace(".en", "").rstrip("-")
+    base = re.sub(r"-?q\d+_\d+$", "", base)
+    parts.append(base.replace("-", " ").title())
+    # Quant
+    q = re.search(r"(q\d+_\d+)", model_id)
+    parts.append(q.group(1) if q else "full")
+    # English-only
+    if ".en" in model_id:
+        parts.append("en")
+    return " ".join(parts)
+
+
+MODEL_SIZES_MB = {
+    "tiny": 75, "tiny-q5_1": 31, "tiny-q8_0": 42,
+    "tiny.en": 75, "tiny.en-q5_1": 31, "tiny.en-q8_0": 42,
+    "base": 142, "base-q5_1": 57, "base-q8_0": 78,
+    "base.en": 142, "base.en-q5_1": 57, "base.en-q8_0": 78,
+    "small": 466, "small-q5_1": 181, "small-q8_0": 252,
+    "small.en": 466, "small.en-q5_1": 181, "small.en-q8_0": 252,
+    "small.en-tdrz": 465,
+    "medium": 1500, "medium-q5_0": 514, "medium-q8_0": 785,
+    "medium.en": 1500, "medium.en-q5_0": 514, "medium.en-q8_0": 785,
+    "large-v1": 2900, "large-v2": 2900,
+    "large-v2-q5_0": 1100, "large-v2-q8_0": 1500,
+    "large-v3": 2900, "large-v3-q5_0": 1100,
+    "large-v3-turbo": 1500, "large-v3-turbo-q5_0": 574, "large-v3-turbo-q8_0": 834,
+    "parakeet-tdt-0.6b-v3": 500,
+}
+
+
+def fmt_size(mb: int) -> str:
+    if mb >= 1000:
+        return f"{mb / 1000:.1f} GB"
+    return f"{mb} MB"
+
+
+def model_label(model_id: str) -> str:
+    name = model_name(model_id)
+    size = MODEL_SIZES_MB.get(model_id)
+    if size:
+        return f"{name}\n({fmt_size(size)})"
+    return name
 
 
 def condition_label(key: str) -> str:
@@ -82,82 +122,108 @@ def generate_accuracy_bar(results: dict, out_path: Path) -> None:
     conditions = list(dict.fromkeys(p["condition"] for p in points))
     models = list(dict.fromkeys(p["model"] for p in points))
 
-    x = np.arange(len(conditions))
-    bar_width = 0.8 / max(len(models), 1)
+    y = np.arange(len(models))
+    bar_height = 0.9 / max(len(conditions), 1)
 
-    fig, ax = plt.subplots(figsize=(max(8, len(conditions) * 2.5), 5))
+    fig_h = max(10, len(models) * 1.4)
+    fig, ax = plt.subplots(figsize=(14, fig_h))
     fig.set_facecolor(DARK_BG)
     style_ax(ax)
 
-    for i, model in enumerate(models):
+    has_negative = False
+    for ci, cond in enumerate(conditions):
         accs = []
-        has_data = []
-        for cond in conditions:
+        for model in models:
             match = [p for p in points if p["model"] == model and p["condition"] == cond]
-            accs.append((1 - match[0]["wer"]) * 100 if match else 0)
-            has_data.append(bool(match))
-        offset = (i - len(models) / 2 + 0.5) * bar_width
-        bars = ax.bar(x + offset, accs, bar_width * 0.9, label=model_name(model),
-                       color=COLORS[i % len(COLORS)], zorder=3)
-        for bar, a, present in zip(bars, accs, has_data):
-            if present:
-                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.15,
-                        f"{a:.1f}%", ha="center", va="bottom", fontsize=8, color=DARK_LABEL)
+            raw = (1 - match[0]["wer"]) * 100 if match else 0
+            if raw < 0:
+                has_negative = True
+            accs.append(max(raw, 0))
+        best = max(accs)
+        offset = (ci - len(conditions) / 2 + 0.5) * bar_height
+        bars = ax.barh(y + offset, accs, bar_height * 0.9, label=cond,
+                       color=COLORS[ci % len(COLORS)], zorder=3)
+        for bar, val in zip(bars, accs):
+            if val > 0:
+                is_best = val == best and val > 0
+                ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
+                        f"{val:.1f}%", va="center", ha="left",
+                        fontsize=11,
+                        color=WINNER_COLOR if is_best else DARK_LABEL,
+                        fontweight="bold" if is_best else "normal",
+                        zorder=4)
 
-    ax.set_ylabel("Accuracy %")
+    ax.set_xlabel("Accuracy %", labelpad=4)
     ax.set_title("Accuracy by Model and Condition", fontweight="bold", pad=12)
-    ax.set_xticks(x)
-    ax.set_xticklabels(conditions, rotation=20, ha="right", fontsize=9)
-    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=9)
-    ax.grid(axis="y", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
+    ax.set_yticks(y)
+    ax.set_yticklabels([model_label(m) for m in models], fontsize=11)
+    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=8,
+              bbox_to_anchor=(0, -0.04), loc="upper left", borderaxespad=0,
+              ncol=len(conditions), framealpha=0.9, handlelength=1.2,
+              handletextpad=0.4, columnspacing=1.0)
+    ax.grid(axis="x", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
     ax.set_axisbelow(True)
+    ax.invert_yaxis()
+    if has_negative:
+        fig.text(0.5, -0.005, "* Negative accuracy values (WER > 100%) clamped to 0%",
+                 ha="center", fontsize=7, color=DARK_LABEL)
 
     fig.tight_layout()
-    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG)
+    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG, bbox_inches="tight")
     plt.close(fig)
     print(f"Chart: {out_path}")
 
 
-def generate_scatter(results: dict, out_path: Path) -> None:
+def model_family(model_id: str) -> str:
+    import re
+    return re.sub(r"-?q\d+_\d+$", "", model_id)
+
+
+def generate_speed_bar(results: dict, out_path: Path) -> None:
     points = extract_data(results)
     if not points:
         return
 
     models = list(dict.fromkeys(p["model"] for p in points))
-    conditions = list(dict.fromkeys(p["condition"] for p in points))
-    markers = ["o", "s", "D", "^", "v", "p"]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    avg_speeds = []
+    for model in models:
+        rtfs = [p["rtf"] for p in points if p["model"] == model]
+        avg_speeds.append(sum(rtfs) / len(rtfs) * 1000 if rtfs else 0)
+
+    families = list(dict.fromkeys(model_family(m) for m in models))
+    family_colors = {f: COLORS[i % len(COLORS)] for i, f in enumerate(families)}
+    bar_colors = [family_colors[model_family(m)] for m in models]
+
+    y = np.arange(len(models))
+    bar_height = 0.7
+
+    fig_h = max(10, len(models) * 1.4)
+    fig, ax = plt.subplots(figsize=(14, fig_h))
     fig.set_facecolor(DARK_BG)
     style_ax(ax)
 
-    plotted_models = set()
+    positive_speeds = [s for s in avg_speeds if s > 0]
+    best_speed = min(positive_speeds) if positive_speeds else -1
 
-    for p in points:
-        mi = models.index(p["model"])
-        ci = conditions.index(p["condition"])
-        color = COLORS[mi % len(COLORS)]
-        marker = markers[ci % len(markers)]
-        accuracy = (1 - p["wer"]) * 100
-        speed_ms = p["rtf"] * 1000
+    bars = ax.barh(y, avg_speeds, bar_height, color=bar_colors, zorder=3)
+    for bar, val in zip(bars, avg_speeds):
+        if val > 0:
+            is_best = val == best_speed
+            ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
+                    f"{val:.0f} ms", va="center", ha="left",
+                    fontsize=11,
+                    color=WINNER_COLOR if is_best else DARK_LABEL,
+                    fontweight="bold" if is_best else "normal",
+                    zorder=4)
 
-        ax.scatter(speed_ms, accuracy, c=color, marker=marker, s=100,
-                   zorder=3, alpha=0.85, edgecolors="none")
-
-        if p["model"] not in plotted_models:
-            ax.scatter([], [], c=color, marker="o", s=60, label=model_name(p["model"]))
-            plotted_models.add(p["model"])
-
-    for ci, cond in enumerate(conditions):
-        ax.scatter([], [], c=DARK_LABEL, marker=markers[ci % len(markers)], s=60, label=cond)
-
-    ax.set_xlabel("Transcribe Time (ms / sec audio) - lower is better")
-    ax.set_ylabel("Accuracy % - higher is better")
-    ax.set_title("Accuracy vs Speed", fontweight="bold", pad=12)
-    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=9,
-              bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
-    ax.grid(color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
+    ax.set_xlabel("Transcribe Time (ms / sec audio) - lower is better", labelpad=4)
+    ax.set_title("Speed by Model", fontweight="bold", pad=12)
+    ax.set_yticks(y)
+    ax.set_yticklabels([model_label(m) for m in models], fontsize=11)
+    ax.grid(axis="x", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
     ax.set_axisbelow(True)
+    ax.invert_yaxis()
 
     fig.tight_layout()
     fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG, bbox_inches="tight")
@@ -173,45 +239,63 @@ def generate_averages_bar(results: dict, out_path: Path) -> None:
     models = list(dict.fromkeys(p["model"] for p in points))
 
     english_keys = {"English (clean)", "English (noisy)"}
-    categories = ["Avg English", "Avg Multilingual", "Avg Overall"]
+    categories = ["Avg Overall", "Avg English", "Avg Multilingual"]
 
-    x = np.arange(len(categories))
-    bar_width = 0.8 / max(len(models), 1)
+    y = np.arange(len(models))
+    bar_height = 0.9 / max(len(categories), 1)
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig_h = max(10, len(models) * 1.4)
+    fig, ax = plt.subplots(figsize=(14, fig_h))
     fig.set_facecolor(DARK_BG)
     style_ax(ax)
 
-    for i, model in enumerate(models):
-        model_points = [p for p in points if p["model"] == model]
-        en_accs = [(1 - p["wer"]) * 100 for p in model_points if p["condition"] in english_keys]
-        multi_accs = [(1 - p["wer"]) * 100 for p in model_points if p["condition"] not in english_keys]
-        all_accs = [(1 - p["wer"]) * 100 for p in model_points]
+    has_negative = False
+    for ci, cat in enumerate(categories):
+        vals = []
+        for model in models:
+            model_points = [p for p in points if p["model"] == model]
+            if cat == "Avg English":
+                accs = [(1 - p["wer"]) * 100 for p in model_points if p["condition"] in english_keys]
+            elif cat == "Avg Multilingual":
+                accs = [(1 - p["wer"]) * 100 for p in model_points if p["condition"] not in english_keys]
+            else:
+                accs = [(1 - p["wer"]) * 100 for p in model_points]
+            raw = sum(accs) / len(accs) if accs else 0
+            if raw < 0:
+                has_negative = True
+            vals.append(max(raw, 0))
 
-        avgs = [
-            sum(en_accs) / len(en_accs) if en_accs else 0,
-            sum(multi_accs) / len(multi_accs) if multi_accs else 0,
-            sum(all_accs) / len(all_accs) if all_accs else 0,
-        ]
+        best = max(vals)
+        offset = (ci - len(categories) / 2 + 0.5) * bar_height
+        bars = ax.barh(y + offset, vals, bar_height * 0.9, label=cat,
+                       color=COLORS[ci % len(COLORS)], zorder=3)
+        for bar, val in zip(bars, vals):
+            if val > 0:
+                is_best = val == best and val > 0
+                ax.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height() / 2,
+                        f"{val:.1f}%", va="center", ha="left",
+                        fontsize=11,
+                        color=WINNER_COLOR if is_best else DARK_LABEL,
+                        fontweight="bold" if is_best else "normal",
+                        zorder=4)
 
-        offset = (i - len(models) / 2 + 0.5) * bar_width
-        bars = ax.bar(x + offset, avgs, bar_width * 0.9, label=model_name(model),
-                       color=COLORS[i % len(COLORS)], zorder=3)
-        for bar, a in zip(bars, avgs):
-            if a > 0:
-                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.15,
-                        f"{a:.1f}%", ha="center", va="bottom", fontsize=8, color=DARK_LABEL)
-
-    ax.set_ylabel("Accuracy %")
+    ax.set_xlabel("Accuracy %", labelpad=4)
     ax.set_title("Average Accuracy by Category", fontweight="bold", pad=12)
-    ax.set_xticks(x)
-    ax.set_xticklabels(categories, fontsize=10)
-    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=9)
-    ax.grid(axis="y", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
+    ax.set_yticks(y)
+    ax.set_yticklabels([model_label(m) for m in models], fontsize=11)
+    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG, fontsize=8,
+              bbox_to_anchor=(0, -0.04), loc="upper left", borderaxespad=0,
+              ncol=len(categories), framealpha=0.9, handlelength=1.2,
+              handletextpad=0.4, columnspacing=1.0)
+    ax.grid(axis="x", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
     ax.set_axisbelow(True)
+    ax.invert_yaxis()
+    if has_negative:
+        fig.text(0.5, -0.005, "* Negative accuracy values (WER > 100%) clamped to 0%",
+                 ha="center", fontsize=7, color=DARK_LABEL)
 
     fig.tight_layout()
-    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG)
+    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG, bbox_inches="tight")
     plt.close(fig)
     print(f"Chart: {out_path}")
 
@@ -232,7 +316,7 @@ def main() -> None:
         results = json.load(f)
 
     generate_accuracy_bar(results, results_dir / "accuracy-comparison.png")
-    generate_scatter(results, results_dir / "speed-accuracy.png")
+    generate_speed_bar(results, results_dir / "speed-comparison.png")
     generate_averages_bar(results, results_dir / "accuracy-averages.png")
 
 

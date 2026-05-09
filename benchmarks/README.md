@@ -6,7 +6,7 @@ Measures Word Error Rate (WER), Real-Time Factor (RTF), and peak memory (RSS) fo
 
 - **ffmpeg** - `brew install ffmpeg`
 - **hf** - `pip install huggingface-hub`
-- **Speech models** - downloaded via the Codictate app (stored in `~/Library/Application Support/codictate/models/`)
+- **Speech models** - auto-downloaded by the benchmark runner, or via the Codictate app (stored in `~/Library/Application Support/codictate/models/`)
 - **Vendor binaries** - `bun run build:native` or `bun run scripts/pre-build.ts`
 
 ## Datasets
@@ -22,8 +22,11 @@ LibriSpeech downloads automatically. FLEURS downloads via `hf`.
 ## Usage
 
 ```bash
-# Full run: download + convert + benchmark all 4 models
+# Full run: download + convert + benchmark all models
 bun run bench:stt
+
+# Named run (results saved as 2026-05-09_12-00-00_tiny-base-triage)
+bun run bench:stt -- --name tiny-base-triage --models tiny,tiny-q5_1,base,base-q5_1 --samples 50
 
 # Single model, skip download
 bun run bench:stt -- --models large-v3-turbo-q5_0 --skip-download
@@ -31,11 +34,8 @@ bun run bench:stt -- --models large-v3-turbo-q5_0 --skip-download
 # Subset of models + specific FLEURS languages (es, da, hu)
 bun run bench:stt -- --models small-q5_1,large-v3-turbo-q5_0 --languages es_419,da_dk,hu_hu
 
-# Limit samples per scenario (quick test run)
+# Quick test run with fewer samples
 bun run bench:stt -- --samples 10
-
-# Custom sample size for FLEURS subsample
-bun run bench:stt -- --sample-size 100
 
 # Regenerate report from existing results
 bun run bench:stt -- --report-only
@@ -45,17 +45,18 @@ bun run bench:stt -- --report-only
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--models` | all 4 | Comma-separated model IDs |
+| `--models` | all | Comma-separated model IDs (all 34 models if omitted) |
+| `--name` | none | Human-readable name appended to results directory |
+| `--samples` | 200 | Max utterances per dataset/language |
 | `--languages` | es_419,da_dk,hu_hu | FLEURS language codes |
-| `--sample-size` | 200 | Utterances per FLEURS language |
-| `--samples` | all | Max utterances per scenario (caps both LibriSpeech and FLEURS) |
-| `--skip-download` | false | Skip dataset download step |
+| `--skip-download` | false | Skip dataset and model download step |
 | `--skip-convert` | false | Skip audio conversion step |
 | `--report-only` | false | Regenerate markdown from existing stt.json |
 
 ## Output
 
-- `benchmarks/results/stt.json` - machine-readable results with hardware metadata
+- `benchmarks/results/<timestamp>[_<name>]/stt.json` - machine-readable results with hardware metadata
+- `benchmarks/results/stt.json` - symlink to latest run
 - Markdown table printed to stdout
 
 ## Adding Languages
@@ -69,6 +70,8 @@ The download script fetches only the test split (not full dataset).
 
 ## Models
 
+34 models supported (33 Whisper + 1 Parakeet). Curated defaults:
+
 | ID | Engine | Size | Notes |
 |----|--------|------|-------|
 | `small-q5_1` | Whisper | 181 MB | Good accuracy |
@@ -76,6 +79,8 @@ The download script fetches only the test split (not full dataset).
 | `large-v3-q5_0` | Whisper | 1100 MB | Most accurate |
 | `parakeet-tdt-0.6b-v3` | FluidAudio | 500 MB | Fastest, macOS CoreML / Windows ONNX |
 
+Extended models span tiny through large-v3 in full/q5/q8 quantizations, with multilingual and English-only (.en) variants. Full catalog defined in `src/shared/speech-models.ts`. Missing models are auto-downloaded when benchmarking.
+
 ## Keeping the UI in sync
 
-When benchmark results change, update `MODEL_STATS` in `src/mainview/components/Settings/ModelPicker.tsx` to match. The speed, accuracy, and languages bars in the model picker are derived from benchmark data and should reflect the latest results.
+Run `bun benchmarks/stt/generate-ratings.ts` after benchmarking to regenerate `src/shared/model-ratings.ts`. The speed, accuracy, and languages bars in the model picker are derived from this file.

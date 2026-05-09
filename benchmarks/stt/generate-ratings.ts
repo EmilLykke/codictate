@@ -7,17 +7,20 @@
  */
 
 import { join } from "node:path";
+import { getSpeechModel } from "../../src/shared/speech-models";
 
 const ROOT = join(import.meta.dir, "../..");
 const STT_JSON_PATH = join(ROOT, "benchmarks/results/stt.json");
 const OUTPUT_PATH = join(ROOT, "src/shared/model-ratings.ts");
 
-const MODEL_SUPPORTED_LANGUAGES: Record<string, number> = {
-  "small-q5_1": 99,
-  "large-v3-turbo-q5_0": 99,
-  "large-v3-q5_0": 99,
-  "parakeet-tdt-0.6b-v3": 25,
-};
+function modelSupportedLanguages(id: string): number {
+  const model = getSpeechModel(id);
+  if (!model) return 1;
+  if (model.engine === "whisperkit")
+    return model.supportedTranscriptionLanguageIds?.length ?? 1;
+  if (id.includes(".en")) return 1;
+  return 99;
+}
 
 interface DatasetResult {
   wer: number;
@@ -56,9 +59,7 @@ const conditions: ConditionModels[] = [
   ...Object.values(data.fleurs as Record<string, ConditionModels>),
 ];
 
-const modelIds = [
-  ...new Set(conditions.flatMap((c) => Object.keys(c))),
-].sort();
+const modelIds = [...new Set(conditions.flatMap((c) => Object.keys(c)))].sort();
 
 const rtfs = modelIds.map((id) => {
   let totalAudio = 0;
@@ -81,11 +82,12 @@ const accuracies = modelIds.map((id) => {
   return 1 - wers.reduce((sum, w) => sum + w, 0) / wers.length;
 });
 
-const languageCounts = modelIds.map(
-  (id) => MODEL_SUPPORTED_LANGUAGES[id] ?? 1,
-);
+const languageCounts = modelIds.map((id) => modelSupportedLanguages(id));
 
-const ratings: Record<string, { speed: number; accuracy: number; languages: number }> = {};
+const ratings: Record<
+  string,
+  { speed: number; accuracy: number; languages: number }
+> = {};
 for (let i = 0; i < modelIds.length; i++) {
   ratings[modelIds[i]] = {
     speed: rateSpeed(rtfs[i]),
@@ -95,7 +97,10 @@ for (let i = 0; i < modelIds.length; i++) {
 }
 
 const entries = Object.entries(ratings)
-  .map(([id, r]) => `  "${id}": { speed: ${r.speed}, accuracy: ${r.accuracy}, languages: ${r.languages} },`)
+  .map(
+    ([id, r]) =>
+      `  "${id}": { speed: ${r.speed}, accuracy: ${r.accuracy}, languages: ${r.languages} },`,
+  )
   .join("\n");
 
 const output = `/**

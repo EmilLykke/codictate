@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { AppSettings } from "../../../../shared/types";
 import {
   SPEECH_MODELS,
+  EXTENDED_WHISPER_MODELS,
   PARAKEET_FIRST_RUN_SETTINGS_HINT,
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
+import { ModelBrowseModal } from "../ModelBrowseModal";
 import { settingsHelperClass } from "../settings-shared";
 import { openExternalUrl } from "../../../rpc";
 
@@ -27,9 +29,15 @@ export function SectionModels({
   onCancelDownload,
   onModelDelete,
 }: Props) {
+  const [isBrowseOpen, setIsBrowseOpen] = useState(false);
+
   const whisperModels = useMemo(
-    () => SPEECH_MODELS.filter((m) => m.engine === "whisper_cpp"),
-    [],
+    () =>
+      SPEECH_MODELS.filter(
+        (m) =>
+          m.engine === "whisper_cpp" && (m.curated || modelAvailability[m.id]),
+      ),
+    [modelAvailability],
   );
   const nvidiaModels = useMemo(
     () => SPEECH_MODELS.filter((m) => m.engine === "whisperkit"),
@@ -82,10 +90,26 @@ export function SectionModels({
           onCancelDownload={onCancelDownload}
           onDelete={onModelDelete}
         />
-        <p className={settingsHelperClass}>
-          Turbo is bundled and works out of the box. Small and Large support
-          translation to English.
-        </p>
+        <button
+          type="button"
+          onClick={() => setIsBrowseOpen(true)}
+          className="flex items-center gap-1.5 mt-3 text-[13px] text-overlay/40 hover:text-accent-blue/70 transition-colors cursor-pointer"
+        >
+          Browse more models
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+          </svg>
+        </button>
       </div>
 
       <div className="mb-8">
@@ -102,14 +126,20 @@ export function SectionModels({
           onCancelDownload={onCancelDownload}
           onDelete={onModelDelete}
         />
-        <p className={settingsHelperClass}>
-          Parakeet enables live stream dictation with local NVIDIA ASR. Does not
-          support translation.
-        </p>
         <p className={`${settingsHelperClass} text-accent-amber/55`}>
           {PARAKEET_FIRST_RUN_SETTINGS_HINT}
         </p>
       </div>
+
+      <ModelBrowseModal
+        isOpen={isBrowseOpen}
+        onClose={() => setIsBrowseOpen(false)}
+        models={EXTENDED_WHISPER_MODELS}
+        modelAvailability={modelAvailability}
+        downloadProgress={downloadProgress}
+        onDownload={onModelDownload}
+        onCancelDownload={onCancelDownload}
+      />
     </div>
   );
 }

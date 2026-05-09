@@ -64,6 +64,16 @@ export interface ModelDatasetResult {
   totalWallSec: number;
 }
 
+export interface PartialProgress {
+  utterancesDone: number;
+  totalWer: number;
+  totalRefWords: number;
+  totalAudioSec: number;
+  totalWallSec: number;
+}
+
+export type CheckpointCallback = (progress: PartialProgress) => void;
+
 async function drainStream(
   stream: ReadableStream<Uint8Array> | undefined,
 ): Promise<Uint8Array> {
@@ -213,6 +223,10 @@ export async function benchmarkModel(
   modelId: string,
   entries: ManifestEntry[],
   datasetLabel: string,
+  options?: {
+    partial?: PartialProgress;
+    onCheckpoint?: CheckpointCallback;
+  },
 ): Promise<ModelDatasetResult> {
   const speech = getSpeechModel(modelId);
   if (!speech) {
@@ -232,26 +246,39 @@ export async function benchmarkModel(
     };
   }
 
-  console.log(
-    `  [${modelId}] ${datasetLabel}: ${entries.length} utterances (${WARMUP_COUNT} warmup)`,
-  );
+  const partial = options?.partial;
+  const onCheckpoint = options?.onCheckpoint;
+  const startOffset = partial?.utterancesDone ?? 0;
 
-  // Warmup
-  const warmupEntries = entries.slice(0, WARMUP_COUNT);
-  for (let i = 0; i < warmupEntries.length; i++) {
-    await runUtterance(warmupEntries[i], modelId, modelPath);
-    process.stdout.write(`    warmup ${i + 1}/${WARMUP_COUNT}\r`);
+  const benchEntries = entries.slice(WARMUP_COUNT);
+
+  if (startOffset > 0) {
+    console.log(
+      `  [${modelId}] ${datasetLabel}: resuming from utterance ${startOffset}/${benchEntries.length}`,
+    );
+  } else {
+    console.log(
+      `  [${modelId}] ${datasetLabel}: ${entries.length} utterances (${WARMUP_COUNT} warmup)`,
+    );
+  }
+
+  // Warmup (skip if resuming)
+  if (startOffset === 0) {
+    const warmupEntries = entries.slice(0, WARMUP_COUNT);
+    for (let i = 0; i < warmupEntries.length; i++) {
+      await runUtterance(warmupEntries[i], modelId, modelPath);
+      process.stdout.write(`    warmup ${i + 1}/${WARMUP_COUNT}\r`);
+    }
   }
 
   // Benchmark
-  const benchEntries = entries.slice(WARMUP_COUNT);
   const results: UtteranceResult[] = [];
-  let totalWer = 0;
-  let totalRefWords = 0;
-  let totalAudioSec = 0;
-  let totalWallSec = 0;
+  let totalWer = partial?.totalWer ?? 0;
+  let totalRefWords = partial?.totalRefWords ?? 0;
+  let totalAudioSec = partial?.totalAudioSec ?? 0;
+  let totalWallSec = partial?.totalWallSec ?? 0;
 
-  for (let i = 0; i < benchEntries.length; i++) {
+  for (let i = startOffset; i < benchEntries.length; i++) {
     const entry = benchEntries[i];
     const result = await runUtterance(entry, modelId, modelPath);
     results.push(result);
@@ -267,6 +294,14 @@ export async function benchmarkModel(
       console.log(
         `    ${i + 1}/${benchEntries.length} | WER: ${(currentWer * 100).toFixed(2)}% | RTF: ${computeRtf(totalWallSec, totalAudioSec).toFixed(3)}`,
       );
+
+      onCheckpoint?.({
+        utterancesDone: i + 1,
+        totalWer,
+        totalRefWords,
+        totalAudioSec,
+        totalWallSec,
+      });
     }
   }
 
