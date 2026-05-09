@@ -5,6 +5,7 @@ import {
   type SpeechModel,
   formatModelSize,
 } from "../../../shared/speech-models";
+import { MODEL_RATINGS } from "../../../shared/model-ratings";
 
 export function parseModelTags(id: string): string[] {
   const tags: string[] = [];
@@ -19,6 +20,31 @@ export function parseModelTags(id: string): string[] {
   if (id.includes("-tdrz")) tags.push("TDRZ");
 
   return tags;
+}
+
+function StatBar({
+  label,
+  value,
+  max = 10,
+}: {
+  label: string;
+  value: number;
+  max?: number;
+}) {
+  const pct = Math.round((value / max) * 100);
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] text-overlay/40 w-14 text-right">
+        {label}
+      </span>
+      <div className="h-[4px] w-14 rounded-full bg-overlay/10 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-accent-blue/50 transition-all duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function TagBadge({ children }: { children: string }) {
@@ -150,6 +176,8 @@ export function ModelBrowseModal({
                       const isDownloading = progress !== undefined;
                       const tags = parseModelTags(model.id);
 
+                      const stats = MODEL_RATINGS[model.id];
+
                       return (
                         <div
                           key={model.id}
@@ -165,6 +193,19 @@ export function ModelBrowseModal({
                                   <TagBadge key={tag}>{tag}</TagBadge>
                                 ))}
                               </div>
+                              {stats && (
+                                <div className="flex gap-3 mt-1.5">
+                                  <StatBar
+                                    label="accuracy"
+                                    value={stats.accuracy}
+                                  />
+                                  <StatBar label="speed" value={stats.speed} />
+                                  <StatBar
+                                    label="languages"
+                                    value={stats.languages}
+                                  />
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2.5 shrink-0">

@@ -451,6 +451,7 @@ def main() -> None:
         sys.exit(1)
 
     results_dir = Path(sys.argv[1])
+    no_chunks = "--no-chunks" in sys.argv
     json_path = results_dir / "stt.json"
 
     if not json_path.exists():
@@ -467,7 +468,7 @@ def main() -> None:
 
     # Chunked charts
     all_models = get_all_models(results)
-    if len(all_models) > CHUNK_SIZE:
+    if not no_chunks and len(all_models) > CHUNK_SIZE:
         chunks = chunk_list(all_models, CHUNK_SIZE)
         for ci, chunk in enumerate(chunks, 1):
             subset = set(chunk)

@@ -143,6 +143,7 @@ function parseArgs() {
     skipExisting: false,
     offloadModels: false,
     reportOnly: false,
+    aggregate: false,
     name: undefined as string | undefined,
     description: undefined as string | undefined,
   };
@@ -172,6 +173,9 @@ function parseArgs() {
         break;
       case "--report-only":
         flags.reportOnly = true;
+        break;
+      case "--aggregate":
+        flags.aggregate = true;
         break;
       case "--name":
         flags.name = args[++i];
@@ -240,6 +244,66 @@ async function main() {
       const existing = (await Bun.file(jsonPath).json()) as BenchmarkResults;
       await writeReport(existing, runDir);
     }
+    return;
+  }
+
+  // Aggregate mode: merge all runs into a single report at results root
+  if (flags.aggregate) {
+    const runs = readdirSync(RESULTS_BASE_DIR)
+      .filter((d) => /^\d{4}-\d{2}-\d{2}/.test(d))
+      .sort();
+    if (runs.length === 0) {
+      console.error("No existing benchmark runs found in results/");
+      process.exit(1);
+    }
+    console.log("--- Aggregating all runs ---");
+
+    const merged: BenchmarkResults = {
+      description: "Aggregated results from all benchmark runs",
+      hardware: getHardwareInfo(),
+      runDate: new Date().toISOString(),
+      config: { sampleSize: 0, warmupCount: 3, normalization: "whisper-basic" },
+      librispeech: {},
+      fleurs: {},
+    };
+
+    for (const run of runs) {
+      const jsonPath = join(RESULTS_BASE_DIR, run, "stt.json");
+      if (!existsSync(jsonPath)) continue;
+      const data = JSON.parse(
+        readFileSync(jsonPath, "utf-8"),
+      ) as BenchmarkResults;
+      console.log(`  merging: ${run}`);
+
+      merged.config.sampleSize = Math.max(
+        merged.config.sampleSize,
+        data.config.sampleSize,
+      );
+
+      for (const [split, models] of Object.entries(data.librispeech)) {
+        if (!merged.librispeech[split]) merged.librispeech[split] = {};
+        for (const [modelId, result] of Object.entries(models)) {
+          if (result.utteranceCount > 0) {
+            merged.librispeech[split][modelId] = result;
+          }
+        }
+      }
+      for (const [lang, models] of Object.entries(data.fleurs)) {
+        if (!merged.fleurs[lang]) merged.fleurs[lang] = {};
+        for (const [modelId, result] of Object.entries(models)) {
+          if (result.utteranceCount > 0) {
+            merged.fleurs[lang][modelId] = result;
+          }
+        }
+      }
+    }
+
+    const jsonPath = join(RESULTS_BASE_DIR, "stt.json");
+    await Bun.write(jsonPath, JSON.stringify(merged, null, 2));
+    console.log(`\nAggregated JSON written to ${jsonPath}`);
+
+    await writeReport(merged, RESULTS_BASE_DIR, { noChunks: true });
+    console.log("\n" + generateMarkdownReport(merged));
     return;
   }
 

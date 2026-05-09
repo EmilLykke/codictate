@@ -173,11 +173,17 @@ const SPEED_RATING_THRESHOLD = 250;
 function rateSpeed(rtf: number): number {
   if (rtf <= 0) return 1;
   const ms = rtf * 1000;
-  return Math.max(1, Math.min(10, Math.round(10 - 9 * ms / SPEED_RATING_THRESHOLD)));
+  return Math.max(
+    1,
+    Math.min(10, Math.round(10 - (9 * ms) / SPEED_RATING_THRESHOLD)),
+  );
 }
 
 function rateAccuracy(accuracy: number): number {
-  return Math.max(1, Math.min(10, Math.round(1 + 9 * Math.max(0, accuracy - 0.5) / 0.5)));
+  return Math.max(
+    1,
+    Math.min(10, Math.round(1 + (9 * Math.max(0, accuracy - 0.5)) / 0.5)),
+  );
 }
 
 function rateLanguages(count: number): number {
@@ -216,7 +222,10 @@ function computeRatings(
   return ratings;
 }
 
-export function generateMarkdownReport(results: BenchmarkResults): string {
+export function generateMarkdownReport(
+  results: BenchmarkResults,
+  options?: { noChunks?: boolean },
+): string {
   const lines: string[] = [];
   const conditions = buildConditions(results);
   const modelIds = collectModelIds(conditions);
@@ -352,7 +361,7 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
   const chunkCount = Math.ceil(modelIds.length / CHUNK_SIZE);
   const hasChunks = modelIds.length > CHUNK_SIZE;
 
-  if (hasChunks) {
+  if (hasChunks && !options?.noChunks) {
     for (let i = 1; i <= chunkCount; i++) {
       const start = (i - 1) * CHUNK_SIZE;
       const chunkModels = modelIds.slice(start, start + CHUNK_SIZE);
@@ -418,15 +427,18 @@ export function generateMarkdownReport(results: BenchmarkResults): string {
 export async function writeReport(
   results: BenchmarkResults,
   resultsDir: string,
+  options?: { noChunks?: boolean },
 ): Promise<void> {
   mkdirSync(resultsDir, { recursive: true });
 
-  const markdown = generateMarkdownReport(results);
+  const markdown = generateMarkdownReport(results, options);
   await Bun.write(join(resultsDir, "report.md"), markdown);
   console.log(`Report written to ${join(resultsDir, "report.md")}`);
 
   const chartsScript = join(import.meta.dir, "charts.py");
-  const proc = Bun.spawn(["python3", chartsScript, resultsDir], {
+  const args = ["python3", chartsScript, resultsDir];
+  if (options?.noChunks) args.push("--no-chunks");
+  const proc = Bun.spawn(args, {
     stdout: "inherit",
     stderr: "inherit",
   });

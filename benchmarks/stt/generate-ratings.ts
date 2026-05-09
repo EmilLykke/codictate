@@ -1,16 +1,20 @@
 #!/usr/bin/env bun
 /**
- * Reads benchmarks/results/stt.json and generates src/shared/model-ratings.ts
+ * Reads an stt.json benchmark file and generates src/shared/model-ratings.ts
  * with computed 1-10 ratings for speed, accuracy, and languages.
  *
- * Run: bun benchmarks/stt/generate-ratings.ts
+ * Run: bun benchmarks/stt/generate-ratings.ts [path/to/stt.json]
+ *
+ * If no path is given, defaults to benchmarks/results/stt.json.
  */
 
 import { join } from "node:path";
 import { getSpeechModel } from "../../src/shared/speech-models";
 
 const ROOT = join(import.meta.dir, "../..");
-const STT_JSON_PATH = join(ROOT, "benchmarks/results/stt.json");
+const STT_JSON_PATH = Bun.argv[2]
+  ? join(process.cwd(), Bun.argv[2])
+  : join(ROOT, "benchmarks/results/stt.json");
 const OUTPUT_PATH = join(ROOT, "src/shared/model-ratings.ts");
 
 function modelSupportedLanguages(id: string): number {
