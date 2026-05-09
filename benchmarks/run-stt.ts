@@ -2,7 +2,6 @@ import { join } from "node:path";
 import {
   mkdirSync,
   readdirSync,
-  cpSync,
   existsSync,
   unlinkSync,
 } from "node:fs";
@@ -194,18 +193,6 @@ async function main() {
       console.log(`\n--- Regenerating: ${run} ---`);
       const existing = (await Bun.file(jsonPath).json()) as BenchmarkResults;
       await writeReport(existing, runDir);
-    }
-    const latestDir = join(RESULTS_BASE_DIR, runs[runs.length - 1]);
-    if (existsSync(join(latestDir, "stt.json"))) {
-      for (const file of readdirSync(latestDir)) {
-        cpSync(join(latestDir, file), join(RESULTS_BASE_DIR, file), {
-          recursive: true,
-        });
-      }
-      const latest = (await Bun.file(
-        join(latestDir, "stt.json"),
-      ).json()) as BenchmarkResults;
-      console.log("\n" + generateMarkdownReport(latest));
     }
     return;
   }
@@ -457,14 +444,6 @@ async function main() {
 
   // Step 9: Write report + charts to run folder
   await writeReport(results, runDir);
-
-  // Step 10: Copy latest results to root results/ folder
-  for (const file of readdirSync(runDir)) {
-    cpSync(join(runDir, file), join(RESULTS_BASE_DIR, file), {
-      recursive: true,
-    });
-  }
-  console.log(`Latest results copied to ${RESULTS_BASE_DIR}`);
 
   console.log("\n" + generateMarkdownReport(results));
 }

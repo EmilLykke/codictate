@@ -56,8 +56,9 @@ bun run bench:stt -- --report-only
 
 ## Output
 
-- `benchmarks/results/<timestamp>[_<name>]/stt.json` - machine-readable results with hardware metadata
-- `benchmarks/results/stt.json` - symlink to latest run
+- `benchmarks/results/<timestamp>_<name>/stt.json` - machine-readable results with hardware metadata
+- `benchmarks/results/<timestamp>_<name>/report.md` - markdown report with charts
+- `benchmarks/results/<timestamp>_<name>/*.png` - chart images
 - Markdown table printed to stdout
 
 ## Adding Languages
