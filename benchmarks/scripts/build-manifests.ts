@@ -118,8 +118,9 @@ export function buildLibriSpeechManifest(
     }
   }
 
-  console.log(`[manifest] LibriSpeech ${split}: ${entries.length} utterances`);
-  return entries;
+  const shuffled = seededShuffle(entries, 42);
+  console.log(`[manifest] LibriSpeech ${split}: ${shuffled.length} utterances`);
+  return shuffled;
 }
 
 // -- FLEURS manifest --
