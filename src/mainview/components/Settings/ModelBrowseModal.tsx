@@ -4,6 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   type SpeechModel,
   formatModelSize,
+  formatRamSize,
 } from "../../../shared/speech-models";
 import { MODEL_RATINGS } from "../../../shared/model-ratings";
 
@@ -192,6 +193,9 @@ export function ModelBrowseModal({
                                 {tags.map((tag) => (
                                   <TagBadge key={tag}>{tag}</TagBadge>
                                 ))}
+                                <TagBadge>
+                                  {formatRamSize(model.peakRamMB)}
+                                </TagBadge>
                               </div>
                               {stats && (
                                 <div className="flex gap-3 mt-1.5">

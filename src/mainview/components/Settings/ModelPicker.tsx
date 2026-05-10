@@ -12,11 +12,11 @@ import { parseModelTags } from "./ModelBrowseModal";
 
 const SHORT_DESC: Record<string, string> = {
   "parakeet-tdt-0.6b-v3": "Fastest. 3-10x faster, 80 MB RAM.",
-  "small.en-q5_1": "Best lightweight English. 181 MB disk.",
-  "medium.en-q5_0": "Best English accuracy. 514 MB disk.",
-  "small-q5_1": "Lightweight multilingual.",
-  "large-v3-turbo-q5_0": "Daily driver multilingual. 574 MB disk.",
-  "large-v3-q5_0": "Highest accuracy, multilingual.",
+  "small.en-q5_1": "Best lightweight English. 475 MB RAM.",
+  "medium.en-q5_0": "Best English accuracy. 1.1 GB RAM.",
+  "small-q5_1": "Lightweight multilingual. 475 MB RAM.",
+  "large-v3-turbo-q5_0": "Daily driver multilingual. 800 MB RAM.",
+  "large-v3-q5_0": "Highest accuracy, multilingual. 2.0 GB RAM.",
 };
 
 function StatBar({
