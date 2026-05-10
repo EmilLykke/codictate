@@ -9,22 +9,19 @@
  */
 
 import { join } from "node:path";
-import { getSpeechModel } from "../../src/shared/speech-models";
+import {
+  rateSpeed,
+  rateAccuracy,
+  rateLanguages,
+  modelSupportedLanguages,
+  isEnglishOnlyModel,
+} from "./rating-utils";
 
 const ROOT = join(import.meta.dir, "../..");
 const STT_JSON_PATH = Bun.argv[2]
   ? join(process.cwd(), Bun.argv[2])
   : join(ROOT, "benchmarks/results/stt.json");
 const OUTPUT_PATH = join(ROOT, "src/shared/model-ratings.ts");
-
-function modelSupportedLanguages(id: string): number {
-  const model = getSpeechModel(id);
-  if (!model) return 1;
-  if (model.engine === "whisperkit")
-    return model.supportedTranscriptionLanguageIds?.length ?? 1;
-  if (id.includes(".en")) return 1;
-  return 99;
-}
 
 interface DatasetResult {
   wer: number;
@@ -33,43 +30,30 @@ interface DatasetResult {
   totalWallSec: number;
 }
 
-const SPEED_RATING_THRESHOLD = 250;
-
-function rateSpeed(rtf: number): number {
-  if (rtf <= 0) return 1;
-  const ms = rtf * 1000;
-  return Math.max(1, Math.min(10, Math.round(10 - 9 * ms / SPEED_RATING_THRESHOLD)));
-}
-
-function rateAccuracy(accuracy: number): number {
-  return Math.max(1, Math.min(10, Math.round(1 + 9 * Math.max(0, accuracy - 0.5) / 0.5)));
-}
-
-function rateLanguages(count: number): number {
-  if (count >= 90) return 10;
-  if (count >= 50) return 9;
-  if (count >= 25) return 8;
-  if (count >= 10) return 6;
-  if (count >= 5) return 4;
-  return Math.max(1, Math.min(3, count));
-}
-
 const raw = await Bun.file(STT_JSON_PATH).text();
 const data = JSON.parse(raw);
 
 type ConditionModels = Record<string, DatasetResult>;
 
-const conditions: ConditionModels[] = [
-  ...Object.values(data.librispeech as Record<string, ConditionModels>),
-  ...Object.values(data.fleurs as Record<string, ConditionModels>),
+const englishConditions: ConditionModels[] = Object.values(
+  data.librispeech as Record<string, ConditionModels>,
+);
+const multilingualConditions: ConditionModels[] = Object.values(
+  data.fleurs as Record<string, ConditionModels>,
+);
+const allConditions: ConditionModels[] = [
+  ...englishConditions,
+  ...multilingualConditions,
 ];
 
-const modelIds = [...new Set(conditions.flatMap((c) => Object.keys(c)))].sort();
+const modelIds = [
+  ...new Set(allConditions.flatMap((c) => Object.keys(c))),
+].sort();
 
 const rtfs = modelIds.map((id) => {
   let totalAudio = 0;
   let totalWall = 0;
-  for (const cond of conditions) {
+  for (const cond of allConditions) {
     const r = cond[id];
     if (r && r.meanRTF > 0) {
       totalAudio += r.totalAudioSec;
@@ -79,13 +63,17 @@ const rtfs = modelIds.map((id) => {
   return totalAudio > 0 ? totalWall / totalAudio : 0;
 });
 
-const accuracies = modelIds.map((id) => {
+function avgAccuracy(id: string, conditions: ConditionModels[]): number {
   const wers = conditions
     .map((c) => c[id]?.wer)
     .filter((w): w is number => w !== undefined && w >= 0);
   if (wers.length === 0) return 0;
   return 1 - wers.reduce((sum, w) => sum + w, 0) / wers.length;
-});
+}
+
+const accuracies = modelIds.map((id) =>
+  avgAccuracy(id, isEnglishOnlyModel(id) ? englishConditions : allConditions),
+);
 
 const languageCounts = modelIds.map((id) => modelSupportedLanguages(id));
 

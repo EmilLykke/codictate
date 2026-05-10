@@ -147,6 +147,21 @@ def extract_data(results: dict) -> list[dict]:
     return points
 
 
+def extract_cer_data(results: dict) -> list[dict]:
+    points = []
+    for lang, models in results.get("fleurs", {}).items():
+        for model, r in models.items():
+            cer = r.get("cer")
+            if cer is None or cer < 0:
+                continue
+            points.append({
+                "model": model,
+                "condition": condition_label(lang),
+                "cer": cer,
+            })
+    return points
+
+
 def style_ax(ax: plt.Axes) -> None:
     ax.set_facecolor(DARK_BG)
     ax.tick_params(colors=DARK_LABEL, which="both")
@@ -422,6 +437,64 @@ def generate_averages_bar(results: dict, out_path: Path) -> None:
     print(f"Chart: {out_path}")
 
 
+def generate_cer_bar(results: dict, out_path: Path) -> None:
+    points = extract_cer_data(results)
+    if not points:
+        return
+
+    conditions = list(dict.fromkeys(p["condition"] for p in points))
+    models = list(dict.fromkeys(p["model"] for p in points))
+
+    y = np.arange(len(models))
+    bar_height = 0.9 / max(len(conditions), 1)
+
+    fig_h = max(10, len(models) * 1.4)
+    fig, ax = plt.subplots(figsize=(14, fig_h))
+    fig.set_facecolor(DARK_BG)
+    style_ax(ax)
+
+    for ci, cond in enumerate(conditions):
+        accs = []
+        for model in models:
+            match = [p for p in points if p["model"] == model and p["condition"] == cond]
+            raw = (1 - match[0]["cer"]) * 100 if match else 0
+            accs.append(max(raw, 0))
+        best = max(accs)
+        offset = (ci - len(conditions) / 2 + 0.5) * bar_height
+        bars = ax.barh(y + offset, accs, bar_height * 0.9, label=cond,
+                       color=COLORS[ci % len(COLORS)], zorder=3)
+        for bar, val in zip(bars, accs):
+            if val > 0:
+                is_best = val == best and val > 0
+                label_x = max(bar.get_width() + 0.3, 6)
+                ax.text(label_x, bar.get_y() + bar.get_height() / 2,
+                        f"{val:.1f}%", va="center", ha="left",
+                        fontsize=11,
+                        color=WINNER_COLOR if is_best else DARK_LABEL,
+                        fontweight="bold" if is_best else "normal",
+                        zorder=4)
+
+    ax.set_xlabel("Character Accuracy % (case & punctuation sensitive)", labelpad=4)
+    ax.set_title("Character Accuracy by Model (FLEURS)", fontweight="bold", pad=12)
+    ax.set_yticks(y)
+    ax.set_yticklabels([model_label(m) for m in models], fontsize=11)
+    ax.grid(axis="x", color=DARK_GRID, linestyle="--", linewidth=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    ax.invert_yaxis()
+
+    ax.legend(facecolor="#2a2a2a", edgecolor=DARK_GRID, labelcolor=DARK_FG,
+              fontsize=8, bbox_to_anchor=(0, -0.04), loc="upper left",
+              borderaxespad=0, ncol=len(conditions), framealpha=0.9,
+              handlelength=1.2, handletextpad=0.4, columnspacing=1.5)
+
+    fig.tight_layout()
+    fig.subplots_adjust(left=0.18)
+    fig.savefig(str(out_path), dpi=150, facecolor=DARK_BG,
+                bbox_inches="tight", pad_inches=0.3)
+    plt.close(fig)
+    print(f"Chart: {out_path}")
+
+
 CHUNK_SIZE = 8
 
 
@@ -465,6 +538,7 @@ def main() -> None:
     generate_accuracy_bar(results, results_dir / "accuracy-comparison.png")
     generate_speed_bar(results, results_dir / "speed-comparison.png")
     generate_averages_bar(results, results_dir / "accuracy-averages.png")
+    generate_cer_bar(results, results_dir / "cer-comparison.png")
 
     # Chunked charts
     all_models = get_all_models(results)
@@ -476,6 +550,7 @@ def main() -> None:
             generate_accuracy_bar(filtered, results_dir / f"accuracy-comparison-{ci}.png")
             generate_speed_bar(filtered, results_dir / f"speed-comparison-{ci}.png")
             generate_averages_bar(filtered, results_dir / f"accuracy-averages-{ci}.png")
+            generate_cer_bar(filtered, results_dir / f"cer-comparison-{ci}.png")
 
 
 if __name__ == "__main__":

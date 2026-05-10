@@ -5,6 +5,7 @@ export interface ManifestEntry {
   id: string;
   audioPath: string;
   transcript: string;
+  rawTranscript?: string;
   language: string;
   audioDurationSec: number;
 }
@@ -187,6 +188,7 @@ export function buildFleursManifest(
 
     const id = cols[0];
     const fileName = cols[1];
+    const rawTranscript = cols[2];
     const transcript = cols[3]; // normalized transcription
 
     // FLEURS audio is in audio/test/<filename>
@@ -197,6 +199,7 @@ export function buildFleursManifest(
       id: `${fleursLang}_${id}`,
       audioPath,
       transcript,
+      rawTranscript,
       language: codLang,
       audioDurationSec: estimateWavDurationSec(audioPath),
     });

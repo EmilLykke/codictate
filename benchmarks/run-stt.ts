@@ -563,6 +563,7 @@ async function main() {
         `FLEURS ${lang}`,
         {
           partial,
+          computeCer: true,
           onCheckpoint: (progress) => {
             void saveCheckpoint(runDir, {
               librispeech: librispeechResults,

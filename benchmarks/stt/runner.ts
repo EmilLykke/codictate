@@ -8,7 +8,7 @@ import { whisperCliLanguageArg } from "../../src/shared/transcription-languages"
 import { findWhisperCliBinary } from "../../src/bun/utils/whisper/find-whisper-cli";
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
 import { getPlatform } from "../../src/bun/platform";
-import { computeWer, type WerResult } from "./wer";
+import { computeWer, computeCer, type WerResult } from "./wer";
 import { computeRtf } from "./rtf";
 import { measurePeakRss } from "./memory";
 import type { ManifestEntry } from "../scripts/build-manifests";
@@ -57,6 +57,7 @@ export interface PeakRSSStats {
 
 export interface ModelDatasetResult {
   wer: number;
+  cer?: number;
   meanRTF: number;
   peakRSS_MB: PeakRSSStats | null;
   utteranceCount: number;
@@ -68,6 +69,8 @@ export interface PartialProgress {
   utterancesDone: number;
   totalWer: number;
   totalRefWords: number;
+  totalCer?: number;
+  totalRefChars?: number;
   totalAudioSec: number;
   totalWallSec: number;
 }
@@ -226,6 +229,7 @@ export async function benchmarkModel(
   options?: {
     partial?: PartialProgress;
     onCheckpoint?: CheckpointCallback;
+    computeCer?: boolean;
   },
 ): Promise<ModelDatasetResult> {
   const speech = getSpeechModel(modelId);
@@ -272,9 +276,12 @@ export async function benchmarkModel(
   }
 
   // Benchmark
+  const shouldComputeCer = options?.computeCer ?? false;
   const results: UtteranceResult[] = [];
   let totalWer = partial?.totalWer ?? 0;
   let totalRefWords = partial?.totalRefWords ?? 0;
+  let totalCerErrors = partial?.totalCer ?? 0;
+  let totalRefChars = partial?.totalRefChars ?? 0;
   let totalAudioSec = partial?.totalAudioSec ?? 0;
   let totalWallSec = partial?.totalWallSec ?? 0;
 
@@ -289,16 +296,28 @@ export async function benchmarkModel(
     totalAudioSec += entry.audioDurationSec;
     totalWallSec += result.wallClockMs / 1000;
 
+    if (shouldComputeCer && entry.rawTranscript) {
+      const cer = computeCer(entry.rawTranscript, result.hypothesis);
+      totalCerErrors += cer.substitutions + cer.insertions + cer.deletions;
+      totalRefChars += cer.refChars;
+    }
+
     if ((i + 1) % 50 === 0 || i === benchEntries.length - 1) {
       const currentWer = totalRefWords > 0 ? totalWer / totalRefWords : 0;
+      const cerStr =
+        shouldComputeCer && totalRefChars > 0
+          ? ` | CER: ${((totalCerErrors / totalRefChars) * 100).toFixed(2)}%`
+          : "";
       console.log(
-        `    ${i + 1}/${benchEntries.length} | WER: ${(currentWer * 100).toFixed(2)}% | RTF: ${computeRtf(totalWallSec, totalAudioSec).toFixed(3)}`,
+        `    ${i + 1}/${benchEntries.length} | WER: ${(currentWer * 100).toFixed(2)}%${cerStr} | RTF: ${computeRtf(totalWallSec, totalAudioSec).toFixed(3)}`,
       );
 
       onCheckpoint?.({
         utterancesDone: i + 1,
         totalWer,
         totalRefWords,
+        totalCer: shouldComputeCer ? totalCerErrors : undefined,
+        totalRefChars: shouldComputeCer ? totalRefChars : undefined,
         totalAudioSec,
         totalWallSec,
       });
@@ -327,13 +346,19 @@ export async function benchmarkModel(
   }
 
   const aggWer = totalRefWords > 0 ? totalWer / totalRefWords : 0;
+  const aggCer =
+    shouldComputeCer && totalRefChars > 0
+      ? totalCerErrors / totalRefChars
+      : undefined;
   const meanRTF = computeRtf(totalWallSec, totalAudioSec);
 
+  const cerStr =
+    aggCer !== undefined ? ` | CER: ${(aggCer * 100).toFixed(2)}%` : "";
   console.log(
-    `    done | WER: ${(aggWer * 100).toFixed(2)}% | RTF: ${meanRTF.toFixed(3)} | RSS: ${peakRSS_MB ? `${peakRSS_MB.min}/${peakRSS_MB.avg}/${peakRSS_MB.max}` : "N/A"} MB (min/avg/max)`,
+    `    done | WER: ${(aggWer * 100).toFixed(2)}%${cerStr} | RTF: ${meanRTF.toFixed(3)} | RSS: ${peakRSS_MB ? `${peakRSS_MB.min}/${peakRSS_MB.avg}/${peakRSS_MB.max}` : "N/A"} MB (min/avg/max)`,
   );
 
-  return {
+  const result: ModelDatasetResult = {
     wer: aggWer,
     meanRTF,
     peakRSS_MB,
@@ -341,4 +366,6 @@ export async function benchmarkModel(
     totalAudioSec,
     totalWallSec,
   };
+  if (aggCer !== undefined) result.cer = aggCer;
+  return result;
 }

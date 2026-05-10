@@ -11,10 +11,12 @@ import { InstantTooltip } from "../Common/InstantTooltip";
 import { parseModelTags } from "./ModelBrowseModal";
 
 const SHORT_DESC: Record<string, string> = {
-  "small-q5_1": "Lightweight and capable.",
-  "large-v3-turbo-q5_0": "Balanced accuracy and speed.",
-  "large-v3-q5_0": "Highest accuracy, best for translation.",
-  "parakeet-tdt-0.6b-v3": "Fast and accurate with live dictation.",
+  "parakeet-tdt-0.6b-v3": "Fastest. 3-10x faster, 80 MB RAM.",
+  "small.en-q5_1": "Best lightweight English. 181 MB disk.",
+  "medium.en-q5_0": "Best English accuracy. 514 MB disk.",
+  "small-q5_1": "Lightweight multilingual.",
+  "large-v3-turbo-q5_0": "Daily driver multilingual. 574 MB disk.",
+  "large-v3-q5_0": "Highest accuracy, multilingual.",
 };
 
 function StatBar({
@@ -29,7 +31,7 @@ function StatBar({
   const pct = Math.round((value / max) * 100);
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[13px] text-overlay/45 w-16 text-right">
+      <span className="text-[13px] text-overlay/45 w-22 text-right whitespace-nowrap">
         {label}
       </span>
       <div className="h-[5px] w-20 rounded-full bg-overlay/10 overflow-hidden">
@@ -141,7 +143,12 @@ export function ModelPicker({
 
                 {stats && (
                   <div className="flex flex-col gap-1 shrink-0 pt-0.5">
-                    <StatBar label="accuracy" value={stats.accuracy} />
+                    <StatBar
+                      label={
+                        model.id.includes(".en") ? "accuracy (en)" : "accuracy"
+                      }
+                      value={stats.accuracy}
+                    />
                     <StatBar label="speed" value={stats.speed} />
                     <StatBar label="languages" value={stats.languages} />
                   </div>

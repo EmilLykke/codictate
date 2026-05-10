@@ -34,7 +34,7 @@ function StatBar({
   const pct = Math.round((value / max) * 100);
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[11px] text-overlay/40 w-14 text-right">
+      <span className="text-[11px] text-overlay/40 w-18 text-right whitespace-nowrap">
         {label}
       </span>
       <div className="h-[4px] w-14 rounded-full bg-overlay/10 overflow-hidden">
@@ -196,7 +196,11 @@ export function ModelBrowseModal({
                               {stats && (
                                 <div className="flex gap-3 mt-1.5">
                                   <StatBar
-                                    label="accuracy"
+                                    label={
+                                      model.id.includes(".en")
+                                        ? "accuracy (en)"
+                                        : "accuracy"
+                                    }
                                     value={stats.accuracy}
                                   />
                                   <StatBar label="speed" value={stats.speed} />

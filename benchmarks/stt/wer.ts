@@ -1,4 +1,4 @@
-import { normalizeForWer } from "./normalize";
+import { normalizeForWer, normalizeForCer } from "./normalize";
 
 export interface WerResult {
   wer: number;
@@ -6,6 +6,14 @@ export interface WerResult {
   insertions: number;
   deletions: number;
   refWords: number;
+}
+
+export interface CerResult {
+  cer: number;
+  substitutions: number;
+  insertions: number;
+  deletions: number;
+  refChars: number;
 }
 
 function levenshteinOps(ref: string[], hyp: string[]): WerResult {
@@ -77,4 +85,17 @@ export function computeWer(reference: string, hypothesis: string): WerResult {
   const refWords = normalizeForWer(reference).split(" ").filter(Boolean);
   const hypWords = normalizeForWer(hypothesis).split(" ").filter(Boolean);
   return levenshteinOps(refWords, hypWords);
+}
+
+export function computeCer(reference: string, hypothesis: string): CerResult {
+  const refChars = [...normalizeForCer(reference)];
+  const hypChars = [...normalizeForCer(hypothesis)];
+  const ops = levenshteinOps(refChars, hypChars);
+  return {
+    cer: ops.wer,
+    substitutions: ops.substitutions,
+    insertions: ops.insertions,
+    deletions: ops.deletions,
+    refChars: ops.refWords,
+  };
 }

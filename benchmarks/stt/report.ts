@@ -2,6 +2,13 @@ import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 import type { ModelDatasetResult, PeakRSSStats } from "./runner";
 import { getSpeechModel } from "../../src/shared/speech-models";
+import {
+  rateSpeed,
+  rateAccuracy,
+  rateLanguages,
+  modelSupportedLanguages,
+  isEnglishOnlyModel,
+} from "./rating-utils";
 
 export interface BenchmarkResults {
   description: string;
@@ -45,15 +52,6 @@ function modelDiskMB(id: string): number | null {
   return getSpeechModel(id)?.downloadSizeMB ?? null;
 }
 
-function modelSupportedLanguages(id: string): number {
-  const model = getSpeechModel(id);
-  if (!model) return 1;
-  if (model.engine === "whisperkit")
-    return model.supportedTranscriptionLanguageIds?.length ?? 1;
-  if (id.includes(".en")) return 1;
-  return 99;
-}
-
 function conditionLabel(key: string): string {
   return CONDITION_LABELS[key] ?? key;
 }
@@ -61,6 +59,16 @@ function conditionLabel(key: string): string {
 function fmtAccuracy(wer: number): string {
   if (wer < 0) return "N/A";
   return `${((1 - wer) * 100).toFixed(1)}%`;
+}
+
+function fmtCharAccuracy(cer: number | undefined): string {
+  if (cer === undefined || cer === null) return "N/A";
+  if (cer < 0) return "N/A";
+  return `${((1 - cer) * 100).toFixed(1)}%`;
+}
+
+function isFleurs(key: string): boolean {
+  return !key.startsWith("test-");
 }
 
 function fmtSpeed(rtf: number): string {
@@ -165,34 +173,8 @@ function avgRtf(modelId: string, conditions: ConditionData[]): number {
 interface ModelRatings {
   speed: number;
   accuracy: number;
+  accuracyEnglish?: number;
   languages: number;
-}
-
-const SPEED_RATING_THRESHOLD = 250;
-
-function rateSpeed(rtf: number): number {
-  if (rtf <= 0) return 1;
-  const ms = rtf * 1000;
-  return Math.max(
-    1,
-    Math.min(10, Math.round(10 - (9 * ms) / SPEED_RATING_THRESHOLD)),
-  );
-}
-
-function rateAccuracy(accuracy: number): number {
-  return Math.max(
-    1,
-    Math.min(10, Math.round(1 + (9 * Math.max(0, accuracy - 0.5)) / 0.5)),
-  );
-}
-
-function rateLanguages(count: number): number {
-  if (count >= 90) return 10;
-  if (count >= 50) return 9;
-  if (count >= 25) return 8;
-  if (count >= 10) return 6;
-  if (count >= 5) return 4;
-  return Math.max(1, Math.min(3, count));
 }
 
 function computeRatings(
@@ -200,23 +182,37 @@ function computeRatings(
   conditions: ConditionData[],
 ): Record<string, ModelRatings> {
   const ratings: Record<string, ModelRatings> = {};
+  const { english } = splitConditions(conditions);
 
   for (const id of modelIds) {
     const rtf = avgRtf(id, conditions);
-    const accs = conditions
+    const allWers = conditions
       .map((c) => c.models[id]?.wer)
       .filter((w): w is number => w !== undefined && w >= 0);
-    const avgAccuracy =
-      accs.length > 0
-        ? 1 - accs.reduce((sum, w) => sum + w, 0) / accs.length
+    const overallAccuracy =
+      allWers.length > 0
+        ? 1 - allWers.reduce((sum, w) => sum + w, 0) / allWers.length
         : 0;
     const langCount = modelSupportedLanguages(id);
 
-    ratings[id] = {
+    const entry: ModelRatings = {
       speed: rateSpeed(rtf),
-      accuracy: rateAccuracy(avgAccuracy),
+      accuracy: rateAccuracy(overallAccuracy),
       languages: rateLanguages(langCount),
     };
+
+    if (isEnglishOnlyModel(id)) {
+      const enWers = english
+        .map((c) => c.models[id]?.wer)
+        .filter((w): w is number => w !== undefined && w >= 0);
+      const enAccuracy =
+        enWers.length > 0
+          ? 1 - enWers.reduce((sum, w) => sum + w, 0) / enWers.length
+          : 0;
+      entry.accuracyEnglish = rateAccuracy(enAccuracy);
+    }
+
+    ratings[id] = entry;
   }
 
   return ratings;
@@ -252,6 +248,11 @@ export function generateMarkdownReport(
 
   const { english, multilingual } = splitConditions(conditions);
 
+  const fleursConditions = conditions.filter((c) => isFleurs(c.key));
+  const hasCerData = fleursConditions.some((c) =>
+    Object.values(c.models).some((r) => r.cer !== undefined),
+  );
+
   const summaryHeader = [
     "Model",
     "Disk",
@@ -263,6 +264,7 @@ export function generateMarkdownReport(
     "Avg English",
     "Avg Multilingual",
     ...conditions.map((c) => c.label),
+    ...(hasCerData ? ["Avg Char Accuracy"] : []),
   ];
   lines.push(`| ${summaryHeader.join(" | ")} |`);
   lines.push(`| ${summaryHeader.map(() => "---").join(" | ")} |`);
@@ -278,7 +280,24 @@ export function generateMarkdownReport(
       const r = c.models[modelId];
       return r ? 1 - r.wer : -Infinity;
     });
-    return { modelId, avgAll, avgEn, avgMulti, rtf, diskMB, rss, condAccs };
+    const cerValues = fleursConditions
+      .map((c) => c.models[modelId]?.cer)
+      .filter((c): c is number => c !== undefined && c >= 0);
+    const avgCer =
+      cerValues.length > 0
+        ? 1 - cerValues.reduce((s, c) => s + c, 0) / cerValues.length
+        : undefined;
+    return {
+      modelId,
+      avgAll,
+      avgEn,
+      avgMulti,
+      rtf,
+      diskMB,
+      rss,
+      condAccs,
+      avgCer,
+    };
   });
 
   const pos = (v: number) => v > 0;
@@ -301,6 +320,9 @@ export function generateMarkdownReport(
   const bestPerCond = conditions.map((_, ci) =>
     Math.max(...modelData.map((d) => d.condAccs[ci])),
   );
+  const bestAvgCer = hasCerData
+    ? Math.max(...modelData.map((d) => d.avgCer ?? -Infinity))
+    : -Infinity;
 
   const bold = (s: string) => `**${s}**`;
 
@@ -338,6 +360,15 @@ export function generateMarkdownReport(
         return d.condAccs[ci] === bestPerCond[ci] ? bold(acc) : acc;
       }),
     ];
+    if (hasCerData) {
+      const avgCerStr =
+        d.avgCer !== undefined ? `${(d.avgCer * 100).toFixed(1)}%` : "N/A";
+      row.push(
+        d.avgCer !== undefined && d.avgCer === bestAvgCer
+          ? bold(avgCerStr)
+          : avgCerStr,
+      );
+    }
     lines.push(`| ${row.join(" | ")} |`);
   }
   lines.push("");
@@ -350,8 +381,12 @@ export function generateMarkdownReport(
   lines.push("| --- | --- | --- | --- |");
   for (const modelId of modelIds) {
     const r = ratings[modelId];
+    const accStr =
+      r.accuracyEnglish !== undefined
+        ? `${r.accuracy} (${r.accuracyEnglish} en)`
+        : `${r.accuracy}`;
     lines.push(
-      `| ${modelName(modelId)} | ${r.speed} | ${r.accuracy} | ${r.languages} |`,
+      `| ${modelName(modelId)} | ${r.speed} | ${accStr} | ${r.languages} |`,
     );
   }
   lines.push("");
@@ -375,6 +410,10 @@ export function generateMarkdownReport(
       lines.push("");
       lines.push(`![Average Accuracy ${i}](accuracy-averages-${i}.png)`);
       lines.push("");
+      if (hasCerData) {
+        lines.push(`![Character Accuracy ${i}](cer-comparison-${i}.png)`);
+        lines.push("");
+      }
     }
   }
 
@@ -386,19 +425,40 @@ export function generateMarkdownReport(
   lines.push("");
   lines.push("![Average Accuracy](accuracy-averages.png)");
   lines.push("");
+  if (hasCerData) {
+    lines.push("![Character Accuracy](cer-comparison.png)");
+    lines.push("");
+  }
 
   // Accuracy by condition
   lines.push("## Accuracy by Condition");
   lines.push("");
 
   for (const condition of conditions) {
+    const showCer =
+      isFleurs(condition.key) &&
+      Object.values(condition.models).some((r) => r.cer !== undefined);
+
     lines.push(`### ${condition.label}`);
     lines.push("");
-    lines.push("| Model | Accuracy (%) |");
-    lines.push("| --- | --- |");
-    for (const modelId of modelIds) {
-      const r = condition.models[modelId];
-      lines.push(`| ${modelName(modelId)} | ${r ? fmtAccuracy(r.wer) : "-"} |`);
+    if (showCer) {
+      lines.push("| Model | Word Accuracy (%) | Char Accuracy (%) |");
+      lines.push("| --- | --- | --- |");
+      for (const modelId of modelIds) {
+        const r = condition.models[modelId];
+        lines.push(
+          `| ${modelName(modelId)} | ${r ? fmtAccuracy(r.wer) : "-"} | ${r ? fmtCharAccuracy(r.cer) : "N/A"} |`,
+        );
+      }
+    } else {
+      lines.push("| Model | Accuracy (%) |");
+      lines.push("| --- | --- |");
+      for (const modelId of modelIds) {
+        const r = condition.models[modelId];
+        lines.push(
+          `| ${modelName(modelId)} | ${r ? fmtAccuracy(r.wer) : "-"} |`,
+        );
+      }
     }
     lines.push("");
   }
