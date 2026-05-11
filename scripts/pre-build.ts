@@ -127,6 +127,54 @@ function commandExists(command: string): boolean {
   return Bun.spawnSync([checker, command], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
 }
 
+function resolveWindowsMasmCompiler(): string | null {
+  if (process.platform !== "win32") return null;
+
+  const where = Bun.spawnSync(["where", "ml64.exe"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (where.exitCode === 0) {
+    const path = where.stdout.toString().split(/\r?\n/)[0]?.trim();
+    if (path && existsSync(path)) return path;
+  }
+
+  const programFilesX86 = process.env["ProgramFiles(x86)"];
+  const vswherePath = programFilesX86
+    ? join(programFilesX86, "Microsoft Visual Studio", "Installer", "vswhere.exe")
+    : null;
+  if (!vswherePath || !existsSync(vswherePath)) return null;
+
+  const result = Bun.spawnSync(
+    [
+      vswherePath,
+      "-latest",
+      "-products",
+      "*",
+      "-requires",
+      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+      "-find",
+      "VC\\Tools\\MSVC\\**\\bin\\Hostx64\\x64\\ml64.exe",
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+  if (result.exitCode !== 0) return null;
+
+  const path = result.stdout.toString().split(/\r?\n/)[0]?.trim();
+  return path && existsSync(path) ? path : null;
+}
+
+function windowsMasmCmakeArgs(): string[] {
+  if (process.platform !== "win32") return [];
+  const compiler = resolveWindowsMasmCompiler();
+  if (!compiler) {
+    throw new Error(
+      "[pre-build] ml64.exe not found. Install the MSVC x64/x86 build tools including MASM, then reopen the terminal.",
+    );
+  }
+  return [`-DCMAKE_ASM_COMPILER=${compiler}`];
+}
+
 function syncMacAppIconArtifacts() {
   if (process.platform !== "darwin") return;
 
@@ -277,6 +325,7 @@ async function vendorWhisperBinaries() {
       "-S", srcDir,
       "-B", buildDir,
       ...(process.platform === "win32" ? ["-A", "x64"] : []),
+      ...windowsMasmCmakeArgs(),
       "-DCMAKE_BUILD_TYPE=Release",
       "-DBUILD_SHARED_LIBS=OFF",
       ...(process.platform === "win32" ? ["-DGGML_NATIVE=OFF"] : []),
@@ -383,6 +432,7 @@ async function vendorLlamaBinaries() {
     "-S", srcDir,
     "-B", buildDir,
     ...(process.platform === "win32" ? ["-A", "x64"] : []),
+    ...windowsMasmCmakeArgs(),
     "-DCMAKE_BUILD_TYPE=Release",
     "-DBUILD_SHARED_LIBS=OFF",
     ...(process.platform === "win32" ? ["-DGGML_NATIVE=OFF"] : []),
