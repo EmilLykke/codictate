@@ -15,6 +15,12 @@ const appIdentifier =
  *  would yield broken names like "Codictate Canary-canary". */
 const APP_NAME = "Codictate";
 const isWindowsHost = process.platform === "win32";
+const WINDOWS_VC_RUNTIME_DLLS = [
+  "msvcp140.dll",
+  "msvcp140_1.dll",
+  "vcruntime140.dll",
+  "vcruntime140_1.dll",
+];
 
 const buildCopy: Record<string, string> = {
   "dist/index.html": "views/mainview/index.html",
@@ -43,6 +49,9 @@ if (isWindowsHost) {
     "native-helpers/ggml-large-v3-turbo-q5_0.bin";
   buildCopy["vendors/windows/TrayIcon.ico"] = "images/TrayIcon.ico";
   buildCopy["src/assets/images/MacDocIcon.ico"] = "images/WindowsAppIcon.ico";
+  for (const dll of WINDOWS_VC_RUNTIME_DLLS) {
+    buildCopy[`vendors/windows/vc-runtime/${dll}`] = `native-helpers/${dll}`;
+  }
 } else {
   buildCopy["src/bun/utils/keyboard/KeyListener"] =
     "native-helpers/KeyListener";
@@ -67,7 +76,7 @@ export default {
   app: {
     name: APP_NAME,
     identifier: appIdentifier,
-    version: "0.0.46",
+    version: "0.0.47",
   },
   runtime: {
     // Keep the app alive when the window is closed — it lives in the tray

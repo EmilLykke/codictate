@@ -18,6 +18,13 @@ const WHISPER_VERSION = "1.8.4";
 const WHISPER_DIR = join(VENDORS_DIR, "whisper");
 const WINDOWS_DIR = join(VENDORS_DIR, "windows");
 const WINDOWS_TRAY_ICON = join(WINDOWS_DIR, "TrayIcon.ico");
+const WINDOWS_VC_RUNTIME_DIR = join(WINDOWS_DIR, "vc-runtime");
+const WINDOWS_VC_RUNTIME_DLLS = [
+  "msvcp140.dll",
+  "msvcp140_1.dll",
+  "vcruntime140.dll",
+  "vcruntime140_1.dll",
+];
 const WHISPER_BINARY_NAME = process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli";
 const WHISPER_BINARY = join(WHISPER_DIR, WHISPER_BINARY_NAME);
 const WHISPER_BUILD_STAMP = join(WHISPER_DIR, "build-stamp.txt");
@@ -469,6 +476,35 @@ function ensureWindowsTrayIcon() {
   writeFileSync(WINDOWS_TRAY_ICON, Buffer.concat([header, png]));
 }
 
+function ensureWindowsVcRuntimeDlls() {
+  if (process.platform !== "win32") return;
+
+  const windir = process.env.WINDIR ?? process.env.SystemRoot;
+  const redistDir = process.env.VCToolsRedistDir;
+  mkdirSync(WINDOWS_VC_RUNTIME_DIR, { recursive: true });
+
+  for (const dll of WINDOWS_VC_RUNTIME_DLLS) {
+    const candidates = [
+      ...(windir ? [join(windir, "System32", dll)] : []),
+      ...(redistDir
+        ? [
+            join(redistDir, "x64", "Microsoft.VC143.CRT", dll),
+            join(redistDir, "x64", "Microsoft.VC142.CRT", dll),
+          ]
+        : []),
+    ];
+    const source = candidates.find((candidate) => existsSync(candidate));
+    if (!source) {
+      throw new Error(
+        `[pre-build] Missing ${dll}. Install Microsoft Visual C++ Redistributable or Visual Studio Build Tools.`,
+      );
+    }
+    copyFileSync(source, join(WINDOWS_VC_RUNTIME_DIR, dll));
+  }
+
+  console.log("[pre-build] Windows VC runtime DLLs vendored successfully");
+}
+
 function findFileRecursively(root: string, fileName: string): string | null {
   const stack = [root];
   while (stack.length > 0) {
@@ -712,6 +748,7 @@ async function vendorWhisperModel() {
 
 if (process.platform === "win32") {
   ensureWindowsTrayIcon();
+  ensureWindowsVcRuntimeDlls();
   syncWindowsAppIconFromIconset();
   await vendorWhisperBinaries();
   await vendorLlamaBinaries();
