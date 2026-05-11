@@ -33,6 +33,7 @@ const WHISPER_BUILD_SIGNATURE = [
   `platform=${process.platform}`,
   `examples=on`,
   `shared=off`,
+  `native=${process.platform === "win32" ? "off" : "default"}`,
   `vulkan=${process.platform === "win32" ? "on" : "off"}`,
 ].join("\n");
 
@@ -50,6 +51,7 @@ const LLAMA_BUILD_SIGNATURE = [
   `version=${LLAMA_VERSION}`,
   `platform=${process.platform}`,
   `shared=off`,
+  `native=${process.platform === "win32" ? "off" : "default"}`,
   `metal=${process.platform === "darwin" ? "on" : "off"}`,
   `vulkan=${process.platform === "win32" ? "on" : "off"}`,
 ].join("\n");
@@ -277,6 +279,7 @@ async function vendorWhisperBinaries() {
       ...(process.platform === "win32" ? ["-A", "x64"] : []),
       "-DCMAKE_BUILD_TYPE=Release",
       "-DBUILD_SHARED_LIBS=OFF",
+      ...(process.platform === "win32" ? ["-DGGML_NATIVE=OFF"] : []),
       "-DWHISPER_BUILD_TESTS=OFF",
       "-DWHISPER_BUILD_EXAMPLES=ON",
       ...(process.platform === "win32" ? ["-DGGML_VULKAN=ON"] : []),
@@ -382,6 +385,7 @@ async function vendorLlamaBinaries() {
     ...(process.platform === "win32" ? ["-A", "x64"] : []),
     "-DCMAKE_BUILD_TYPE=Release",
     "-DBUILD_SHARED_LIBS=OFF",
+    ...(process.platform === "win32" ? ["-DGGML_NATIVE=OFF"] : []),
     "-DLLAMA_BUILD_TESTS=OFF",
     "-DLLAMA_BUILD_EXAMPLES=OFF",
     "-DLLAMA_BUILD_TOOLS=ON",
