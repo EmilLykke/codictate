@@ -35,32 +35,25 @@ export {
   parakeetSupportsTranscriptionLanguageId,
 }
 
-/** Whisper models that support the `-tr` (translate to English) flag. Turbo cannot. */
-export const TRANSLATE_CAPABLE_MODEL_IDS = [
-  'small-q5_1',
-  'large-v3-q5_0',
-] as const
+/** Whisper models that support the `-tr` (translate to English) flag. English-only and turbo models cannot. */
+export const TRANSLATE_CAPABLE_MODEL_IDS: string[] = SPEECH_MODELS.filter(
+  (m) => m.engine === 'whisper_cpp' && m.translationSupport
+).map((m) => m.id)
 
-export type TranslateCapableModelId =
-  (typeof TRANSLATE_CAPABLE_MODEL_IDS)[number]
+export const LARGE_V3_Q5_MODEL_ID = 'large-v3-q5_0'
 
-export const LARGE_V3_Q5_MODEL_ID: TranslateCapableModelId = 'large-v3-q5_0'
-
-export const DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID: TranslateCapableModelId =
-  'small-q5_1'
+export const DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID = 'small-q5_1'
 
 export const WHISPER_MODEL_IDS = WHISPER_MODELS.map((m) => m.id)
 
-export function isTranslateCapableModelId(
-  id: string
-): id is TranslateCapableModelId {
-  return (TRANSLATE_CAPABLE_MODEL_IDS as readonly string[]).includes(id)
+export function isTranslateCapableModelId(id: string): boolean {
+  return TRANSLATE_CAPABLE_MODEL_IDS.includes(id)
 }
 
 export function resolveTranslateModelId(
   selectedWhisperModelId: string,
   isModelAvailable: (id: string) => boolean
-): TranslateCapableModelId | null {
+): string | null {
   if (!isTranslateCapableModelId(selectedWhisperModelId)) {
     return null
   }
