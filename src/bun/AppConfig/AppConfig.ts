@@ -179,6 +179,7 @@ interface PersistedMainSettings {
   shortcutId: ShortcutId
   shortcutHoldOnlyId: ShortcutId | null
   funModeEnabled: boolean
+  soundEffectsEnabled: boolean
   transcriptionLanguageId: string
   maxRecordingDuration: RecordingDurationPresetSeconds
   whisperModelId: string
@@ -209,6 +210,7 @@ export class AppConfig {
   private shortcutHoldOnlyId: ShortcutId | null
   private debugMode: boolean
   private funModeEnabled: boolean
+  private soundEffectsEnabled: boolean
   private transcriptionLanguageId: string
   private maxRecordingDuration: RecordingDurationPresetSeconds
   private whisperModelId: string
@@ -241,6 +243,7 @@ export class AppConfig {
     this.shortcutHoldOnlyId = null
     this.debugMode = false
     this.funModeEnabled = false
+    this.soundEffectsEnabled = true
     this.transcriptionLanguageId = 'auto'
     this.maxRecordingDuration = DEFAULT_MAX_RECORDING_DURATION_SECONDS
     this.whisperModelId = DEFAULT_MODEL_ID
@@ -274,6 +277,7 @@ export class AppConfig {
       shortcutId: this.shortcutId,
       shortcutHoldOnlyId: this.shortcutHoldOnlyId,
       funModeEnabled: this.funModeEnabled,
+      soundEffectsEnabled: this.soundEffectsEnabled,
       transcriptionLanguageId: this.transcriptionLanguageId,
       maxRecordingDuration: this.maxRecordingDuration,
       whisperModelId: this.whisperModelId,
@@ -360,6 +364,9 @@ export class AppConfig {
     }
     if (typeof raw.funModeEnabled === 'boolean') {
       this.funModeEnabled = raw.funModeEnabled
+    }
+    if (typeof raw.soundEffectsEnabled === 'boolean') {
+      this.soundEffectsEnabled = raw.soundEffectsEnabled
     }
     if (
       typeof raw.transcriptionLanguageId === 'string' &&
@@ -839,6 +846,7 @@ export class AppConfig {
       maxRecordingDuration: this.maxRecordingDuration,
       debugMode: this.debugMode,
       funModeEnabled: this.funModeEnabled,
+      soundEffectsEnabled: this.soundEffectsEnabled,
       transcriptionLanguageId: this.transcriptionLanguageId,
       whisperModelId: this.whisperModelId,
       translateToEnglish: this.translateToEnglish,
@@ -960,6 +968,9 @@ export class AppConfig {
     }
     if (patch.funModeEnabled !== undefined) {
       this.funModeEnabled = patch.funModeEnabled
+    }
+    if (patch.soundEffectsEnabled !== undefined) {
+      this.soundEffectsEnabled = patch.soundEffectsEnabled
     }
     if (patch.userDisplayName !== undefined) {
       this.userDisplayName = patch.userDisplayName.trim()
@@ -1323,6 +1334,14 @@ export class AppConfig {
 
   public async setFunModeEnabled(enabled: boolean): Promise<boolean> {
     return this.updateGeneralSettings({ funModeEnabled: enabled })
+  }
+
+  public getSoundEffectsEnabled(): boolean {
+    return this.soundEffectsEnabled
+  }
+
+  public async setSoundEffectsEnabled(enabled: boolean): Promise<boolean> {
+    return this.updateGeneralSettings({ soundEffectsEnabled: enabled })
   }
 
   public getMaxRecordingDurationSeconds(): number {

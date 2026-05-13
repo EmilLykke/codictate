@@ -322,7 +322,8 @@ export const setupRecording = (
         streamDebugId,
         deviceRef: streamDeviceRef,
       })
-      playStartSound(appConfig.getFunModeEnabled())
+      if (appConfig.getSoundEffectsEnabled())
+        playStartSound(appConfig.getFunModeEnabled())
       setTrayStreaming()
       onStatusChange?.('streaming')
       streamSession = await startParakeetStream(
@@ -422,7 +423,8 @@ export const setupRecording = (
         mode,
         streamMode: appConfig.getStreamMode(),
       })
-      playStartSound(appConfig.getFunModeEnabled())
+      if (appConfig.getSoundEffectsEnabled())
+        playStartSound(appConfig.getFunModeEnabled())
       setTrayRecording()
       onStatusChange?.('recording')
       recordingSession = { discard: false, startedAtMs: Date.now() }
@@ -518,7 +520,7 @@ export const setupRecording = (
     if (keyEvent.keycode === Key.escape && keyEvent.keyDown) {
       if (streamSession !== null) {
         log('shortcut', 'escape stopping active stream session')
-        playCancelSound()
+        if (appConfig.getSoundEffectsEnabled()) playCancelSound()
         void tryStopStream()
         return
       }
@@ -530,7 +532,7 @@ export const setupRecording = (
         recorderProc = null
         setTrayIdle()
         onStatusChange?.('ready')
-        playCancelSound()
+        if (appConfig.getSoundEffectsEnabled()) playCancelSound()
         return
       }
     }

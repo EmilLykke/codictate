@@ -194,6 +194,8 @@ export interface AppSettings {
   debugMode: boolean
   /** Hidden easter-egg toggle that swaps dictation start/stop sounds. */
   funModeEnabled: boolean
+  /** When false, dictation start/stop/cancel sounds are suppressed. */
+  soundEffectsEnabled: boolean
   /** `auto` = language detection; else a key from `TRANSCRIPTION_LANGUAGE_OPTIONS`. */
   transcriptionLanguageId: string
   /** ID of the Whisper model to use for transcription. Defaults to `large-v3-turbo-q5_0` (bundled). */
@@ -260,6 +262,7 @@ export interface GeneralSettingsPatch {
   shortcutHoldOnlyId?: ShortcutId | null
   debugMode?: boolean
   funModeEnabled?: boolean
+  soundEffectsEnabled?: boolean
   userDisplayName?: string
   onboardingCompleted?: boolean
   recordingIndicatorMode?: RecordingIndicatorMode

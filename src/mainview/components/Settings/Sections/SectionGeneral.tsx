@@ -4,11 +4,13 @@ import type { AppSettings, ThemePreference } from "../../../../shared/types";
 import {
   fetchSettings,
   setMaxRecordingDuration,
+  setSoundEffectsEnabled,
   setUserDisplayName,
 } from "../../../rpc";
 import { RecordingLimitPicker } from "../RecordingLimitPicker";
 import { settingsHelperClass } from "../settings-shared";
 import { useTheme } from "../../../hooks/useTheme";
+import { Switch } from "../../Common/Switch";
 
 type Props = {
   settings: AppSettings;
@@ -106,6 +108,17 @@ export function SectionGeneral({ settings }: Props) {
     [queryClient],
   );
 
+  const handleSoundEffectsToggle = useCallback(async () => {
+    const next = !settings.soundEffectsEnabled;
+    queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+      old ? { ...old, soundEffectsEnabled: next } : old,
+    );
+    const ok = await setSoundEffectsEnabled(next);
+    if (!ok) {
+      queryClient.setQueryData(["settings"], await fetchSettings());
+    }
+  }, [queryClient, settings.soundEffectsEnabled]);
+
   return (
     <>
       <div className="mb-8">
@@ -143,6 +156,32 @@ export function SectionGeneral({ settings }: Props) {
         <p className={settingsHelperClass}>
           Longer limits use more disk space and increase transcription time.
         </p>
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
+          Sound Effects
+        </h2>
+        <div className="rounded-xl border border-overlay/11 bg-surface-1 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <div className="flex-1 min-w-0">
+              <span
+                className={`block text-[17px] font-medium ${settings.soundEffectsEnabled ? "text-overlay/78" : "text-overlay/58"}`}
+              >
+                Dictation sounds
+              </span>
+              <span className="mt-0.5 block text-[13px] text-overlay/40 leading-snug">
+                Play audio feedback when starting, stopping, or cancelling
+                dictation.
+              </span>
+            </div>
+            <Switch
+              checked={settings.soundEffectsEnabled}
+              onCheckedChange={() => void handleSoundEffectsToggle()}
+              aria-label="Toggle dictation sound effects"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="mb-8">

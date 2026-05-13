@@ -149,9 +149,9 @@ export const startRecording = async (
   })
 
   const maxRecordSeconds = appConfig.getMaxRecordingDurationSeconds()
-  const outputDuckDelayMs = duckDelayAfterStartChimeMs(
-    appConfig.getFunModeEnabled()
-  )
+  const outputDuckDelayMs = appConfig.getSoundEffectsEnabled()
+    ? duckDelayAfterStartChimeMs(appConfig.getFunModeEnabled())
+    : 0
   const duckLevel = appConfig.getAudioDuckingLevel()
   const duckIncludeHeadphones = appConfig.getAudioDuckingIncludeHeadphones()
   const duckIncludeBuiltIn = appConfig.getAudioDuckingIncludeBuiltInSpeakers()
@@ -204,7 +204,8 @@ export const startRecording = async (
 
         if (!skipPipeline) {
           onComplete()
-          playEndSound(appConfig.getFunModeEnabled())
+          if (appConfig.getSoundEffectsEnabled())
+            playEndSound(appConfig.getFunModeEnabled())
           const transcript = await speech2text(
             appConfig.getRuntimeTranscriptionWhisperCode(),
             appConfig.getWhisperModelId(),

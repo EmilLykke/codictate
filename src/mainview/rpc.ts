@@ -192,6 +192,14 @@ export async function setFunModeEnabled(enabled: boolean): Promise<boolean> {
   })
 }
 
+export async function setSoundEffectsEnabled(
+  enabled: boolean
+): Promise<boolean> {
+  return rpc.request.updateGeneralSettings({
+    patch: { soundEffectsEnabled: enabled },
+  })
+}
+
 export async function setTranscriptionLanguage(
   transcriptionLanguageId: string
 ): Promise<boolean> {
