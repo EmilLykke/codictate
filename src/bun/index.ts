@@ -409,6 +409,9 @@ const KEYBOARD_RESPAWN_MIN_MS = 30_000
 const IM_TCC_REFRESH_GRACE_MS = 8_000
 let imRefreshScheduled = false
 
+const ACCESSIBILITY_TCC_REFRESH_GRACE_MS = 3_000
+let accessibilityRefreshScheduled = false
+
 function startKeyboard() {
   return setupRecording(
     UserAppConfig,
@@ -433,6 +436,7 @@ function startKeyboard() {
           permissionPoll = null
         }
         imRefreshScheduled = false
+        accessibilityRefreshScheduled = false
         return
       }
 
@@ -443,6 +447,29 @@ function startKeyboard() {
             clearInterval(permissionPoll!)
             permissionPoll = null
             imRefreshScheduled = false
+            accessibilityRefreshScheduled = false
+            return
+          }
+
+          // Restart KeyListener for accessibility TCC refresh when accessibility
+          // is not yet detected. macOS TCC sometimes needs a process restart
+          // before AXIsProcessTrusted() reflects a newly granted permission.
+          if (
+            !currentPermissions.accessibility &&
+            !accessibilityRefreshScheduled &&
+            keyboard.isAlive
+          ) {
+            accessibilityRefreshScheduled = true
+            setTimeout(() => {
+              if (!currentPermissions.accessibility && keyboard.isAlive) {
+                void (async () => {
+                  await keyboard.stopActiveParakeetStream()
+                  keyboard.stop()
+                  keyboard = startKeyboard()
+                })()
+              }
+              accessibilityRefreshScheduled = false
+            }, ACCESSIBILITY_TCC_REFRESH_GRACE_MS)
             return
           }
 

@@ -130,11 +130,6 @@ export function PermissionScreen({
           {ROWS.map((row, index) => {
             const granted = permissions[row.pane];
             const isActiveStep = !allGranted && activePane === row.pane;
-            const isLockedFutureStep =
-              !granted &&
-              activePane !== null &&
-              PERMISSION_ORDER.indexOf(row.pane) >
-                PERMISSION_ORDER.indexOf(activePane);
 
             return (
               <PermissionRow
@@ -146,8 +141,6 @@ export function PermissionScreen({
                 index={index}
                 onOpen={(pane) => {
                   triggerPermissionPrompt(pane);
-                  // Opening System Settings immediately can steal focus and prevent the
-                  // Input Monitoring TCC sheet from appearing; defer that pane only.
                   if (pane === "inputMonitoring") {
                     window.setTimeout(() => onOpenSettings(pane), 800);
                   } else {
@@ -155,25 +148,10 @@ export function PermissionScreen({
                   }
                 }}
                 isActiveStep={isActiveStep}
-                isLockedFutureStep={isLockedFutureStep}
               />
             );
           })}
         </div>
-
-        <AnimatePresence>
-          {!allGranted && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ delay: 0.5, duration: 0.3 }}
-              className="mt-5 text-[14px] text-overlay/15 text-center leading-relaxed"
-            >
-              One system prompt at a time — return here after each step.
-            </motion.p>
-          )}
-        </AnimatePresence>
 
         <AnimatePresence>
           {allGranted && (

@@ -21,7 +21,6 @@ export function PermissionRow({
   index,
   onOpen,
   isActiveStep,
-  isLockedFutureStep,
 }: {
   granted: boolean;
   label: string;
@@ -30,9 +29,8 @@ export function PermissionRow({
   index: number;
   onOpen: (pane: SettingsPane) => void;
   isActiveStep: boolean;
-  isLockedFutureStep: boolean;
 }) {
-  const showAllowButton = !granted && isActiveStep;
+  const showAllowButton = !granted;
 
   return (
     <motion.div
@@ -92,11 +90,6 @@ export function PermissionRow({
         <p className="text-[15px] text-overlay/25 mt-0.5 leading-snug">
           {description}
         </p>
-        {isLockedFutureStep && (
-          <p className="text-[16px] text-overlay/12 mt-1 leading-snug">
-            Complete the step above first
-          </p>
-        )}
       </div>
 
       <AnimatePresence>

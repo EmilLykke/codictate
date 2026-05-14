@@ -31,7 +31,10 @@ export async function checkNativePermissions(): Promise<{
     ])
 
     const [stdout, exitCode] = result as [string, number]
-    if (exitCode !== 0) return FALLBACK
+    if (exitCode !== 0) {
+      console.error(`[permissions] KeyListener exited with code ${exitCode}`)
+      return FALLBACK
+    }
 
     const parsed = JSON.parse(stdout.trim()) as Record<string, boolean>
     return {
@@ -39,7 +42,8 @@ export async function checkNativePermissions(): Promise<{
       inputMonitoring: parsed.inputMonitoring === true,
       microphone: parsed.microphone === true,
     }
-  } catch {
+  } catch (err) {
+    console.error('[permissions] checkNativePermissions failed:', err)
     return FALLBACK
   }
 }
