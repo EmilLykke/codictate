@@ -147,7 +147,7 @@ function StreakHeatmap({
 
   function cellColor(words: number, date: Date): string {
     if (isFuture(date)) return "bg-transparent";
-    if (words === 0) return "bg-surface-3";
+    if (words === 0) return "bg-overlay/[0.06]";
     const intensity = words / maxWords;
     if (intensity > 0.75) return "bg-accent-blue/80";
     if (intensity > 0.5) return "bg-accent-blue/55";
@@ -243,7 +243,7 @@ function StreakHeatmap({
       <div className="flex items-center gap-2 text-[10px] text-overlay/30">
         <span>Less</span>
         <div className="flex gap-[3px]">
-          <div className="w-[12px] h-[12px] rounded-[2px] bg-surface-3" />
+          <div className="w-[12px] h-[12px] rounded-[2px] bg-overlay/[0.06]" />
           <div className="w-[12px] h-[12px] rounded-[2px] bg-accent-blue/18" />
           <div className="w-[12px] h-[12px] rounded-[2px] bg-accent-blue/35" />
           <div className="w-[12px] h-[12px] rounded-[2px] bg-accent-blue/55" />
