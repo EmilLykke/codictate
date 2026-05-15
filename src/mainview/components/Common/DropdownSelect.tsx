@@ -69,6 +69,7 @@ export function DropdownSelect({
           sideOffset={6}
           collisionPadding={10}
           style={{
+            width: "max-content",
             minWidth: "var(--radix-select-trigger-width)",
             maxWidth: 380,
           }}

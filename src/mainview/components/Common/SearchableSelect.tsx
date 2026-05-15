@@ -166,12 +166,15 @@ export function SearchableSelect({
           <Popover.Portal forceMount>
             <Popover.Content
               forceMount
-              align="start"
+              align="center"
               sideOffset={6}
               collisionPadding={10}
               asChild
               onOpenAutoFocus={(e) => e.preventDefault()}
-              style={{ width: "var(--radix-popover-trigger-width)" }}
+              style={{
+                width: "max-content",
+                minWidth: "var(--radix-popover-trigger-width)",
+              }}
             >
               <motion.div
                 initial={{ opacity: 0, y: -6 }}
