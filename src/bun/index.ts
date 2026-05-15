@@ -18,6 +18,7 @@ import {
 } from './setup-indicator-window'
 import { setOnAutoDisable, log } from './utils/logger'
 import { HistoryManager } from './utils/history/history-manager'
+import { StatsManager } from './utils/stats/stats-manager'
 import { RECORDING_PATH } from './platform/runtime'
 import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
@@ -85,6 +86,10 @@ export const UserAppConfig = new AppConfig()
 await UserAppConfig.load()
 
 const historyManager = new HistoryManager(() =>
+  UserAppConfig.getHistoryStoragePath()
+)
+
+const statsManager = new StatsManager(() =>
   UserAppConfig.getHistoryStoragePath()
 )
 
@@ -246,6 +251,7 @@ const win = setupWindow({
     trayHandlers.syncFormattingModeState()
   },
   historyManager,
+  statsManager,
   onTriggerPermissionPrompt: (pane: SettingsPane) => {
     if (pane === 'inputMonitoring') {
       if (keyboard.isAlive) {
@@ -529,6 +535,25 @@ function startKeyboard() {
         }
       } catch (err) {
         log('history', 'save failed in pipeline', { err: String(err) })
+      }
+    },
+    async (result, durationMs) => {
+      if (!UserAppConfig.getStatsEnabled()) return
+      const rawWords = result.raw.trim().split(/\s+/)
+      const outputWords = result.output.trim().split(/\s+/)
+      await statsManager.saveSession({
+        timestamp: Date.now(),
+        rawWordCount: rawWords[0] === '' ? 0 : rawWords.length,
+        outputWordCount: outputWords[0] === '' ? 0 : outputWords.length,
+        durationMs,
+        engineId: UserAppConfig.getWhisperModelId(),
+        formattingUsed: result.formattingUsed,
+        languageId: UserAppConfig.getTranscriptionLanguageId(),
+      })
+      try {
+        win.send.statsUpdated({})
+      } catch {
+        /* window may be closed */
       }
     }
   )

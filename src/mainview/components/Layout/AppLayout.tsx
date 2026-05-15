@@ -12,7 +12,8 @@ export type SidebarTab =
   | "dictionary"
   | "models"
   | "formatting"
-  | "history";
+  | "history"
+  | "stats";
 
 const MAIN_FEATURES: { id: SidebarTab; label: string; icon: ReactNode }[] = [
   {
@@ -99,6 +100,27 @@ const MAIN_FEATURES: { id: SidebarTab; label: string; icon: ReactNode }[] = [
         <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
         <path d="M3 3v5h5" />
         <path d="M12 7v5l4 2" />
+      </svg>
+    ),
+  },
+  {
+    id: "stats",
+    label: "Stats",
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 3v18h18" />
+        <path d="M18 17V9" />
+        <path d="M13 17V5" />
+        <path d="M8 17v-3" />
       </svg>
     ),
   },

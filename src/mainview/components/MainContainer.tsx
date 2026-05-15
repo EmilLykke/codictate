@@ -6,6 +6,7 @@ import { SectionModels } from "./Settings/Sections/SectionModels";
 import { SectionFormatting } from "./Settings/Sections/SectionFormatting";
 import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
 import { HistorySection } from "./History/HistorySection";
+import { StatsPage } from "./Stats/StatsPage";
 import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
 import type {
   AppStatus,
@@ -446,6 +447,7 @@ export function MainContainer({
               setIsSettingsModalOpen(true);
             }}
             onNavigateToHistory={() => setActiveTab("history")}
+            onNavigateToStats={() => setActiveTab("stats")}
           />
         )}
         {activeTab === "dictionary" && (
@@ -470,6 +472,15 @@ export function MainContainer({
             settings={settings}
             onOpenHistorySettings={() => {
               setSettingsInitialTab("history");
+              setIsSettingsModalOpen(true);
+            }}
+          />
+        )}
+        {activeTab === "stats" && (
+          <StatsPage
+            settings={settings}
+            onOpenStatsSettings={() => {
+              setSettingsInitialTab("stats");
               setIsSettingsModalOpen(true);
             }}
           />

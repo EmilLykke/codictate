@@ -12,6 +12,7 @@ import { SectionShortcuts } from "./Sections/SectionShortcuts";
 import { SectionAudio } from "./Sections/SectionAudio";
 import { SectionFun } from "./Sections/SectionFun";
 import { SectionHistory } from "./Sections/SectionHistory";
+import { SectionStats } from "./Sections/SectionStats";
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const SECRET_UNLOCK_CLICK_COUNT = 3;
@@ -23,6 +24,7 @@ type SettingsTab =
   | "shortcuts"
   | "ui"
   | "history"
+  | "stats"
   | "debug"
   | "fun";
 
@@ -183,6 +185,16 @@ export function SettingsModal({
                         History
                       </button>
                       <button
+                        onClick={() => setActiveTab("stats")}
+                        className={`${TAB_BUTTON} ${
+                          activeTab === "stats"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
+                        }`}
+                      >
+                        Stats
+                      </button>
+                      <button
                         onClick={() => setActiveTab("debug")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "debug"
@@ -220,9 +232,11 @@ export function SettingsModal({
                                 ? "Shortcuts"
                                 : activeTab === "history"
                                   ? "History"
-                                  : activeTab === "debug"
-                                    ? "Debug"
-                                    : "Fun"}
+                                  : activeTab === "stats"
+                                    ? "Stats"
+                                    : activeTab === "debug"
+                                      ? "Debug"
+                                      : "Fun"}
                       </h2>
                       <Dialog.Close asChild>
                         <button
@@ -271,6 +285,9 @@ export function SettingsModal({
                         )}
                         {activeTab === "history" && (
                           <SectionHistory settings={settings} />
+                        )}
+                        {activeTab === "stats" && (
+                          <SectionStats settings={settings} />
                         )}
                         {activeTab === "debug" && (
                           <SectionDebug

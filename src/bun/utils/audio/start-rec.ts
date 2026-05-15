@@ -1,5 +1,5 @@
 import { AppConfig } from '../../AppConfig/AppConfig'
-import { speech2text } from '../whisper/speech2text'
+import { speech2text, type Speech2TextResult } from '../whisper/speech2text'
 import { duckDelayAfterStartChimeMs, playEndSound } from '../sound/play-sound'
 import { findMicRecorderBinary } from './find-mic-recorder'
 import { findDevices, type AudioDeviceSnapshot } from './devices'
@@ -103,7 +103,8 @@ export const startRecording = async (
   session: RecordingSession,
   /** Live snapshot from the main process (refreshed at startup + on an interval). Avoids spawning `MicRecorder --list-devices` on every shortcut press. */
   getDeviceSnapshot?: () => AudioDeviceSnapshot,
-  onHistorySave?: (transcript: string) => Promise<void>
+  onHistorySave?: (transcript: string) => Promise<void>,
+  onStatsSave?: (result: Speech2TextResult, durationMs: number) => Promise<void>
 ) => {
   if (appConfig.getStreamMode()) {
     log(
@@ -206,7 +207,7 @@ export const startRecording = async (
           onComplete()
           if (appConfig.getSoundEffectsEnabled())
             playEndSound(appConfig.getFunModeEnabled())
-          const transcript = await speech2text(
+          const result = await speech2text(
             appConfig.getRuntimeTranscriptionWhisperCode(),
             appConfig.getWhisperModelId(),
             appConfig.getTranslateToEnglish(),
@@ -217,9 +218,16 @@ export const startRecording = async (
           )
           if (onHistorySave) {
             try {
-              await onHistorySave(transcript)
+              await onHistorySave(result.output)
             } catch (err) {
               log('history', 'failed to save entry', { err: String(err) })
+            }
+          }
+          if (onStatsSave) {
+            try {
+              await onStatsSave(result, recordingCheck.durationMs ?? 0)
+            } catch (err) {
+              log('stats', 'failed to save session', { err: String(err) })
             }
           }
           if (

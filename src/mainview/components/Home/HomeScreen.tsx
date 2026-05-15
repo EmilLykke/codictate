@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import type {
   AppStatus,
@@ -6,6 +7,7 @@ import type {
   DeviceInfo,
   StreamTranscriptionMode,
 } from "../../../shared/types";
+import { fetchStats, updateStatsSettings } from "../../rpc";
 import { DropdownSelect } from "../Common/DropdownSelect";
 import {
   dictationShortcutSummaryHoldBody,
@@ -90,6 +92,7 @@ export function HomeScreen({
   onCancelDownload,
   onOpenSettings,
   onNavigateToHistory,
+  onNavigateToStats,
 }: {
   status: AppStatus;
   deviceInfo?: DeviceInfo;
@@ -108,6 +111,7 @@ export function HomeScreen({
   onCancelDownload: (modelId: string) => void;
   onOpenSettings: () => void;
   onNavigateToHistory: () => void;
+  onNavigateToStats: () => void;
 }) {
   const isRecording = status === "recording";
   const isTranscribing = status === "transcribing";
@@ -164,7 +168,7 @@ export function HomeScreen({
     isTranslateOn || isTranslateCapableModelId(settings?.whisperModelId ?? "");
 
   const overviewCard = (
-    <div className="rounded-2xl bg-surface-1 border border-overlay/14 p-7">
+    <div className="h-full rounded-2xl bg-surface-1 border border-overlay/14 p-7">
       <div className="flex items-center justify-between mb-5">
         <div className="grid grid-cols-3 gap-y-5 gap-x-8">
           <div>
@@ -459,14 +463,69 @@ export function HomeScreen({
     </div>
   );
 
-  const statsCard = (
-    <div className="rounded-2xl bg-surface-1 border border-overlay/14 p-7 flex flex-col items-center justify-center gap-2">
-      <span className="text-[15px] font-medium text-overlay/40">
-        Statistics coming soon
+  const statsEnabled = settings?.stats?.enabled ?? false;
+  const queryClient = useQueryClient();
+  const { data: statsSummary } = useQuery({
+    queryKey: ["stats"],
+    queryFn: () => fetchStats(),
+    enabled: statsEnabled,
+  });
+
+  const handleEnableStats = useCallback(async () => {
+    queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+      old ? { ...old, stats: { ...old.stats, enabled: true } } : old,
+    );
+    await updateStatsSettings({ enabled: true });
+  }, [queryClient]);
+
+  const formatNumber = (n: number) => n.toLocaleString();
+
+  const statsCard = statsEnabled ? (
+    <button
+      type="button"
+      onClick={onNavigateToStats}
+      className="h-full rounded-2xl bg-surface-1 border border-overlay/14 p-7 flex flex-col justify-center gap-2 text-left hover:border-overlay/25 transition-colors cursor-pointer"
+    >
+      <div className="flex items-baseline gap-2.5">
+        <span className="text-[32px] font-semibold text-overlay/90 leading-tight">
+          {formatNumber(statsSummary?.totalOutputWords ?? 0)}
+        </span>
+        <span className="text-[14px] text-overlay/40 whitespace-nowrap">
+          total words
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2.5">
+        <span className="text-[32px] font-semibold text-overlay/90 leading-tight">
+          {statsSummary?.averageRawWpm ?? 0}
+        </span>
+        <span className="text-[14px] text-overlay/40 whitespace-nowrap">
+          wpm
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2.5">
+        <span className="text-[32px] font-semibold text-overlay/90 leading-tight">
+          {statsSummary?.currentStreakDays ?? 0}
+        </span>
+        <span className="text-[14px] text-overlay/40 whitespace-nowrap">
+          {(statsSummary?.currentStreakDays ?? 0) === 1 ? "day" : "days"}
+        </span>
+      </div>
+    </button>
+  ) : (
+    <div className="rounded-2xl bg-surface-1 border border-overlay/14 p-7 flex flex-col items-center justify-center gap-3">
+      <span className="text-[15px] font-medium text-overlay/40 text-center">
+        Track your dictation stats
       </span>
-      <span className="text-[13px] text-overlay/25">
+      <span className="text-[13px] text-overlay/25 text-center">
         Word count, speed, streaks and more
       </span>
+      <button
+        type="button"
+        onClick={handleEnableStats}
+        className="mt-1 px-4 py-1.5 rounded-lg bg-accent-blue/15 border border-accent-blue/25 text-[13px] font-medium text-accent-blue/80 hover:bg-accent-blue/25 transition-colors cursor-pointer"
+      >
+        Enable
+      </button>
     </div>
   );
 

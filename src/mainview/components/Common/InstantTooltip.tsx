@@ -7,19 +7,21 @@ export function InstantTooltip({
   className,
   tooltipClassName,
   side = "top",
+  disableHoverableContent = false,
 }: {
   text: ReactNode;
   children: ReactNode;
   className?: string;
   tooltipClassName?: string;
   side?: "top" | "bottom";
+  disableHoverableContent?: boolean;
   /** @deprecated Radix always portals — this prop is accepted for backward compatibility but ignored. */
   floatInViewport?: boolean;
   /** @deprecated Radix Tooltip keeps open while hovering content. Accepted for backward compatibility. */
   interactive?: boolean;
 }) {
   return (
-    <Tooltip.Root>
+    <Tooltip.Root disableHoverableContent={disableHoverableContent}>
       <Tooltip.Trigger asChild>
         <span className={`inline-flex max-w-full ${className ?? ""}`}>
           {children}

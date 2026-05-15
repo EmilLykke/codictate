@@ -297,6 +297,12 @@ export async function warmupParakeet(
   }
 }
 
+export interface Speech2TextResult {
+  raw: string
+  output: string
+  formattingUsed: boolean
+}
+
 export const speech2text = async (
   whisperLanguageCode: string | null | undefined,
   modelId: string,
@@ -305,7 +311,7 @@ export const speech2text = async (
   dictionaryEntries: DictionaryEntry[] = [],
   onBeforeTranscription?: () => Promise<void>,
   onAppliedEntries?: (entries: DictionaryEntry[]) => void
-): Promise<string> => {
+): Promise<Speech2TextResult> => {
   if (onBeforeTranscription) await onBeforeTranscription()
 
   let transcript = await transcribe(
@@ -322,13 +328,16 @@ export const speech2text = async (
       onAppliedEntries(result.appliedEntries)
     }
   }
+  const rawTranscript = transcript
+  let formattingUsed = false
   const formatterRequest = await buildFormatterRequest(
     transcript,
     formattingSettings
   )
   if (formatterRequest !== null) {
     transcript = await applyFormatting(formatterRequest)
+    formattingUsed = true
   }
   await pasteTranscript(transcript)
-  return transcript
+  return { raw: rawTranscript, output: transcript, formattingUsed }
 }

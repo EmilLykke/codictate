@@ -233,6 +233,7 @@ export interface AppSettings {
   audioDucking: AudioDuckingSettings
   dictionary: DictionarySettings
   history: HistorySettings
+  stats: StatsSettings
   themePreference: ThemePreference
   modelAvailability: Record<string, boolean>
 }
@@ -323,6 +324,42 @@ export interface HistorySettingsPatch {
   saveAudio?: boolean
 }
 
+export interface StatsSessionEntry {
+  timestamp: number
+  rawWordCount: number | null
+  outputWordCount: number
+  durationMs: number
+  engineId: string | null
+  formattingUsed: boolean | null
+  languageId: string | null
+}
+
+export interface StatsSettings {
+  enabled: boolean
+}
+
+export interface StatsSettingsPatch {
+  enabled?: boolean
+}
+
+export type StatsRange = 'today' | '7d' | '30d' | '3m' | 'all'
+
+export interface StatsSummary {
+  totalOutputWords: number
+  averageRawWpm: number
+  totalSessions: number
+  /** Words in current comparison window (for "all" = this month, otherwise = totalOutputWords). */
+  trendCurrentWords: number
+  /** Words in previous comparison window (for "all" = last month, otherwise = equivalent prior period). */
+  trendPreviousWords: number
+  formattingUsagePercent: number
+  /** Date key (YYYY-MM-DD) -> total output words for that day. */
+  dailyActivity: Record<string, number>
+  /** Always lifetime, regardless of range filter. */
+  currentStreakDays: number
+  longestStreakDays: number
+}
+
 export type WebviewRPCType = {
   bun: RPCSchema<{
     requests: {
@@ -365,6 +402,14 @@ export type WebviewRPCType = {
       }
       updateHistorySettings: {
         params: { patch: HistorySettingsPatch }
+        response: boolean
+      }
+      getStats: {
+        params: { range?: StatsRange }
+        response: StatsSummary
+      }
+      updateStatsSettings: {
+        params: { patch: StatsSettingsPatch }
         response: boolean
       }
       /** Ephemeral: show the floating indicator during onboarding to preview the chosen mode. */
@@ -423,6 +468,7 @@ export type WebviewRPCType = {
         error?: string
       }
       historyEntryAdded: {}
+      statsUpdated: {}
     }
   }>
 }

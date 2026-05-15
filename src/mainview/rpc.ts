@@ -12,6 +12,9 @@ import type {
   HistorySettingsPatch,
   SettingsPane,
   ShortcutId,
+  StatsRange,
+  StatsSettingsPatch,
+  StatsSummary,
   StreamTranscriptionMode,
   ThemePreference,
   UpdateCheckState,
@@ -86,6 +89,9 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
       },
       historyEntryAdded: () => {
         appEvents.emit('historyEntryAdded')
+      },
+      statsUpdated: () => {
+        queryClient.invalidateQueries({ queryKey: ['stats'] })
       },
       updateModelAvailability: (data: {
         modelId: string
@@ -587,4 +593,14 @@ export async function updateHistorySettings(
 
 export function openHistoryFolder(): void {
   rpc.send.openHistoryFolder({})
+}
+
+export async function fetchStats(range?: StatsRange): Promise<StatsSummary> {
+  return rpc.request.getStats({ range })
+}
+
+export async function updateStatsSettings(
+  patch: StatsSettingsPatch
+): Promise<boolean> {
+  return rpc.request.updateStatsSettings({ patch })
 }

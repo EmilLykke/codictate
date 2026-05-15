@@ -14,11 +14,14 @@ import type {
   HistorySettingsPatch,
   PermissionState,
   SettingsPane,
+  StatsRange,
+  StatsSettingsPatch,
   TranscriptionSettingsPatch,
   UpdateCheckState,
   WindowResizeEdge,
 } from '../shared/types'
 import type { HistoryManager } from './utils/history/history-manager'
+import type { StatsManager } from './utils/stats/stats-manager'
 import { AppConfig } from './AppConfig/AppConfig'
 import { copyLogToClipboard } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
@@ -62,6 +65,7 @@ interface WindowDeps {
   /** Refresh tray after formatting mode changed from webview. */
   onFormattingModeChanged?: () => void
   historyManager?: HistoryManager
+  statsManager?: StatsManager
 }
 
 export interface WindowHandle {
@@ -86,6 +90,7 @@ export interface WindowHandle {
       available: boolean
     }) => void
     historyEntryAdded: (data: Record<string, never>) => void
+    statsUpdated: (data: Record<string, never>) => void
   }
   hasWindow: () => boolean
   /**
@@ -309,6 +314,45 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           if (ok) rpc.send.updateSettings(deps.appConfig.getSettings())
           return ok
         },
+        getStats: async ({ range }: { range?: StatsRange }) => {
+          if (!deps.statsManager)
+            return {
+              totalOutputWords: 0,
+              averageRawWpm: 0,
+              totalSessions: 0,
+              trendCurrentWords: 0,
+              trendPreviousWords: 0,
+              formattingUsagePercent: 0,
+              dailyActivity: {},
+              currentStreakDays: 0,
+              longestStreakDays: 0,
+            }
+          return deps.statsManager.getSummary(range)
+        },
+        updateStatsSettings: async ({
+          patch,
+        }: {
+          patch: StatsSettingsPatch
+        }) => {
+          const ok = await deps.appConfig.updateStatsSettings(patch)
+          if (ok) {
+            rpc.send.updateSettings(deps.appConfig.getSettings())
+            if (
+              patch.enabled &&
+              deps.statsManager &&
+              deps.historyManager &&
+              !deps.appConfig.isStatsBackfillDone()
+            ) {
+              const entries = await deps.historyManager.loadEntries()
+              if (entries.length > 0) {
+                await deps.statsManager.backfillFromHistory(entries)
+              }
+              await deps.appConfig.markStatsBackfillDone()
+              rpc.send.statsUpdated({})
+            }
+          }
+          return ok
+        },
       },
       messages: {
         logBun: ({ msg }) => console.log('Bun Log:', msg),
@@ -448,7 +492,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
     const win = new BrowserWindow({
       title: 'Codictate',
       url: deps.url,
-      frame: { width: 900, height: 700, x: 200, y: 200 },
+      frame: { width: 1080, height: 700, x: 400, y: 200 },
       titleBarStyle,
       rpc,
     })
@@ -510,6 +554,8 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         sendIfWindowAlive(() => rpc.send.updateModelAvailability(data)),
       historyEntryAdded: (data) =>
         sendIfWindowAlive(() => rpc.send.historyEntryAdded(data)),
+      statsUpdated: (data) =>
+        sendIfWindowAlive(() => rpc.send.statsUpdated(data)),
     },
     hasWindow,
     getOrCreateWindow,

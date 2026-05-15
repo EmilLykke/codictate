@@ -25,6 +25,7 @@ import type { TrayHandlers } from './setup-tray'
 import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
 import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
+import type { Speech2TextResult } from './utils/whisper/speech2text'
 import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { log } from './utils/logger'
@@ -86,7 +87,8 @@ export const setupRecording = (
   onPermissions?: (status: PermissionStatus) => void,
   getAudioDevices?: () => AudioDeviceSnapshot,
   onAutoLearnedEntry?: () => void,
-  onHistorySave?: (transcript: string) => Promise<void>
+  onHistorySave?: (transcript: string) => Promise<void>,
+  onStatsSave?: (result: Speech2TextResult, durationMs: number) => Promise<void>
 ) => {
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null
   let recordingSession: RecordingSession | null = null
@@ -445,7 +447,8 @@ export const setupRecording = (
         },
         recordingSession,
         getAudioDevices,
-        onHistorySave
+        onHistorySave,
+        onStatsSave
       )
 
       if (pendingHoldReleaseWhileStarting && recordingSession && recorderProc) {

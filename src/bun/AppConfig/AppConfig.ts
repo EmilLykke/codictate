@@ -25,6 +25,7 @@ import type {
   GeneralSettingsPatch,
   HistorySettingsPatch,
   RecordingIndicatorMode,
+  StatsSettingsPatch,
   ShortcutId,
   StreamTranscriptionMode,
   ThemePreference,
@@ -198,6 +199,8 @@ interface PersistedMainSettings {
   historyStoragePath: string
   historyMaxEntries: number
   historySaveAudio: boolean
+  statsEnabled: boolean
+  statsBackfillDone: boolean
   themePreference: ThemePreference
   debugMode: false
 }
@@ -230,6 +233,8 @@ export class AppConfig {
   private historyStoragePath: string
   private historyMaxEntries: number
   private historySaveAudio: boolean
+  private statsEnabled: boolean
+  private statsBackfillDone: boolean
   private themePreference: ThemePreference
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
@@ -266,6 +271,8 @@ export class AppConfig {
     this.historyStoragePath = ''
     this.historyMaxEntries = 250
     this.historySaveAudio = false
+    this.statsEnabled = false
+    this.statsBackfillDone = false
     this.themePreference = 'dark'
   }
 
@@ -305,6 +312,8 @@ export class AppConfig {
       historyStoragePath: this.historyStoragePath,
       historyMaxEntries: this.historyMaxEntries,
       historySaveAudio: this.historySaveAudio,
+      statsEnabled: this.statsEnabled,
+      statsBackfillDone: this.statsBackfillDone,
       themePreference: this.themePreference,
       debugMode: false,
     }
@@ -569,6 +578,12 @@ export class AppConfig {
     }
     if (typeof raw.historySaveAudio === 'boolean') {
       this.historySaveAudio = raw.historySaveAudio
+    }
+    if (typeof raw.statsEnabled === 'boolean') {
+      this.statsEnabled = raw.statsEnabled
+    }
+    if (typeof raw.statsBackfillDone === 'boolean') {
+      this.statsBackfillDone = raw.statsBackfillDone
     }
   }
 
@@ -877,6 +892,9 @@ export class AppConfig {
         storagePath: this.historyStoragePath || DEFAULT_HISTORY_DIR,
         maxEntries: this.historyMaxEntries,
         saveAudio: this.historySaveAudio,
+      },
+      stats: {
+        enabled: this.statsEnabled,
       },
       themePreference: this.themePreference,
       modelAvailability: modelManager.getAvailabilityMap(),
@@ -1231,6 +1249,29 @@ export class AppConfig {
     }
     if (patch.saveAudio !== undefined) {
       this.historySaveAudio = patch.saveAudio
+    }
+    await this.saveMain()
+    return true
+  }
+
+  public getStatsEnabled(): boolean {
+    return this.statsEnabled
+  }
+
+  public isStatsBackfillDone(): boolean {
+    return this.statsBackfillDone
+  }
+
+  public async markStatsBackfillDone(): Promise<void> {
+    this.statsBackfillDone = true
+    await this.saveMain()
+  }
+
+  public async updateStatsSettings(
+    patch: StatsSettingsPatch
+  ): Promise<boolean> {
+    if (patch.enabled !== undefined) {
+      this.statsEnabled = patch.enabled
     }
     await this.saveMain()
     return true
