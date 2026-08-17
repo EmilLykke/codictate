@@ -8,10 +8,10 @@
  * WebWorker or DOM lib, which would add browser globals the main process must not
  * use. Remove this once electrobun ships prebuilt declarations for that module.
  */
-declare var self: {
+declare let self: {
   addEventListener?: (
     type: string,
-    listener: (event: MessageEvent) => void,
+    listener: (event: MessageEvent) => void
   ) => void
   postMessage: (message: unknown) => void
 }

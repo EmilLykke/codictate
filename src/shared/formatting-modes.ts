@@ -65,18 +65,9 @@ export function formattingModeLabel(id: FormattingModeId): string {
 // ─── Per-mode behavior option types ────────────────────────────────────────
 
 export type FormattingEmailGreetingStyle =
-  | 'auto'
-  | 'hi'
-  | 'hello'
-  | 'custom'
-  | 'none'
+  'auto' | 'hi' | 'hello' | 'custom' | 'none'
 export type FormattingEmailClosingStyle =
-  | 'auto'
-  | 'best-regards'
-  | 'thanks'
-  | 'kind-regards'
-  | 'custom'
-  | 'none'
+  'auto' | 'best-regards' | 'thanks' | 'kind-regards' | 'custom' | 'none'
 
 export type FormattingImessageTone = 'casual' | 'neutral' | 'formal'
 

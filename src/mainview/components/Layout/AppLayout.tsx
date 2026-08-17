@@ -8,12 +8,7 @@ import type { PlatformRuntime as Platform } from "../../../shared/platform";
 import { openExternalUrl } from "../../rpc";
 
 export type SidebarTab =
-  | "home"
-  | "dictionary"
-  | "models"
-  | "formatting"
-  | "history"
-  | "stats";
+  "home" | "dictionary" | "models" | "formatting" | "history" | "stats";
 
 const MAIN_FEATURES: { id: SidebarTab; label: string; icon: ReactNode }[] = [
   {

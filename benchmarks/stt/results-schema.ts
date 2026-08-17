@@ -12,22 +12,22 @@ import {
   DEFAULT_ASR_HARNESS,
   isAsrHarnessId,
   type AsrHarnessId,
-} from '../../src/shared/asr-harness'
-import { getSpeechModel } from '../../src/shared/speech-models'
-import type { ModelDatasetResult } from './runner'
+} from "../../src/shared/asr-harness";
+import { getSpeechModel } from "../../src/shared/speech-models";
+import type { ModelDatasetResult } from "./runner";
 
 /** Results for one dataset: model results grouped by the Harness that produced them. */
 export type HarnessModelResults = Partial<
   Record<AsrHarnessId, Record<string, ModelDatasetResult>>
->
+>;
 
-export type DatasetResults = Record<string, HarnessModelResults>
+export type DatasetResults = Record<string, HarnessModelResults>;
 
 /**
  * Separator between a Model ID and a non-default Harness in a flattened key.
  * Model IDs never contain `@`, so the key round-trips.
  */
-const VARIANT_SEPARATOR = '@'
+const VARIANT_SEPARATOR = "@";
 
 /**
  * The report/chart row identity for one Benchmark Combination.
@@ -36,37 +36,34 @@ const VARIANT_SEPARATOR = '@'
  * only used `whisper-cli` render exactly as they did before the Harness dimension
  * existed.
  */
-export function makeVariantKey(
-  harness: AsrHarnessId,
-  modelId: string
-): string {
+export function makeVariantKey(harness: AsrHarnessId, modelId: string): string {
   return harness === DEFAULT_ASR_HARNESS
     ? modelId
-    : `${modelId}${VARIANT_SEPARATOR}${harness}`
+    : `${modelId}${VARIANT_SEPARATOR}${harness}`;
 }
 
 export function parseVariantKey(key: string): {
-  modelId: string
-  harness: AsrHarnessId
+  modelId: string;
+  harness: AsrHarnessId;
 } {
-  const index = key.lastIndexOf(VARIANT_SEPARATOR)
-  if (index === -1) return { modelId: key, harness: DEFAULT_ASR_HARNESS }
+  const index = key.lastIndexOf(VARIANT_SEPARATOR);
+  if (index === -1) return { modelId: key, harness: DEFAULT_ASR_HARNESS };
 
-  const suffix = key.slice(index + 1)
+  const suffix = key.slice(index + 1);
   if (!isAsrHarnessId(suffix)) {
-    return { modelId: key, harness: DEFAULT_ASR_HARNESS }
+    return { modelId: key, harness: DEFAULT_ASR_HARNESS };
   }
-  return { modelId: key.slice(0, index), harness: suffix }
+  return { modelId: key.slice(0, index), harness: suffix };
 }
 
 /** The Model ID a flattened report key refers to, dropping any Harness suffix. */
 export function variantModelId(key: string): string {
-  return parseVariantKey(key).modelId
+  return parseVariantKey(key).modelId;
 }
 
 function looksHarnessKeyed(value: object): boolean {
-  const keys = Object.keys(value)
-  return keys.length > 0 && keys.every(isAsrHarnessId)
+  const keys = Object.keys(value);
+  return keys.length > 0 && keys.every(isAsrHarnessId);
 }
 
 /**
@@ -74,23 +71,23 @@ function looksHarnessKeyed(value: object): boolean {
  * An empty object is ambiguous and is returned as empty rather than guessed at.
  */
 export function normalizeDatasetResults(raw: unknown): DatasetResults {
-  if (!raw || typeof raw !== 'object') return {}
+  if (!raw || typeof raw !== "object") return {};
 
-  const out: DatasetResults = {}
+  const out: DatasetResults = {};
   for (const [datasetKey, value] of Object.entries(
-    raw as Record<string, unknown>
+    raw as Record<string, unknown>,
   )) {
-    if (!value || typeof value !== 'object') continue
+    if (!value || typeof value !== "object") continue;
 
     if (looksHarnessKeyed(value)) {
-      out[datasetKey] = value as HarnessModelResults
+      out[datasetKey] = value as HarnessModelResults;
     } else {
       out[datasetKey] = {
         [DEFAULT_ASR_HARNESS]: value as Record<string, ModelDatasetResult>,
-      }
+      };
     }
   }
-  return out
+  return out;
 }
 
 /**
@@ -98,20 +95,20 @@ export function normalizeDatasetResults(raw: unknown): DatasetResults {
  * `[dataset][key]` shape the report and chart code consume.
  */
 export function flattenDatasetResults(
-  results: DatasetResults
+  results: DatasetResults,
 ): Record<string, Record<string, ModelDatasetResult>> {
-  const flat: Record<string, Record<string, ModelDatasetResult>> = {}
+  const flat: Record<string, Record<string, ModelDatasetResult>> = {};
   for (const [datasetKey, byHarness] of Object.entries(results)) {
-    const models: Record<string, ModelDatasetResult> = {}
+    const models: Record<string, ModelDatasetResult> = {};
     for (const [harness, byModel] of Object.entries(byHarness)) {
-      if (!isAsrHarnessId(harness) || !byModel) continue
+      if (!isAsrHarnessId(harness) || !byModel) continue;
       for (const [modelId, result] of Object.entries(byModel)) {
-        models[makeVariantKey(harness, modelId)] = result
+        models[makeVariantKey(harness, modelId)] = result;
       }
     }
-    flat[datasetKey] = models
+    flat[datasetKey] = models;
   }
-  return flat
+  return flat;
 }
 
 /**
@@ -123,11 +120,11 @@ export function flattenDatasetResults(
  */
 export function harnessBucketForModel(
   modelId: string,
-  harness: AsrHarnessId
+  harness: AsrHarnessId,
 ): AsrHarnessId {
-  return getSpeechModel(modelId)?.engine === 'whisperkit'
+  return getSpeechModel(modelId)?.engine === "whisperkit"
     ? DEFAULT_ASR_HARNESS
-    : harness
+    : harness;
 }
 
 /** Read one Benchmark Combination out of the nested shape. */
@@ -135,9 +132,9 @@ export function getCombinationResult(
   results: DatasetResults,
   datasetKey: string,
   harness: AsrHarnessId,
-  modelId: string
+  modelId: string,
 ): ModelDatasetResult | undefined {
-  return results[datasetKey]?.[harness]?.[modelId]
+  return results[datasetKey]?.[harness]?.[modelId];
 }
 
 /** Write one Benchmark Combination into the nested shape, creating levels as needed. */
@@ -146,9 +143,9 @@ export function setCombinationResult(
   datasetKey: string,
   harness: AsrHarnessId,
   modelId: string,
-  result: ModelDatasetResult
+  result: ModelDatasetResult,
 ): void {
-  const byHarness = (results[datasetKey] ??= {})
-  const byModel = (byHarness[harness] ??= {})
-  byModel[modelId] = result
+  const byHarness = (results[datasetKey] ??= {});
+  const byModel = (byHarness[harness] ??= {});
+  byModel[modelId] = result;
 }

@@ -1,8 +1,5 @@
 export type PermissionType =
-  | 'inputMonitoring'
-  | 'microphone'
-  | 'accessibility'
-  | 'documents'
+  'inputMonitoring' | 'microphone' | 'accessibility' | 'documents'
 
 export interface PlatformProvider {
   /** Platform-specific user data directory (config files, downloaded models). */

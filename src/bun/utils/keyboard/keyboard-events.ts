@@ -320,8 +320,7 @@ export interface PermissionStatus {
 /** NSPasteboard + Cmd+V — Unicode-safe in bundled apps (no pbcopy / shell locale). */
 let keyListenerPasteText: ((text: string) => void) | null = null
 let keyListenerReplaceText:
-  | ((payload: { deleteText: string; text: string }) => void)
-  | null = null
+  ((payload: { deleteText: string; text: string }) => void) | null = null
 
 export function startKeyboardListener(
   onKeyEvent: (event: KeyEvent) => void,

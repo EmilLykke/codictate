@@ -144,17 +144,9 @@ export interface FormattingRuntimeSettings {
 
 export type AppStatus = 'ready' | 'recording' | 'transcribing' | 'streaming'
 export type UpdateCheckState =
-  | 'idle'
-  | 'checking'
-  | 'downloading'
-  | 'up-to-date'
-  | 'ready'
-  | 'error'
+  'idle' | 'checking' | 'downloading' | 'up-to-date' | 'ready' | 'error'
 export type SettingsPane =
-  | 'inputMonitoring'
-  | 'microphone'
-  | 'accessibility'
-  | 'documents'
+  'inputMonitoring' | 'microphone' | 'accessibility' | 'documents'
 
 /** Dev-only: force the main window to a root screen (Vite `import.meta.env.DEV`). */
 export type DevAppPreviewRoute = 'permissions' | 'onboarding' | 'ready'

@@ -557,13 +557,7 @@ async function main() {
               getCombinationResult(store, datasetKey, harness, modelId) ===
                 undefined
             ) {
-              setCombinationResult(
-                store,
-                datasetKey,
-                harness,
-                modelId,
-                result,
-              );
+              setCombinationResult(store, datasetKey, harness, modelId, result);
               prefilledCount++;
             }
           }
