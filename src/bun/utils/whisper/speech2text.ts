@@ -131,7 +131,14 @@ export const transcribe = async (
 
   const modelId = resolveInstalledHviskeModelId(requestedModelId)
 
-  const translateRunModelId = resolveTranslateModelId(modelId, (id) =>
+  // Resolved from the *selected* Model ID, not the hviske fallback above. The two rules are
+  // independent: "hviske weights are missing, transcribe with the default instead" and
+  // "this selection cannot translate, run a translate-capable model instead". Feeding the
+  // fallback in here conflated them - an hviske selection with deleted weights became
+  // large-v3-turbo, which is not translate-capable, so Translate to English was dropped
+  // even when a translate-capable Speech Model was installed. Whether translate works must
+  // not depend on a file belonging to a Speech Model that is not the one running.
+  const translateRunModelId = resolveTranslateModelId(requestedModelId, (id) =>
     modelManager.isModelAvailable(id)
   )
   const useTranslate = translateToEnglish && translateRunModelId !== null

@@ -337,7 +337,11 @@ function startDeviceMonitor() {
       selected,
       newDeviceSnapshot.details
     )
-    menuHandlers.updateDeviceList(newDeviceSnapshot.devices, selected)
+    menuHandlers.updateDeviceList(
+      newDeviceSnapshot.devices,
+      selected,
+      newDeviceSnapshot.details
+    )
     win.send.updateDevice({
       devices: newDeviceSnapshot.devices,
       deviceDetails: newDeviceSnapshot.details,
@@ -360,6 +364,7 @@ Electrobun.events.on('reopen', () => {
 
 menuHandlers = setupApplicationMenu(
   devices,
+  deviceSnapshot.details,
   UserAppConfig,
   () => win.getOrCreateWindow(),
   onDeviceSelected,

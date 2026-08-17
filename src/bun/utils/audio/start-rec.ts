@@ -203,42 +203,54 @@ export const startRecording = async (
           })
         }
 
-        if (!skipPipeline) {
-          onComplete()
-          if (appConfig.getSoundEffectsEnabled())
-            playEndSound(appConfig.getFunModeEnabled())
-          const result = await speech2text(
-            appConfig.getRuntimeTranscriptionWhisperCode(),
-            appConfig.getWhisperModelId(),
-            appConfig.getTranslateToEnglish(),
-            appConfig.getFormattingRuntimeSettings(),
-            appConfig.getDictionaryEntries(),
-            () => appConfig.acceptPreviouslyAppliedEntries(),
-            (entries) => appConfig.notifyAppliedEntries(entries)
-          )
-          if (onHistorySave) {
-            try {
-              await onHistorySave(result.output)
-            } catch (err) {
-              log('history', 'failed to save entry', { err: String(err) })
+        // onDone() releases the transcription pipeline. It has to run on the failure path
+        // too: the caller treats it as the only signal that the pipeline is free again, so
+        // an escaping throw here used to leave `transcriptionPipelineActive` true for the
+        // rest of the process and every later Dictation was refused until restart. A failed
+        // Dictation must cost one Dictation, not all of them.
+        try {
+          if (!skipPipeline) {
+            onComplete()
+            if (appConfig.getSoundEffectsEnabled())
+              playEndSound(appConfig.getFunModeEnabled())
+            const result = await speech2text(
+              appConfig.getRuntimeTranscriptionWhisperCode(),
+              appConfig.getWhisperModelId(),
+              appConfig.getTranslateToEnglish(),
+              appConfig.getFormattingRuntimeSettings(),
+              appConfig.getDictionaryEntries(),
+              () => appConfig.acceptPreviouslyAppliedEntries(),
+              (entries) => appConfig.notifyAppliedEntries(entries)
+            )
+            if (onHistorySave) {
+              try {
+                await onHistorySave(result.output)
+              } catch (err) {
+                log('history', 'failed to save entry', { err: String(err) })
+              }
+            }
+            if (onStatsSave) {
+              try {
+                await onStatsSave(result, recordingCheck.durationMs ?? 0)
+              } catch (err) {
+                log('stats', 'failed to save session', { err: String(err) })
+              }
+            }
+            if (
+              getSpeechModel(appConfig.getWhisperModelId())?.engine ===
+                'whisperkit' &&
+              !appConfig.isParakeetCoreMlReady()
+            ) {
+              await appConfig.markParakeetCoreMlReady()
             }
           }
-          if (onStatsSave) {
-            try {
-              await onStatsSave(result, recordingCheck.durationMs ?? 0)
-            } catch (err) {
-              log('stats', 'failed to save session', { err: String(err) })
-            }
-          }
-          if (
-            getSpeechModel(appConfig.getWhisperModelId())?.engine ===
-              'whisperkit' &&
-            !appConfig.isParakeetCoreMlReady()
-          ) {
-            await appConfig.markParakeetCoreMlReady()
-          }
+        } catch (err) {
+          log('whisper', 'transcription pipeline failed', {
+            err: err instanceof Error ? err.message : String(err),
+          })
+        } finally {
+          onDone()
         }
-        onDone()
       },
     }
   )

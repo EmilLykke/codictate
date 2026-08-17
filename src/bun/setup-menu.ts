@@ -1,6 +1,7 @@
 import Electrobun, { ApplicationMenu, BrowserWindow } from 'electrobun/bun'
 import { AppConfig } from './AppConfig/AppConfig'
 import { getPlatformRuntime } from './platform/runtime'
+import type { AudioDeviceDetails } from '../shared/types'
 import {
   buildDeviceMenuItems,
   handleDeviceAction,
@@ -8,6 +9,7 @@ import {
 
 export const setupApplicationMenu = (
   devices: Record<string, string>,
+  deviceDetails: Record<string, AudioDeviceDetails> | undefined,
   appConfig: AppConfig,
   getOrCreateWindow: () => BrowserWindow,
   onDeviceSelected?: (device: number) => void,
@@ -16,7 +18,8 @@ export const setupApplicationMenu = (
   rebuildDeviceMenu: (selectedDevice: number) => void
   updateDeviceList: (
     newDevices: Record<string, string>,
-    selectedDevice: number
+    selectedDevice: number,
+    newDeviceDetails?: Record<string, AudioDeviceDetails>
   ) => void
 } => {
   if (getPlatformRuntime() === 'windows') {
@@ -28,6 +31,10 @@ export const setupApplicationMenu = (
   }
 
   let currentDevices = devices
+  // Carried so the device actions below can resolve a stable device id. Without it
+  // handleDeviceAction resolves `deviceId = null` and persists that, wiping the id
+  // resolveAudioDevice prefers - the tray path has always passed it.
+  let currentDeviceDetails = deviceDetails
 
   const buildFullMenu = (selectedDevice: number) => [
     {
@@ -68,7 +75,9 @@ export const setupApplicationMenu = (
   ]
 
   ApplicationMenu.setApplicationMenu(
-    buildFullMenu(appConfig.resolveAudioDevice(currentDevices))
+    buildFullMenu(
+      appConfig.resolveAudioDevice(currentDevices, currentDeviceDetails)
+    )
   )
 
   Electrobun.events.on('application-menu-clicked', (e) => {
@@ -80,10 +89,16 @@ export const setupApplicationMenu = (
       onOpenSettings?.()
       return
     }
-    handleDeviceAction(e.data.action, appConfig, currentDevices, (device) => {
-      ApplicationMenu.setApplicationMenu(buildFullMenu(device))
-      onDeviceSelected?.(device)
-    })
+    handleDeviceAction(
+      e.data.action,
+      appConfig,
+      currentDevices,
+      (device) => {
+        ApplicationMenu.setApplicationMenu(buildFullMenu(device))
+        onDeviceSelected?.(device)
+      },
+      currentDeviceDetails
+    )
   })
 
   return {
@@ -91,9 +106,11 @@ export const setupApplicationMenu = (
       ApplicationMenu.setApplicationMenu(buildFullMenu(selectedDevice)),
     updateDeviceList: (
       newDevices: Record<string, string>,
-      selectedDevice: number
+      selectedDevice: number,
+      newDeviceDetails?: Record<string, AudioDeviceDetails>
     ) => {
       currentDevices = newDevices
+      if (newDeviceDetails) currentDeviceDetails = newDeviceDetails
       ApplicationMenu.setApplicationMenu(buildFullMenu(selectedDevice))
     },
   }
