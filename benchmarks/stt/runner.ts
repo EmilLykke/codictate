@@ -1,6 +1,6 @@
-import { copyFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { RECORDING_PATH, MODELS_DIR } from "../../src/bun/platform/runtime";
+import { MODELS_DIR } from "../../src/bun/platform/runtime";
 import { fixBrandMishearings } from "../../src/bun/utils/whisper/speech2text";
 import {
   getSpeechModel,
@@ -140,6 +140,7 @@ function harnessInvocationFor(
 
 async function transcribeWhisper(
   modelPath: string,
+  audioPath: string,
   language: string,
   harness: AsrHarnessId,
   modelId: string,
@@ -147,7 +148,7 @@ async function transcribeWhisper(
   const { argv } = await buildWhisperHarnessCommand({
     ...harnessInvocationFor(modelId, harness, language),
     modelPath,
-    audioPath: RECORDING_PATH,
+    audioPath,
   });
 
   const proc = Bun.spawn(argv, {
@@ -165,9 +166,12 @@ async function transcribeWhisper(
   return fixBrandMishearings(raw);
 }
 
-async function transcribeParakeet(modelPath: string): Promise<string> {
+async function transcribeParakeet(
+  modelPath: string,
+  audioPath: string,
+): Promise<string> {
   const helper = getPlatform().findParakeetHelperBinary();
-  const proc = Bun.spawn([helper, "transcribe", RECORDING_PATH, modelPath], {
+  const proc = Bun.spawn([helper, "transcribe", audioPath, modelPath], {
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, LC_ALL: "en_US.UTF-8", LANG: "en_US.UTF-8" },
@@ -202,14 +206,22 @@ async function runUtterance(
   modelPath: string,
   harness: AsrHarnessId,
 ): Promise<UtteranceResult> {
-  copyFileSync(entry.audioPath, RECORDING_PATH);
-
+  // The Sample is read where it already lives. It used to be copied over RECORDING_PATH,
+  // the app's own recording buffer, roughly 200 times per Benchmark Combination - so a
+  // Benchmark Run alongside a running Codictate clobbered whatever the user had just
+  // dictated. Nothing on this path needs that path; the Harness command takes an audioPath.
   const speech = getSpeechModel(modelId)!;
   const start = performance.now();
   const hypothesis =
     speech.engine === "whisperkit"
-      ? await transcribeParakeet(modelPath)
-      : await transcribeWhisper(modelPath, entry.language, harness, modelId);
+      ? await transcribeParakeet(modelPath, entry.audioPath)
+      : await transcribeWhisper(
+          modelPath,
+          entry.audioPath,
+          entry.language,
+          harness,
+          modelId,
+        );
   const wallClockMs = performance.now() - start;
 
   const wer = computeWer(entry.transcript, hypothesis);
@@ -225,19 +237,17 @@ async function measureModelMemory(
   const speech = getSpeechModel(modelId);
   if (!speech) return null;
 
-  copyFileSync(sampleEntry.audioPath, RECORDING_PATH);
-
   let command: string[];
 
   if (speech.engine === "whisperkit") {
     const helper = getPlatform().findParakeetHelperBinary();
-    command = [helper, "transcribe", RECORDING_PATH, modelPath];
+    command = [helper, "transcribe", sampleEntry.audioPath, modelPath];
   } else {
     command = (
       await buildWhisperHarnessCommand({
         ...harnessInvocationFor(modelId, harness, null),
         modelPath,
-        audioPath: RECORDING_PATH,
+        audioPath: sampleEntry.audioPath,
       })
     ).argv;
   }
