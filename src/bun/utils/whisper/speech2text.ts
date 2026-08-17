@@ -1,11 +1,9 @@
-import { whisperCliLanguageArg } from '../../../shared/transcription-languages'
 import { getSpeechModel } from '../../../shared/speech-models'
 import { resolveTranslateModelId } from '../../../shared/whisper-models'
 import { modelManager } from './model-manager'
 import { pasteTranscript } from '../keyboard/keyboard-events'
 import { applyFormatting } from '../formatting/apply-formatting'
 import { buildFormatterRequest } from '../formatting/resolve-formatting-request'
-import { availableParallelism } from 'node:os'
 import { log } from '../logger'
 import { getPlatform } from '../../platform'
 import type {
@@ -14,7 +12,8 @@ import type {
 } from '../../../shared/types'
 import { applyDictionary } from '../dictionary/apply-dictionary'
 import { RECORDING_PATH } from '../../platform/runtime'
-import { findWhisperCliBinary } from './find-whisper-cli'
+import { resolveAppAsrHarness } from './find-asr-harness'
+import { buildWhisperHarnessCommand } from './whisper-harness-command'
 
 /**
  * Whisper often splits or mishears the product name — normalize before paste.
@@ -104,7 +103,7 @@ export const transcribe = async (
     return transcribeParakeet(modelId)
   }
 
-  const binary = await findWhisperCliBinary()
+  const harness = resolveAppAsrHarness()
 
   const translateRunModelId = resolveTranslateModelId(modelId, (id) =>
     modelManager.isModelAvailable(id)
@@ -121,36 +120,25 @@ export const transcribe = async (
   const effectiveModelId = useTranslate ? translateRunModelId : modelId
   const model = modelManager.getModelPath(effectiveModelId)
 
-  const lang = whisperCliLanguageArg(whisperLanguageCode)
+  const command = await buildWhisperHarnessCommand({
+    harness,
+    modelPath: model,
+    language: whisperLanguageCode,
+    audioPath: RECORDING_PATH,
+    translateToEnglish: useTranslate,
+  })
 
-  log('whisper', 'spawning whisper-cli', {
-    binary,
+  log('whisper', 'spawning ASR harness', {
+    harness: command.harness,
+    binary: command.binary,
     model,
-    whisperLanguageCode: lang,
-    languageMode: lang === 'auto' ? 'auto-detect' : 'fixed',
+    whisperLanguageCode: command.languageArg,
+    languageMode: command.languageArg === 'auto' ? 'auto-detect' : 'fixed',
     modelId: effectiveModelId,
     translateToEnglish: useTranslate,
   })
 
-  const args = [
-    binary,
-    '-m',
-    model,
-    '-t',
-    String(Math.max(4, availableParallelism?.() ?? 4)),
-    '--language',
-    lang,
-    '-f',
-    RECORDING_PATH,
-    '--no-prints',
-    '-nt', // No timestamps
-  ]
-
-  if (useTranslate) {
-    args.push('-tr')
-  }
-
-  const proc = Bun.spawn(args, {
+  const proc = Bun.spawn(command.argv, {
     stdout: 'pipe',
     stderr: 'pipe',
     env: {
@@ -171,6 +159,7 @@ export const transcribe = async (
   const transcript = fixBrandMishearings(raw)
 
   log('whisper', 'transcription complete', {
+    harness: command.harness,
     exitCode: proc.exitCode,
     transcriptLength: transcript.length,
     stderr: stderrText.slice(0, 500) || undefined,

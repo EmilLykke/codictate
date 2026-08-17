@@ -139,6 +139,7 @@ const helperEntitlementsByBasename: Record<string, string> = {
   MicRecorder: join(entitlementsRoot, "MicRecorder.entitlements"),
   "whisper-cli": join(entitlementsRoot, "whisper-cli.entitlements"),
   "llama-completion": join(entitlementsRoot, "llama-completion.entitlements"),
+  crispasr: join(entitlementsRoot, "crispasr.entitlements"),
   CodictateWindowHelper: join(
     entitlementsRoot,
     "CodictateWindowHelper.entitlements",
@@ -183,12 +184,23 @@ function isCodesignableMachO(binaryPath: string): boolean {
   );
 }
 
+/**
+ * Every Mach-O under native-helpers, recursively. Vendor Binaries that ship their
+ * own shared libraries land in a subdirectory when their library names would
+ * collide with another vendor's (crispasr vs llama both ship ggml libraries), and
+ * unsigned Mach-O anywhere under Resources/app/ fails notarization.
+ */
 function listCodesignableNativeHelpers(dir: string): string[] {
   if (!existsSync(dir)) return [];
-  const names = readdirSync(dir);
-  const paths = names
-    .map((n) => join(dir, n))
-    .filter((p) => isCodesignableMachO(p));
+  const paths: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      paths.push(...listCodesignableNativeHelpers(fullPath));
+    } else if (isCodesignableMachO(fullPath)) {
+      paths.push(fullPath);
+    }
+  }
   paths.sort();
   return paths;
 }

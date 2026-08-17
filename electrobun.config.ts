@@ -1,4 +1,11 @@
 import type { ElectrobunConfig } from "electrobun";
+import {
+  CRISPASR_BUNDLE_SUBDIR,
+  CRISPASR_MACOS_DYLIBS,
+  CRISPASR_WINDOWS_DLLS,
+  LLAMA_MACOS_DYLIBS,
+  LLAMA_WINDOWS_DLLS,
+} from "./scripts/vendor-manifest";
 
 const buildChannel = process.env.CODICTATE_CHANNEL ?? "dev";
 const appIdentifier =
@@ -45,6 +52,16 @@ if (isWindowsHost) {
     "native-helpers/whisper-cli.exe";
   buildCopy["vendors/llama/llama-completion.exe"] =
     "native-helpers/llama-completion.exe";
+  // Prebuilt llama is shared-library based, so its ggml/llama DLLs ship alongside it.
+  for (const dll of LLAMA_WINDOWS_DLLS) {
+    buildCopy[`vendors/llama/${dll}`] = `native-helpers/${dll}`;
+  }
+  buildCopy["vendors/crispasr/crispasr.exe"] =
+    `native-helpers/${CRISPASR_BUNDLE_SUBDIR}/crispasr.exe`;
+  for (const dll of CRISPASR_WINDOWS_DLLS) {
+    buildCopy[`vendors/crispasr/${dll}`] =
+      `native-helpers/${CRISPASR_BUNDLE_SUBDIR}/${dll}`;
+  }
   buildCopy["vendors/whisper/ggml-large-v3-turbo-q5_0.bin"] =
     "native-helpers/ggml-large-v3-turbo-q5_0.bin";
   buildCopy["vendors/windows/TrayIcon.ico"] = "images/TrayIcon.ico";
@@ -59,6 +76,17 @@ if (isWindowsHost) {
   buildCopy["vendors/whisper/whisper-cli"] = "native-helpers/whisper-cli";
   buildCopy["vendors/llama/llama-completion"] =
     "native-helpers/llama-completion";
+  // Prebuilt llama resolves these through @rpath = @loader_path, so they must sit
+  // in the same directory as the binary.
+  for (const dylib of LLAMA_MACOS_DYLIBS) {
+    buildCopy[`vendors/llama/${dylib}`] = `native-helpers/${dylib}`;
+  }
+  buildCopy["vendors/crispasr/crispasr"] =
+    `native-helpers/${CRISPASR_BUNDLE_SUBDIR}/crispasr`;
+  for (const dylib of CRISPASR_MACOS_DYLIBS) {
+    buildCopy[`vendors/crispasr/${dylib}`] =
+      `native-helpers/${CRISPASR_BUNDLE_SUBDIR}/${dylib}`;
+  }
   buildCopy["vendors/parakeet/CodictateParakeetHelper"] =
     "native-helpers/CodictateParakeetHelper";
   buildCopy["vendors/window-helper/CodictateWindowHelper"] =
