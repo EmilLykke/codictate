@@ -19,6 +19,18 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | Formatting | llama.cpp running Qwen2.5 3B / Qwen3 4B, or Apple Intelligence (macOS 26+) |
 | Native helpers | Swift (macOS), Rust (Windows) |
 
+## Quick reference
+
+| Command | Purpose |
+|---------|---------|
+| `bun run start` | Dev mode (macOS) |
+| `bun run dev:hmr` | Dev with HMR (macOS) |
+| `bun run start:windows` | Dev mode (Windows) |
+| `bun run lint:fix` | ESLint fix |
+| `bun run tsc` | Type-check both tsconfigs |
+
+There is no `test` script. Five `*.test.ts` files exist and are run with `bun test <path>`; no CI workflow runs tests, lint or type-checking. See `docs/ARCHITECTURE_REVIEW.md` candidate E.
+
 ## Project structure
 
 ```
@@ -104,6 +116,12 @@ Electrobun uses the OS native webview instead of bundling Chromium. Import patte
 - Bundled views loaded via `views://` URLs
 - Views must be registered in `electrobun.config.ts`
 
+Never reach for Electron APIs or patterns.
+
+### App lifecycle
+
+`exitOnLastWindowClosed: false` — closing the last window does not quit. The app lives in the system tray, so tray and menu code stay live with no window open.
+
 ### Recording indicator
 
 A native floating HUD showing dictation state (ready / recording / transcribing). On macOS it's a Swift AppKit `NSPanel` (`CodictateWindowHelper`); on Windows it's a Win32 layered window inside `CodictateWindowsHelper` (Rust). Both communicate with the main Bun process over stdin/stdout JSON lines.
@@ -145,4 +163,24 @@ Defined in `src/mainview/index.css`:
 --color-codictate-paper        /* Semi-transparent surface */
 ```
 
-Both Iceland and Iceberg fonts are very small at standard sizes - always use larger font sizes than typical. The base body font-size is 23px.
+Both Iceland and Iceberg fonts are very small at standard sizes - always use larger font sizes than typical. The base body font-size is 23px. When adding new UI, follow this convention: sizes that look correct in other fonts will be too small here. Scale up.
+
+> **Verify before trusting this section.** The font stack may since have moved to system fonts with a 16px base, which would invert the advice above. Check `src/mainview/index.css` for the live values.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues in `EmilLykke/codictate`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, using their default label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+## Architecture review
+
+`docs/ARCHITECTURE_REVIEW.md` (2026-08-17) records eight deepening opportunities, labelled A-H, with file:line evidence and a suggested order. Read it before proposing a refactor in the transcription path, the Dictation Shortcut Presets, `AppConfig`, or the benchmark - the friction is already mapped there.
