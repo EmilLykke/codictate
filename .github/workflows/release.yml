@@ -46,8 +46,19 @@ jobs:
           TAG="${{ github.ref_name }}"
           CHANNEL="${{ steps.detect.outputs.channel }}"
           NOTES="${{ steps.detect.outputs.notes }}"
-          if gh release view "$TAG" --repo "${{ github.repository }}" > /dev/null 2>&1; then
-            echo "Release already exists: $TAG"
+          # Existence is checked against the list endpoint, which returns drafts, rather
+          # than `gh release view <tag>`, which resolves through /releases/tags/<tag> and
+          # therefore cannot see a draft. Crucially the API error is no longer swallowed:
+          # previously a transient 503 read as "no such release" and fell through to
+          # `gh release create`, attempting a duplicate. A failed query now fails the job.
+          if ! EXISTING=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+                --jq ".[] | select(.tag_name == \"$TAG\") | .id"); then
+            echo "Could not query releases for ${{ github.repository }}." >&2
+            echo "Treating this as an error rather than assuming $TAG does not exist." >&2
+            exit 1
+          fi
+          if [ -n "$EXISTING" ]; then
+            echo "Release already exists: $TAG (id $(echo "$EXISTING" | head -1))"
           elif [ "$CHANNEL" = "canary" ]; then
             gh release create "$TAG" \
               --repo "${{ github.repository }}" \
@@ -72,11 +83,21 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           CHANNEL="${{ steps.detect.outputs.channel }}"
-          # Check if any asset for this channel contains "macos" in its name
-          if gh release view "$TAG" --repo "${{ github.repository }}" --json assets \
-              --jq ".assets[].name" 2>/dev/null | grep -q "^${CHANNEL}-.*macos"; then
+          # Resolved by id for the same reason as above: a draft is invisible to a tag
+          # lookup, so the old check reported "no macOS artifacts" for a draft that
+          # already had them, and would have rebuilt macOS needlessly.
+          REL_ID=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -1)
+          ASSETS=""
+          if [ -n "$REL_ID" ]; then
+            ASSETS=$(gh api "repos/${{ github.repository }}/releases/$REL_ID/assets?per_page=100" \
+              --jq ".[].name")
+          fi
+          # Skipping the build is only safe on a positive match. Anything else (no
+          # release, no assets, empty answer) must fall through to building.
+          if echo "$ASSETS" | grep -q "^${CHANNEL}-.*macos"; then
             echo "mac_exists=true" >> "$GITHUB_OUTPUT"
-            echo "macOS artifacts already uploaded — CI will skip macOS build."
+            echo "macOS artifacts already uploaded - CI will skip macOS build."
           else
             echo "mac_exists=false" >> "$GITHUB_OUTPUT"
           fi
@@ -141,10 +162,26 @@ jobs:
           echo "::add-mask::$ELECTROBUN_TEAMID"
           bun run build:${{ needs.create-release.outputs.channel }}
 
+      # Persisted before the upload, so a failed upload costs a re-download rather than
+      # a full rebuild. This is what made the v0.0.54 Windows failure expensive: the
+      # binaries only ever existed on the runner, so each retry rebuilt from scratch.
+      - name: Persist build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.create-release.outputs.channel }}-macos-arm64
+          path: artifacts/${{ needs.create-release.outputs.channel }}-*
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Upload to release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" artifacts/${{ needs.create-release.outputs.channel }}-* --clobber
+          REPO: ${{ github.repository }}
+        run: |
+          bash scripts/upload-release-assets.sh \
+            "${{ github.ref_name }}" \
+            "artifacts/${{ needs.create-release.outputs.channel }}-"
 
       - name: Cleanup keychain
         if: always()
@@ -208,11 +245,24 @@ jobs:
           CODICTATE_CHANNEL: ${{ needs.create-release.outputs.channel }}
         run: .\scripts\build-inno-installer.ps1 -Channel ${{ needs.create-release.outputs.channel }}
 
+      # See the macOS job: persisting first means a failed upload is cheap to retry.
+      - name: Persist build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.create-release.outputs.channel }}-windows-x64
+          path: artifacts/${{ needs.create-release.outputs.channel }}-*
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Upload to release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.ref_name }}" artifacts/${{ needs.create-release.outputs.channel }}-* --clobber
+          REPO: ${{ github.repository }}
+        run: |
+          bash scripts/upload-release-assets.sh \
+            "${{ github.ref_name }}" \
+            "artifacts/${{ needs.create-release.outputs.channel }}-"
 
   # ── Publish once both builds are done ─────────────────────────────────────────
   publish:
