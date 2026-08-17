@@ -22,13 +22,17 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 ## Speech
 
-**Speech Engine** - the recognition system a Dictation is transcribed by, as the user sees it: Whisper or Parakeet. Note that the Parakeet engine is identified as `whisperkit` in code, which is a misnomer; the engine is FluidAudio.
+**Speech Engine** - the recognition system a Dictation is transcribed by, as the user sees it: Whisper, Parakeet, or hviske. Note that the Parakeet engine is identified as `whisperkit` in code, which is a misnomer; the engine is FluidAudio.
 
-**ASR Harness** - the specific binary and CLI contract used to execute a Speech Engine. A single Speech Engine can have more than one Harness: Whisper runs under either `whisper-cli` or `crispasr`. Harness is an internal concept and is never exposed to end users. See `docs/adr/0002-asr-harness-abstraction.md`.
+**hviske** - the Danish-only Speech Engine, running the mirrored `syvai/hviske-v5-tiny` weights. A Speech Engine in its own right rather than a Whisper Speech Model, because its weights, its backend and its language support all differ. See `docs/adr/0004-hviske-danish-ungated.md`.
+
+**ASR Harness** - the specific binary and CLI contract used to execute a Speech Engine. There is one Harness, `crispasr`, and it executes both Whisper and hviske. Harness is an internal concept and is never exposed to end users. See `docs/adr/0002-asr-harness-abstraction.md`.
 
 **Speech Model** - the weights a Speech Engine loads, identified by a Model ID (`large-v3-turbo-q5_0`). Distinct from the Speech Engine that runs it and the Harness that executes it.
 
 **Quantization** - the precision variant of a Speech Model (`q4_k`, `q5_0`, `f16`). Different Quantizations of the same weights are separate Speech Models with separate Model IDs.
+
+**Curated Speech Model** - a Speech Model Codictate offers in the main Settings list. Everything else is reachable only through the browse modal ("Browse more models" in Settings). Curation is a recommendation Codictate stands behind, not a capability difference.
 
 **Transcription Language** - the language the user has fixed for recognition, or automatic detection.
 
@@ -46,7 +50,7 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 ## Distribution
 
-**Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`whisper-cli`, `crispasr`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).
+**Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`crispasr`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).
 
 **Mirror** - a copy of a third-party Speech Model that Codictate hosts itself, because the upstream repository is access-gated and end users cannot download from it directly.
 

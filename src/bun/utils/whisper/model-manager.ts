@@ -20,7 +20,6 @@ import {
 import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 import { log } from '../logger'
 import { MODELS_DIR, getPlatformRuntime } from '../../platform/runtime'
-import { isHviskeEnabled } from './find-asr-harness'
 
 const BUNDLED_MODEL_PATH = join(
   import.meta.dir,
@@ -48,10 +47,12 @@ function singleFileModelDownloadUrl(model: SpeechModel): string {
 }
 
 /**
- * The hviske Mirror only exists once a maintainer has run `scripts/mirror-hviske.ts`,
- * so a 404 (or a 401/403 from a private staging repo) is the expected state today and has
- * to say what to do about it instead of surfacing as a bare HTTP code.
- * See docs/HVISKE_MIRROR.md.
+ * A failed model download, in words the user can act on.
+ *
+ * hviske downloads come from a Mirror rather than from `ggerganov/whisper.cpp`, so a
+ * refusal names the repo: it is the one detail that distinguishes "this download is broken"
+ * from "your network is broken" when the Mirror itself is the problem. See
+ * docs/HVISKE_MIRROR.md.
  */
 function httpDownloadErrorMessage(
   model: SpeechModel,
@@ -61,9 +62,8 @@ function httpDownloadErrorMessage(
 ): string {
   if (model.engine === 'hviske' && [401, 403, 404].includes(status)) {
     return (
-      `The hviske Mirror ${model.huggingFaceRepoId} is not published yet ` +
-      `(HTTP ${status} for ${url}). A maintainer has to run ` +
-      '`bun run scripts/mirror-hviske.ts` first - see docs/HVISKE_MIRROR.md.'
+      `Could not download this model from ${model.huggingFaceRepoId} ` +
+      `(HTTP ${status} for ${url}). Check your connection and try again.`
     )
   }
   return `HTTP ${status} ${statusText}`
@@ -181,11 +181,6 @@ class ModelManager {
     const model = this.modelInfo(modelId)
     if (!model) return false
     if (model.bundled) return true
-    // Availability is what every model surface keys off, including the ones that list by
-    // availability rather than by engine (Home screen list, tray model menu). Reporting a
-    // gated-off hviske model as unavailable therefore hides it from all of them at once,
-    // even if the weights were dropped into the models directory by hand.
-    if (model.engine === 'hviske' && !isHviskeEnabled()) return false
     if (model.engine === 'whisperkit') {
       const dir = this.getParakeetInstallDir(modelId)
       if (!parakeetInstallComplete(dir)) return false
@@ -370,17 +365,6 @@ class ModelManager {
 
     if (this.isModelAvailable(modelId)) {
       onProgress(1, true)
-      return
-    }
-
-    // hviske is prep-only: no UI surfaces it, but the download RPC takes any model id, so
-    // the dev-only hviske gate guards the download too. It has to be its own gate rather
-    // than "is the app on crispasr", now that crispasr is the shipping Harness: otherwise
-    // every user could trigger a download against a Mirror that does not exist yet.
-    if (model.engine === 'hviske' && !isHviskeEnabled()) {
-      const message = 'This model is not available in this build of Codictate.'
-      log('model-manager', 'refusing hviske download outside dev', { modelId })
-      onProgress(0, true, message)
       return
     }
 

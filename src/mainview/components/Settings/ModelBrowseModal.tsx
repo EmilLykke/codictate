@@ -7,20 +7,49 @@ import {
   formatRamSize,
 } from "../../../shared/speech-models";
 import { MODEL_RATINGS } from "../../../shared/model-ratings";
+import { TRANSCRIPTION_LANGUAGE_OPTIONS } from "../../../shared/transcription-languages";
 
-export function parseModelTags(id: string): string[] {
+/**
+ * The tags shown beside a Speech Model: its Quantization, then what it can transcribe.
+ *
+ * Takes the whole SpeechModel rather than just the Model ID, because both tags were
+ * previously guessed from the ID string and both guesses were wrong for hviske:
+ *
+ * - The Quantization pattern was `q\d+_\d+`, which matches `q8_0` and `q5_0` but not the
+ *   k-quants `q6_k` and `q4_k`, nor an explicit float width like `f16`. Anything it missed
+ *   fell through to "full", so two genuinely quantized models advertised themselves as full
+ *   precision. The suffix is still read off the ID, since that is where the Quantization is
+ *   encoded, but it now allows a letter suffix and is anchored to the end.
+ * - The language tag was "anything without `.en` is multilingual", which labelled the
+ *   Danish-only hviske models Multilingual. A single-language model has no marker in its ID,
+ *   so the language has to come from the catalog. `.en` is checked first because the
+ *   English-only Whisper models predate `supportedTranscriptionLanguageIds` and do not set
+ *   it; where the field is present it wins.
+ */
+export function parseModelTags(model: SpeechModel): string[] {
   const tags: string[] = [];
 
-  const qMatch = id.match(/-?(q\d+_\d+)/);
+  const qMatch = model.id.match(/-(q\d+_[0-9a-z]+|f16|f32)$/);
   if (qMatch) tags.push(qMatch[1]);
   else tags.push("full");
 
-  if (id.includes(".en")) tags.push("\u{1F1EC}\u{1F1E7} (only)");
+  const languageIds = model.supportedTranscriptionLanguageIds;
+  if (model.id.includes(".en")) tags.push("\u{1F1EC}\u{1F1E7} (only)");
+  else if (languageIds?.length === 1)
+    tags.push(transcriptionLanguageLabel(languageIds[0]));
   else tags.push("Multilingual");
 
-  if (id.includes("-tdrz")) tags.push("TDRZ");
+  if (model.id.includes("-tdrz")) tags.push("TDRZ");
 
   return tags;
+}
+
+/** The display name for a language id, falling back to the raw id if it is not in the list. */
+function transcriptionLanguageLabel(id: string): string {
+  return (
+    TRANSCRIPTION_LANGUAGE_OPTIONS.find((option) => option.id === id)?.label ??
+    id
+  );
 }
 
 function StatBar({
@@ -79,7 +108,7 @@ export function ModelBrowseModal({
     if (!query.trim()) return models;
     const q = query.toLowerCase();
     return models.filter((m) => {
-      const tags = parseModelTags(m.id);
+      const tags = parseModelTags(m);
       const searchable = [m.id, m.label, ...tags].join(" ").toLowerCase();
       return searchable.includes(q);
     });
@@ -175,7 +204,7 @@ export function ModelBrowseModal({
                         modelAvailability[model.id] ?? model.bundled ?? false;
                       const progress = downloadProgress[model.id];
                       const isDownloading = progress !== undefined;
-                      const tags = parseModelTags(model.id);
+                      const tags = parseModelTags(model);
 
                       const stats = MODEL_RATINGS[model.id];
 

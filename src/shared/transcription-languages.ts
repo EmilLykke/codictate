@@ -1,6 +1,6 @@
 /**
  * Transcription languages shown in Settings / Ready.
- * `whisperCode` is passed to whisper-cli `--language` (whisper.cpp g_lang keys).
+ * `whisperCode` is passed to the ASR Harness `--language` (whisper.cpp g_lang keys).
  * Variants that share a Whisper language (e.g. Mandarin TW/CN → zh) use distinct `id`s.
  */
 const ENTRIES_UNSORTED: { id: string; label: string; whisperCode: string }[] = [
@@ -85,8 +85,8 @@ export function isValidTranscriptionLanguageId(id: string): boolean {
  * - `'auto'` or unknown → `null` (caller should treat as “use auto-detect”).
  * - `'da'`, `'en'`, … → whisper.cpp code (`'da'`, `'en'`, …).
  *
- * This is **not** the CLI argv value: whisper-cli defaults to English if `--language` is omitted,
- * so the process layer must pass `--language auto` when this returns `null` — use {@link whisperCliLanguageArg}.
+ * This is **not** the CLI argv value: the ASR Harness defaults to English if `--language` is omitted,
+ * so the process layer must pass `--language auto` when this returns `null` — use {@link asrHarnessLanguageArg}.
  */
 export function whisperCodeForTranscriptionId(id: string): string | null {
   if (id === 'auto' || id.trim() === '') return null
@@ -97,10 +97,10 @@ export function whisperCodeForTranscriptionId(id: string): string | null {
 }
 
 /**
- * Exact value for whisper-cli `-l` / `--language`.
+ * Exact value for the ASR Harness `-l` / `--language`.
  * Feeds on the output of {@link whisperCodeForTranscriptionId} (or `null` from config): `null` / empty / whitespace → **`"auto"`** so the binary does not fall back to its default **`en`**.
  */
-export function whisperCliLanguageArg(
+export function asrHarnessLanguageArg(
   whisperCodeOrAuto: string | null | undefined
 ): string {
   if (whisperCodeOrAuto == null) return 'auto'

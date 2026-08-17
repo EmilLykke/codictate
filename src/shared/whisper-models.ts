@@ -5,6 +5,7 @@ import {
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
   formatModelSize,
   getSpeechModel,
+  isHviskeSpeechModelId,
   isValidSpeechModelId,
   supportsStreamMode,
   parakeetSupportsTranscriptionLanguageId,
@@ -50,10 +51,37 @@ export function isTranslateCapableModelId(id: string): boolean {
   return TRANSLATE_CAPABLE_MODEL_IDS.includes(id)
 }
 
+/** The first installed translate-capable Whisper model, in catalog order. */
+function firstAvailableTranslateCapableModelId(
+  isModelAvailable: (id: string) => boolean
+): string | null {
+  return TRANSLATE_CAPABLE_MODEL_IDS.find((id) => isModelAvailable(id)) ?? null
+}
+
+/**
+ * The Speech Model a translate run should actually load, or `null` when translate is not
+ * possible at all and the caller must transcribe verbatim instead.
+ *
+ * Usually that is the selected model itself, once it is both translate-capable and
+ * installed. hviske is the one selection that resolves to a *different* model: its GGUF
+ * weights are Danish-only, load under the crispasr `cohere` backend alone, and cannot
+ * translate. Because hviske is user-selectable, "Translate to English" plus an hviske
+ * Speech Model is an ordinary combination, and it has to swap the Speech Model rather than
+ * fail mid-Dictation. (`large-v3-turbo` is the same shape of problem for a different
+ * reason - a transcribe-only distillation - and is simply absent from
+ * TRANSLATE_CAPABLE_MODEL_IDS.)
+ *
+ * A caller that gets back an id different from the one it passed must run it as its own
+ * Speech Model and drop anything specific to the selection it replaced - hviske's pinned
+ * `--backend cohere` and pinned Danish language above all.
+ */
 export function resolveTranslateModelId(
   selectedWhisperModelId: string,
   isModelAvailable: (id: string) => boolean
 ): string | null {
+  if (isHviskeSpeechModelId(selectedWhisperModelId)) {
+    return firstAvailableTranslateCapableModelId(isModelAvailable)
+  }
   if (!isTranslateCapableModelId(selectedWhisperModelId)) {
     return null
   }

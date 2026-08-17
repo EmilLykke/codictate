@@ -31,9 +31,14 @@ const LICENSE_ID = 'cc-by-nc-4.0'
 
 /**
  * All five Quantizations the source repo publishes ship, so a user can pick their own
- * size/accuracy trade-off and the benchmark can settle which to default to. The model
- * card lists an identical Danish WER (10.51) for every one of them, so size and speed
- * are the only real differences: larger is slower. f16 is the chosen primary.
+ * size/accuracy trade-off. The model card lists an identical Danish WER (10.51) for every
+ * one of them, so size and speed are the only real differences: larger is slower.
+ *
+ * Codictate does not default to any of them. None is marked `curated`, so all five appear
+ * only in the browse modal and a user reaches every one the same way. f16 is what the docs
+ * recommend starting with, on the reasoning that it is full precision and the source repo's
+ * own primary, so it is least likely to be where the unverified equal-WER claim breaks
+ * down. That is a recommendation, not a default.
  *
  * Sizes are the MiB figures the Hugging Face API reports, listed largest first.
  */
@@ -42,7 +47,7 @@ const FILES = [
     sourcePath: 'gguf/hviske-v5-tiny-f16.gguf',
     name: 'hviske-v5-tiny-f16.gguf',
     approxSize: '503 MB',
-    note: 'primary, full precision, largest and slowest',
+    note: 'full precision, largest and slowest',
   },
   {
     sourcePath: 'gguf/hviske-v5-tiny-q8_0.gguf',
@@ -154,7 +159,10 @@ ${FILES.map((f) => `| \`${f.name}\` | ${f.approxSize} | ${f.note} |`).join('\n')
 The model card of the original repository reports the same Danish WER (10.51) for every
 one of these, so the choice is a size and speed trade-off rather than an accuracy one.
 
-\`${primary}\` is the default Codictate uses.
+Codictate does not default to any one of these. All five are offered side by side, and the
+user picks the size and speed trade-off they want. If you want a starting point, \`${primary}\`
+is full precision and the source repo's own primary, so it is the safest choice if you would
+rather not rely on the identical-WER claim above holding at the smaller Quantizations.
 
 ## Runtime
 

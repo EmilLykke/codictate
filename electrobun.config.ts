@@ -48,8 +48,6 @@ if (isWindowsHost) {
   ] = "native-helpers/CodictateWindowsHelper.exe";
   buildCopy["native/CodictateWindowsHelper/target/release/DirectML.dll"] =
     "native-helpers/DirectML.dll";
-  buildCopy["vendors/whisper/whisper-cli.exe"] =
-    "native-helpers/whisper-cli.exe";
   buildCopy["vendors/llama/llama-completion.exe"] =
     "native-helpers/llama-completion.exe";
   // Prebuilt llama is shared-library based, so its ggml/llama DLLs ship alongside it.
@@ -73,7 +71,6 @@ if (isWindowsHost) {
   buildCopy["src/bun/utils/keyboard/KeyListener"] =
     "native-helpers/KeyListener";
   buildCopy["src/bun/utils/audio/MicRecorder"] = "native-helpers/MicRecorder";
-  buildCopy["vendors/whisper/whisper-cli"] = "native-helpers/whisper-cli";
   buildCopy["vendors/llama/llama-completion"] =
     "native-helpers/llama-completion";
   // Prebuilt llama resolves these through @rpath = @loader_path, so they must sit

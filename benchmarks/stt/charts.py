@@ -70,8 +70,23 @@ DARK_LABEL = "#999999"
 WINNER_COLOR = "#ffd700"
 
 
-def model_name(model_id: str) -> str:
+def split_variant_key(key: str) -> "tuple[str, str]":
+    """Split a flattened row key into (model id, harness label).
+
+    Mirrors parseVariantKey in results-schema.ts. Splitting before naming matters for
+    two reasons: title-casing an unsplit key renders the archived rows as
+    "Large V3 Turbo Q5_0@Whisper Cli q5_0", and MODEL_SIZES_MB never matches a suffixed
+    key, so every archived row silently loses its disk size.
+    """
+    model_id, sep, suffix = key.rpartition("@")
+    if sep and suffix in HARNESS_LABELS:
+        return model_id, suffix
+    return key, DEFAULT_HARNESS
+
+
+def model_name(key: str) -> str:
     import re
+    model_id, harness = split_variant_key(key)
     parts = []
     # Base name: everything before quant suffix and .en
     base = model_id.replace(".en", "").rstrip("-")
@@ -83,7 +98,9 @@ def model_name(model_id: str) -> str:
     # English-only
     if ".en" in model_id:
         parts.append("en")
-    return " ".join(parts)
+    name = " ".join(parts)
+    # Same rule as report.ts modelName: only a non-default Harness is tagged.
+    return name if harness == DEFAULT_HARNESS else f"{name} [{harness}]"
 
 
 MODEL_SIZES_MB = {
@@ -110,9 +127,11 @@ def fmt_size(mb: int) -> str:
     return f"{mb} MB"
 
 
-def model_label(model_id: str) -> str:
-    name = model_name(model_id)
-    size = MODEL_SIZES_MB.get(model_id)
+def model_label(key: str) -> str:
+    name = model_name(key)
+    # Look the size up by Model ID, not by row key: the same weights are the same size
+    # whichever Harness transcribed with them.
+    size = MODEL_SIZES_MB.get(split_variant_key(key)[0])
     if size:
         return f"{name}\n({fmt_size(size)})"
     return name
@@ -122,27 +141,49 @@ def condition_label(key: str) -> str:
     return CONDITION_LABELS.get(key, key)
 
 
-# ASR Harness ids, kept in sync with src/shared/asr-harness.ts.
-HARNESS_IDS = ("whisper-cli", "crispasr")
-DEFAULT_HARNESS = "whisper-cli"
+# Archived ASR Harness labels: every Harness name that may appear as a key in a
+# result file, including retired ones. Kept in sync with BENCHMARK_HARNESS_LABELS in
+# results-schema.ts, NOT with the runnable ASR_HARNESS_IDS in
+# src/shared/asr-harness.ts - dropping a retired label here would make the archived
+# whisper-cli buckets unreadable to the chart script.
+HARNESS_LABELS = ("crispasr", "whisper-cli")
+
+# The bucket whose rows keep the bare model id. Tracks DEFAULT_HARNESS_LABEL (the
+# shipping Harness) so chart labels match report.md row labels.
+DEFAULT_HARNESS = "crispasr"
+
+# The Harness that produced files written before Harness was a dimension. A fact about
+# the archive, not a default - see PRE_HARNESS_ARCHIVE_LABEL in results-schema.ts.
+PRE_HARNESS_ARCHIVE_LABEL = "whisper-cli"
+
+# Speech Models that never ran under any Harness, so they stay in the default bucket
+# when a pre-harness file is migrated. Mirrors harnessBucketForModel's Parakeet case.
+HARNESS_FREE_MODEL_IDS = ("parakeet-tdt-0.6b-v3",)
 
 
 def _flatten_dataset(datasets: dict) -> dict:
     """Collapse [dataset][harness][model] into [dataset][key].
 
-    Default-harness results keep the bare model id, so charts of runs that only
-    used whisper-cli look exactly as they did before Harness became a dimension.
+    Default-harness results keep the bare model id, so charts of a run under the
+    shipping Harness alone look exactly as they did before Harness became a dimension.
     Result files written before that change have no harness level and are read as
-    whisper-cli.
+    whisper-cli, which is what they were run with.
     """
     flat = {}
     for dataset_key, inner in datasets.items():
         if not isinstance(inner, dict):
             continue
-        if inner and all(k in HARNESS_IDS for k in inner):
+        if inner and all(k in HARNESS_LABELS for k in inner):
             by_harness = inner
         else:
-            by_harness = {DEFAULT_HARNESS: inner}
+            by_harness = {}
+            for model_id, result in (inner or {}).items():
+                bucket = (
+                    DEFAULT_HARNESS
+                    if model_id in HARNESS_FREE_MODEL_IDS
+                    else PRE_HARNESS_ARCHIVE_LABEL
+                )
+                by_harness.setdefault(bucket, {})[model_id] = result
         models = {}
         for harness, by_model in by_harness.items():
             if not isinstance(by_model, dict):

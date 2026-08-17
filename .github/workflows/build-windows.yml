@@ -25,7 +25,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install Vulkan SDK (required for whisper-cli and llama-completion GPU builds)
+      # Provides glslc, needed only by the llama-completion cmake source-build fallback in
+      # scripts/pre-build.ts. On this x64 runner that fallback does not fire (the pinned
+      # prebuilt Vulkan archive is used instead), so the step is a safety net for a
+      # non-x64 Windows host rather than a requirement of the current build.
+      - name: Install Vulkan SDK (glslc, for the llama-completion source-build fallback)
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           install_runtime: false

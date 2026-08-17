@@ -10,26 +10,25 @@ After your first merged PR you'll be added to [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 ### macOS
 
-**Requirements:** Bun v1.3+, Xcode Command Line Tools, cmake, Rust toolchain
+**Requirements:** Bun v1.3+, Xcode Command Line Tools, Rust toolchain
 
 ```bash
-brew install cmake sdl2
 bun install
 bun run start          # or bun run dev:hmr for HMR
 ```
 
-cmake is needed only for `whisper-cli`, which is still built from source because
-upstream whisper.cpp publishes no macOS CLI asset. `llama-completion` and `crispasr`
-are downloaded prebuilt and sha256-verified, so they cost no build time. See
-[docs/adr/0001-vendor-binary-sourcing.md](docs/adr/0001-vendor-binary-sourcing.md).
+No cmake. Both Vendor Binaries, `crispasr` (speech) and `llama-completion`
+(formatting), are downloaded prebuilt and sha256-verified, so they cost no build time.
+The last source build was `whisper-cli`, and it went away when that binary was retired.
+See [docs/adr/0001-vendor-binary-sourcing.md](docs/adr/0001-vendor-binary-sourcing.md)
+and [docs/adr/0002-asr-harness-abstraction.md](docs/adr/0002-asr-harness-abstraction.md).
 
 ### Windows (x64)
 
-**Requirements:** Bun v1.3+, cmake, Rust toolchain, [LunarG Vulkan SDK](https://vulkan.lunarg.com) (ensure `glslc` is on `PATH`)
+**Requirements:** Bun v1.3+, Rust toolchain
 
-Vulkan is required to build `whisper-cli` with GPU support. `llama-completion` and
-`crispasr` are downloaded prebuilt in their Vulkan variants, so they need no local
-Vulkan build.
+No Vulkan SDK either: `crispasr` and `llama-completion` are downloaded prebuilt in their
+Vulkan variants, so nothing has to be compiled against Vulkan locally.
 
 ```bash
 bun install
@@ -55,7 +54,7 @@ bun run build:canary
 bun run build:stable
 ```
 
-Windows releases build through CI (`build-windows.yml`) — use `start:windows` for local dev. Unsigned builds work without any `.env` setup. For signed macOS builds, copy `.env.example` to `.env` — see [docs/MACOS_SIGNING_AND_NOTARIZATION.md](docs/MACOS_SIGNING_AND_NOTARIZATION.md).
+Windows releases build through CI (`build-windows.yml`) - use `start:windows` for local dev. Unsigned builds work without any `.env` setup. For signed macOS builds, copy `.env.example` to `.env` - see [docs/MACOS_SIGNING_AND_NOTARIZATION.md](docs/MACOS_SIGNING_AND_NOTARIZATION.md).
 
 ## CI
 
@@ -71,7 +70,7 @@ Pushing a `v*` tag triggers `release.yml`, which builds macOS and Windows in par
 
 | Area | Notes |
 |------|-------|
-| **Windows ARM64** | No hardware available — untested |
+| **Windows ARM64** | No hardware available - untested |
 | **Linux** | We plan to test this ourselves, but contributions are welcome |
 | **Windows dev setup** | Additional platform testing and edge-case fixes |
 

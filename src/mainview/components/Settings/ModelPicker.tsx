@@ -17,6 +17,13 @@ const SHORT_DESC: Record<string, string> = {
   "small-q5_1": "Lightweight multilingual. 475 MB RAM.",
   "large-v3-turbo-q5_0": "Daily driver multilingual. 800 MB RAM.",
   "large-v3-q5_0": "Highest accuracy, multilingual. 2.0 GB RAM.",
+  // The five hviske Quantizations differ only in size and speed: syvai's model card reports
+  // the same Danish WER (10.51) for all of them, so the trade-off is the whole story here.
+  "hviske-v5-tiny-f16": "Danish only, full precision. 675 MB RAM.",
+  "hviske-v5-tiny-q8_0": "Danish only, near-full precision. 440 MB RAM.",
+  "hviske-v5-tiny-q6_k": "Danish only, balanced. 405 MB RAM.",
+  "hviske-v5-tiny-q5_0": "Danish only, compact. 350 MB RAM.",
+  "hviske-v5-tiny-q4_k": "Danish only, smallest and fastest. 325 MB RAM.",
 };
 
 function StatBar({
@@ -77,8 +84,13 @@ export function ModelPicker({
         const isDeletable = isAvailable && !model.bundled;
         const isPendingDelete = confirmDelete === model.id;
         const stats = MODEL_RATINGS[model.id];
-        const desc = SHORT_DESC[model.id] ?? "";
-        const quantTag = parseModelTags(model.id)[0];
+        // SHORT_DESC covers the curated models and the hviske Quantizations. Anything else
+        // reaching this picker is an extra Quantization downloaded from the browse modal, and
+        // falls back to its catalog description rather than rendering a blank line. The two
+        // are written in different registers (catalog descriptions carry an engine prefix),
+        // so the fallback reads as slightly out of place by design, not by accident.
+        const desc = SHORT_DESC[model.id] ?? model.description;
+        const quantTag = parseModelTags(model)[0];
         const isStream =
           model.modeSupport === "both" || model.modeSupport === "stream";
         const isMultilang =

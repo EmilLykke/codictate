@@ -2,11 +2,9 @@ import {
   DEFAULT_MODEL_ID,
   HVISKE_TRANSCRIPTION_LANGUAGE_ID,
   getSpeechModel,
+  isHviskeSpeechModelId,
 } from '../../../shared/speech-models'
-import {
-  HVISKE_CRISPASR_BACKEND,
-  type CrispasrBackendId,
-} from '../../../shared/asr-harness'
+import { HVISKE_CRISPASR_BACKEND } from '../../../shared/asr-harness'
 import { resolveTranslateModelId } from '../../../shared/whisper-models'
 import { modelManager } from './model-manager'
 import { pasteTranscript } from '../keyboard/keyboard-events'
@@ -20,7 +18,6 @@ import type {
 } from '../../../shared/types'
 import { applyDictionary } from '../dictionary/apply-dictionary'
 import { RECORDING_PATH } from '../../platform/runtime'
-import { isHviskeEnabled, resolveAppAsrHarness } from './find-asr-harness'
 import { buildWhisperHarnessCommand } from './whisper-harness-command'
 
 /**
@@ -101,48 +98,25 @@ async function drainReadableStream(
   return out
 }
 
-interface HviskeRunPlan {
-  /** The Speech Model the run should actually use. */
-  modelId: string
-  /** Set only when the run really is an hviske run. */
-  crispasrBackend?: CrispasrBackendId
-}
-
 /**
- * Decide whether a selected hviske Speech Model may run.
+ * The Speech Model an hviske selection should actually run.
  *
- * hviske is prep-only. It loads under the crispasr Harness with `--backend cohere` and
- * nowhere else, and is gated by {@link isHviskeEnabled} - which needs both a source
- * checkout and an explicit `CODICTATE_ENABLE_HVISKE`. That gate is independent of the
- * Harness default, so crispasr shipping as the default does not unlock hviske. In a
- * released build, in any dev run without the flag, or when the weights are simply not
- * installed, this falls back to the default Speech Model on the app Harness rather than
- * attempting an hviske run.
+ * hviske weights are a separate download and the selected Model ID outlives them in
+ * AppConfig, so a selection can point at weights the user has since deleted. Falling back
+ * to the default Speech Model keeps that a transcript in the wrong language rather than a
+ * failed Dictation. Every other Speech Model is passed through untouched; the surfaces that
+ * offer them already filter on availability.
  */
-function planHviskeRun(modelId: string): HviskeRunPlan {
-  if (getSpeechModel(modelId)?.engine !== 'hviske') {
-    return { modelId }
-  }
+function resolveInstalledHviskeModelId(modelId: string): string {
+  if (!isHviskeSpeechModelId(modelId)) return modelId
+  if (modelManager.isModelAvailable(modelId)) return modelId
 
-  if (!isHviskeEnabled()) {
-    log(
-      'whisper',
-      'hviske model selected without the dev-only hviske flag - falling back to the default model',
-      { modelId, fallbackModelId: DEFAULT_MODEL_ID }
-    )
-    return { modelId: DEFAULT_MODEL_ID }
-  }
-
-  if (!modelManager.isModelAvailable(modelId)) {
-    log(
-      'whisper',
-      'hviske model selected but weights are not installed - falling back to the default model',
-      { modelId, fallbackModelId: DEFAULT_MODEL_ID }
-    )
-    return { modelId: DEFAULT_MODEL_ID }
-  }
-
-  return { modelId, crispasrBackend: HVISKE_CRISPASR_BACKEND }
+  log(
+    'whisper',
+    'hviske model selected but weights are not installed - falling back to the default model',
+    { modelId, fallbackModelId: DEFAULT_MODEL_ID }
+  )
+  return DEFAULT_MODEL_ID
 }
 
 export const transcribe = async (
@@ -155,12 +129,7 @@ export const transcribe = async (
     return transcribeParakeet(requestedModelId)
   }
 
-  const hviske = planHviskeRun(requestedModelId)
-  const modelId = hviske.modelId
-  const crispasrBackend = hviske.crispasrBackend
-
-  // hviske only ever runs on crispasr; everything else keeps the resolved app Harness.
-  const harness = crispasrBackend ? 'crispasr' : resolveAppAsrHarness()
+  const modelId = resolveInstalledHviskeModelId(requestedModelId)
 
   const translateRunModelId = resolveTranslateModelId(modelId, (id) =>
     modelManager.isModelAvailable(id)
@@ -177,14 +146,20 @@ export const transcribe = async (
   const effectiveModelId = useTranslate ? translateRunModelId : modelId
   const model = modelManager.getModelPath(effectiveModelId)
 
-  // hviske is a Danish-only model, so its language is pinned rather than taken from the
-  // user's Transcription Language (which may be auto or another language entirely).
-  const language = crispasrBackend
+  // Backend and language follow the Speech Model that actually runs, not the one the user
+  // selected. hviske GGUF weights load under `--backend cohere` alone and are Danish only,
+  // so its language is pinned rather than taken from the user's Transcription Language
+  // (which may be auto, or another language entirely). A translate request on an hviske
+  // selection resolves away from hviske to a translate-capable Whisper Speech Model
+  // (resolveTranslateModelId), and that model must inherit neither the backend nor the
+  // pinned Danish.
+  const isHviskeRun = isHviskeSpeechModelId(effectiveModelId)
+  const crispasrBackend = isHviskeRun ? HVISKE_CRISPASR_BACKEND : undefined
+  const language = isHviskeRun
     ? HVISKE_TRANSCRIPTION_LANGUAGE_ID
     : whisperLanguageCode
 
   const command = await buildWhisperHarnessCommand({
-    harness,
     crispasrBackend,
     modelPath: model,
     language,

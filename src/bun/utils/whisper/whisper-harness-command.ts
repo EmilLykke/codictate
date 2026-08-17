@@ -1,14 +1,11 @@
 import { availableParallelism } from 'node:os'
-import { whisperCliLanguageArg } from '../../../shared/transcription-languages'
+import { asrHarnessLanguageArg } from '../../../shared/transcription-languages'
 import {
   DEFAULT_ASR_HARNESS,
   type AsrHarnessId,
   type CrispasrBackendId,
 } from '../../../shared/asr-harness'
-import {
-  findAsrHarnessBinary,
-  resolveAsrHarnessBinary,
-} from './find-asr-harness'
+import { findAsrHarnessBinary } from './find-asr-harness'
 
 export interface WhisperHarnessCommandOptions {
   harness?: AsrHarnessId
@@ -20,8 +17,8 @@ export interface WhisperHarnessCommandOptions {
   translateToEnglish?: boolean
   /**
    * crispasr `--backend` to load the weights with. Omitted for whisper.cpp GGML weights,
-   * which both Harnesses read with their default backend. Set to `cohere` for hviske
-   * GGUF weights, which no other backend can load.
+   * which the default backend reads. Set to `cohere` for hviske GGUF weights, which no
+   * other backend can load.
    */
   crispasrBackend?: CrispasrBackendId
 }
@@ -41,62 +38,42 @@ function whisperHarnessThreadCount(): number {
 }
 
 /**
- * The argv for one Whisper transcription, for either ASR Harness.
+ * The argv for one Whisper transcription on the crispasr ASR Harness.
  *
- * crispasr is a verified drop-in for this exact flag set (`-m -t --language -f
- * --no-prints -nt`), which is why one builder covers both, and it is now the shipping
- * default: measurably faster and lighter at equal WER.
+ * crispasr was verified a drop-in for this exact flag set (`-m -t --language -f
+ * --no-prints -nt`) before it replaced `whisper-cli`, and is now the only Harness, so
+ * there is one binary to resolve and no degrade path.
  *
- * Translate is not an exception and gets no Harness special-casing. `-tr` was measured
- * equivalent on a translate-capable Speech Model (large-v3, Danish and Spanish FLEURS):
- * both Harnesses returned English on every sample, differing only by ordinary decoding
- * variance. An earlier turbo-model test that came back in Danish was the wrong model, not a
- * crispasr defect - `large-v3-turbo` is a transcribe-only distillation and returns the
- * source language under either Harness, which is exactly why `resolveTranslateModelId()`
- * swaps the Speech Model before a translate run. Translate is a Speech Model concern, not a
- * Harness one.
+ * Translate needs no special-casing. `-tr` was measured equivalent across Harnesses on a
+ * translate-capable Speech Model (large-v3, Danish and Spanish FLEURS): English on every
+ * sample, differing only by ordinary decoding variance. An earlier turbo-model test that
+ * came back in Danish was the wrong model, not a crispasr defect - `large-v3-turbo` is a
+ * transcribe-only distillation and returns the source language whatever runs it, which is
+ * exactly why `resolveTranslateModelId()` picks the Speech Model for a translate run.
+ * Translate is a Speech Model concern, not a Harness one.
  *
- * A pinned `crispasrBackend` (hviske) is the one case that constrains the Harness: the
- * weights load under that backend alone, and a translate request there is rejected outright
- * instead of silently producing a run on the wrong weights. crispasr's own
- * `--list-backends` reports translate support for `cohere`, but that is unverified here, so
- * it stays unavailable until the benchmark says otherwise.
- *
- * The returned `harness` is the one whose binary actually resolved. A non-hviske run
- * degrades to `whisper-cli` when the requested Harness has no binary, so that a missing
- * crispasr costs speed rather than all dictation.
+ * The `translateToEnglish` + pinned-backend combination is rejected rather than run,
+ * because hviske's weights are Danish-only and cannot translate: a run there would
+ * silently produce Danish for a user who asked for English. crispasr's own
+ * `--list-backends` claims translate support for `cohere`, but that is unverified, so it
+ * stays unavailable until the benchmark says otherwise. This is a last-resort invariant
+ * and should be unreachable: `resolveTranslateModelId()` resolves an hviske selection to a
+ * translate-capable Whisper Speech Model before it ever gets here.
  */
 export async function buildWhisperHarnessCommand(
   options: WhisperHarnessCommandOptions
 ): Promise<WhisperHarnessCommand> {
-  const requestedHarness = options.harness ?? DEFAULT_ASR_HARNESS
+  const harness = options.harness ?? DEFAULT_ASR_HARNESS
   const backend = options.crispasrBackend
 
-  if (backend != null) {
-    if (requestedHarness !== 'crispasr') {
-      throw new Error(
-        `ASR harness ${requestedHarness} has no --backend flag; ${backend} requires the crispasr harness`
-      )
-    }
-    if (options.translateToEnglish) {
-      throw new Error(
-        `translate to English is not available on the crispasr ${backend} backend`
-      )
-    }
+  if (backend != null && options.translateToEnglish) {
+    throw new Error(
+      `translate to English is not available on the crispasr ${backend} backend`
+    )
   }
 
-  // A pinned backend must not degrade: whisper-cli has no --backend flag, so an hviske run
-  // either gets crispasr or fails loudly.
-  const resolved =
-    backend == null
-      ? await resolveAsrHarnessBinary(requestedHarness)
-      : {
-          harness: requestedHarness,
-          binary: await findAsrHarnessBinary(requestedHarness),
-        }
-  const harness = resolved.harness
-  const binary = resolved.binary
-  const languageArg = whisperCliLanguageArg(options.language)
+  const binary = await findAsrHarnessBinary(harness)
+  const languageArg = asrHarnessLanguageArg(options.language)
 
   const argv = [binary]
 

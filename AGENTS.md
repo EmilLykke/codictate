@@ -1,8 +1,8 @@
-# Codictate — Architecture
+# Codictate - Architecture
 
 ## What Codictate does
 
-Codictate is a local-first dictation app. The user presses a global keyboard shortcut, speaks into their microphone, and the transcribed (and optionally formatted) text is pasted wherever the cursor is. Everything runs on-device — no cloud services, no accounts, no analytics.
+Codictate is a local-first dictation app. The user presses a global keyboard shortcut, speaks into their microphone, and the transcribed (and optionally formatted) text is pasted wherever the cursor is. Everything runs on-device - no cloud services, no accounts, no analytics.
 
 Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 10+).
 
@@ -15,7 +15,7 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | Frontend | React 19, Vite, Tailwind CSS v4 |
 | Animation | Motion (Framer Motion) |
 | Data fetching | @tanstack/react-query |
-| Speech-to-text | Whisper (via the `whisper-cli` or `crispasr` ASR Harness) and Parakeet (FluidAudio/FluidInference via CodictateParakeetHelper) |
+| Speech-to-text | Whisper and Danish hviske (both via the `crispasr` ASR Harness) and Parakeet (FluidAudio/FluidInference via CodictateParakeetHelper) |
 | Formatting | llama.cpp running Qwen2.5 3B / Qwen3 4B, or Apple Intelligence (macOS 26+) |
 | Native helpers | Swift (macOS), Rust (Windows) |
 
@@ -87,16 +87,16 @@ docs/
   RELEASING.md                  # Maintainer release guide
   RECORDING_INDICATOR.md        # Recording HUD architecture
   MACOS_SIGNING_AND_NOTARIZATION.md
-  HVISKE_MIRROR.md              # Mirroring the Danish hviske model
+  HVISKE_MIRROR.md              # The published Danish hviske Mirror
   AEROSPACE.md                  # AeroSpace window rule
   adr/                          # Architecture decision records
 
-vendors/                        # Pre-built vendor binaries (whisper-cli, llama-completion, etc.)
+vendors/                        # Pre-built vendor binaries (crispasr, llama-completion, etc.)
 ```
 
 ## Key architecture details
 
-### Electrobun — not Electron
+### Electrobun - not Electron
 
 Electrobun uses the OS native webview instead of bundling Chromium. Import patterns:
 - Main process: `import { ... } from "electrobun/bun"`
@@ -112,8 +112,9 @@ See `docs/RECORDING_INDICATOR.md` for full details.
 
 ### Speech engines
 
-- **Whisper**: the default engine. Runs under one of two **ASR Harnesses**: `whisper-cli` (built from whisper.cpp, the shipping default) or `crispasr` (prebuilt, benchmark-selectable and behind the dev-only `CODICTATE_ASR_HARNESS` env var). Harness is internal and never exposed to users; which one ships is decided by measured WER and RTF. See `docs/adr/0002-asr-harness-abstraction.md`.
-- **Parakeet**: runs via `CodictateParakeetHelper` (macOS only). The engine ID in code is `whisperkit` but the actual engine is **FluidAudio** (FluidInference) — not WhisperKit.
+- **Whisper**: the default engine. Runs under the single **ASR Harness**, `crispasr`, a prebuilt binary pinned and sha256-verified. `whisper-cli` is retired: it is gone from the harness list, the app bundle and the build, along with the `CODICTATE_ASR_HARNESS` override. There is no fallback harness, so an unresolvable `crispasr` binary fails dictation loudly. Harness stays internal and is never exposed to users. See `docs/adr/0002-asr-harness-abstraction.md`.
+- **Parakeet**: runs via `CodictateParakeetHelper` (macOS only). The engine ID in code is `whisperkit` but the actual engine is **FluidAudio** (FluidInference), not WhisperKit.
+- **hviske**: Danish only, the mirrored `syvai/hviske-v5-tiny` GGUF weights. Runs on the same `crispasr` binary with `--backend cohere`, which is the only runtime that can read those weights. Ungated: no env var, no source-checkout requirement. All five Quantizations live in the browse modal ("Browse more models" in Settings) and none is curated; `f16` is the recommended one in documentation, because syvai's claim of identical Danish WER across all five is unverified. Built for both platforms. The `cohere` backend is confirmed present in the shipped Windows binary (verified in the pinned `crispasr-windows-x86_64-vulkan.zip` for v0.8.29: `--backend` help lists `cohere`, and `CohereBackend` / `cohere_transcribe_ex` / `llm_build_cohere2_iswa` symbols are in `crispasr.exe` and `crispasr.dll`). What is still unverified is narrower: **no hviske Dictation has been run on Windows hardware**, so the end-to-end GGUF load, Vulkan device selection and output quality are unobserved. Do not upgrade that to a Windows support claim until someone runs it. See `docs/adr/0004-hviske-danish-ungated.md` and `docs/HVISKE_MIRROR.md`.
 
 ### Formatting pipeline
 
@@ -144,4 +145,4 @@ Defined in `src/mainview/index.css`:
 --color-codictate-paper        /* Semi-transparent surface */
 ```
 
-Both Iceland and Iceberg fonts are very small at standard sizes — always use larger font sizes than typical. The base body font-size is 23px.
+Both Iceland and Iceberg fonts are very small at standard sizes - always use larger font sizes than typical. The base body font-size is 23px.

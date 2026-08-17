@@ -1,17 +1,12 @@
 import { describe, test, expect } from 'bun:test'
 import { listFiles, downloadFile } from '@huggingface/hub'
-import { SPEECH_MODELS } from '../../../shared/speech-models'
+import {
+  SPEECH_MODELS,
+  hviskeMirrorFileUrl,
+} from '../../../shared/speech-models'
 import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 
-/**
- * hviske is prep-only and its Mirror repo has not been created yet (a maintainer has to
- * run `scripts/mirror-hviske.ts` first - see docs/HVISKE_MIRROR.md), so asserting the
- * repo is reachable would assert something that is deliberately not true yet. Drop the
- * `engine !== 'hviske'` filter once the Mirror exists.
- */
-const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter(
-  (m) => !m.bundled && m.engine !== 'hviske'
-)
+const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter((m) => !m.bundled)
 
 describe('model downloads', () => {
   for (const model of DOWNLOADABLE_MODELS) {
@@ -20,6 +15,24 @@ describe('model downloads', () => {
         `${model.id}: whisper.cpp download is accessible`,
         async () => {
           const url = whisperModelDownloadUrl(model.artifactName)
+          const res = await fetch(url, { method: 'HEAD' })
+          expect(res.status).toBe(200)
+          const size = Number(res.headers.get('Content-Length') ?? '0')
+          expect(size).toBeGreaterThan(0)
+        },
+        { timeout: 15_000 }
+      )
+    }
+
+    // hviske downloads by direct Mirror URL rather than through the whisper.cpp repo, so
+    // the exact per-Quantization URL the app builds is what has to be reachable. This also
+    // catches a Mirror that lost a Quantization: the repo-level checks below would still
+    // pass with four of five files present.
+    if (model.engine === 'hviske') {
+      test(
+        `${model.id}: hviske Mirror download is accessible`,
+        async () => {
+          const url = hviskeMirrorFileUrl(model.artifactName)
           const res = await fetch(url, { method: 'HEAD' })
           expect(res.status).toBe(200)
           const size = Number(res.headers.get('Content-Length') ?? '0')

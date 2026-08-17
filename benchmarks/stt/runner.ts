@@ -5,6 +5,7 @@ import { fixBrandMishearings } from "../../src/bun/utils/whisper/speech2text";
 import {
   getSpeechModel,
   isHviskeSpeechModelId,
+  HVISKE_TRANSCRIPTION_LANGUAGE_ID,
 } from "../../src/shared/speech-models";
 import {
   DEFAULT_ASR_HARNESS,
@@ -106,21 +107,35 @@ async function drainStream(
 }
 
 /**
- * How to invoke one Speech Model. hviske GGUF weights load only under crispasr's
- * cohere backend, so they ignore the run's selected Harness rather than being
- * silently transcribed by the wrong one and reported as an hviske result.
+ * How to invoke one Speech Model: which Harness, which crispasr backend, which
+ * language.
+ *
+ * hviske GGUF weights load only under crispasr's cohere backend, so they ignore the
+ * run's selected Harness rather than being silently transcribed by the wrong one and
+ * reported as an hviske result. `harnessBucketForModel` files their results under the
+ * same forced Harness, so what the report says produced a number is what produced it.
+ *
+ * Language is pinned for the same reason. hviske is Danish-only and the app always
+ * sends `--language da` (see `speech2text.ts`), so a benchmark that passed the
+ * dataset's own language would be measuring an invocation no user can produce.
  */
 function harnessInvocationFor(
   modelId: string,
   harness: AsrHarnessId,
-): { harness: AsrHarnessId; crispasrBackend?: typeof HVISKE_CRISPASR_BACKEND } {
+  language: string | null,
+): {
+  harness: AsrHarnessId;
+  language: string | null;
+  crispasrBackend?: typeof HVISKE_CRISPASR_BACKEND;
+} {
   if (isHviskeSpeechModelId(modelId)) {
     return {
       harness: HVISKE_ASR_HARNESS,
+      language: HVISKE_TRANSCRIPTION_LANGUAGE_ID,
       crispasrBackend: HVISKE_CRISPASR_BACKEND,
     };
   }
-  return { harness };
+  return { harness, language };
 }
 
 async function transcribeWhisper(
@@ -130,9 +145,8 @@ async function transcribeWhisper(
   modelId: string,
 ): Promise<string> {
   const { argv } = await buildWhisperHarnessCommand({
-    ...harnessInvocationFor(modelId, harness),
+    ...harnessInvocationFor(modelId, harness, language),
     modelPath,
-    language,
     audioPath: RECORDING_PATH,
   });
 
@@ -221,9 +235,8 @@ async function measureModelMemory(
   } else {
     command = (
       await buildWhisperHarnessCommand({
-        ...harnessInvocationFor(modelId, harness),
+        ...harnessInvocationFor(modelId, harness, null),
         modelPath,
-        language: null,
         audioPath: RECORDING_PATH,
       })
     ).argv;

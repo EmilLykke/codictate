@@ -23,8 +23,10 @@ import {
 import {
   getCombinationResult,
   harnessBucketForModel,
+  isBenchmarkHarnessLabel,
   normalizeDatasetResults,
   setCombinationResult,
+  type BenchmarkHarnessLabel,
   type DatasetResults,
 } from "./stt/results-schema";
 import { LIBRISPEECH_SPLITS, isLibriSpeechSplit } from "./stt/datasets";
@@ -42,12 +44,17 @@ import { modelManager } from "../src/bun/utils/whisper/model-manager";
 // -- Checkpoint types --
 
 interface CheckpointData {
-  harnesses: AsrHarnessId[];
+  /**
+   * Archived labels, not runnable ids: a checkpoint is disk data, and one written by a
+   * since-retired Harness has to keep parsing so the resume can refuse it by name
+   * instead of reading as an empty set.
+   */
+  harnesses: BenchmarkHarnessLabel[];
   librispeech: DatasetResults;
   fleurs: DatasetResults;
   inProgress?: {
     /** Which Harness was mid-Combination, so a resume does not credit the wrong one. */
-    harness: AsrHarnessId;
+    harness: BenchmarkHarnessLabel;
     modelId: string;
     datasetKey: string;
     datasetType: "librispeech" | "fleurs";
@@ -70,7 +77,7 @@ async function loadCheckpoint(runDir: string): Promise<CheckpointData | null> {
   const raw = (await Bun.file(path).json()) as Partial<CheckpointData>;
   return {
     harnesses: Array.isArray(raw.harnesses)
-      ? raw.harnesses.filter(isAsrHarnessId)
+      ? raw.harnesses.filter(isBenchmarkHarnessLabel)
       : [DEFAULT_ASR_HARNESS],
     librispeech: normalizeDatasetResults(raw.librispeech),
     fleurs: normalizeDatasetResults(raw.fleurs),
@@ -186,12 +193,20 @@ function parseArgs() {
     switch (args[i]) {
       case "--harness": {
         // Comma-separated so CI can compare Harnesses in one run, same as the TUI.
+        // Validated against the runnable set only: a Harness that is no longer built
+        // cannot be measured, however readable its archived results still are.
         const values = args[++i].split(",");
         const unknown = values.filter((v) => !isAsrHarnessId(v));
         if (unknown.length > 0) {
+          const retired = unknown.filter(isBenchmarkHarnessLabel);
           console.error(
-            `Error: unknown --harness ${unknown.join(", ")}. Known: ${ASR_HARNESS_IDS.join(", ")}`,
+            `Error: cannot run --harness ${unknown.join(", ")}. Runnable: ${ASR_HARNESS_IDS.join(", ")}`,
           );
+          if (retired.length > 0) {
+            console.error(
+              `  ${retired.join(", ")} is retired and no longer built. Its archived results stay readable in benchmarks/results/, but no new measurement can be produced.`,
+            );
+          }
           process.exit(1);
         }
         flags.harnesses = values.filter(isAsrHarnessId);
@@ -334,7 +349,10 @@ async function main() {
       for (const field of ["librispeech", "fleurs"] as const) {
         for (const [datasetKey, byHarness] of Object.entries(data[field])) {
           for (const [harness, byModel] of Object.entries(byHarness)) {
-            if (!isAsrHarnessId(harness) || !byModel) continue;
+            // Archived labels. Guarding on runnable ids here silently drops every
+            // whisper-cli bucket out of the aggregate, including the comparison run
+            // that justified retiring it.
+            if (!isBenchmarkHarnessLabel(harness) || !byModel) continue;
             for (const [modelId, result] of Object.entries(byModel)) {
               if (result.utteranceCount > 0) {
                 setCombinationResult(
@@ -467,8 +485,16 @@ async function main() {
     console.log("--- Downloading models ---");
     for (const modelId of flags.models) {
       const model = getSpeechModel(modelId);
-      if (!model || model.engine !== "whisper_cpp") {
-        console.log(`  [${modelId}] skipped (not a whisper_cpp model)`);
+      // Both single-file Engines download here: whisper.cpp GGML weights, and hviske
+      // GGUF weights from their Mirror. Parakeet is the exception - it installs a
+      // CoreML/ONNX bundle through the app, not a file this step can fetch.
+      if (
+        !model ||
+        (model.engine !== "whisper_cpp" && model.engine !== "hviske")
+      ) {
+        console.log(
+          `  [${modelId}] skipped (${model ? `engine ${model.engine} is not downloadable here` : "unknown model"})`,
+        );
         continue;
       }
       const buckets = [
@@ -536,16 +562,29 @@ async function main() {
 
   if (checkpoint) {
     console.log(`\n--- Resuming from checkpoint in ${existingRunDir} ---`);
+    // Comparing an archived label set against a runnable one is exactly the check that
+    // has to survive a retirement: a checkpoint left mid-run by whisper-cli must be
+    // refused by name, not read as an empty set and resumed under crispasr, which
+    // would file crispasr numbers next to whisper-cli ones in the same run.
     const sameHarnesses =
       checkpoint.harnesses.length === flags.harnesses.length &&
-      checkpoint.harnesses.every((h) => flags.harnesses.includes(h));
+      checkpoint.harnesses.every((h) =>
+        (flags.harnesses as readonly string[]).includes(h),
+      );
     if (!sameHarnesses) {
       console.error(
         `Error: checkpoint in ${existingRunDir} was run under harness set "${checkpoint.harnesses.join(", ")}", not "${flags.harnesses.join(", ")}".`,
       );
-      console.error(
-        "  Finish or delete that run before starting one on another harness set.",
-      );
+      const retired = checkpoint.harnesses.filter((h) => !isAsrHarnessId(h));
+      if (retired.length > 0) {
+        console.error(
+          `  ${retired.join(", ")} is retired, so that run can never be finished. Delete ${existingRunDir} to start fresh; its partial results were never written to stt.json.`,
+        );
+      } else {
+        console.error(
+          "  Finish or delete that run before starting one on another harness set.",
+        );
+      }
       process.exit(1);
     }
   }
@@ -564,7 +603,9 @@ async function main() {
         previousResults[field],
       )) {
         for (const [harness, byModel] of Object.entries(byHarness)) {
-          if (!isAsrHarnessId(harness) || !byModel) continue;
+          // Archived labels: a previous run's whisper-cli results are still results,
+          // and pre-filling from them is the whole point of --skip-existing.
+          if (!isBenchmarkHarnessLabel(harness) || !byModel) continue;
           for (const [modelId, result] of Object.entries(byModel)) {
             if (
               flags.models.includes(modelId) &&
@@ -617,6 +658,14 @@ async function main() {
 
   // Harness is the outer loop so every selected Harness transcribes the same sample
   // files, which is what makes their WER and RTF comparable.
+  //
+  // One runnable Harness makes this a one-element loop today, and it stays a loop on
+  // purpose. Harness is a domain dimension rather than a property of the current
+  // binary (CONTEXT.md, docs/adr/0002), the result files and every read path are
+  // permanently multi-Harness because the archive is, and the last Harness swap was
+  // decided by exactly this loop running two of them over identical samples. Keeping
+  // the plan single-valued while the reads stay multi-valued would mean maintaining
+  // two mental models of the same dimension.
   for (const harness of flags.harnesses) {
     if (flags.harnesses.length > 1) {
       console.log(`\n=== Harness: ${harness} ===`);

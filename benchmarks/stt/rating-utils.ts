@@ -34,15 +34,28 @@ export function rateLanguages(count: number): number {
   return Math.max(1, Math.min(3, count));
 }
 
+/**
+ * A declared language list is authoritative for any Speech Engine, not just Parakeet:
+ * the hviske Speech Models declare Danish alone, and reading them as multilingual
+ * whisper.cpp weights rated them 10 for languages.
+ */
 export function modelSupportedLanguages(id: string): number {
   const model = getSpeechModel(id);
   if (!model) return 1;
-  if (model.engine === "whisperkit")
-    return model.supportedTranscriptionLanguageIds?.length ?? 1;
+  const declared = model.supportedTranscriptionLanguageIds;
+  if (declared) return declared.length;
   if (id.includes(".en")) return 1;
   return 99;
 }
 
+/**
+ * True only for Speech Models that can produce English and nothing else, which is what
+ * makes averaging their accuracy over the English conditions alone the fair reading.
+ * A single-language model in some other language (hviske, Danish) is not this: it would
+ * be judged on conditions it cannot answer either way.
+ */
 export function isEnglishOnlyModel(id: string): boolean {
-  return modelSupportedLanguages(id) === 1;
+  const declared = getSpeechModel(id)?.supportedTranscriptionLanguageIds;
+  if (declared) return declared.length === 1 && declared[0] === "en";
+  return id.includes(".en");
 }

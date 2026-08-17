@@ -10,8 +10,11 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { AsrHarnessId } from "../../src/shared/asr-harness";
-import { normalizeDatasetResults } from "./results-schema";
+import {
+  isBenchmarkHarnessLabel,
+  normalizeDatasetResults,
+  type BenchmarkHarnessLabel,
+} from "./results-schema";
 
 /** harness -> modelId -> datasetKey -> deepest sample count recorded. */
 export type CoverageIndex = Record<
@@ -20,6 +23,9 @@ export type CoverageIndex = Record<
 >;
 
 const RUN_DIR_PATTERN = /^\d{4}-\d{2}-\d{2}/;
+
+/** Unrecognised Harness keys already reported, so one bad file warns once. */
+const warnedUnknownHarnesses = new Set<string>();
 
 function recordCoverage(
   index: CoverageIndex,
@@ -32,6 +38,19 @@ function recordCoverage(
     onDataset?.(datasetKey);
     for (const [harness, byModel] of Object.entries(byHarness)) {
       if (!byModel) continue;
+      // Coverage is keyed by whatever the file says, including retired Harnesses, so
+      // archived Combinations still count as measured. An unrecognised label is still
+      // recorded - dropping measured data is worse than an odd bucket - but it says so
+      // out loud rather than creating a phantom bucket in silence.
+      if (
+        !isBenchmarkHarnessLabel(harness) &&
+        !warnedUnknownHarnesses.has(harness)
+      ) {
+        warnedUnknownHarnesses.add(harness);
+        console.warn(
+          `Warning: result files contain unknown ASR Harness key "${harness}". Add it to BENCHMARK_HARNESS_LABELS if it is a real archived Harness.`,
+        );
+      }
       for (const [modelId, result] of Object.entries(byModel)) {
         if (result.utteranceCount <= 0) continue;
         const byDataset = ((index[harness] ??= {})[modelId] ??= {});
@@ -94,7 +113,7 @@ export interface ModelCoverage {
 
 export function modelCoverage(
   coverage: Coverage,
-  harness: AsrHarnessId,
+  harness: BenchmarkHarnessLabel,
   modelId: string,
 ): ModelCoverage | null {
   const byDataset = coverage.index[harness]?.[modelId];
@@ -113,7 +132,7 @@ export function modelCoverage(
 /** One-line coverage badge for a model row in the benchmark TUI. */
 export function formatModelCoverage(
   coverage: Coverage,
-  harness: AsrHarnessId,
+  harness: BenchmarkHarnessLabel,
   modelId: string,
 ): string {
   const covered = modelCoverage(coverage, harness, modelId);
@@ -131,7 +150,7 @@ export function formatModelCoverage(
  */
 export function isCombinationCovered(
   coverage: Coverage,
-  harness: AsrHarnessId,
+  harness: BenchmarkHarnessLabel,
   modelId: string,
   datasetKey: string,
   samples: number,

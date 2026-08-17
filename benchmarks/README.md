@@ -2,6 +2,28 @@
 
 Measures Word Error Rate (WER), Real-Time Factor (RTF), and peak memory (RSS) for Codictate's speech-to-text models.
 
+## ASR Harnesses: one runnable, one archived
+
+There is exactly one **runnable** ASR Harness, `crispasr`. `whisper-cli` was retired after the benchmark settled it (see `benchmarks/results/2026-08-17_15-15-49_crispasr-vs-whisper/`), and nothing builds it any more, so no new measurement under it is possible. `--harness whisper-cli` is rejected with an explanation rather than silently ignored.
+
+The results in `benchmarks/results/` are frozen and are treated as read-only measured data:
+
+| Run                                             | Harness in the file                            |
+| ----------------------------------------------- | ---------------------------------------------- |
+| `2026-05-08_07-56-46_main-model-comparison`     | pre-harness shape, migrated to `whisper-cli`   |
+| `2026-05-09_10-12-34_tiny-base-triage`          | pre-harness shape, migrated to `whisper-cli`   |
+| `2026-05-09_15-40-49_full-run-except-tiny-base` | pre-harness shape, migrated to `whisper-cli`   |
+| `2026-08-17_15-15-49_crispasr-vs-whisper`       | `whisper-cli` and `crispasr`, keyed explicitly |
+
+Those whisper-cli numbers can never be re-measured, so **two separate concepts** are kept apart in code, and conflating them again is how the archive gets silently dropped:
+
+- **Runnable Harness** - `ASR_HARNESS_IDS` in `src/shared/asr-harness.ts`. What a new run may execute. Used for `--harness` validation and for building a run plan.
+- **Archived Harness label** - `BENCHMARK_HARNESS_LABELS` in `stt/results-schema.ts`. What a Harness key in a result file may legitimately say. Append-only, and still contains `whisper-cli`. **Every read path must validate against this one**: parsing, migration, flattening, coverage, reporting, checkpoint resume, and `stt/charts.py`.
+
+`stt/results-schema.test.ts` reads the four real run directories and fails if any archived whisper-cli bucket stops parsing. Run it with `bun test benchmarks/`.
+
+In reports and charts, rows from the shipping Harness carry a bare Model ID and every other archived Harness is tagged, so archived rows read as `Large V3 q5_0 [whisper-cli]`. A run spanning more than one Harness also gets an **ASR Harnesses** line in the report header naming which Harness the untagged rows came from. Parakeet and hviske ignore the selected Harness (their own helper, and crispasr's pinned `cohere` backend) and are always recorded under the Harness that actually produced them.
+
 ## Prerequisites
 
 - **ffmpeg** - `brew install ffmpeg`
@@ -11,11 +33,11 @@ Measures Word Error Rate (WER), Real-Time Factor (RTF), and peak memory (RSS) fo
 
 ## Datasets
 
-| Dataset | Language | Purpose |
-|---------|----------|---------|
-| [LibriSpeech](https://www.openslr.org/12) test-clean | English | Standard WER benchmark (comparable to published numbers) |
-| [LibriSpeech](https://www.openslr.org/12) test-other | English | Harder/noisier speakers |
-| [FLEURS](https://huggingface.co/datasets/google/fleurs) test split | es, da, hu (expandable) | Multilingual WER |
+| Dataset                                                            | Language                | Purpose                                                  |
+| ------------------------------------------------------------------ | ----------------------- | -------------------------------------------------------- |
+| [LibriSpeech](https://www.openslr.org/12) test-clean               | English                 | Standard WER benchmark (comparable to published numbers) |
+| [LibriSpeech](https://www.openslr.org/12) test-other               | English                 | Harder/noisier speakers                                  |
+| [FLEURS](https://huggingface.co/datasets/google/fleurs) test split | es, da, hu (expandable) | Multilingual WER                                         |
 
 LibriSpeech downloads automatically. FLEURS downloads via `hf`.
 
@@ -55,18 +77,19 @@ bun run bench:stt -- --report-only
 
 ## CLI Flags
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--name` | **required** | Slug appended to results directory, used as URL path on website |
-| `--description` | **required** | Goal/context for this benchmark run (stored in stt.json, shown in report) |
-| `--models` | all | Comma-separated model IDs (all 34 models if omitted) |
-| `--samples` | 200 | Max utterances per dataset/language |
-| `--languages` | es_419,da_dk,hu_hu | FLEURS language codes |
-| `--skip-download` | false | Skip dataset and model download step |
-| `--skip-convert` | false | Skip audio conversion step |
-| `--skip-existing` | false | Load latest stt.json and skip model/dataset combos already benchmarked |
-| `--offload-models` | false | Delete downloaded models from disk after all benchmarks complete |
-| `--report-only` | false | Regenerate markdown from existing stt.json |
+| Flag               | Default            | Description                                                                                                     |
+| ------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `--harness`        | `crispasr`         | Comma-separated runnable ASR Harnesses. Only `crispasr` is runnable; a retired Harness is rejected, not ignored |
+| `--name`           | **required**       | Slug appended to results directory, used as URL path on website                                                 |
+| `--description`    | **required**       | Goal/context for this benchmark run (stored in stt.json, shown in report)                                       |
+| `--models`         | all                | Comma-separated model IDs (all 34 models if omitted)                                                            |
+| `--samples`        | 200                | Max utterances per dataset/language                                                                             |
+| `--languages`      | es_419,da_dk,hu_hu | FLEURS language codes                                                                                           |
+| `--skip-download`  | false              | Skip dataset and model download step                                                                            |
+| `--skip-convert`   | false              | Skip audio conversion step                                                                                      |
+| `--skip-existing`  | false              | Load latest stt.json and skip model/dataset combos already benchmarked                                          |
+| `--offload-models` | false              | Delete downloaded models from disk after all benchmarks complete                                                |
+| `--report-only`    | false              | Regenerate markdown from existing stt.json                                                                      |
 
 ## Output
 
@@ -88,15 +111,27 @@ The download script fetches only the test split (not full dataset).
 
 34 models supported (33 Whisper + 1 Parakeet). Curated defaults:
 
-| ID | Engine | Size | Notes |
-|----|--------|------|-------|
-| `small-q5_1` | Whisper | 181 MB | Good accuracy |
-| `large-v3-turbo-q5_0` | Whisper | 574 MB | Default, fast + accurate, bundled in `vendors/` |
-| `large-v3-q5_0` | Whisper | 1100 MB | Most accurate |
-| `parakeet-tdt-0.6b-v3` | FluidAudio | 500 MB | Fastest, macOS CoreML / Windows ONNX |
+| ID                     | Engine     | Size    | Notes                                           |
+| ---------------------- | ---------- | ------- | ----------------------------------------------- |
+| `small-q5_1`           | Whisper    | 181 MB  | Good accuracy                                   |
+| `large-v3-turbo-q5_0`  | Whisper    | 574 MB  | Default, fast + accurate, bundled in `vendors/` |
+| `large-v3-q5_0`        | Whisper    | 1100 MB | Most accurate                                   |
+| `parakeet-tdt-0.6b-v3` | FluidAudio | 500 MB  | Fastest, macOS CoreML / Windows ONNX            |
 
 Extended models span tiny through large-v3 in full/q5/q8 quantizations, with multilingual and English-only (.en) variants. Full catalog defined in `src/shared/speech-models.ts`. Missing models are auto-downloaded when benchmarking.
 
 ## Keeping the UI in sync
 
 Run `bun benchmarks/stt/generate-ratings.ts` after benchmarking to regenerate `src/shared/model-ratings.ts`. The speed, accuracy, and languages bars in the model picker are derived from this file.
+
+Ratings come from one ASR Harness, the shipping one by default, because they describe what users get. The script now refuses to write rather than emit a partial ratings file, which matters for the archive: the aggregate at `benchmarks/results/stt.json` measured 33 whisper Speech Models under whisper-cli and nothing under crispasr, so rating from it by default would have blanked all 33 bars in the model picker. Name the archived Harness to do it on purpose:
+
+```bash
+# Fails loudly, listing the 33 Speech Models that would be dropped
+bun benchmarks/stt/generate-ratings.ts benchmarks/results/stt.json
+
+# Rates from the archived whisper-cli measurements, with a warning
+bun benchmarks/stt/generate-ratings.ts benchmarks/results/stt.json --harness=whisper-cli
+```
+
+The ratings currently shipping in `src/shared/model-ratings.ts` are whisper-cli measurements. Replacing them with crispasr numbers needs a full crispasr run across all 34 Speech Models, which has not happened yet - only 3 were covered by the comparison run.

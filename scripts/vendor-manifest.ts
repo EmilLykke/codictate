@@ -6,8 +6,9 @@
 // runs, which is why the lists are hardcoded here instead of discovered by
 // scanning `vendors/` at build time.
 //
-// See docs/adr/0001-vendor-binary-sourcing.md for why these are prebuilt rather
-// than source builds, and docs/adr/0002-asr-harness-abstraction.md for crispasr.
+// Every Vendor Binary here is a prebuilt archive verified by sha256; nothing is
+// built from source. See docs/adr/0001-vendor-binary-sourcing.md for why, and
+// docs/adr/0002-asr-harness-abstraction.md for crispasr being the only ASR Harness.
 
 /**
  * Upstream llama.cpp. Publishes `llama-completion` for both target platforms, and
@@ -19,7 +20,7 @@ export const LLAMA_VERSION = "b10470";
 export const LLAMA_RELEASE_BASE =
   `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}`;
 
-/** CrispASR, the second ASR Harness. Single prebuilt binary, also the only runtime for Cohere ASR weights. */
+/** CrispASR, the only ASR Harness. Single prebuilt binary, also the only runtime for Cohere ASR weights. */
 export const CRISPASR_VERSION = "v0.8.29";
 export const CRISPASR_RELEASE_BASE =
   `https://github.com/CrispStrobe/CrispASR/releases/download/${CRISPASR_VERSION}`;
@@ -116,7 +117,7 @@ export const CRISPASR_MACOS_ARCHIVE: VendorArchive = {
   stripPrefix: "crispasr-macos",
 };
 
-/** Vulkan variant, matching the Vulkan-on Windows build of whisper-cli. */
+/** Vulkan variant, matching the Vulkan-on Windows build of llama-completion. */
 export const CRISPASR_WINDOWS_ARCHIVE: VendorArchive = {
   asset: "crispasr-windows-x86_64-vulkan.zip",
   sha256: "d43c17f8a6c351fd988578d992f1b7753a342af26a8eea1416d7cf58f9daab0f",

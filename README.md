@@ -3,7 +3,7 @@
 
   # Codictate
 
-  **Local-first dictation for macOS and Windows. Hit your shortcut, speak, and your words appear wherever your cursor is — no cloud, no account.**
+  **Local-first dictation for macOS and Windows. Hit your shortcut, speak, and your words appear wherever your cursor is - no cloud, no account.**
 </div>
 
 **Website:** [codictate.app](https://codictate.app) · [Releases](https://github.com/EmilLykke/codictate/releases) · [Changelog](CHANGELOG.md)
@@ -13,12 +13,15 @@
 | Feature | macOS | Windows |
 |---------|:-----:|:-------:|
 | Local Whisper transcription | ✓ | ✓ |
+| Danish transcription (hviske, Danish-only model) | ✓ | untested\* |
 | Global shortcut dictation | ✓ | ✓ |
-| Formatting — Qwen2.5 3B / Qwen3 4B (llama.cpp) | ✓ | ✓ |
-| Formatting — Apple Intelligence (macOS 26+) | ✓ | — |
+| Formatting - Qwen2.5 3B / Qwen3 4B (llama.cpp) | ✓ | ✓ |
+| Formatting - Apple Intelligence (macOS 26+) | ✓ | - |
 | Floating recording indicator | ✓ | ✓ |
-| Stream mode | ✓ | — |
+| Stream mode | ✓ | - |
 | No account, no analytics | ✓ | ✓ |
+
+\* Danish hviske is built for Windows in the same shipping code path as macOS, and the `cohere` backend it needs is confirmed present in the Windows binary Codictate ships. What has not happened yet is an actual Danish dictation on Windows hardware, so it stays marked untested rather than supported. Please report what you see if you try it.
 
 ## Download
 
@@ -59,7 +62,7 @@ Download and run the `*-Setup.exe` installer from Releases. It installs per-user
 
 ## Formatting
 
-Codictate can reformat raw transcriptions before pasting — e.g. turning spoken words into a properly structured email.
+Codictate can reformat raw transcriptions before pasting - e.g. turning spoken words into a properly structured email.
 
 Two backends are available depending on your platform:
 
@@ -75,16 +78,16 @@ See **[docs/FORMATTING.md](docs/FORMATTING.md)** for details.
 ### Requirements
 
 - [Bun](https://bun.sh) v1.3+
-- [cmake](https://cmake.org) — builds `whisper-cli` and `llama-completion` (both platforms)
-- Xcode Command Line Tools — Swift compilation (macOS only)
-- Rust toolchain — macOS: NeMo ITN for `CodictateParakeetHelper`; Windows: `CodictateWindowsHelper`
-- Vulkan SDK — GPU acceleration for whisper/llama on Windows (install [LunarG Vulkan SDK](https://vulkan.lunarg.com), ensure `glslc` is on PATH)
+- Xcode Command Line Tools - Swift compilation (macOS only)
+- Rust toolchain - macOS: NeMo ITN for `CodictateParakeetHelper`; Windows: `CodictateWindowsHelper`
+
+No cmake and no Vulkan SDK. The vendor binaries (`crispasr` for speech, `llama-completion` for formatting) are downloaded as pinned, sha256-verified prebuilt archives on both macOS arm64 and Windows x64, the Windows ones in their Vulkan variants, so nothing is compiled from source. See [docs/adr/0001-vendor-binary-sourcing.md](docs/adr/0001-vendor-binary-sourcing.md).
 
 ### Setup
 
 ```bash
 bun install
-bun run scripts/pre-build.ts   # downloads and builds vendor binaries + Whisper model (~547 MB)
+bun run scripts/pre-build.ts   # downloads vendor binaries + Whisper model (~547 MB)
 ```
 
 ### Running
@@ -151,11 +154,13 @@ scripts/
   build-windows.yml     # Manual Windows build (no release)
 docs/
   INSTALL.md                        # User install guide (with screenshots)
-  FORMATTING.md                     # Formatting feature — both backends
+  FORMATTING.md                     # Formatting feature - both backends
   RELEASING.md                      # Maintainer release guide
   MACOS_SIGNING_AND_NOTARIZATION.md # Signing and notarization reference
   RECORDING_INDICATOR.md            # Recording HUD architecture
   AEROSPACE.md                      # AeroSpace window rule snippet
+  HVISKE_MIRROR.md                  # The published Danish hviske model Mirror
+  adr/                              # Architecture decision records
 ```
 
 ## Contributing

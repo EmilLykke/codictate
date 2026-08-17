@@ -11,11 +11,12 @@ import {
 } from "./rating-utils";
 import {
   flattenDatasetResults,
+  harnessLabelsPresent,
   parseVariantKey,
   variantModelId,
+  DEFAULT_HARNESS_LABEL,
   type DatasetResults,
 } from "./results-schema";
-import { DEFAULT_ASR_HARNESS } from "../../src/shared/asr-harness";
 
 export interface BenchmarkResults {
   description: string;
@@ -47,10 +48,16 @@ const CONDITION_LABELS: Record<string, string> = {
  * Row label for a flattened key. Non-default Harnesses are named explicitly so a
  * report that mixes Harnesses stays readable; default-Harness rows read exactly as
  * they did before Harness became a dimension.
+ *
+ * Retired Harnesses are labelled by exactly the same rule as live ones. Archived
+ * `whisper-cli` rows keep their `[whisper-cli]` tag, which is what keeps the
+ * crispasr-vs-whisper comparison a comparison after whisper-cli left the build.
+ * `harnessLegend` names the untagged Harness so nothing rests on the reader knowing
+ * which one is shipping.
  */
 function modelName(key: string): string {
   const { modelId, harness } = parseVariantKey(key);
-  const suffix = harness === DEFAULT_ASR_HARNESS ? "" : ` [${harness}]`;
+  const suffix = harness === DEFAULT_HARNESS_LABEL ? "" : ` [${harness}]`;
   const model = getSpeechModel(modelId);
   if (!model) return `${modelId}${suffix}`;
   const parts = [model.label];
@@ -127,6 +134,25 @@ function buildConditions(results: BenchmarkResults): ConditionData[] {
   }
 
   return conditions;
+}
+
+/**
+ * Header line naming every Harness in the run and how its rows are tagged.
+ *
+ * Row tags alone leave the untagged Harness implicit, which is fine while there is one
+ * shipping Harness and misleading the moment which Harness ships changes. Spelling it
+ * out keeps an archived report readable on its own terms years later.
+ */
+function harnessLegend(results: BenchmarkResults): string | null {
+  const labels = harnessLabelsPresent(results.librispeech, results.fleurs);
+  if (labels.length === 0) return null;
+  if (labels.length === 1) return `- **ASR Harness:** ${labels[0]}`;
+  const described = labels.map((label) =>
+    label === DEFAULT_HARNESS_LABEL
+      ? `${label} (untagged rows)`
+      : `${label} (rows tagged \`[${label}]\`)`,
+  );
+  return `- **ASR Harnesses:** ${described.join(", ")}`;
 }
 
 function avgAccuracyForConditions(
@@ -262,6 +288,8 @@ export function generateMarkdownReport(
   );
   lines.push(`- **Samples per dataset:** ${results.config.sampleSize}`);
   lines.push(`- **Warmup utterances:** ${results.config.warmupCount}`);
+  const legend = harnessLegend(results);
+  if (legend) lines.push(legend);
   lines.push(`- **Combinations tested:** ${modelIds.length}`);
   lines.push("");
 

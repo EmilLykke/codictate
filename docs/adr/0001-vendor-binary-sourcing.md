@@ -2,6 +2,8 @@
 
 `scripts/pre-build.ts` originally built every Vendor Binary from source with cmake, costing contributors 3 to 5 minutes for `whisper-cli` and 5 to 10 minutes for `llama-completion` on a fresh clone or in CI, plus a cmake dependency on every dev machine. We now download published release binaries whenever upstream publishes one for the target platform, and keep a source build only where no release asset exists.
 
+On the two supported platforms, macOS arm64 and Windows x64, nothing is built from source any more. Both remaining Vendor Binaries, `crispasr` and `llama-completion`, arrive as pinned prebuilt archives verified by sha256. The last source build was `whisper-cli`, and it went away with the binary itself; see `docs/adr/0002-asr-harness-abstraction.md`.
+
 ## Considered Options
 
 - **Keep building everything from source.** Uniform, static, no asset-naming churn, but pays the full build cost on every fresh clone and CI run.
@@ -23,6 +25,7 @@ Reintroducing a ternary-quantized formatter model would mean revisiting this dec
 - `llama-completion` now arrives as a binary plus sibling dylibs rather than one static executable. This is safe for notarization because `post-build.ts` discovers signing targets via `isCodesignableMachO()` (Mach-O magic detection), not a hardcoded name list, so the dylibs are signed with the Developer ID automatically. The dylibs must stay in the same directory as the binary for `@rpath` resolution.
 - `crispasr` ships its own `ggml.dll`, `ggml-base.dll` and `ggml-vulkan.dll`, whose names collide with llama's. It therefore lands in a `native-helpers/crispasr/` subdirectory, and `listCodesignableNativeHelpers()` walks `native-helpers` recursively so nothing under `Resources/app/` is left unsigned.
 - Vendor Binaries are shared-library based now, so the file lists live in `scripts/vendor-manifest.ts`. `electrobun.config.ts` is evaluated before the pre-build script runs, so it cannot discover them by scanning `vendors/` and both sides read the same pinned lists instead.
-- Upstream ships **no macOS CLI build of whisper.cpp** (only Windows, Ubuntu, and an xcframework), so `whisper-cli` keeps its source build until it is retired in favour of `crispasr`. See `docs/adr/0002-asr-harness-abstraction.md`.
+- Upstream shipped **no macOS CLI build of whisper.cpp** (only Windows, Ubuntu, and an xcframework), which is why `whisper-cli` kept a source build for as long as it existed. It has since been retired in favour of `crispasr`, which publishes prebuilt macOS arm64 and Windows Vulkan assets, so the exception this ADR carved out is closed. See `docs/adr/0002-asr-harness-abstraction.md`.
+- A source-build fallback stays in `pre-build.ts` for `llama-completion` only, and only for platforms with no published upstream asset (Linux, planned). Neither supported platform reaches it.
 - Every downloaded binary is pinned to an exact release tag and verified by sha256. Prebuilt binaries arrive adhoc-signed and are re-signed locally.
 - Binaries are fetched for both macOS and Windows in the same change, per the project's platform parity rule in `AGENTS.md`.

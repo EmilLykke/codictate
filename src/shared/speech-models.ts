@@ -20,9 +20,9 @@ import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
  *   `whisperModelDownloadUrl` builder that every `whisper_cpp` model uses would
  *   produce a dead URL.
  * - Every existing `engine === 'whisper_cpp'` filter (WHISPER_MODELS,
- *   EXTENDED_WHISPER_MODELS, the Settings model list and browse modal,
- *   TRANSLATE_CAPABLE_MODEL_IDS) would silently pick hviske up. A separate id keeps it
- *   out of all of them by construction, which is exactly what prep-only requires.
+ *   TRANSLATE_CAPABLE_MODEL_IDS, the Settings model list) would otherwise pick hviske up
+ *   silently. A separate id keeps it out of all of them by construction, and the surfaces
+ *   that *should* offer hviske name it explicitly instead - see BROWSABLE_SPEECH_MODELS.
  *
  * Reusing `whisperkit` would be worse still: that id routes to the Parakeet native
  * helper. Note that Engine stays distinct from ASR Harness - that hviske has to run
@@ -80,19 +80,14 @@ const PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS = [
 
 /**
  * Mirror repo for the hviske weights. `syvai/hviske-v5-tiny` is `gated: manual`, so the
- * app cannot download from upstream on a user's behalf.
- *
- * This repo DOES NOT EXIST YET - a maintainer has to run `scripts/mirror-hviske.ts`
- * first. See docs/HVISKE_MIRROR.md. Download code must therefore report a missing
- * Mirror as such rather than surface a bare 404.
+ * app cannot download from upstream on a user's behalf; this repo is public and ungated,
+ * and carries all five Quantizations. Re-mirroring is a maintainer job:
+ * `scripts/mirror-hviske.ts`, see docs/HVISKE_MIRROR.md.
  */
 export const HVISKE_MIRROR_REPO_ID = 'emillykkegrann/hviske-v5-tiny-GGUF'
 
 /** hviske is Danish-only, so a run pins `--language da` rather than auto-detecting. */
 export const HVISKE_TRANSCRIPTION_LANGUAGE_ID = 'da'
-
-/** The hviske Quantization the benchmark should treat as primary (identical WER, largest). */
-export const PRIMARY_HVISKE_MODEL_ID = 'hviske-v5-tiny-f16'
 
 export interface SpeechModel {
   id: string
@@ -525,27 +520,25 @@ export const SPEECH_MODELS: SpeechModel[] = [
     translationSupport: false,
   },
 
-  // ── hviske (Danish) - PREP ONLY, deliberately not user-reachable ────
+  // ── hviske (Danish) ─────────────────────────────────────────────────
   //
   // One entry per Quantization the Mirror carries, because different Quantizations of
   // the same weights are separate Speech Models with separate Model IDs (CONTEXT.md).
-  // The set is complete so a maintainer, and later a user, can pick a size instead of
-  // being handed one.
+  // The set is complete so the user picks a size/speed trade-off instead of being handed
+  // one.
   //
-  // No entry sets `curated`, and `engine: 'hviske'` keeps all of them out of every
-  // whisper_cpp / whisperkit filter the Settings UI builds its lists from, so they do
-  // not appear in the model picker or the browse modal. Availability is additionally
-  // gated on `isHviskeEnabled()` (see src/bun/utils/whisper/find-asr-harness.ts), which
-  // needs a source checkout and an explicit env var, and the Mirror they download from
-  // does not exist yet. Whether hviske ships at all is a benchmark decision that has
-  // not been taken. Adding Quantizations does not change any of that: a released build
-  // still cannot see one.
+  // No entry sets `curated`: hviske is a Danish-only model, so it belongs in the browse
+  // ("download more") modal rather than in the main Settings list every user scans. F16
+  // is the Quantization to recommend in prose - identical WER at the largest size - but
+  // that recommendation deliberately is not encoded as `curated`. Reaching the browse
+  // modal is what BROWSABLE_SPEECH_MODELS is for; `engine: 'hviske'` still keeps these
+  // out of the whisper_cpp filters (see SpeechEngineId).
   //
-  // `peakRamMB` is an unmeasured estimate, roughly the file size plus decode overhead.
-  // The benchmark has to replace those numbers before any entry could be curated.
-  // `downloadSizeMB` is the MiB figure the Hugging Face API reports for the source file.
-  // The model card lists an identical Danish WER of 10.51 for all five Quantizations, so
-  // the only real difference between them is size and speed: larger is slower.
+  // `peakRamMB` is an unmeasured estimate, roughly the file size plus decode overhead;
+  // the benchmark still has to replace those numbers. `downloadSizeMB` is the exact
+  // Mirror file size in MiB. The model card lists an identical Danish WER of 10.51 for
+  // all five Quantizations, so the only real difference between them is size and speed:
+  // larger is slower.
   {
     id: 'hviske-v5-tiny-f16',
     engine: 'hviske',
@@ -637,7 +630,7 @@ export function supportsStreamMode(model: SpeechModel): boolean {
   return model.modeSupport === 'stream' || model.modeSupport === 'both'
 }
 
-/** True for the prep-only Danish hviske Speech Models. */
+/** True for the Danish hviske Speech Models, which run under crispasr `--backend cohere`. */
 export function isHviskeSpeechModelId(id: string): boolean {
   return getSpeechModel(id)?.engine === 'hviske'
 }
@@ -723,6 +716,17 @@ export function formatRamSize(ramMB: number): string {
 
 export const CURATED_SPEECH_MODELS = SPEECH_MODELS.filter((m) => m.curated)
 
-export const EXTENDED_WHISPER_MODELS = SPEECH_MODELS.filter(
-  (m) => m.engine === 'whisper_cpp' && !m.curated
+/**
+ * Everything the browse ("download more") modal offers: the Speech Models a user has to go
+ * looking for rather than the curated few the main Settings list shows.
+ *
+ * That is every non-curated whisper.cpp Quantization plus all five hviske Quantizations.
+ * hviske is named by engine instead of riding the `!curated` test, because it is not a
+ * `whisper_cpp` model and no hviske entry is ever curated - a Danish-only model does not
+ * belong in the list every user scans, but it does belong somewhere reachable.
+ *
+ * Parakeet is absent by design: it has its own section in Settings.
+ */
+export const BROWSABLE_SPEECH_MODELS = SPEECH_MODELS.filter(
+  (m) => (m.engine === 'whisper_cpp' && !m.curated) || m.engine === 'hviske'
 )

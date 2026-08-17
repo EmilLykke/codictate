@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { AppSettings } from "../../../../shared/types";
 import {
   SPEECH_MODELS,
-  EXTENDED_WHISPER_MODELS,
+  BROWSABLE_SPEECH_MODELS,
   PARAKEET_FIRST_RUN_SETTINGS_HINT,
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
@@ -31,11 +31,20 @@ export function SectionModels({
 }: Props) {
   const [isBrowseOpen, setIsBrowseOpen] = useState(false);
 
+  // Curated whisper.cpp models, plus anything the user has already downloaded - hviske
+  // included, even though no hviske entry is ever curated.
+  //
+  // Listing an installed model is management, not promotion: promotion is what `curated`
+  // and the browse modal decide, and an hviske model only becomes available by being
+  // deliberately downloaded from there. Leaving it out was a defect rather than a choice -
+  // this is the only surface with a delete affordance, so a downloaded hviske model had no
+  // way back off disk and its 150-500 MB stayed unreclaimable.
   const whisperModels = useMemo(
     () =>
-      SPEECH_MODELS.filter(
-        (m) =>
-          m.engine === "whisper_cpp" && (m.curated || modelAvailability[m.id]),
+      SPEECH_MODELS.filter((m) =>
+        m.engine === "whisper_cpp"
+          ? m.curated || modelAvailability[m.id]
+          : m.engine === "hviske" && modelAvailability[m.id],
       ),
     [modelAvailability],
   );
@@ -134,7 +143,7 @@ export function SectionModels({
       <ModelBrowseModal
         isOpen={isBrowseOpen}
         onClose={() => setIsBrowseOpen(false)}
-        models={EXTENDED_WHISPER_MODELS}
+        models={BROWSABLE_SPEECH_MODELS}
         modelAvailability={modelAvailability}
         downloadProgress={downloadProgress}
         onDownload={onModelDownload}

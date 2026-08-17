@@ -137,7 +137,6 @@ const entitlementsRoot = join(import.meta.dir, "..", "entitlements");
 const helperEntitlementsByBasename: Record<string, string> = {
   KeyListener: join(entitlementsRoot, "KeyListener.entitlements"),
   MicRecorder: join(entitlementsRoot, "MicRecorder.entitlements"),
-  "whisper-cli": join(entitlementsRoot, "whisper-cli.entitlements"),
   "llama-completion": join(entitlementsRoot, "llama-completion.entitlements"),
   crispasr: join(entitlementsRoot, "crispasr.entitlements"),
   CodictateWindowHelper: join(

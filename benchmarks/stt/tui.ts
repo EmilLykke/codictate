@@ -21,7 +21,6 @@ import {
 } from "@clack/prompts";
 import {
   ASR_HARNESS_IDS,
-  DEFAULT_ASR_HARNESS,
   type AsrHarnessId,
 } from "../../src/shared/asr-harness";
 import {
@@ -32,7 +31,12 @@ import { LIBRISPEECH_SPLITS } from "./datasets";
 import { formatModelCoverage, type Coverage } from "./coverage";
 
 export interface BenchmarkPlan {
-  /** Every Harness to run, in order. More than one means a same-samples comparison. */
+  /**
+   * Every runnable Harness to run, in order. More than one means a same-samples
+   * comparison. Not prompted for while there is only one, but still a list: the plan
+   * feeds `run-stt.ts`, whose result files and read paths stay multi-Harness because
+   * the archive is.
+   */
   harnesses: AsrHarnessId[];
   models: string[];
   splits: string[];
@@ -82,24 +86,12 @@ export async function promptBenchmarkPlan(
     );
   }
 
-  // Selecting more than one Harness runs every selected Speech Model through each of
-  // them over the same sample files, which is the only way the WER and RTF numbers are
-  // comparable between Harnesses.
-  const harnesses = exitIfCancelled(
-    await multiselect({
-      message: "ASR Harnesses to compare",
-      options: ASR_HARNESS_IDS.map((id) => ({
-        value: id,
-        label: id,
-        hint:
-          id === DEFAULT_ASR_HARNESS
-            ? "shipping harness"
-            : "previous shipping harness, kept as the fallback binary",
-      })),
-      initialValues: [...ASR_HARNESS_IDS],
-      required: true,
-    }),
-  ) as AsrHarnessId[];
+  // Every runnable Harness, with no prompt: there is one, and a multiselect with a
+  // single option is a keystroke that cannot change the outcome. If a second Harness is
+  // ever added, this is where the prompt comes back - running several over identical
+  // samples is the only way their WER and RTF are comparable.
+  const harnesses: AsrHarnessId[] = [...ASR_HARNESS_IDS];
+  clackLog.info(`ASR Harness: ${harnesses.join(", ")}`);
 
   const modelOptions = SPEECH_MODEL_IDS.map((id) => ({
     value: id,

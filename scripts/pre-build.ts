@@ -2,9 +2,8 @@
 // Everything is cached in vendors/ (gitignored) so it only runs once.
 //
 // - MicRecorder:       built from Swift via `bun run build:native` (Core Audio capture + device list)
-// - whisper-cli:       built from source (whisper.cpp publishes no macOS CLI asset)
 // - llama-completion:  downloaded prebuilt from the pinned upstream llama.cpp release
-// - crispasr:          downloaded prebuilt from the pinned CrispASR release (second ASR Harness)
+// - crispasr:          downloaded prebuilt from the pinned CrispASR release (the ASR Harness)
 // - CodictateParakeetHelper: Swift + FluidAudio + NeMo ITN (text-processing-rs static lib)
 // - ggml-large-v3-turbo-q5_0.bin: Whisper multilingual model from Hugging Face
 //
@@ -33,7 +32,8 @@ import {
 
 const VENDORS_DIR = "./vendors";
 
-const WHISPER_VERSION = "1.8.4";
+// Holds the bundled Whisper Speech Model only. Nothing from whisper.cpp is built here any
+// more: crispasr is the single ASR Harness and ships as a verified prebuilt archive.
 const WHISPER_DIR = join(VENDORS_DIR, "whisper");
 const WINDOWS_DIR = join(VENDORS_DIR, "windows");
 const WINDOWS_TRAY_ICON = join(WINDOWS_DIR, "TrayIcon.ico");
@@ -44,18 +44,6 @@ const WINDOWS_VC_RUNTIME_DLLS = [
   "vcruntime140.dll",
   "vcruntime140_1.dll",
 ];
-const WHISPER_BINARY_NAME = process.platform === "win32" ? "whisper-cli.exe" : "whisper-cli";
-const WHISPER_BINARY = join(WHISPER_DIR, WHISPER_BINARY_NAME);
-const WHISPER_BUILD_STAMP = join(WHISPER_DIR, "build-stamp.txt");
-const WHISPER_BUILD_SIGNATURE = [
-  `version=${WHISPER_VERSION}`,
-  `platform=${process.platform}`,
-  `examples=on`,
-  `shared=off`,
-  `native=${process.platform === "win32" ? "off" : "default"}`,
-  `vulkan=${process.platform === "win32" ? "on" : "off"}`,
-].join("\n");
-
 // Upstream llama.cpp (https://github.com/ggml-org/llama.cpp), pinned by build tag.
 // Downloaded prebuilt on macOS arm64 and Windows x64; source build remains the fallback
 // for platforms the release does not cover.
@@ -314,111 +302,6 @@ function syncWindowsAppIconFromIconset() {
   console.log("[pre-build] Regenerated MacDocIcon.ico from icon.iconset");
 }
 
-async function vendorWhisperBinaries() {
-  if (
-    existsSync(WHISPER_BINARY) &&
-    existsSync(WHISPER_BUILD_STAMP) &&
-    readFileSync(WHISPER_BUILD_STAMP, "utf8") === WHISPER_BUILD_SIGNATURE
-  ) {
-    console.log("[pre-build] whisper-cli already vendored, skipping");
-    return;
-  }
-
-  const cmakeCheck = Bun.spawnSync(["cmake", "--version"], { stdout: "pipe" });
-  if (cmakeCheck.exitCode !== 0) {
-    throw new Error(
-      process.platform === "win32"
-        ? "[pre-build] cmake not found. Install it and ensure `cmake` is on PATH."
-        : "[pre-build] cmake not found. Install it with: brew install cmake",
-    );
-  }
-
-  if (process.platform === "win32" && !commandExists("glslc")) {
-    throw new Error(
-      "[pre-build] Vulkan GPU build requires the Vulkan SDK shader compiler (`glslc`). Install the LunarG Vulkan SDK and reopen your terminal so `glslc` is on PATH.",
-    );
-  }
-
-  mkdirSync(WHISPER_DIR, { recursive: true });
-
-  const sourceUrl = `https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v${WHISPER_VERSION}.tar.gz`;
-  const tarPath = join(WHISPER_DIR, "whisper-src.tar.gz");
-  const srcDir = join(WHISPER_DIR, "whisper-src");
-  const buildDir = join(WHISPER_DIR, "whisper-build");
-
-  console.log(`[pre-build] Downloading whisper.cpp v${WHISPER_VERSION} source...`);
-  const response = await fetch(sourceUrl);
-  if (!response.ok) {
-    throw new Error("[pre-build] Failed to download whisper.cpp source");
-  }
-  await Bun.write(tarPath, response);
-
-  mkdirSync(srcDir, { recursive: true });
-  Bun.spawnSync(["tar", "-xf", tarPath, "-C", srcDir, "--strip-components=1"], {
-    stdio: ["ignore", "inherit", "inherit"],
-  });
-  rmSync(tarPath, { force: true });
-
-  console.log("[pre-build] Configuring whisper-cli (static, no SDL2)...");
-  const configure = Bun.spawnSync(
-    [
-      "cmake",
-      "-S", srcDir,
-      "-B", buildDir,
-      ...(process.platform === "win32" ? ["-A", "x64"] : []),
-      ...windowsMasmCmakeArgs(),
-      "-DCMAKE_BUILD_TYPE=Release",
-      "-DBUILD_SHARED_LIBS=OFF",
-      ...(process.platform === "win32" ? ["-DGGML_NATIVE=OFF"] : []),
-      "-DWHISPER_BUILD_TESTS=OFF",
-      "-DWHISPER_BUILD_EXAMPLES=ON",
-      ...(process.platform === "win32" ? ["-DGGML_VULKAN=ON"] : []),
-    ],
-    { stdio: ["ignore", "inherit", "inherit"] },
-  );
-  if (configure.exitCode !== 0) {
-    rmSync(srcDir, { recursive: true, force: true });
-    rmSync(buildDir, { recursive: true, force: true });
-    throw new Error("[pre-build] cmake configure failed");
-  }
-
-  const jobs = String(Math.max(1, availableParallelism?.() ?? 4));
-
-  console.log(
-    `[pre-build] Building whisper-cli (${jobs} cores, ~3-5 min first time)...`,
-  );
-  const buildArgs = ["cmake", "--build", buildDir, "--config", "Release"];
-  if (process.platform !== "win32") {
-    buildArgs.push("--target", "whisper-cli", "-j", jobs);
-  }
-  const build = Bun.spawnSync(buildArgs, {
-    stdio: ["ignore", "inherit", "inherit"],
-  });
-  if (build.exitCode !== 0) {
-    rmSync(srcDir, { recursive: true, force: true });
-    rmSync(buildDir, { recursive: true, force: true });
-    throw new Error("[pre-build] whisper-cli build failed");
-  }
-
-  const cliPath = findFileRecursively(buildDir, WHISPER_BINARY_NAME);
-
-  if (!cliPath) {
-    rmSync(srcDir, { recursive: true, force: true });
-    rmSync(buildDir, { recursive: true, force: true });
-    throw new Error("[pre-build] whisper-cli binary not found after build");
-  }
-
-  copyFileSync(cliPath, WHISPER_BINARY);
-  if (process.platform !== "win32") {
-    chmodSync(WHISPER_BINARY, 0o755);
-  }
-  writeFileSync(WHISPER_BUILD_STAMP, WHISPER_BUILD_SIGNATURE);
-  console.log("[pre-build] whisper-cli built and vendored successfully");
-
-  rmSync(srcDir, { recursive: true, force: true });
-  rmSync(buildDir, { recursive: true, force: true });
-}
-
 /**
  * Download `url` to `destPath` and fail unless its sha256 matches `expectedSha256`.
  * Hashing happens in-process (Bun.CryptoHasher) so no shasum/certutil is needed.
@@ -582,7 +465,7 @@ async function vendorCrispasrBinaries() {
 
   if (process.platform !== "darwin" && process.platform !== "win32") {
     console.log(
-      `[pre-build] No crispasr asset for ${process.platform}, skipping (whisper-cli remains the only ASR Harness here)`,
+      `[pre-build] No crispasr asset for ${process.platform}, skipping (that platform has no ASR Harness and cannot transcribe)`,
     );
     return;
   }
@@ -1060,7 +943,6 @@ if (process.platform === "win32") {
   ensureWindowsTrayIcon();
   ensureWindowsVcRuntimeDlls();
   syncWindowsAppIconFromIconset();
-  await vendorWhisperBinaries();
   await vendorLlamaBinaries();
   await vendorCrispasrBinaries();
   await vendorWhisperModel();
@@ -1069,8 +951,10 @@ if (process.platform === "win32") {
 }
 
 if (process.platform === "linux") {
-  await vendorWhisperBinaries();
   await vendorLlamaBinaries();
+  // Prints the "no crispasr asset" skip rather than leaving a Linux build silently
+  // without any ASR Harness now that the whisper.cpp source build is gone.
+  await vendorCrispasrBinaries();
   await vendorWhisperModel();
   console.log("[pre-build] Linux dependencies ready");
   process.exit(0);
@@ -1086,7 +970,6 @@ if (process.platform !== "darwin") {
 syncMacAppIconArtifacts();
 syncWindowsAppIconFromIconset();
 
-await vendorWhisperBinaries();
 await vendorLlamaBinaries();
 await vendorCrispasrBinaries();
 await vendorParakeetHelper();
