@@ -101,7 +101,7 @@ export default {
   app: {
     name: APP_NAME,
     identifier: appIdentifier,
-    version: "0.0.54-canary.2",
+    version: "0.0.54-canary.3",
   },
   runtime: {
     // Keep the app alive when the window is closed — it lives in the tray
