@@ -14,7 +14,7 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Modifier** - Option/Alt, Control, Shift, Command/Win, or Fn. Left and right variants of the same Modifier are distinguishable and are never mixed within one Preset.
 
-**Shortcut Family** - the grouping a Preset appears under in the picker, named after its leading Modifier: Option/Alt, Fn/Globe, Control, or Meta (Command on macOS, Win on Windows).
+**Shortcut Family** - the grouping a Preset appears under in the picker: Option/Alt, Fn/Globe, Control, or Meta (Command on macOS, Win on Windows). A Preset that involves the Meta key groups under Meta whichever Modifier comes first, because Meta is the key a user scans for; every other Preset groups by its leading Modifier.
 
 **Hold** - activation style where the user keeps the Dictation Shortcut pressed while speaking; releasing it ends the Dictation and pastes.
 

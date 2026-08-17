@@ -177,6 +177,53 @@ function controlComboHoldUp(trigger: number) {
       !e.control)
 }
 
+/** Physical keycodes for each Modifier, left and right variant. */
+const CONTROL_KEYCODES = [Key.control, Key.rightControl]
+const OPTION_KEYCODES = [Key.option, Key.rightOption]
+const META_KEYCODES = [Key.command, Key.rightCommand]
+
+/**
+ * Matchers for a modifier-only Preset such as Control + Command: there is no Trigger
+ * Key, so the combo fires when the second modifier of the pair goes down, and the
+ * hold ends as soon as either one is released.
+ */
+function modifierPairCombo(
+  first: (e: KeyEvent) => boolean,
+  second: (e: KeyEvent) => boolean,
+  keycodes: number[]
+) {
+  const down = (e: KeyEvent) =>
+    e.keyDown && first(e) && second(e) && keycodes.includes(e.keycode)
+  return {
+    matchesToggleDown: (e: KeyEvent) => down(e) && !e.isRepeat,
+    matchesHoldDown: (e: KeyEvent) => down(e) && !e.isRepeat,
+    matchesHoldUp: (e: KeyEvent) => !first(e) || !second(e),
+  }
+}
+
+/**
+ * Matchers for a Trigger Key held with two modifiers, e.g. Control + Command + Space.
+ * Releasing the trigger or either modifier ends the hold.
+ */
+function twoModifierTriggerCombo(
+  trigger: number,
+  first: (e: KeyEvent) => boolean,
+  second: (e: KeyEvent) => boolean
+) {
+  const down = (e: KeyEvent) =>
+    e.keyDown && e.keycode === trigger && first(e) && second(e) && !e.isRepeat
+  return {
+    matchesToggleDown: down,
+    matchesHoldDown: down,
+    matchesHoldUp: (e: KeyEvent) =>
+      (!e.keyDown && e.keycode === trigger) || !first(e) || !second(e),
+  }
+}
+
+const hasControl = (e: KeyEvent) => e.control
+const hasMeta = (e: KeyEvent) => e.command
+const hasOption = (e: KeyEvent) => e.option
+
 export interface ShortcutDefinition {
   displayKeys: string[]
   /** One or more swallow rules (e.g. Fn uses two hardware keycodes). */
@@ -269,6 +316,40 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     matchesToggleDown: controlComboToggleDown(Key.enter),
     matchesHoldDown: controlComboHoldDown(Key.enter),
     matchesHoldUp: controlComboHoldUp(Key.enter),
+  },
+  'control-option': {
+    displayKeys: ['⌃', '⌥'],
+    // Swallow both the Control-then-Option and Option-then-Control orders.
+    swallowRules: [
+      ...OPTION_KEYCODES.map((k) => rule(k, { control: true, option: true })),
+      ...CONTROL_KEYCODES.map((k) => rule(k, { control: true, option: true })),
+    ],
+    ...modifierPairCombo(hasControl, hasOption, [
+      ...CONTROL_KEYCODES,
+      ...OPTION_KEYCODES,
+    ]),
+  },
+  'control-meta': {
+    displayKeys: ['⌃', '⌘'],
+    // The Win/Command key-down rules are what stop Windows opening the Start menu.
+    swallowRules: [
+      ...META_KEYCODES.map((k) => rule(k, { control: true, command: true })),
+      ...CONTROL_KEYCODES.map((k) => rule(k, { control: true, command: true })),
+    ],
+    ...modifierPairCombo(hasControl, hasMeta, [
+      ...CONTROL_KEYCODES,
+      ...META_KEYCODES,
+    ]),
+  },
+  'control-meta-space': {
+    displayKeys: ['⌃', '⌘', 'Space'],
+    swallowRules: [
+      rule(Key.space, { control: true, command: true }),
+      // Without these the bare Ctrl+Win prefix still reaches the OS while the user
+      // is on the way to pressing Space.
+      ...META_KEYCODES.map((k) => rule(k, { control: true, command: true })),
+    ],
+    ...twoModifierTriggerCombo(Key.space, hasControl, hasMeta),
   },
 }
 

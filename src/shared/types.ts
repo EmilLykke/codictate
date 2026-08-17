@@ -175,6 +175,11 @@ export type ShortcutId =
   | 'fn-globe'
   | 'control-space'
   | 'control-enter'
+  /** Modifier-only: Control + Command on macOS, Ctrl + Win on Windows. */
+  | 'control-meta'
+  | 'control-meta-space'
+  /** Modifier-only: Control + Option on macOS, Ctrl + Alt on Windows. */
+  | 'control-option'
 
 export interface AppSettings {
   capabilities: PlatformCapabilities

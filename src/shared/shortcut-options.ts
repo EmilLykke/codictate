@@ -2,10 +2,16 @@ import { DICTATION_HOLD_QUALIFY_MS } from './dictation-shortcut'
 import type { ShortcutId } from './types'
 import type { PlatformRuntime } from './platform'
 
-/** Used to group shortcuts in the picker (Option / Fn / Control). */
-export type ShortcutFamily = 'option' | 'fn' | 'control'
+/** Used to group shortcuts in the picker (Option / Fn / Control / Meta). */
+export type ShortcutFamily = 'option' | 'fn' | 'control' | 'meta'
 
+/**
+ * Presets involving Command / Win group under Meta rather than under their leading
+ * modifier, because the Meta key is what a user scans for. Everything else groups by
+ * leading modifier.
+ */
 export function shortcutFamily(id: ShortcutId): ShortcutFamily {
+  if (id.includes('meta')) return 'meta'
   if (id.startsWith('control-')) return 'control'
   if (id.startsWith('fn-')) return 'fn'
   return 'option'
@@ -86,6 +92,30 @@ export const SHORTCUT_OPTIONS: ShortcutOption[] = [
     windowsLabel: 'Ctrl + Enter',
     supportedPlatforms: ['macos', 'windows'],
   },
+  {
+    id: 'control-option',
+    keys: ['⌃', '⌥'],
+    label: 'Control + Option',
+    windowsKeys: ['Ctrl', 'Alt'],
+    windowsLabel: 'Ctrl + Alt',
+    supportedPlatforms: ['macos', 'windows'],
+  },
+  {
+    id: 'control-meta',
+    keys: ['⌃', '⌘'],
+    label: 'Control + Command',
+    windowsKeys: ['Ctrl', 'Win'],
+    windowsLabel: 'Ctrl + Win',
+    supportedPlatforms: ['macos', 'windows'],
+  },
+  {
+    id: 'control-meta-space',
+    keys: ['⌃', '⌘', 'Space'],
+    label: 'Control + Command + Space',
+    windowsKeys: ['Ctrl', 'Win', 'Space'],
+    windowsLabel: 'Ctrl + Win + Space',
+    supportedPlatforms: ['macos', 'windows'],
+  },
 ]
 
 function optionSupportedOnPlatform(
@@ -117,18 +147,20 @@ export function shortcutOptionById(
   return displayShortcutOption(option, platform)
 }
 
-const FAMILY_ORDER: ShortcutFamily[] = ['option', 'fn', 'control']
+const FAMILY_ORDER: ShortcutFamily[] = ['option', 'fn', 'control', 'meta']
 
 const FAMILY_LABEL: Record<ShortcutFamily, string> = {
   option: 'Option (⌥)',
   fn: 'Fn / Globe',
   control: 'Control (⌃)',
+  meta: 'Command (⌘)',
 }
 
 const WINDOWS_FAMILY_LABEL: Record<ShortcutFamily, string> = {
   option: 'Alt',
   fn: 'Fn / Globe',
   control: 'Control (Ctrl)',
+  meta: 'Windows (Win)',
 }
 
 export function shortcutOptionsGrouped(): {
@@ -148,6 +180,7 @@ export function shortcutOptionsGroupedForPlatform(platform: PlatformRuntime): {
     option: [],
     fn: [],
     control: [],
+    meta: [],
   }
   for (const opt of SHORTCUT_OPTIONS) {
     if (!optionSupportedOnPlatform(opt, platform)) continue
@@ -221,14 +254,20 @@ export function platformShortcutSupportHint(
   platform: PlatformRuntime
 ): string | null {
   if (platform !== 'windows') return null
-  return 'Windows starts with Alt and Ctrl shortcuts. Fn / Globe shortcuts are coming soon.'
+  return 'Windows supports Alt, Ctrl and Win shortcuts. Fn / Globe shortcuts are coming soon.'
 }
 
+/**
+ * Windows combos whose hold ends on modifier release rather than trigger release.
+ * Only Presets with a Trigger Key need this; modifier-only Presets end their hold
+ * when the modifier goes up either way.
+ */
 export function windowsUsesModifierReleaseHold(id: ShortcutId): boolean {
   return (
     id === 'option-space' ||
     id === 'option-enter' ||
     id === 'control-space' ||
-    id === 'control-enter'
+    id === 'control-enter' ||
+    id === 'control-meta-space'
   )
 }

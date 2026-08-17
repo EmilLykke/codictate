@@ -222,6 +222,15 @@ export const setupRecording = (
           (keyEvent.keycode === Key.control ||
             keyEvent.keycode === Key.rightControl)
         )
+      case 'control-meta-space':
+        // Either modifier of the Ctrl + Win prefix going up ends the hold.
+        return (
+          !keyEvent.keyDown &&
+          (keyEvent.keycode === Key.control ||
+            keyEvent.keycode === Key.rightControl ||
+            keyEvent.keycode === Key.command ||
+            keyEvent.keycode === Key.rightCommand)
+        )
       default:
         return true
     }

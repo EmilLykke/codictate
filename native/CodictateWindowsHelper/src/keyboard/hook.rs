@@ -4,8 +4,8 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex, OnceLock};
 use windows_sys::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_MENU, VK_RCONTROL,
-    VK_RETURN, VK_RMENU, VK_RSHIFT, VK_SPACE,
+    GetAsyncKeyState, VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_MENU, VK_RCONTROL,
+    VK_RETURN, VK_RMENU, VK_RSHIFT, VK_RWIN, VK_SPACE,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, HC_ACTION, KBDLLHOOKSTRUCT, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
@@ -23,6 +23,8 @@ struct ModifierState {
     right_ctrl: bool,
     left_shift: bool,
     right_shift: bool,
+    left_win: bool,
+    right_win: bool,
 }
 
 impl ModifierState {
@@ -34,6 +36,8 @@ impl ModifierState {
             right_ctrl: key_pressed(VK_RCONTROL),
             left_shift: key_pressed(VK_LSHIFT),
             right_shift: key_pressed(VK_RSHIFT),
+            left_win: key_pressed(VK_LWIN),
+            right_win: key_pressed(VK_RWIN),
         }
     }
 
@@ -48,6 +52,12 @@ impl ModifierState {
     fn shift(self) -> bool {
         self.left_shift || self.right_shift
     }
+
+    /// The Win key, reported to the Bun process as the mac `command` modifier so one
+    /// shortcut definition covers both platforms.
+    fn command(self) -> bool {
+        self.left_win || self.right_win
+    }
 }
 
 #[derive(Default)]
@@ -57,16 +67,25 @@ pub(crate) struct HookState {
     pressed_keys: HashSet<i32>,
 }
 
-#[derive(Clone, Copy)]
-enum ActiveComboModifier {
-    Alt,
-    Control,
+/// Which modifiers a swallowed combo requires. A combo can need more than one, for
+/// example Ctrl + Win, in which case releasing any of them ends it.
+#[derive(Clone, Copy, Default)]
+struct ActiveComboModifiers {
+    alt: bool,
+    control: bool,
+    meta: bool,
+}
+
+impl ActiveComboModifiers {
+    fn any(self) -> bool {
+        self.alt || self.control || self.meta
+    }
 }
 
 #[derive(Clone, Copy)]
 struct ActiveCombo {
     trigger_keycode: i32,
-    modifier: ActiveComboModifier,
+    modifiers: ActiveComboModifiers,
 }
 
 #[derive(Clone, Copy)]
@@ -77,6 +96,8 @@ enum ModifierKey {
     RightCtrl,
     LeftShift,
     RightShift,
+    LeftWin,
+    RightWin,
 }
 
 fn key_pressed(vk: u16) -> bool {
@@ -100,6 +121,8 @@ fn vk_to_keycode(vk: u32) -> Option<(i32, Option<ModifierKey>)> {
         x if x == VK_LMENU as u32 => Some((58, Some(ModifierKey::LeftAlt))),
         x if x == VK_RMENU as u32 => Some((61, Some(ModifierKey::RightAlt))),
         x if x == VK_MENU as u32 => Some((58, Some(ModifierKey::LeftAlt))),
+        x if x == VK_LWIN as u32 => Some((55, Some(ModifierKey::LeftWin))),
+        x if x == VK_RWIN as u32 => Some((54, Some(ModifierKey::RightWin))),
         _ => None,
     }
 }
@@ -112,6 +135,8 @@ fn apply_modifier(modifiers: &mut ModifierState, modifier: ModifierKey, pressed:
         ModifierKey::RightCtrl => modifiers.right_ctrl = pressed,
         ModifierKey::LeftShift => modifiers.left_shift = pressed,
         ModifierKey::RightShift => modifiers.right_shift = pressed,
+        ModifierKey::LeftWin => modifiers.left_win = pressed,
+        ModifierKey::RightWin => modifiers.right_win = pressed,
     }
 }
 
@@ -149,19 +174,18 @@ fn swallow_matches(rule: &SwallowRule, event: &KeyEventMessage) -> bool {
 }
 
 fn active_combo_from_rule(rule: &SwallowRule) -> Option<ActiveCombo> {
-    if rule.option {
-        return Some(ActiveCombo {
-            trigger_keycode: rule.keycode,
-            modifier: ActiveComboModifier::Alt,
-        });
+    let modifiers = ActiveComboModifiers {
+        alt: rule.option,
+        control: rule.control,
+        meta: rule.command,
+    };
+    if !modifiers.any() {
+        return None;
     }
-    if rule.control {
-        return Some(ActiveCombo {
-            trigger_keycode: rule.keycode,
-            modifier: ActiveComboModifier::Control,
-        });
-    }
-    None
+    Some(ActiveCombo {
+        trigger_keycode: rule.keycode,
+        modifiers,
+    })
 }
 
 fn event_matches_active_combo(combo: ActiveCombo, event: &KeyEventMessage) -> bool {
@@ -169,17 +193,16 @@ fn event_matches_active_combo(combo: ActiveCombo, event: &KeyEventMessage) -> bo
         return true;
     }
 
-    match combo.modifier {
-        ActiveComboModifier::Alt => event.keycode == 58 || event.keycode == 61,
-        ActiveComboModifier::Control => event.keycode == 59 || event.keycode == 62,
-    }
+    (combo.modifiers.alt && (event.keycode == 58 || event.keycode == 61))
+        || (combo.modifiers.control && (event.keycode == 59 || event.keycode == 62))
+        || (combo.modifiers.meta && (event.keycode == 55 || event.keycode == 54))
 }
 
+/// A combo survives only while every modifier it requires is still down.
 fn combo_still_held(combo: ActiveCombo, modifiers: ModifierState) -> bool {
-    match combo.modifier {
-        ActiveComboModifier::Alt => modifiers.option(),
-        ActiveComboModifier::Control => modifiers.control(),
-    }
+    (!combo.modifiers.alt || modifiers.option())
+        && (!combo.modifiers.control || modifiers.control())
+        && (!combo.modifiers.meta || modifiers.command())
 }
 
 pub(crate) fn initialize_hook_state() -> Arc<Mutex<HookState>> {
@@ -240,7 +263,7 @@ pub(crate) unsafe extern "system" fn keyboard_proc(
         option: event_modifiers.option(),
         left_option: event_modifiers.left_alt,
         right_option: event_modifiers.right_alt,
-        command: false,
+        command: event_modifiers.command(),
         control: event_modifiers.control(),
         shift: event_modifiers.shift(),
         function: false,

@@ -9,7 +9,9 @@ Users asked for Wispr Flow style shortcuts, in particular `Ctrl+Win` on Windows.
 
 ## Consequences
 
-- A new Meta Shortcut Family exists, rendered as Win on Windows and Command on macOS. Windows key labels must never show Command or Option glyphs.
-- The Windows helper gains `VK_LWIN`/`VK_RWIN` mapping and Win state in its modifier struct. This is required for `Ctrl+Win` regardless of the capture decision, since the Win key was previously invisible to the hook.
-- Swallowing Win key-down under Ctrl must be verified not to open the Start menu.
+- A new Meta Shortcut Family exists, rendered as Win on Windows and Command on macOS. Windows key labels must never show Command or Option glyphs. `control-meta` and `control-meta-space` group under Meta rather than Control, because Meta is the key a user scans the picker for.
+- Three Presets were added on both platforms: `control-meta` (`⌃ + ⌘` / `Ctrl + Win`), `control-meta-space`, and `control-option` (`⌃ + ⌥` / `Ctrl + Alt`). `control-meta` and `control-option` are modifier-only, so they fire when the second modifier of the pair goes down and their hold ends as soon as either one is released.
+- The Windows helper gained `VK_LWIN`/`VK_RWIN` mapping (to the mac `command` / `rightCommand` keycodes, so one shortcut definition covers both platforms) and Win state in its modifier struct. This was required for `Ctrl+Win` regardless of the capture decision, since the Win key was previously invisible to the hook. `KeyEventMessage.command` was hardcoded `false` and now reports real Win state.
+- Combo tracking in the Windows hook now records a *set* of required modifiers instead of a single one. The previous `ActiveComboModifier` enum could not express "Ctrl and Win", so a two-modifier combo would have stayed active after one of them was released.
+- **Unverified:** whether swallowing Win key-down under Ctrl actually stops Windows opening the Start menu. That needs a real Windows machine; the logic is unit-tested but the OS behaviour is not confirmed.
 - Adding a Preset means touching a fixed list in `src/shared/shortcut-options.ts`, `src/shared/types.ts`, and `src/bun/utils/keyboard/keyboard-events.ts`. If that list grows much past a dozen entries, revisit capture.
