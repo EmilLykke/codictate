@@ -1,4 +1,12 @@
-import { getSpeechModel } from '../../../shared/speech-models'
+import {
+  DEFAULT_MODEL_ID,
+  HVISKE_TRANSCRIPTION_LANGUAGE_ID,
+  getSpeechModel,
+} from '../../../shared/speech-models'
+import {
+  HVISKE_CRISPASR_BACKEND,
+  type CrispasrBackendId,
+} from '../../../shared/asr-harness'
 import { resolveTranslateModelId } from '../../../shared/whisper-models'
 import { modelManager } from './model-manager'
 import { pasteTranscript } from '../keyboard/keyboard-events'
@@ -12,7 +20,7 @@ import type {
 } from '../../../shared/types'
 import { applyDictionary } from '../dictionary/apply-dictionary'
 import { RECORDING_PATH } from '../../platform/runtime'
-import { resolveAppAsrHarness } from './find-asr-harness'
+import { isHviskeEnabled, resolveAppAsrHarness } from './find-asr-harness'
 import { buildWhisperHarnessCommand } from './whisper-harness-command'
 
 /**
@@ -93,17 +101,64 @@ async function drainReadableStream(
   return out
 }
 
-export const transcribe = async (
-  whisperLanguageCode: string | null | undefined,
-  modelId: string,
-  translateToEnglish: boolean
-) => {
-  const speech = getSpeechModel(modelId)
-  if (speech?.engine === 'whisperkit') {
-    return transcribeParakeet(modelId)
+interface HviskeRunPlan {
+  /** The Speech Model the run should actually use. */
+  modelId: string
+  /** Set only when the run really is an hviske run. */
+  crispasrBackend?: CrispasrBackendId
+}
+
+/**
+ * Decide whether a selected hviske Speech Model may run.
+ *
+ * hviske is prep-only. It loads under the crispasr Harness with `--backend cohere` and
+ * nowhere else, and that Harness is gated by {@link isHviskeEnabled} - which needs both a
+ * source checkout and the dev-only env var. So in a released build, or in any dev run
+ * without the override, or when the weights are simply not installed, this falls back to
+ * the default Speech Model on the default Harness rather than attempting an hviske run.
+ */
+function planHviskeRun(modelId: string): HviskeRunPlan {
+  if (getSpeechModel(modelId)?.engine !== 'hviske') {
+    return { modelId }
   }
 
-  const harness = resolveAppAsrHarness()
+  if (!isHviskeEnabled()) {
+    log(
+      'whisper',
+      'hviske model selected without the dev-only crispasr harness - falling back to the default model',
+      { modelId, fallbackModelId: DEFAULT_MODEL_ID }
+    )
+    return { modelId: DEFAULT_MODEL_ID }
+  }
+
+  if (!modelManager.isModelAvailable(modelId)) {
+    log(
+      'whisper',
+      'hviske model selected but weights are not installed - falling back to the default model',
+      { modelId, fallbackModelId: DEFAULT_MODEL_ID }
+    )
+    return { modelId: DEFAULT_MODEL_ID }
+  }
+
+  return { modelId, crispasrBackend: HVISKE_CRISPASR_BACKEND }
+}
+
+export const transcribe = async (
+  whisperLanguageCode: string | null | undefined,
+  requestedModelId: string,
+  translateToEnglish: boolean
+) => {
+  const speech = getSpeechModel(requestedModelId)
+  if (speech?.engine === 'whisperkit') {
+    return transcribeParakeet(requestedModelId)
+  }
+
+  const hviske = planHviskeRun(requestedModelId)
+  const modelId = hviske.modelId
+  const crispasrBackend = hviske.crispasrBackend
+
+  // hviske only ever runs on crispasr; everything else keeps the resolved app Harness.
+  const harness = crispasrBackend ? 'crispasr' : resolveAppAsrHarness()
 
   const translateRunModelId = resolveTranslateModelId(modelId, (id) =>
     modelManager.isModelAvailable(id)
@@ -120,21 +175,30 @@ export const transcribe = async (
   const effectiveModelId = useTranslate ? translateRunModelId : modelId
   const model = modelManager.getModelPath(effectiveModelId)
 
+  // hviske is a Danish-only model, so its language is pinned rather than taken from the
+  // user's Transcription Language (which may be auto or another language entirely).
+  const language = crispasrBackend
+    ? HVISKE_TRANSCRIPTION_LANGUAGE_ID
+    : whisperLanguageCode
+
   const command = await buildWhisperHarnessCommand({
     harness,
+    crispasrBackend,
     modelPath: model,
-    language: whisperLanguageCode,
+    language,
     audioPath: RECORDING_PATH,
     translateToEnglish: useTranslate,
   })
 
   log('whisper', 'spawning ASR harness', {
     harness: command.harness,
+    backend: command.crispasrBackend,
     binary: command.binary,
     model,
     whisperLanguageCode: command.languageArg,
     languageMode: command.languageArg === 'auto' ? 'auto-detect' : 'fixed',
     modelId: effectiveModelId,
+    requestedModelId,
     translateToEnglish: useTranslate,
   })
 

@@ -23,3 +23,20 @@ export function isAsrHarnessId(value: unknown): value is AsrHarnessId {
 
 /** Env var that overrides the Harness in the app. Dev builds only. */
 export const ASR_HARNESS_ENV_VAR = 'CODICTATE_ASR_HARNESS'
+
+/**
+ * crispasr `--backend` values Codictate names. The vendored binary compiles in ~107
+ * backends; only the ones we deliberately drive belong here.
+ *
+ * `cohere` is the backend that can load hviske GGUF weights. It is valid on the
+ * `crispasr` Harness only - `whisper-cli` has no `--backend` flag at all.
+ */
+export const CRISPASR_BACKEND_IDS = ['cohere'] as const
+
+export type CrispasrBackendId = (typeof CRISPASR_BACKEND_IDS)[number]
+
+/** The Harness that hviske Speech Models require. */
+export const HVISKE_ASR_HARNESS: AsrHarnessId = 'crispasr'
+
+/** The crispasr backend that hviske Speech Models require. */
+export const HVISKE_CRISPASR_BACKEND: CrispasrBackendId = 'cohere'

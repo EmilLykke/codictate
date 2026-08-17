@@ -3,7 +3,15 @@ import { listFiles, downloadFile } from '@huggingface/hub'
 import { SPEECH_MODELS } from '../../../shared/speech-models'
 import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 
-const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter((m) => !m.bundled)
+/**
+ * hviske is prep-only and its Mirror repo has not been created yet (a maintainer has to
+ * run `scripts/mirror-hviske.ts` first - see docs/HVISKE_MIRROR.md), so asserting the
+ * repo is reachable would assert something that is deliberately not true yet. Drop the
+ * `engine !== 'hviske'` filter once the Mirror exists.
+ */
+const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter(
+  (m) => !m.bundled && m.engine !== 'hviske'
+)
 
 describe('model downloads', () => {
   for (const model of DOWNLOADABLE_MODELS) {

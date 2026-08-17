@@ -4,6 +4,7 @@ import { getPlatformRuntime } from '../../platform/runtime'
 import {
   ASR_HARNESS_ENV_VAR,
   DEFAULT_ASR_HARNESS,
+  HVISKE_ASR_HARNESS,
   isAsrHarnessId,
   type AsrHarnessId,
 } from '../../../shared/asr-harness'
@@ -123,4 +124,19 @@ export function resolveAppAsrHarness(): AsrHarnessId {
     log('whisper', 'ASR harness overridden by env', { harness: override })
   }
   return override
+}
+
+/**
+ * Whether the prep-only hviske Speech Models may be touched at all (downloaded or
+ * transcribed with).
+ *
+ * hviske loads only under the crispasr Harness, and that Harness is reachable only when
+ * `resolveAppAsrHarness()` says so - which already requires both a source checkout and
+ * the dev-only `CODICTATE_ASR_HARNESS` env var. Deliberately no second gating
+ * mechanism: a released build can never satisfy this, so hviske can never be reached by
+ * a user, and callers that hit this must fall back to default behaviour rather than
+ * attempt an hviske run.
+ */
+export function isHviskeEnabled(): boolean {
+  return resolveAppAsrHarness() === HVISKE_ASR_HARNESS
 }

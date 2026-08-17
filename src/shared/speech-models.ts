@@ -1,11 +1,35 @@
 /**
- * Speech model catalog: whisper.cpp GGML files and Parakeet TDT v3 (Core ML on macOS,
- * ONNX on Windows). `engine: 'whisperkit'` is the historical Parakeet engine label.
+ * Speech model catalog: whisper.cpp GGML files, Parakeet TDT v3 (Core ML on macOS,
+ * ONNX on Windows) and hviske (Danish, crispasr cohere backend).
+ * `engine: 'whisperkit'` is the historical Parakeet engine label.
  */
 
 import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
 
-export type SpeechEngineId = 'whisper_cpp' | 'whisperkit'
+/**
+ * Speech Engine ids.
+ *
+ * `hviske` is its own Engine rather than a `whisper_cpp` entry, because the Engine id
+ * is what every consumer in the codebase keys download shape, runtime path and UI
+ * grouping off:
+ *
+ * - hviske weights are GGUF files that only crispasr's `cohere` backend can load.
+ *   whisper.cpp and llama.cpp cannot read them, so they are not whisper.cpp weights in
+ *   any usable sense.
+ * - They come from a Mirror repo, not from `ggerganov/whisper.cpp`, so the
+ *   `whisperModelDownloadUrl` builder that every `whisper_cpp` model uses would
+ *   produce a dead URL.
+ * - Every existing `engine === 'whisper_cpp'` filter (WHISPER_MODELS,
+ *   EXTENDED_WHISPER_MODELS, the Settings model list and browse modal,
+ *   TRANSLATE_CAPABLE_MODEL_IDS) would silently pick hviske up. A separate id keeps it
+ *   out of all of them by construction, which is exactly what prep-only requires.
+ *
+ * Reusing `whisperkit` would be worse still: that id routes to the Parakeet native
+ * helper. Note that Engine stays distinct from ASR Harness - that hviske has to run
+ * under crispasr is a Harness fact, expressed in src/shared/asr-harness.ts and in the
+ * transcription path, not in this id.
+ */
+export type SpeechEngineId = 'whisper_cpp' | 'whisperkit' | 'hviske'
 
 export type SpeechModelModeSupport = 'normal' | 'stream' | 'both'
 
@@ -53,6 +77,22 @@ const PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS = [
   'lt',
   'ca',
 ] as const
+
+/**
+ * Mirror repo for the hviske weights. `syvai/hviske-v5-tiny` is `gated: manual`, so the
+ * app cannot download from upstream on a user's behalf.
+ *
+ * This repo DOES NOT EXIST YET - a maintainer has to run `scripts/mirror-hviske.ts`
+ * first. See docs/HVISKE_MIRROR.md. Download code must therefore report a missing
+ * Mirror as such rather than surface a bare 404.
+ */
+export const HVISKE_MIRROR_REPO_ID = 'emillykkegrann/hviske-v5-tiny-GGUF'
+
+/** hviske is Danish-only, so a run pins `--language da` rather than auto-detecting. */
+export const HVISKE_TRANSCRIPTION_LANGUAGE_ID = 'da'
+
+/** The hviske Quantization the benchmark should treat as primary (identical WER, larger). */
+export const PRIMARY_HVISKE_MODEL_ID = 'hviske-v5-tiny-f16'
 
 export interface SpeechModel {
   id: string
@@ -484,6 +524,46 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Whisper model · fast and very accurate, Q8 quantized, 1.1 GB RAM',
     translationSupport: false,
   },
+
+  // ── hviske (Danish) - PREP ONLY, deliberately not user-reachable ────
+  //
+  // Neither entry sets `curated`, and `engine: 'hviske'` keeps both out of every
+  // whisper_cpp / whisperkit filter the Settings UI builds its lists from, so they do
+  // not appear in the model picker or the browse modal. Transcription is additionally
+  // gated on the dev-only crispasr Harness override (see
+  // src/bun/utils/whisper/find-asr-harness.ts), and the Mirror they download from does
+  // not exist yet. Whether hviske ships at all is a benchmark decision that has not
+  // been taken.
+  //
+  // `peakRamMB` is an unmeasured estimate, roughly the file size plus decode overhead.
+  // The benchmark has to replace both numbers before either entry could be curated.
+  // The model card lists an identical Danish WER of 10.51 for the two Quantizations.
+  {
+    id: 'hviske-v5-tiny-f16',
+    engine: 'hviske',
+    modeSupport: 'normal',
+    artifactName: 'hviske-v5-tiny-f16.gguf',
+    downloadSizeMB: 527,
+    peakRamMB: 700,
+    label: 'Hviske V5 Tiny',
+    description: 'Danish model · Danish only, full precision, 10.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
+  },
+  {
+    id: 'hviske-v5-tiny-q4_k',
+    engine: 'hviske',
+    modeSupport: 'normal',
+    artifactName: 'hviske-v5-tiny-q4_k.gguf',
+    downloadSizeMB: 160,
+    peakRamMB: 330,
+    label: 'Hviske V5 Tiny',
+    description: 'Danish model · Danish only, Q4 quantized, 10.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
+  },
 ]
 
 export const DEFAULT_MODEL_ID = 'large-v3-turbo-q5_0'
@@ -503,6 +583,19 @@ export function isValidSpeechModelId(id: string): boolean {
 
 export function supportsStreamMode(model: SpeechModel): boolean {
   return model.modeSupport === 'stream' || model.modeSupport === 'both'
+}
+
+/** True for the prep-only Danish hviske Speech Models. */
+export function isHviskeSpeechModelId(id: string): boolean {
+  return getSpeechModel(id)?.engine === 'hviske'
+}
+
+/**
+ * Direct file URL in the hviske Mirror. Used instead of `whisperModelDownloadUrl`,
+ * which points at `ggerganov/whisper.cpp` and has no hviske weights.
+ */
+export function hviskeMirrorFileUrl(artifactName: string): string {
+  return `https://huggingface.co/${HVISKE_MIRROR_REPO_ID}/resolve/main/${artifactName}`
 }
 
 /** Parakeet (Core ML) has no fixed-language setting; the UI locks transcription language to automatic. */

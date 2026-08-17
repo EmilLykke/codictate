@@ -14,11 +14,13 @@ import { downloadFile, listFiles } from '@huggingface/hub'
 import {
   SPEECH_MODELS,
   getSpeechModel,
+  hviskeMirrorFileUrl,
   type SpeechModel,
 } from '../../../shared/speech-models'
 import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 import { log } from '../logger'
 import { MODELS_DIR, getPlatformRuntime } from '../../platform/runtime'
+import { isHviskeEnabled } from './find-asr-harness'
 
 const BUNDLED_MODEL_PATH = join(
   import.meta.dir,
@@ -35,6 +37,36 @@ function downloadErrorMessage(err: unknown): string {
   if (err instanceof Error && err.name === 'AbortError') return 'Cancelled'
   if (err instanceof Error) return err.message
   return 'Download failed'
+}
+
+/** Single-file Speech Models (whisper.cpp GGML, hviske GGUF) download straight from a URL. */
+function singleFileModelDownloadUrl(model: SpeechModel): string {
+  if (model.engine === 'hviske') {
+    return hviskeMirrorFileUrl(model.artifactName)
+  }
+  return whisperModelDownloadUrl(model.artifactName)
+}
+
+/**
+ * The hviske Mirror only exists once a maintainer has run `scripts/mirror-hviske.ts`,
+ * so a 404 (or a 401/403 from a private staging repo) is the expected state today and has
+ * to say what to do about it instead of surfacing as a bare HTTP code.
+ * See docs/HVISKE_MIRROR.md.
+ */
+function httpDownloadErrorMessage(
+  model: SpeechModel,
+  url: string,
+  status: number,
+  statusText: string
+): string {
+  if (model.engine === 'hviske' && [401, 403, 404].includes(status)) {
+    return (
+      `The hviske Mirror ${model.huggingFaceRepoId} is not published yet ` +
+      `(HTTP ${status} for ${url}). A maintainer has to run ` +
+      '`bun run scripts/mirror-hviske.ts` first - see docs/HVISKE_MIRROR.md.'
+    )
+  }
+  return `HTTP ${status} ${statusText}`
 }
 
 const WINDOWS_PARAKEET_ONNX_REPO_ID = 'istupakov/parakeet-tdt-0.6b-v3-onnx'
@@ -149,6 +181,11 @@ class ModelManager {
     const model = this.modelInfo(modelId)
     if (!model) return false
     if (model.bundled) return true
+    // Availability is what every model surface keys off, including the ones that list by
+    // availability rather than by engine (Home screen list, tray model menu). Reporting a
+    // gated-off hviske model as unavailable therefore hides it from all of them at once,
+    // even if the weights were dropped into the models directory by hand.
+    if (model.engine === 'hviske' && !isHviskeEnabled()) return false
     if (model.engine === 'whisperkit') {
       const dir = this.getParakeetInstallDir(modelId)
       if (!parakeetInstallComplete(dir)) return false
@@ -191,22 +228,29 @@ class ModelManager {
     return this.isModelAvailable('parakeet-tdt-0.6b-v3')
   }
 
-  private async downloadWhisperCppModel(
+  private async downloadSingleFileModel(
     model: SpeechModel,
-    _destPath: string,
     tempPath: string,
     controller: AbortController,
     onProgress: ModelProgressCallback
   ): Promise<void> {
-    const url = whisperModelDownloadUrl(model.artifactName)
-    log('model-manager', 'starting whisper.cpp download', {
+    const url = singleFileModelDownloadUrl(model)
+    log('model-manager', 'starting single-file model download', {
       modelId: model.id,
+      engine: model.engine,
       url,
     })
 
     const response = await fetch(url, { signal: controller.signal })
     if (!response.ok || !response.body) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`)
+      throw new Error(
+        httpDownloadErrorMessage(
+          model,
+          url,
+          response.status,
+          response.statusText
+        )
+      )
     }
 
     const contentLength = Number(response.headers.get('Content-Length') ?? '0')
@@ -329,6 +373,15 @@ class ModelManager {
       return
     }
 
+    // hviske is prep-only: no UI surfaces it, but the download RPC takes any model id,
+    // so the same dev-only gate that guards the crispasr Harness guards the download.
+    if (model.engine === 'hviske' && !isHviskeEnabled()) {
+      const message = 'This model is not available in this build of Codictate.'
+      log('model-manager', 'refusing hviske download outside dev', { modelId })
+      onProgress(0, true, message)
+      return
+    }
+
     mkdirSync(MODELS_DIR, { recursive: true })
 
     const controller = new AbortController()
@@ -370,13 +423,12 @@ class ModelManager {
 
     log('model-manager', 'starting download', {
       modelId,
-      url: whisperModelDownloadUrl(model.artifactName),
+      url: singleFileModelDownloadUrl(model),
     })
 
     try {
-      await this.downloadWhisperCppModel(
+      await this.downloadSingleFileModel(
         model,
-        destPath,
         tempPath,
         controller,
         onProgress
