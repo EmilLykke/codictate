@@ -3,7 +3,7 @@
 //
 // - MicRecorder:       built from Swift via `bun run build:native` (Core Audio capture + device list)
 // - whisper-cli:       built from source (whisper.cpp publishes no macOS CLI asset)
-// - llama-completion:  downloaded prebuilt from the pinned PrismML llama.cpp release
+// - llama-completion:  downloaded prebuilt from the pinned upstream llama.cpp release
 // - crispasr:          downloaded prebuilt from the pinned CrispASR release (second ASR Harness)
 // - CodictateParakeetHelper: Swift + FluidAudio + NeMo ITN (text-processing-rs static lib)
 // - ggml-large-v3-turbo-q5_0.bin: Whisper multilingual model from Hugging Face
@@ -19,7 +19,7 @@ import {
   LLAMA_VERSION,
   LLAMA_RELEASE_BASE,
   LLAMA_MACOS_ARM64_ARCHIVE,
-  LLAMA_WINDOWS_ARCHIVES,
+  LLAMA_WINDOWS_ARCHIVE,
   LLAMA_MACOS_DYLIBS,
   LLAMA_WINDOWS_DLLS,
   CRISPASR_VERSION,
@@ -56,13 +56,15 @@ const WHISPER_BUILD_SIGNATURE = [
   `vulkan=${process.platform === "win32" ? "on" : "off"}`,
 ].join("\n");
 
-// PrismML fork of llama.cpp (required for Q2_0 ternary quantization used by Ternary-Bonsai).
-// Pinned to tag prism-b8846-d104cf1 — upstream fork at https://github.com/PrismML-Eng/llama.cpp
-// Earlier tags (e.g. v0.0.2-prism) defined only Q1_0 ternary types; GGML_TYPE_Q2_0 = 42 arrived
-// in this build tag and is required for the Ternary-Bonsai-1.7B-Q2_0 GGUF.
-// Prism renamed `llama-cli` → `llama-completion`; only llama-completion can load ternary Q2_0 weights.
+// Upstream llama.cpp (https://github.com/ggml-org/llama.cpp), pinned by build tag.
 // Downloaded prebuilt on macOS arm64 and Windows x64; source build remains the fallback
 // for platforms the release does not cover.
+//
+// Codictate previously used the PrismML fork for GGML_TYPE_Q2_0 ternary weights
+// (Ternary-Bonsai-1.7B-Q2_0). Nothing shipping loads Q2_0, since both formatter models are
+// Q4_K_M (src/bun/platform/runtime.ts), and upstream now publishes `llama-completion`
+// itself, so there is no reason to stay on the fork. Reintroducing a ternary model would
+// mean revisiting docs/adr/0001-vendor-binary-sourcing.md.
 const LLAMA_DIR = join(VENDORS_DIR, "llama");
 const LLAMA_BINARY_NAME = process.platform === "win32" ? "llama-completion.exe" : "llama-completion";
 const LLAMA_BINARY = join(LLAMA_DIR, LLAMA_BINARY_NAME);
@@ -508,7 +510,7 @@ function copyVendorFiles(
     const source = join(sourceDir, name);
     if (!existsSync(source)) {
       throw new Error(
-        `[pre-build] ${label} archive is missing ${name} — the pinned release layout changed`,
+        `[pre-build] ${label} archive is missing ${name}: the pinned release layout changed`,
       );
     }
     copyFileSync(realpathSync(source), join(destDir, name));
@@ -543,46 +545,22 @@ async function downloadLlamaPrebuilt() {
   rmSync(workDir, { recursive: true, force: true });
 
   try {
-    if (process.platform === "darwin") {
-      const sourceDir = await fetchVendorArchive(
-        LLAMA_RELEASE_BASE,
-        LLAMA_MACOS_ARM64_ARCHIVE,
-        workDir,
-      );
-      copyVendorFiles(
-        sourceDir,
-        LLAMA_DIR,
-        [LLAMA_BINARY_NAME, ...LLAMA_MACOS_DYLIBS],
-        "llama-completion",
-      );
-      chmodSync(LLAMA_BINARY, 0o755);
-    } else {
-      // Two archives overlay into one directory: cpu carries the exe and core
-      // DLLs, vulkan carries only ggml-vulkan.dll.
-      const sourceDirs: string[] = [];
-      for (const [index, archive] of LLAMA_WINDOWS_ARCHIVES.entries()) {
-        sourceDirs.push(
-          await fetchVendorArchive(
-            LLAMA_RELEASE_BASE,
-            archive,
-            join(workDir, String(index)),
-          ),
-        );
-      }
-      const findIn = (name: string): string | null =>
-        sourceDirs.find((dir) => existsSync(join(dir, name))) ?? null;
-
-      mkdirSync(LLAMA_DIR, { recursive: true });
-      for (const name of [LLAMA_BINARY_NAME, ...LLAMA_WINDOWS_DLLS]) {
-        const dir = findIn(name);
-        if (!dir) {
-          throw new Error(
-            `[pre-build] llama-completion archives are missing ${name} — the pinned release layout changed`,
-          );
-        }
-        copyFileSync(join(dir, name), join(LLAMA_DIR, name));
-      }
-    }
+    const isMac = process.platform === "darwin";
+    const sourceDir = await fetchVendorArchive(
+      LLAMA_RELEASE_BASE,
+      isMac ? LLAMA_MACOS_ARM64_ARCHIVE : LLAMA_WINDOWS_ARCHIVE,
+      workDir,
+    );
+    copyVendorFiles(
+      sourceDir,
+      LLAMA_DIR,
+      [
+        LLAMA_BINARY_NAME,
+        ...(isMac ? LLAMA_MACOS_DYLIBS : LLAMA_WINDOWS_DLLS),
+      ],
+      "llama-completion",
+    );
+    if (isMac) chmodSync(LLAMA_BINARY, 0o755);
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
@@ -656,12 +634,12 @@ async function buildLlamaFromSource() {
 
   mkdirSync(LLAMA_DIR, { recursive: true });
 
-  const sourceUrl = `https://github.com/PrismML-Eng/llama.cpp/archive/refs/tags/${LLAMA_VERSION}.tar.gz`;
+  const sourceUrl = `https://github.com/ggml-org/llama.cpp/archive/refs/tags/${LLAMA_VERSION}.tar.gz`;
   const tarPath = join(LLAMA_DIR, "llama-src.tar.gz");
   const srcDir = join(LLAMA_DIR, "llama-src");
   const buildDir = join(LLAMA_DIR, "llama-build");
 
-  console.log(`[pre-build] Downloading PrismML llama.cpp ${LLAMA_VERSION} source...`);
+  console.log(`[pre-build] Downloading llama.cpp ${LLAMA_VERSION} source...`);
   const response = await fetch(sourceUrl);
   if (!response.ok) {
     throw new Error(`[pre-build] Failed to download llama.cpp source (HTTP ${response.status})`);
@@ -677,7 +655,7 @@ async function buildLlamaFromSource() {
   console.log("[pre-build] Configuring llama-completion (static, release)...");
   // llama-completion lives under tools/completion/. LLAMA_BUILD_TOOLS must be
   // ON so the whole tools/ subtree is included. LLAMA_CURL=OFF avoids a system
-  // curl dependency. (The deprecated tools/cli/ also exists but refuses Q2_0.)
+  // curl dependency. (The deprecated tools/cli/ also exists but is not llama-completion.)
   const configureArgs: string[] = [
     "cmake",
     "-S", srcDir,

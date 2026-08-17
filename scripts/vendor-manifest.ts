@@ -9,10 +9,15 @@
 // See docs/adr/0001-vendor-binary-sourcing.md for why these are prebuilt rather
 // than source builds, and docs/adr/0002-asr-harness-abstraction.md for crispasr.
 
-/** PrismML fork of llama.cpp. Only this fork's `llama-completion` loads Q2_0 ternary weights. */
-export const LLAMA_VERSION = "prism-b8846-d104cf1";
+/**
+ * Upstream llama.cpp. Publishes `llama-completion` for both target platforms, and
+ * loads the Q4_K_M formatter weights Codictate actually ships. Codictate used the
+ * PrismML fork for its Q2_0 ternary support; nothing shipping needs Q2_0, so this
+ * is back on upstream. See docs/adr/0001-vendor-binary-sourcing.md.
+ */
+export const LLAMA_VERSION = "b10470";
 export const LLAMA_RELEASE_BASE =
-  `https://github.com/PrismML-Eng/llama.cpp/releases/download/${LLAMA_VERSION}`;
+  `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}`;
 
 /** CrispASR, the second ASR Harness. Single prebuilt binary, also the only runtime for Cohere ASR weights. */
 export const CRISPASR_VERSION = "v0.8.29";
@@ -32,33 +37,29 @@ export interface VendorArchive {
 
 export const LLAMA_MACOS_ARM64_ARCHIVE: VendorArchive = {
   asset: `llama-${LLAMA_VERSION}-bin-macos-arm64.tar.gz`,
-  sha256: "2c9f5cc15b5d10f214abd7b72352221c938bb718c3aceea54e828293002b6244",
+  sha256: "75c29cd80a67a8388b8ed08ea4a87531269a737c18945bdf3c3db6d5858024a9",
   stripPrefix: `llama-${LLAMA_VERSION}`,
 };
 
 /**
- * Windows llama ships as two overlaid archives: the cpu package carries
- * `llama-completion.exe` plus llama/ggml core DLLs, and the vulkan package
- * carries only `ggml-vulkan.dll` (the GPU backend ggml-base loads at runtime).
+ * The Vulkan archive is self-contained: it carries `llama-completion.exe`, the
+ * Vulkan backend, and every llama/ggml DLL the exe's PE import table names. The
+ * only externals are Windows system DLLs plus the MSVC runtime, which
+ * `ensureWindowsVcRuntimeDlls()` already vendors.
  */
-export const LLAMA_WINDOWS_ARCHIVES: VendorArchive[] = [
-  {
-    asset: "llama-bin-win-cpu-x64.zip",
-    sha256: "692383dcc8ddb2f29f657c16c3dfd79f4d09c656f9d8f82f8b1739b2f07db4f7",
-  },
-  {
-    asset: "llama-bin-win-vulkan-x64.zip",
-    sha256: "9a8ed12a1ede3e2b3721128d0786c58e32392322a6a39e944eb4b10562260bed",
-  },
-];
+export const LLAMA_WINDOWS_ARCHIVE: VendorArchive = {
+  asset: `llama-${LLAMA_VERSION}-bin-win-vulkan-x64.zip`,
+  sha256: "2e89637b30e0e2f90d4ed486118e8642f60625b1dbebb9ba3a30bc4100306fc9",
+};
 
 /**
- * The eight `@rpath` dylibs `llama-completion` links against, verified with
+ * The nine `@rpath` dylibs `llama-completion` links against, verified with
  * `otool -L`. In the archive these names are symlinks to versioned files; the
  * vendoring step resolves them so `vendors/llama/` holds plain files that
  * `post-build.ts` can codesign one by one.
  */
 export const LLAMA_MACOS_DYLIBS = [
+  "libllama-completion-impl.dylib",
   "libllama-common.0.dylib",
   "libllama.0.dylib",
   "libggml.0.dylib",
@@ -70,10 +71,13 @@ export const LLAMA_MACOS_DYLIBS = [
 ];
 
 /**
- * `ggml-base.dll` picks one `ggml-cpu-*.dll` at runtime based on the host CPU,
- * so every variant ships or older machines lose the CPU backend entirely.
+ * Import-table dependencies of `llama-completion.exe`, plus the backends
+ * `ggml-base.dll` loads dynamically rather than importing: `ggml-vulkan.dll`,
+ * `ggml-rpc.dll`, and one `ggml-cpu-*.dll` chosen at runtime from the host CPU.
+ * Every CPU variant ships or older machines lose the CPU backend entirely.
  */
 export const LLAMA_WINDOWS_DLLS = [
+  "llama-completion-impl.dll",
   "llama.dll",
   "llama-common.dll",
   "ggml.dll",

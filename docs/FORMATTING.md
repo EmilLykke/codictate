@@ -6,7 +6,7 @@ Codictate can reshape raw transcriptions into structured output before pasting â
 
 ### llama.cpp (Qwen) â€” macOS and Windows
 
-Cross-platform. Uses the `llama-completion` binary (a PrismML fork of llama.cpp with Q2_0 ternary quantization support) with constrained JSON decoding (`--json-schema`).
+Cross-platform. Uses the `llama-completion` binary from upstream llama.cpp with constrained JSON decoding (`--json-schema`).
 
 Two model tiers, downloaded in-app:
 
