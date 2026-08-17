@@ -115,6 +115,16 @@ Raw transcription can be reformatted before pasting (e.g. turning spoken words i
 - **llama.cpp backend**: runs Qwen2.5 3B (~2 GB) or Qwen3 4B (~2.5 GB) locally via `llama-completion`
 - **Apple Intelligence backend**: macOS 26+ only, uses on-device Apple Intelligence
 
+## Platform parity
+
+macOS and Windows are kept at equal feature maturity. Build every feature for both platforms in the same change: native helper (Swift and Rust), vendor binary (pick the equivalent Windows release asset), settings, and key labels. "Windows part comes later" means the task is unfinished, not that it shipped.
+
+Key labels follow the host platform: Windows shows Ctrl / Alt / Win / Shift, never ⌘ or ⌥. Pre-existing gaps (Fn shortcuts on Windows) are exceptions to close, not precedents to copy.
+
+## Domain language
+
+`CONTEXT.md` is the glossary for Codictate's domain terms (Dictation Shortcut, Speech Engine, ASR Harness, Formatting Mode, Vendor Binary, and so on). Use those terms in code and docs. Architectural decisions and their rejected alternatives live in `docs/adr/`.
+
 ## Frontend theme
 
 Defined in `src/mainview/index.css`:
