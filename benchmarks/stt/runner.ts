@@ -2,9 +2,14 @@ import { copyFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { RECORDING_PATH, MODELS_DIR } from "../../src/bun/platform/runtime";
 import { fixBrandMishearings } from "../../src/bun/utils/whisper/speech2text";
-import { getSpeechModel } from "../../src/shared/speech-models";
+import {
+  getSpeechModel,
+  isHviskeSpeechModelId,
+} from "../../src/shared/speech-models";
 import {
   DEFAULT_ASR_HARNESS,
+  HVISKE_ASR_HARNESS,
+  HVISKE_CRISPASR_BACKEND,
   type AsrHarnessId,
 } from "../../src/shared/asr-harness";
 import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-harness-command";
@@ -100,13 +105,32 @@ async function drainStream(
   return out;
 }
 
+/**
+ * How to invoke one Speech Model. hviske GGUF weights load only under crispasr's
+ * cohere backend, so they ignore the run's selected Harness rather than being
+ * silently transcribed by the wrong one and reported as an hviske result.
+ */
+function harnessInvocationFor(
+  modelId: string,
+  harness: AsrHarnessId,
+): { harness: AsrHarnessId; crispasrBackend?: typeof HVISKE_CRISPASR_BACKEND } {
+  if (isHviskeSpeechModelId(modelId)) {
+    return {
+      harness: HVISKE_ASR_HARNESS,
+      crispasrBackend: HVISKE_CRISPASR_BACKEND,
+    };
+  }
+  return { harness };
+}
+
 async function transcribeWhisper(
   modelPath: string,
   language: string,
   harness: AsrHarnessId,
+  modelId: string,
 ): Promise<string> {
   const { argv } = await buildWhisperHarnessCommand({
-    harness,
+    ...harnessInvocationFor(modelId, harness),
     modelPath,
     language,
     audioPath: RECORDING_PATH,
@@ -171,7 +195,7 @@ async function runUtterance(
   const hypothesis =
     speech.engine === "whisperkit"
       ? await transcribeParakeet(modelPath)
-      : await transcribeWhisper(modelPath, entry.language, harness);
+      : await transcribeWhisper(modelPath, entry.language, harness, modelId);
   const wallClockMs = performance.now() - start;
 
   const wer = computeWer(entry.transcript, hypothesis);
@@ -197,7 +221,7 @@ async function measureModelMemory(
   } else {
     command = (
       await buildWhisperHarnessCommand({
-        harness,
+        ...harnessInvocationFor(modelId, harness),
         modelPath,
         language: null,
         audioPath: RECORDING_PATH,
