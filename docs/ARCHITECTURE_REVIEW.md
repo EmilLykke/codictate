@@ -27,6 +27,8 @@ This is a review, not a decision record. Decisions that come out of it belong in
 
 ### A — Resolve the Dictation once, into a plan
 
+**Decided 2026-08-17: `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.** The decision went further than this candidate proposed - rather than resolving fallbacks in one place, the fallbacks are removed and the state is kept runnable. Read the ADR, not this section, for what was agreed.
+
 **Files**: `src/bun/utils/whisper/speech2text.ts:110-160` · `src/shared/whisper-models.ts:78-92,158-177` · `src/shared/speech-models.ts:647-689` · `src/bun/utils/audio/start-rec.ts:210-239` · `src/bun/setup-recording.ts:286-310` · `src/bun/AppConfig/AppConfig.ts:1071-1089,1343-1354` · `src/bun/utils/model-actions.ts:33-47` · `src/mainview/components/MainContainer.tsx:190-216`
 
 **Problem**: which Speech Model, Speech Engine, Transcription Language and crispasr backend actually run is decided in six modules and re-decided at three different moments, so no caller can name the run it just asked for.

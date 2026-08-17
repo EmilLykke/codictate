@@ -6,6 +6,8 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Dictation** - one complete cycle of the core user action: the user activates a Dictation Shortcut, speaks, and the resulting text is placed at the cursor.
 
+**Dictation Plan** - the fully resolved description of what a single Dictation will do: which Speech Engine and Speech Model run it, in which Transcription Language, whether Translate to English applies, and whether it is a Live Transcription. A Dictation Plan is either runnable or blocked. Codictate never adapts a Dictation to an unrunnable state - it keeps the state runnable instead - so a blocked plan means something changed outside the app, and it names the reason rather than starting a Dictation that cannot do what was asked.
+
 **Dictation Shortcut** - the key combination that starts and ends a Dictation. Codictate has two independent slots: the primary shortcut (supports both Hold and Tap) and an optional second shortcut (Hold only).
 
 **Preset** - one of the fixed, named key combinations Codictate offers in the shortcut picker. Codictate does not let a user invent arbitrary combinations; the offered set is curated. See `docs/adr/0003-shortcut-presets-over-capture.md`.
@@ -38,7 +40,7 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Translate to English** - a mode where the Speech Engine outputs English regardless of the spoken language, rather than transcribing verbatim. Distinct from Transcription Language, which selects the input language.
 
-**Live Transcription** - a mode where partial text appears while the user is still speaking, rather than only after the Dictation ends. Requires Parakeet and a fixed Transcription Language. Previously labelled "Stream mode".
+**Live Transcription** - a mode where partial text appears while the user is still speaking, rather than only after the Dictation ends. Requires Parakeet, and a Transcription Language that Parakeet supports. Parakeet detects the spoken language itself, so the user does not choose one: the Transcription Language is automatic for the whole time Parakeet is the selected Speech Model. Previously labelled "Stream mode".
 
 ## Formatting
 

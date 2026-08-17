@@ -134,6 +134,18 @@ See `docs/RECORDING_INDICATOR.md` for full details.
 - **Parakeet**: runs via `CodictateParakeetHelper` (macOS only). The engine ID in code is `whisperkit` but the actual engine is **FluidAudio** (FluidInference), not WhisperKit.
 - **hviske**: Danish only, the mirrored `syvai/hviske-v5-tiny` GGUF weights. Runs on the same `crispasr` binary with `--backend cohere`, which is the only runtime that can read those weights. Ungated: no env var, no source-checkout requirement. All five Quantizations live in the browse modal ("Browse more models" in Settings) and none is curated; `f16` is the recommended one in documentation, because syvai's claim of identical Danish WER across all five is unverified. Built for both platforms. The `cohere` backend is confirmed present in the shipped Windows binary (verified in the pinned `crispasr-windows-x86_64-vulkan.zip` for v0.8.29: `--backend` help lists `cohere`, and `CohereBackend` / `cohere_transcribe_ex` / `llm_build_cohere2_iswa` symbols are in `crispasr.exe` and `crispasr.dll`). What is still unverified is narrower: **no hviske Dictation has been run on Windows hardware**, so the end-to-end GGUF load, Vulkan device selection and output quality are unobserved. Do not upgrade that to a Windows support claim until someone runs it. See `docs/adr/0004-hviske-danish-ungated.md` and `docs/HVISKE_MIRROR.md`.
 
+### Dictation resolution - no runtime fallbacks
+
+A Dictation never adapts to an unrunnable state; the state is kept runnable instead. Do not add a fallback when a Speech Model, a Speech Engine capability or a Native Helper is unavailable - refuse the settings write, heal the config when availability changes, and do not offer the option in the UI.
+
+- **One resolver.** `src/shared/dictation-plan.ts` turns `(settings, availability snapshot)` into a **Dictation Plan** - a pure value, no `modelManager` and no `getPlatform`. Batch Dictation and Live Transcription are one union. Never re-derive which Speech Model, Speech Engine, Transcription Language or crispasr backend runs anywhere else.
+- **Runnable or blocked, nothing in between.** A blocked plan carries a reason from a closed union, starts no Dictation, surfaces a message, and triggers the heal pass. There is no substitution and no silent drop.
+- **Enforced in three places.** Whole-object validation on every settings write (a patch can be valid and its result invalid); a heal pass on every availability change and at boot; the blocked-plan path for state that changed behind the app's back.
+- **Readiness is computed in the main process** and shipped in the settings payload. The webview renders it and derives nothing.
+- The benchmark is outside all of this: no settings, no availability healing, no fallback semantics. It reuses the ASR Harness command builder, not the plan.
+
+See `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.
+
 ### Formatting pipeline
 
 Raw transcription can be reformatted before pasting (e.g. turning spoken words into a structured email):
