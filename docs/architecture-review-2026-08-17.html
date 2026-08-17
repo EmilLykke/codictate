@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review — Codictate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 4 4; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .mermaid { font-size: 13px; }
+      .schem { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+      .hatch {
+        background-image: repeating-linear-gradient(45deg, #fecaca 0 4px, #fff1f2 4px 8px);
+      }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans antialiased">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <!-- ══════════════════ HEADER ══════════════════ -->
+      <header class="space-y-6">
+        <div class="flex items-baseline justify-between border-b border-slate-300 pb-4">
+          <h1 class="font-serif text-4xl tracking-tight">Architecture review</h1>
+          <p class="font-mono text-xs text-slate-500">codictate · main @ 9e279b3 · 2026-08-17</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
+            <p class="schem text-slate-500">Legend</p>
+            <ul class="text-sm space-y-1.5">
+              <li><span class="inline-block w-10 h-3 align-middle border border-slate-400 bg-white"></span> <span class="ml-2">module</span></li>
+              <li><span class="inline-block w-10 h-3 align-middle deep"></span> <span class="ml-2">deep module</span></li>
+              <li><svg class="inline align-middle" width="40" height="10"><line class="seam" x1="0" y1="5" x2="40" y2="5" stroke="#475569" stroke-width="1.5"/></svg> <span class="ml-2">seam</span></li>
+              <li><svg class="inline align-middle" width="40" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="#dc2626" stroke-width="2"/><path d="M34 1 L40 5 L34 9 Z" fill="#dc2626"/></svg> <span class="ml-2">leakage across a seam</span></li>
+              <li><span class="inline-block w-10 h-3 align-middle hatch border border-red-300"></span> <span class="ml-2">unenforced site — silent failure if missed</span></li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
+            <p class="schem text-slate-500">Scope</p>
+            <p class="text-sm leading-relaxed">Hot spots from the last 60 commits: the ASR Harness / Speech Model cluster, the Dictation Shortcut Preset list, and the speech benchmark. <span class="font-mono text-xs">AppConfig</span> pulled in because every one of those paths reads or heals through it.</p>
+            <p class="text-sm leading-relaxed">Vocabulary from <span class="font-mono text-xs">CONTEXT.md</span> and <span class="font-mono text-xs">/codebase-design</span>. ADRs 0001–0004 are treated as settled.</p>
+          </div>
+        </div>
+
+        <div class="rounded-lg border-l-4 border-red-500 bg-red-50 p-4">
+          <p class="schem text-red-700 mb-2">Standing condition behind every candidate below</p>
+          <p class="text-sm leading-relaxed text-red-950">28,662 lines of TS/TSX. 5 <span class="font-mono text-xs">*.test.ts</span> files. <strong>No <span class="font-mono text-xs">test</span> script in <span class="font-mono text-xs">package.json</span></strong>, and no workflow in <span class="font-mono text-xs">.github/workflows/</span> runs <span class="font-mono text-xs">bun test</span>, <span class="font-mono text-xs">lint</span>, or <span class="font-mono text-xs">tsc</span>. Zero tests exist for <span class="font-mono text-xs">AppConfig.ts</span>, <span class="font-mono text-xs">setup-recording.ts</span>, <span class="font-mono text-xs">speech2text.ts</span>, <span class="font-mono text-xs">keyboard-events.ts</span>, <span class="font-mono text-xs">rpc.ts</span>. Every "tests would improve" claim on this page is a claim about a test surface that does not exist yet.</p>
+        </div>
+      </header>
+
+      <!-- ══════════════════ CANDIDATES ══════════════════ -->
+      <section id="candidates" class="space-y-10">
+        <h2 class="font-serif text-2xl border-b border-slate-300 pb-2">Candidates</h2>
+
+        <!-- ───────── A ───────── -->
+        <article id="c-plan" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-1">Strong</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">in-process</span>
+              <span class="text-xs text-slate-500 font-mono">candidate A</span>
+            </div>
+            <h3 class="font-serif text-2xl">Resolve the Dictation once, into a plan</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              src/bun/utils/whisper/speech2text.ts:110-160 · src/shared/whisper-models.ts:78-92,158-177 · src/shared/speech-models.ts:647-689 · src/bun/utils/audio/start-rec.ts:210-239 · src/bun/setup-recording.ts:286-310 · src/bun/AppConfig/AppConfig.ts:1071-1089,1343-1354 · src/bun/utils/model-actions.ts:33-47 · src/mainview/components/MainContainer.tsx:190-216
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — every module decides again</p>
+              <pre class="mermaid">
+flowchart TD
+  KE[setup-recording] -->|streamMode only| SR[start-rec onExit]
+  SR -->|reads model 3x| S2T[speech2text]
+  S2T -->|hviske absent?| S2T
+  S2T --> WM[whisper-models<br/>resolveTranslateModelId]
+  WM --> SM[speech-models<br/>language locks]
+  S2T --> MM[model-manager<br/>getModelPath]
+  S2T --> WHC[whisper-harness-command]
+  AC[AppConfig<br/>heals at boot] -.->|4th definition| S2T
+  MA[model-actions] -.->|5th definition| S2T
+  MC[MainContainer] -.->|6th definition| S2T
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+  class AC,MA,MC leak
+              </pre>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — one plan, one place it is decided</p>
+              <div class="space-y-3">
+                <div class="rounded border border-slate-300 bg-stone-50 px-3 py-2 text-center">
+                  <p class="schem text-slate-500">callers</p>
+                  <p class="font-mono text-xs">setup-recording · start-rec · tray · settings · benchmark</p>
+                </div>
+                <div class="flex justify-center"><svg width="20" height="26"><line x1="10" y1="0" x2="10" y2="19" stroke="#334155" stroke-width="2"/><path d="M6 19 L10 26 L14 19 Z" fill="#334155"/></svg></div>
+                <svg width="100%" height="14"><line class="seam" x1="0" y1="7" x2="100%" y2="7" stroke="#475569" stroke-width="1.5"/></svg>
+                <div class="deep rounded-lg p-4 text-white">
+                  <p class="schem text-emerald-300">deep module · one interface</p>
+                  <p class="font-mono text-sm mt-1">resolveDictationPlan(config, availability)</p>
+                  <p class="font-mono text-sm">→ DictationPlan | Unavailable&lt;reason&gt;</p>
+                  <div class="mt-3 pt-3 border-t border-white/20 grid grid-cols-2 gap-1 text-[11px] text-slate-400 font-mono">
+                    <span>engine choice</span><span>hviske fallback</span>
+                    <span>translate swap</span><span>language pin</span>
+                    <span>backend flag</span><span>model path</span>
+                    <span>stream readiness</span><span>effectiveModelId</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">Which Speech Model, Speech Engine, Transcription Language and crispasr backend actually run is decided in six modules and re-decided at three different moments, so no caller can name the run it just asked for.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">One module turns config plus availability into an immutable plan. Every caller — Dictation, tray, settings, benchmark — reads the plan instead of re-deriving its parts.</p>
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-stone-100 p-4 space-y-2">
+              <p class="schem text-slate-600">What the scatter costs today</p>
+              <ul class="text-sm space-y-1.5 leading-relaxed">
+                <li><strong>Translate to English depends on a file for a model that is not used.</strong> <span class="font-mono text-xs">speech2text.ts:132</span> substitutes <span class="font-mono text-xs">DEFAULT_MODEL_ID</span> when hviske weights are absent, then <span class="font-mono text-xs">:134</span> asks <span class="font-mono text-xs">resolveTranslateModelId</span> — which now sees turbo, not hviske, and returns <span class="font-mono text-xs">null</span>. Translate is silently dropped even with a translate-capable Speech Model installed.</li>
+                <li><strong>Stats record a Speech Model that never ran.</strong> <span class="font-mono text-xs">Speech2TextResult</span> (<span class="font-mono text-xs">speech2text.ts:330-334</span>) carries no <span class="font-mono text-xs">effectiveModelId</span>, so <span class="font-mono text-xs">index.ts:548</span> logs the selection. Every hviske fallback and translate swap is invisible.</li>
+                <li><strong>Five definitions of "can Live Transcription run"</strong> — <span class="font-mono text-xs">HomeScreen.tsx:148-165</span> (ignores <span class="font-mono text-xs">parakeetCoreMlReady</span>), <span class="font-mono text-xs">AppConfig.ts:1071-1088</span>, <span class="font-mono text-xs">index.ts:109-119</span>, <span class="font-mono text-xs">setup-recording.ts:291</span> (boolean alone), <span class="font-mono text-xs">parakeet-stream-runner.ts:37-44</span>. Deleting the Parakeet Speech Model resets <span class="font-mono text-xs">parakeetCoreMlReady</span> but not <span class="font-mono text-xs">streamMode</span> (<span class="font-mono text-xs">setup-window.ts:432-443</span>), so the next Dictation throws, is swallowed at <span class="font-mono text-xs">setup-recording.ts:368-377</span>, and does nothing at all.</li>
+                <li><strong>The stated Live Transcription requirement is enforced nowhere.</strong> CONTEXT.md says it needs a fixed Transcription Language; <span class="font-mono text-xs">speech-models.ts:658</span> accepts <span class="font-mono text-xs">auto</span>, <span class="font-mono text-xs">:673-689</span> forces Parakeet to <span class="font-mono text-xs">auto</span>, and <span class="font-mono text-xs">parakeet-stream-runner.ts:55</span> passes no language.</li>
+                <li><strong>Live Transcription ignores the selected Speech Model</strong> — <span class="font-mono text-xs">parakeet-stream-runner.ts:35</span> hardcodes <span class="font-mono text-xs">parakeet-tdt-0.6b-v3</span> while <span class="font-mono text-xs">setup-recording.ts:331</span> logs <span class="font-mono text-xs">whisperModelId</span> as though it mattered.</li>
+              </ul>
+            </div>
+
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>locality: one place decides the run</li>
+                <li>leverage: plan replaces 6 re-derivations</li>
+                <li>plan is a value — testable with no spawn</li>
+                <li>readiness reasons survive to the UI</li>
+                <li>stats can name the effective Speech Model</li>
+                <li>benchmark enters at link one, not four</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ───────── B ───────── -->
+        <article id="c-run" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-1">Strong</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">local-substitutable</span>
+              <span class="text-xs text-slate-500 font-mono">candidate B</span>
+            </div>
+            <h3 class="font-serif text-2xl">Make the Dictation run return a result instead of pasting one</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              src/bun/utils/whisper/speech2text.ts (373) · parakeet-stream-runner.ts · src/bun/utils/audio/start-rec.ts:175-242 · src/bun/setup-recording.ts:441-452 · src/bun/platform/runtime.ts:75 · benchmarks/stt/runner.ts:85-242
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — one module, eight concerns, no return value</p>
+              <div class="space-y-1.5">
+                <div class="border-l-4 border-red-400 bg-red-50 px-3 py-1.5 text-xs font-mono">brand mishearing table (43 rules) <span class="text-red-600">:27-69</span></div>
+                <div class="border-l-4 border-slate-400 bg-stone-50 px-3 py-1.5 text-xs font-mono">pipe drain <span class="text-slate-500">:80-99</span></div>
+                <div class="border-l-4 border-slate-400 bg-stone-50 px-3 py-1.5 text-xs font-mono">hviske availability fallback <span class="text-slate-500">:110-132</span></div>
+                <div class="border-l-4 border-slate-400 bg-stone-50 px-3 py-1.5 text-xs font-mono">translate swap + language pin <span class="text-slate-500">:134-160</span></div>
+                <div class="border-l-4 border-slate-700 bg-slate-100 px-3 py-1.5 text-xs font-mono">crispasr spawn + parse <span class="text-slate-500">:182-209</span></div>
+                <div class="border-l-4 border-red-400 bg-red-50 px-3 py-1.5 text-xs font-mono">Parakeet helper + NDJSON <span class="text-red-600">:212-268</span></div>
+                <div class="border-l-4 border-red-400 bg-red-50 px-3 py-1.5 text-xs font-mono">hand-written 44-byte WAV header <span class="text-red-600">:270-302</span></div>
+                <div class="border-l-4 border-red-400 bg-red-50 px-3 py-1.5 text-xs font-mono">dictionary · formatting · <strong>paste</strong> <span class="text-red-600">:336-373</span></div>
+                <div class="mt-3 rounded bg-red-100 border border-red-300 px-3 py-2 text-xs">
+                  <span class="font-mono">audioPath</span> is not a parameter — <span class="font-mono">RECORDING_PATH</span> is a process-global file (<span class="font-mono">runtime.ts:75</span>)
+                </div>
+              </div>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — one interface, two adapters behind it</p>
+              <div class="space-y-3">
+                <div class="deep rounded-lg p-4 text-white">
+                  <p class="schem text-emerald-300">deep module</p>
+                  <p class="font-mono text-sm mt-1">runDictation(plan, audio)</p>
+                  <p class="font-mono text-sm">→ { raw, output, effectiveModelId, exit }</p>
+                  <p class="text-[11px] text-slate-400 mt-2 font-mono">pure of paste · pure of AppConfig</p>
+                </div>
+                <svg width="100%" height="14"><line class="seam" x1="0" y1="7" x2="100%" y2="7" stroke="#475569" stroke-width="1.5"/></svg>
+                <p class="schem text-slate-500 text-center">Speech Engine seam — two adapters, so it is real</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="rounded border border-slate-400 bg-white px-3 py-3 text-center">
+                    <p class="font-mono text-xs">crispasr</p>
+                    <p class="text-[10px] text-slate-500 mt-1">Whisper + hviske<br/>argv via existing<br/>harness-command</p>
+                  </div>
+                  <div class="rounded border border-slate-400 bg-white px-3 py-3 text-center">
+                    <p class="font-mono text-xs">Parakeet helper</p>
+                    <p class="text-[10px] text-slate-500 mt-1">NDJSON protocol<br/>WAV encode<br/>warmup</p>
+                  </div>
+                </div>
+                <div class="rounded border border-slate-300 bg-stone-50 px-3 py-2 text-center text-xs">
+                  <span class="font-mono">start-rec</span> keeps capture · caller pastes, records history, counts stats
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">A transcript cannot be obtained without pasting into the user's focused app, and audio arrives through a process-global file rather than a parameter — so the only two adapters that exist fight over it.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">Accept audio, return an outcome. Move paste, history, stats and the AppConfig mutation out to the caller, and put the two Speech Engine invocations behind one interface.</p>
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-stone-100 p-4 space-y-2">
+              <p class="schem text-slate-600">What the missing seam costs today</p>
+              <ul class="text-sm space-y-1.5 leading-relaxed">
+                <li><strong>A Benchmark Run overwrites the running app's recording buffer.</strong> <span class="font-mono text-xs">benchmarks/stt/runner.ts:205,228</span> does <span class="font-mono text-xs">copyFileSync(entry.audioPath, RECORDING_PATH)</span> — roughly 200 times per Benchmark Combination — purely to imitate a hardcoded path. <span class="font-mono text-xs">buildWhisperHarnessCommand</span> already accepts any <span class="font-mono text-xs">audioPath</span> (<span class="font-mono text-xs">whisper-harness-command.ts:16</span>); only <span class="font-mono text-xs">transcribe()</span> refuses one.</li>
+                <li><strong>Any throw wedges Dictation until restart.</strong> <span class="font-mono text-xs">start-rec.ts:206-240</span> has no <span class="font-mono text-xs">try/catch</span> and nothing registers <span class="font-mono text-xs">unhandledRejection</span>. A throw from <span class="font-mono text-xs">findAsrHarnessBinary</span>, <span class="font-mono text-xs">getModelPath</span> or the backend+translate invariant skips <span class="font-mono text-xs">onDone()</span> (<span class="font-mono text-xs">:241</span>), so <span class="font-mono text-xs">transcriptionPipelineActive</span> stays true forever and every later Dictation is refused. The Formatting Backend degrades to the Raw Transcript on any error (<span class="font-mono text-xs">apply-formatting.ts:222-237</span>); the Speech Engine wedges.</li>
+                <li><strong>Non-zero exit is not an error.</strong> <span class="font-mono text-xs">speech2text.ts:195-209</span> logs <span class="font-mono text-xs">exitCode</span> and returns stdout anyway, so an empty transcript is pasted, written to history and counted in stats.</li>
+                <li><strong>Asking a question deletes files.</strong> <span class="font-mono text-xs">isModelAvailable</span> for Parakeet calls <span class="font-mono text-xs">cleanupParakeetCoreMlInstall</span> → <span class="font-mono text-xs">rmSync(recursive)</span> (<span class="font-mono text-xs">model-manager.ts:186-190,123</span>), and that predicate sits on the Dictation hot path and inside every <span class="font-mono text-xs">getSettings()</span>.</li>
+                <li><strong>The duplication is already load-bearing.</strong> The benchmark re-implements the drain helper (<span class="font-mono text-xs">runner.ts:88-107</span> vs <span class="font-mono text-xs">speech2text.ts:80-99</span>, character-identical), the Parakeet NDJSON parse (<span class="font-mono text-xs">:182-196</span> vs <span class="font-mono text-xs">:239-252</span>), the Parakeet argv (three sites), and the WAV duration walk (<span class="font-mono text-xs">build-manifests.ts:14-52</span>, whose comment admits it copies <span class="font-mono text-xs">start-rec.ts</span>). WER is also scored on brand-substituted hypotheses.</li>
+              </ul>
+            </div>
+
+            <div class="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-3">
+              <p class="text-sm text-amber-950"><strong>Consistent with ADR-0002.</strong> The ASR Harness seam stays exactly where it is: <span class="font-mono text-xs">buildWhisperHarnessCommand</span> has two real adapters (app and benchmark) and holds the backend+translate invariant. This candidate adds a Speech Engine seam above it, which is a different seam from Harness — as CONTEXT.md already distinguishes them.</p>
+            </div>
+
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>benchmark stops clobbering live audio</li>
+                <li>interface is the test surface: assert a value</li>
+                <li>locality: one error mode, not a wedge</li>
+                <li>Parakeet protocol leaves the Whisper module</li>
+                <li>delete 4 duplicated helpers in benchmarks</li>
+                <li>two adapters justify the seam</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ───────── C ───────── -->
+        <article id="c-preset" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-1">Strong</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">in-process</span>
+              <span class="text-xs text-slate-500 font-mono">candidate C</span>
+            </div>
+            <h3 class="font-serif text-2xl">Give a Preset one exhaustive definition</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              src/shared/types.ts:167-182 · src/shared/shortcut-options.ts:15-21,35-126,272-280 · src/bun/utils/keyboard/keyboard-events.ts:12-34,240-354,385-392 · src/bun/setup-recording.ts:36-64,205-248 · native/CodictateWindowsHelper/src/keyboard/hook.rs:73-127,176-206 · src/bun/utils/keyboard/KeyListener.swift:222-257
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — 15 sites, 1 enforced</p>
+              <div class="grid grid-cols-3 gap-1.5 text-[9px] font-mono leading-tight">
+                <div class="hatch border border-red-300 p-1.5 h-14">types.ts<br/>ShortcutId</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">shortcut-options<br/>SHORTCUT_OPTIONS</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">shortcut-options<br/>family prefix</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">shortcut-options<br/>windowsUses…Hold</div>
+                <div class="border-2 border-emerald-600 bg-emerald-50 p-1.5 h-14 text-emerald-900">keyboard-events<br/>SHORTCUTS<br/><strong>tsc</strong></div>
+                <div class="hatch border border-red-300 p-1.5 h-14">keyboard-events<br/>KeyCode table</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">keyboard-events<br/>requireLeftOption</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">setup-recording<br/>isWindowsModifier<br/>ReleaseEvent</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">setup-recording<br/>ComboTrigger<br/>Release</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">setup-recording<br/>OPTION_CHORD<br/>_MAIN_IDS</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">setup-recording<br/>FN_GLOBE_DEFER</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">setup-recording<br/>holdFnChord<br/>Conflicts</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">hook.rs<br/>vk_to_keycode</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">hook.rs<br/>ActiveCombo<br/>(no shift)</div>
+                <div class="hatch border border-red-300 p-1.5 h-14">KeyListener.swift<br/>modifier switch</div>
+              </div>
+              <p class="text-xs text-slate-500 mt-3">6 files · 3 languages · 14 of 15 sites fail silently</p>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — one record, compiler-checked</p>
+              <div class="space-y-3">
+                <div class="deep rounded-lg p-4 text-white">
+                  <p class="schem text-emerald-300">deep module · exhaustive</p>
+                  <p class="font-mono text-xs mt-1 leading-relaxed">PRESETS: Record&lt;ShortcutId, Preset&gt; = {<br/>
+                  &nbsp;&nbsp;'control-meta': {<br/>
+                  &nbsp;&nbsp;&nbsp;&nbsp;keys, windowsKeys, family,<br/>
+                  &nbsp;&nbsp;&nbsp;&nbsp;triggerKey: null,<br/>
+                  &nbsp;&nbsp;&nbsp;&nbsp;modifiers: ['control','meta'],<br/>
+                  &nbsp;&nbsp;&nbsp;&nbsp;holdEnds: 'anyModifierUp',<br/>
+                  &nbsp;&nbsp;&nbsp;&nbsp;platforms: ['darwin','win32'],<br/>
+                  &nbsp;&nbsp;}<br/>
+                  }</p>
+                </div>
+                <svg width="100%" height="14"><line class="seam" x1="0" y1="7" x2="100%" y2="7" stroke="#475569" stroke-width="1.5"/></svg>
+                <div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-2 text-center">pickers<br/><span class="text-slate-500">derive labels</span></div>
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-2 text-center">matchers<br/><span class="text-slate-500">derive rules</span></div>
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-2 text-center">hold-end<br/><span class="text-slate-500">derived, 1 rule</span></div>
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-2 text-center">generated JSON<br/><span class="text-slate-500">→ Swift / Rust</span></div>
+                </div>
+                <p class="text-xs text-slate-500 text-center">Adding a Preset = one entry. Missing a field = <span class="font-mono">tsc</span> error.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">Preset knowledge is spread over 15 sites in 3 languages and only one is compile-enforced, so a half-added Preset renders in the picker, reports success, and is never saved.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">One <span class="font-mono text-xs">Record&lt;ShortcutId, Preset&gt;</span> holding keys, labels, Shortcut Family, Trigger Key, Modifiers, hold-end rule and platforms. Matchers, pickers and the native keycode tables derive from it.</p>
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-stone-100 p-4 space-y-2">
+              <p class="schem text-slate-600">The silent failures, concretely</p>
+              <ul class="text-sm space-y-1.5 leading-relaxed">
+                <li><strong>A missing <span class="font-mono text-xs">SHORTCUT_OPTIONS</span> entry looks like success.</strong> <span class="font-mono text-xs">AppConfig.ts:72-74</span> builds <span class="font-mono text-xs">VALID_SHORTCUT_IDS</span> from that array, so <span class="font-mono text-xs">updateGeneralSettings</span> returns <span class="font-mono text-xs">false</span> at <span class="font-mono text-xs">:932-937</span> — and <span class="font-mono text-xs">SectionShortcuts.tsx:40</span> discards the boolean after an optimistic cache write. The picker shows the Preset selected; nothing is persisted.</li>
+                <li><strong>Unknown ids land in the wrong Shortcut Family silently</strong> — <span class="font-mono text-xs">shortcut-options.ts:20</span> returns <span class="font-mono text-xs">'option'</span> by default.</li>
+                <li><strong>Two Presets of the same shape use two different Windows hold-end mechanisms.</strong> <span class="font-mono text-xs">option-space</span> gets the rule twice (matcher guard plus the pre-filter at <span class="font-mono text-xs">setup-recording.ts:239-248</span>, making the guard dead); <span class="font-mono text-xs">control-meta-space</span> gets it only from the pre-filter because <span class="font-mono text-xs">twoModifierTriggerCombo</span> has no platform guard.</li>
+                <li><strong>A Shift-based Preset cannot work on Windows at all.</strong> <span class="font-mono text-xs">ActiveComboModifiers</span> (<span class="font-mono text-xs">hook.rs:73-83</span>) has no <span class="font-mono text-xs">shift</span> field and <span class="font-mono text-xs">active_combo_from_rule:177-181</span> ignores <span class="font-mono text-xs">rule.shift</span>.</li>
+                <li><strong><span class="font-mono text-xs">displayKeys</span> is dead weight</strong> — restated for all 12 Presets at <span class="font-mono text-xs">keyboard-events.ts:242-345</span>, read nowhere, with no Windows variant.</li>
+                <li><strong>Platform support is never validated.</strong> <span class="font-mono text-xs">optionSupportedOnPlatform</span> defaults true when <span class="font-mono text-xs">supportedPlatforms</span> is absent, and AppConfig never checks platform — a persisted <span class="font-mono text-xs">fn-globe</span> on Windows is accepted and inert (<span class="font-mono text-xs">hook.rs:269</span> hardcodes <span class="font-mono text-xs">function: false</span>).</li>
+                <li><strong>Five keycode tables must agree and none references another</strong> (<span class="font-mono text-xs">keyboard-events.ts:12-34,181-183</span> · <span class="font-mono text-xs">setup-recording.ts:36-46</span> · <span class="font-mono text-xs">KeyListener.swift:222-257</span> · <span class="font-mono text-xs">hook.rs:107-127</span> and a second literal list at <span class="font-mono text-xs">:196-198</span>). The mac↔Windows mapping is documented only in prose at <span class="font-mono text-xs">hook.rs:56-57</span>.</li>
+              </ul>
+            </div>
+
+            <div class="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-3">
+              <p class="text-sm text-amber-950"><strong>Refines ADR-0003, does not contradict it.</strong> Presets stay curated — no capture UI. But the ADR's own five-file count undercounts by ten, and its stated trigger ("if it grows much past a dozen, revisit capture") is already met at 12. Cheapening the per-Preset cost is what keeps the no-capture decision affordable. The ADR also records the logic as "unit-tested"; that resolves to two serde assertions in <span class="font-mono text-xs">protocol.rs:167-197</span> — <span class="font-mono text-xs">hook.rs</span> has no <span class="font-mono text-xs">#[cfg(test)]</span> module.</p>
+            </div>
+
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>15 sites → 1 entry, compiler-enforced</li>
+                <li>locality: hold-end rule stated once</li>
+                <li>native tables generated, not retyped</li>
+                <li>Shift Presets become expressible</li>
+                <li>delete dead <span class="font-mono text-xs">displayKeys</span></li>
+                <li>Preset table is testable as data</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ───────── D ───────── -->
+        <article id="c-appconfig" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-1">Strong</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">local-substitutable</span>
+              <span class="text-xs text-slate-500 font-mono">candidate D</span>
+            </div>
+            <h3 class="font-serif text-2xl">Shrink AppConfig's interface to the eight members that carry it</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              src/bun/AppConfig/AppConfig.ts (1937) · src/shared/types.ts:184-340 · src/bun/setup-window.ts:146-270 · src/bun/platform/runtime.ts:68-78
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — shallow surface over a deep core</p>
+              <div class="flex gap-4 items-end h-64">
+                <div class="flex-1 flex flex-col justify-end h-full">
+                  <div class="bg-red-200 border border-red-400 rounded-t flex items-center justify-center" style="height:62%">
+                    <p class="schem text-red-900 text-center leading-tight">interface<br/>107 members<br/>+ 12 patch types</p>
+                  </div>
+                  <div class="bg-slate-700 text-white flex items-center justify-center rounded-b" style="height:38%">
+                    <p class="schem text-center leading-tight">real logic<br/>~614 lines<br/>in 8 members</p>
+                  </div>
+                </div>
+                <div class="flex-1 space-y-1 text-[10px] font-mono">
+                  <p class="text-slate-600">of the 107:</p>
+                  <div class="bg-red-100 border border-red-300 px-2 py-1">50 have zero callers</div>
+                  <div class="bg-red-100 border border-red-300 px-2 py-1">38 are 1-line delegations</div>
+                  <div class="bg-red-100 border border-red-300 px-2 py-1">~40 are bare field returns</div>
+                  <div class="bg-emerald-100 border border-emerald-400 px-2 py-1">8 hold the behaviour</div>
+                  <p class="text-slate-500 mt-2 leading-tight">18 lines/member on average — but bimodal, not deep</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — narrow interface, same implementation</p>
+              <div class="flex gap-4 items-end h-64">
+                <div class="flex-1 flex flex-col justify-end h-full">
+                  <div class="bg-emerald-200 border border-emerald-500 rounded-t flex items-center justify-center" style="height:18%">
+                    <p class="schem text-emerald-900 text-center leading-tight">interface<br/>~10 members</p>
+                  </div>
+                  <div class="deep text-white flex items-center justify-center rounded-b" style="height:82%">
+                    <p class="schem text-center leading-tight text-slate-300">implementation absorbs<br/>the 78 one-liners<br/>+ validate-then-commit</p>
+                  </div>
+                </div>
+                <div class="flex-1 space-y-1.5 text-[10px] font-mono">
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-1">load / getSettings</div>
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-1">5 × update*(patch)</div>
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-1">getFormattingRuntime</div>
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-1">resolveAudioDevice</div>
+                  <div class="rounded border border-slate-300 bg-stone-50 px-2 py-1">dictionary auto-learn</div>
+                  <svg width="100%" height="14"><line class="seam" x1="0" y1="7" x2="100%" y2="7" stroke="#475569" stroke-width="1.5"/></svg>
+                  <p class="text-slate-600">accepts: paths, availability, logger</p>
+                  <div class="rounded border border-emerald-400 bg-emerald-50 px-2 py-1">temp dir in tests</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">107 public members, 50 of them unreachable, wrap eight that hold all the behaviour — and the module creates its own paths, model manager and logger, so none of it can be constructed in a test.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">Delete the unreachable half, fold the delegating setters into the five patch methods, accept paths and availability as dependencies, and give all five <span class="font-mono text-xs">update*</span> methods one transactional discipline.</p>
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-stone-100 p-4 space-y-2">
+              <p class="schem text-slate-600">What the wide interface hides</p>
+              <ul class="text-sm space-y-1.5 leading-relaxed">
+                <li><strong>Three siblings, three transactional disciplines, none in the interface.</strong> <span class="font-mono text-xs">updateFormattingSettings</span> mutates <span class="font-mono text-xs">enabled</span> at <span class="font-mono text-xs">:1098</span> before validating at <span class="font-mono text-xs">:1126</span> and returning <span class="font-mono text-xs">false</span> without saving; <span class="font-mono text-xs">updateTranscriptionSettings</span> does the same at <span class="font-mono text-xs">:1053-1085</span>; <span class="font-mono text-xs">updateGeneralSettings</span> validates up front. On rejection, memory ≠ disk, the webview refetches the mutated memory, and the next unrelated <span class="font-mono text-xs">saveMain()</span> persists it.</li>
+                <li><strong>A field's default depends on whether a config file exists.</strong> <span class="font-mono text-xs">onboardingCompleted</span> is <span class="font-mono text-xs">false</span> in the constructor (<span class="font-mono text-xs">:257</span>) and <span class="font-mono text-xs">true</span> when absent from a loaded file (<span class="font-mono text-xs">:409-411</span>).</li>
+                <li><strong>The migration branch never retires.</strong> <span class="font-mono text-xs">LEGACY_CONFIG_PATH</span> is read at <span class="font-mono text-xs">:787,808</span> and deleted nowhere; with <span class="font-mono text-xs">main-config.json</span> present but the dictionary file absent, stale legacy main values are re-applied over current config (<span class="font-mono text-xs">:807,684</span>).</li>
+                <li><strong>No write queue.</strong> <span class="font-mono text-xs">ProductOnboardingScreen.tsx:266-277</span> fires 10 concurrent <span class="font-mono text-xs">updateFormattingSettings</span> through <span class="font-mono text-xs">Promise.all</span>, each ending in <span class="font-mono text-xs">saveMain()</span> — while <span class="font-mono text-xs">HistoryManager</span> and <span class="font-mono text-xs">StatsManager</span> both queue (<span class="font-mono text-xs">history-manager.ts:95-102</span>).</li>
+                <li><strong><span class="font-mono text-xs">getSettings()</span> is a getter with 39 stat calls and possible file deletion</strong> (<span class="font-mono text-xs">:900</span> → <span class="font-mono text-xs">getAvailabilityMap</span>), and <span class="font-mono text-xs">setup-indicator-window.ts</span> calls it five times per status change.</li>
+                <li><strong>Rich reasons collapse to <span class="font-mono text-xs">boolean</span> at the seam.</strong> <span class="font-mono text-xs">StreamModeReadiness</span> and <span class="font-mono text-xs">TranslateReadiness</span> are discriminated unions; <span class="font-mono text-xs">:1079-1086</span> logs the reason and returns a bool, so <span class="font-mono text-xs">need_warmup</span> never reaches the UI and the toggle snaps back unexplained.</li>
+                <li><strong>Rejected writes get no correction push</strong> from <span class="font-mono text-xs">setup-window.ts:178-179</span>, while the sibling handler at <span class="font-mono text-xs">:203-206</span> does push — against 80 optimistic <span class="font-mono text-xs">setQueryData(['settings'])</span> calls across 14 files.</li>
+                <li><strong>One domain rule, four implementations</strong> — the hold-only-differs-from-primary invariant lives at <span class="font-mono text-xs">:429-434</span>, <span class="font-mono text-xs">:938-947</span>, <span class="font-mono text-xs">:976-981</span>, plus <span class="font-mono text-xs">SectionShortcuts.tsx:35-38</span>. Dictionary entry identity has <strong>three</strong>, and <span class="font-mono text-xs">rpc.ts:479-486</span> keys fuzzy entries differently from the other two.</li>
+                <li><strong>The built-in "Codictate" dictionary entry can be deleted.</strong> <span class="font-mono text-xs">ensureBuiltinDictionaryEntries</span> runs on load (<span class="font-mono text-xs">:671</span>) but not in <span class="font-mono text-xs">updateDictionarySettings</span> (<span class="font-mono text-xs">:1206-1220</span>), which is the path the webview uses — so it stays gone until restart resurrects it.</li>
+              </ul>
+            </div>
+
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>interface shrinks ~10×, behaviour unchanged</li>
+                <li>delete 50 unreachable members</li>
+                <li>one transactional rule, stated once</li>
+                <li>paths accepted: tests hit a temp dir</li>
+                <li>locality: config rules stop forking into React</li>
+                <li>readiness reasons survive the seam</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ───────── E ───────── -->
+        <article id="c-tests" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-1">Strong</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">in-process</span>
+              <span class="text-xs text-slate-500 font-mono">candidate E</span>
+            </div>
+            <h3 class="font-serif text-2xl">Make the interface the test surface — starting with the modules already shaped for it</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              package.json:14-38 · .github/workflows/* · src/bun/utils/stats/stats-manager.ts:77-272 · src/shared/whisper-models.ts:78-177 · src/bun/utils/whisper/model-downloads.test.ts · benchmarks/stt/results-schema.test.ts:34-174
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — 5 test files, no runner</p>
+              <div class="space-y-2">
+                <div class="rounded border border-slate-300 p-3 bg-stone-50">
+                  <p class="schem text-slate-500 mb-2">28,662 lines · covered</p>
+                  <div class="h-6 w-full bg-red-100 rounded overflow-hidden flex">
+                    <div class="bg-emerald-500 h-full" style="width:4%"></div>
+                  </div>
+                  <p class="text-[10px] font-mono text-slate-500 mt-1">3 pure helpers + 1 schema · everything else untested</p>
+                </div>
+                <div class="text-xs font-mono space-y-1">
+                  <div class="flex items-center gap-2"><span class="w-3 h-3 bg-red-300 inline-block"></span> no <span class="text-slate-700">test</span> script in package.json</div>
+                  <div class="flex items-center gap-2"><span class="w-3 h-3 bg-red-300 inline-block"></span> CI runs no test / lint / tsc</div>
+                  <div class="flex items-center gap-2"><span class="w-3 h-3 bg-red-300 inline-block"></span> cargo test exists, CI never calls it</div>
+                </div>
+                <div class="rounded bg-red-50 border border-red-300 p-3 text-xs leading-relaxed">
+                  <p class="font-semibold text-red-900 mb-1">Two of the five tests do not test Codictate</p>
+                  <p><span class="font-mono">model-downloads.test.ts</span> does live <span class="font-mono">fetch</span> against Hugging Face and never imports <span class="font-mono">model-manager.ts</span> — it cannot fail for any bug in <span class="font-mono">downloadModel</span>.</p>
+                  <p class="mt-1"><span class="font-mono">results-schema.test.ts:174</span> asserts <span class="font-mono">runCount === 4</span> against the committed archive — a fifth Benchmark Run breaks the suite.</p>
+                </div>
+              </div>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — the seams that already exist, exercised</p>
+              <div class="space-y-2 text-xs">
+                <p class="schem text-slate-500">already accept their dependencies · zero refactor needed</p>
+                <div class="rounded border-2 border-emerald-500 bg-emerald-50 px-3 py-2 font-mono">
+                  stats-manager · accepts <span class="text-slate-600">() =&gt; string</span> path
+                  <p class="text-[10px] text-slate-600 mt-1 font-sans">streak maths, DST fudge at <span class="font-mono">:264</span>, month-boundary branch duplicated at <span class="font-mono">:139</span> and <span class="font-mono">:194</span> — the most date-sensitive logic in the repo</p>
+                </div>
+                <div class="rounded border-2 border-emerald-500 bg-emerald-50 px-3 py-2 font-mono">
+                  history-manager · accepts path, queues writes
+                </div>
+                <div class="rounded border-2 border-emerald-500 bg-emerald-50 px-3 py-2 font-mono">
+                  resolveTranslateModelId · accepts <span class="text-slate-600">isModelAvailable</span>
+                  <p class="text-[10px] text-slate-600 mt-1 font-sans">the hviske swap and both readiness unions are pure functions of injected availability</p>
+                </div>
+                <div class="rounded border-2 border-emerald-500 bg-emerald-50 px-3 py-2 font-mono">
+                  buildWhisperHarnessCommand
+                  <p class="text-[10px] text-slate-600 mt-1 font-sans">pin <span class="font-mono">availableParallelism</span> and argv becomes assertable</p>
+                </div>
+                <div class="rounded border border-slate-400 bg-white px-3 py-2 font-mono">
+                  hook.rs matchers · <span class="text-slate-600">cargo test</span> already wired
+                </div>
+                <svg width="100%" height="14"><line class="seam" x1="0" y1="7" x2="100%" y2="7" stroke="#475569" stroke-width="1.5"/></svg>
+                <p class="text-center text-[11px] text-slate-600"><span class="font-mono">bun test</span> + <span class="font-mono">tsc</span> + <span class="font-mono">lint</span> + <span class="font-mono">cargo test</span> in CI</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">Nothing runs the tests that exist, and the two most testable modules in the repo — both of which already accept their dependencies — have no tests at all.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">Add a <span class="font-mono text-xs">test</span> script and a CI job, move the network test out of the default run, and cover the five interfaces that need no restructuring first.</p>
+              </div>
+            </div>
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>the other candidates become verifiable</li>
+                <li>leverage: 5 interfaces, no refactor first</li>
+                <li>date logic stops being untested</li>
+                <li>regressions caught before a release tag</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ───────── F ───────── -->
+        <article id="c-shim" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-amber-500 text-white text-xs font-semibold px-3 py-1">Worth exploring</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">in-process</span>
+              <span class="text-xs text-slate-500 font-mono">candidate F</span>
+            </div>
+            <h3 class="font-serif text-2xl">Retire the whisper-models shim</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              src/shared/whisper-models.ts (177) · src/shared/speech-models.ts · src/bun/AppConfig/AppConfig.ts:1034-1038 · src/mainview/components/Settings/ModelPicker.tsx
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — a projection pretending to be a catalog</p>
+              <pre class="mermaid">
+flowchart TD
+  SM[speech-models.ts<br/>SPEECH_MODELS · 39 entries]
+  WM["whisper-models.ts<br/>WHISPER_MODELS = filter(whisper_cpp)"]
+  SM --> WM
+  WM -->|re-export| RE["DEFAULT_MODEL_ID<br/>formatModelSize<br/>DEFAULT_STREAM_CAPABLE_MODEL_ID<br/>parakeetSupports…"]
+  WM -->|"delegate that lies"| BAD["isValidWhisperModelId(id)<br/>= isValidSpeechModelId(id)"]
+  BAD -->|gates whisperModelId| AC[AppConfig :1034]
+  WM -->|"Parakeet readiness<br/>in a Whisper module"| STR[getStreamModeReadiness]
+  WM -->|earns its keep| TR[resolveTranslateModelId<br/>TRANSLATE_CAPABLE_MODEL_IDS]
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+  class BAD,AC,STR leak
+              </pre>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — the shim collapses into two homes</p>
+              <div class="space-y-3">
+                <div class="deep rounded-lg p-4 text-white">
+                  <p class="schem text-emerald-300">speech-models.ts · the one catalog</p>
+                  <p class="font-mono text-xs mt-1 text-slate-300">SPEECH_MODELS · getSpeechModel<br/>isValidSpeechModelId — engine-aware</p>
+                </div>
+                <div class="deep rounded-lg p-4 text-white">
+                  <p class="schem text-emerald-300">dictation plan (candidate A)</p>
+                  <p class="font-mono text-xs mt-1 text-slate-300">translate swap · stream readiness<br/>translate readiness</p>
+                </div>
+                <div class="rounded border border-slate-300 bg-stone-50 p-3">
+                  <p class="schem text-slate-500 mb-1">deleted</p>
+                  <p class="font-mono text-[11px] text-slate-600 leading-relaxed">WhisperModel <span class="text-slate-400">(self-marked @deprecated at :14)</span> · WHISPER_MODELS · WHISPER_MODEL_IDS · 4 re-exports · isValidWhisperModelId</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">The module is a projection of the real catalog plus four re-exports, and its one validator returns true for Parakeet and hviske ids while gating the field named <span class="font-mono text-xs">whisperModelId</span>.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">Point callers at <span class="font-mono text-xs">speech-models.ts</span>, move the translate and readiness functions into the plan module, delete the rest.</p>
+              </div>
+            </div>
+            <div class="rounded-lg bg-stone-100 p-4">
+              <p class="schem text-slate-600 mb-2">Deletion test</p>
+              <p class="text-sm leading-relaxed"><strong>Fails for the shim, passes for two functions inside it.</strong> Deleting <span class="font-mono text-xs">WHISPER_MODELS</span> and the re-exports moves nothing — callers already have <span class="font-mono text-xs">speech-models.ts</span>. <span class="font-mono text-xs">resolveTranslateModelId</span> and the two readiness unions do concentrate real complexity and should survive; they belong next to the rest of the run decision, not in a module named for one Speech Engine that decides Parakeet's readiness.</p>
+            </div>
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>one catalog, one validator</li>
+                <li>a validator that stops lying</li>
+                <li>Parakeet readiness leaves the Whisper module</li>
+                <li>delete ~40 lines of pass-through</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ───────── G ───────── -->
+        <article id="c-binaries" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-amber-500 text-white text-xs font-semibold px-3 py-1">Worth exploring</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">ports &amp; adapters</span>
+              <span class="text-xs text-slate-500 font-mono">candidate G</span>
+            </div>
+            <h3 class="font-serif text-2xl">One module resolves Vendor Binaries and Native Helpers</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              src/bun/platform/types.ts:34-49 · src/bun/platform/{macos,windows,linux}/index.ts · src/bun/utils/whisper/find-asr-harness.ts · src/bun/utils/audio/find-mic-recorder.ts · src/bun/utils/keyboard/find-keyboard-helper.ts
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — nine resolvers, three seams, same shape</p>
+              <div class="space-y-2">
+                <div class="rounded border border-slate-400 bg-white p-3">
+                  <p class="schem text-slate-500 mb-1">PlatformProvider · 12 methods</p>
+                  <div class="grid grid-cols-2 gap-1 text-[10px] font-mono">
+                    <div class="bg-stone-100 px-1.5 py-1">findKeyListener</div>
+                    <div class="bg-stone-100 px-1.5 py-1">findMicRecorder</div>
+                    <div class="bg-stone-100 px-1.5 py-1">findWindowHelper</div>
+                    <div class="bg-stone-100 px-1.5 py-1">findObserverHelper</div>
+                    <div class="bg-stone-100 px-1.5 py-1">findLlamaBinary</div>
+                    <div class="bg-stone-100 px-1.5 py-1">findParakeetHelper</div>
+                  </div>
+                  <p class="text-[10px] text-slate-500 mt-1">× 3 adapters — interface widens per helper</p>
+                </div>
+                <p class="text-center text-slate-400 text-xs">+ three more, outside that seam</p>
+                <div class="grid grid-cols-3 gap-1.5 text-[10px] font-mono">
+                  <div class="hatch border border-red-300 px-1.5 py-2">find-asr-<br/>harness.ts<br/><span class="text-red-700">own memo</span></div>
+                  <div class="hatch border border-red-300 px-1.5 py-2">find-mic-<br/>recorder.ts<br/><span class="text-red-700">own memo</span></div>
+                  <div class="hatch border border-red-300 px-1.5 py-2">find-keyboard-<br/>helper.ts<br/><span class="text-red-700">own memo</span></div>
+                </div>
+                <p class="text-[11px] text-slate-600 leading-relaxed">Every one: candidate list → first existing → throw with remediation. Three also cache in a module variable no test can reset.</p>
+              </div>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — one interface, a table of binaries</p>
+              <div class="space-y-3">
+                <div class="deep rounded-lg p-4 text-white">
+                  <p class="schem text-emerald-300">deep module</p>
+                  <p class="font-mono text-sm mt-1">resolveBinary(id)</p>
+                  <p class="font-mono text-xs text-slate-400">→ path | NotFound&lt;remediation&gt;</p>
+                  <p class="text-[11px] text-slate-400 mt-2 font-mono">memo passed in, not module-level</p>
+                </div>
+                <svg width="100%" height="14"><line class="seam" x1="0" y1="7" x2="100%" y2="7" stroke="#475569" stroke-width="1.5"/></svg>
+                <div class="rounded border border-slate-400 bg-white p-3">
+                  <p class="schem text-slate-500 mb-1">BINARIES table · one row per binary</p>
+                  <p class="font-mono text-[10px] text-slate-600 leading-relaxed">crispasr · llama-completion · KeyListener · MicRecorder · WindowHelper · ObserverHelper · ParakeetHelper · WindowsHelper</p>
+                  <p class="text-[10px] text-slate-500 mt-1">each: candidates per platform · required? · remediation</p>
+                </div>
+                <div class="rounded border border-slate-300 bg-stone-50 px-3 py-2 text-xs">
+                  <span class="font-mono">PlatformProvider</span> keeps what actually varies by platform: data dir, temp path, playSound, openUrl, permission URLs
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">The same resolve-or-throw logic is written nine times across three seams, and <span class="font-mono text-xs">PlatformProvider</span>'s interface grows one method per binary shipped.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">A table of binaries plus one <span class="font-mono text-xs">resolveBinary(id)</span>. Adding a Vendor Binary becomes a row, not a method on three adapters.</p>
+              </div>
+            </div>
+            <div class="rounded-lg bg-stone-100 p-4 space-y-2">
+              <p class="schem text-slate-600">Supporting evidence</p>
+              <ul class="text-sm space-y-1.5 leading-relaxed">
+                <li><span class="font-mono text-xs">find-asr-harness.ts</span> and <span class="font-mono text-xs">find-mic-recorder.ts</span> are the same module written twice with different error strings — each 40–60 lines, each with one caller.</li>
+                <li><span class="font-mono text-xs">find-keyboard-helper.ts</span> caches a <span class="font-mono text-xs">path</span> but recomputes <span class="font-mono text-xs">kind</span> from the current platform on every hit (<span class="font-mono text-xs">:17,25-30</span>).</li>
+                <li>Individually each finder is a hypothetical seam — one caller, deleting it moves ~4 lines. Together they are nine copies of one rule, which is what makes consolidating them worth more than deleting them.</li>
+                <li>The interface docs are already stale: <span class="font-mono text-xs">types.ts:25,41</span> still say <span class="font-mono text-xs">llama-cli</span>, renamed to <span class="font-mono text-xs">llama-completion</span> by ADR-0001.</li>
+                <li><span class="font-mono text-xs">getPlatform()</span> is a module-level singleton keyed off <span class="font-mono text-xs">process.platform</span> (<span class="font-mono text-xs">platform/index.ts:9-27</span>) with 18 call sites, so no test can vary a helper path.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>9 resolvers → 1 interface</li>
+                <li>new Vendor Binary = one table row</li>
+                <li>memo injectable: resolution is testable</li>
+                <li>remediation strings live beside their binary</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <!-- ───────── H ───────── -->
+        <article id="c-tray" class="rounded-xl border border-slate-300 bg-white overflow-hidden">
+          <div class="px-6 pt-6 pb-4 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-amber-500 text-white text-xs font-semibold px-3 py-1">Worth exploring</span>
+              <span class="rounded-full bg-slate-100 text-slate-700 text-xs px-3 py-1 font-mono">in-process</span>
+              <span class="text-xs text-slate-500 font-mono">candidate H</span>
+            </div>
+            <h3 class="font-serif text-2xl">Collapse the tray action modules, keep the one rule they hide</h3>
+            <p class="font-mono text-sm text-slate-600 leading-relaxed">
+              src/bun/utils/device-actions.ts (37) · src/bun/utils/transcription-language-actions.ts (26) · src/bun/utils/model-actions.ts (50) · src/bun/setup-tray.ts:246-263 · src/bun/setup-menu.ts:71-86 · src/mainview/components/MainContainer.tsx:190-216
+            </p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-0 border-y border-slate-200">
+            <div class="p-5 border-r border-slate-200">
+              <p class="schem text-slate-500 mb-3">Before — three thin modules, one hiding a defect</p>
+              <pre class="mermaid">
+flowchart LR
+  T[setup-tray] --> DA[device-actions]
+  M[setup-menu] -->|omits deviceDetails| DA
+  DA -->|"setAudioDevice(i, name, null)"| AC[AppConfig]
+  AC -.->|"wipes persisted<br/>device id"| X((prefers id))
+  T --> TLA[transcription-language-actions]
+  TLA -.->|skips language coercion| AC
+  T --> MA[model-actions]
+  MC[MainContainer] -.->|"2nd hand-written<br/>copy of the rule"| AC
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+  class M,DA,X,TLA,MC leak
+              </pre>
+            </div>
+            <div class="p-5">
+              <p class="schem text-slate-500 mb-3">After — menu building inline, one shared rule</p>
+              <div class="space-y-3">
+                <div class="rounded border border-slate-300 bg-stone-50 p-3 text-xs">
+                  <p class="schem text-slate-500 mb-1">inline in setup-tray / setup-menu</p>
+                  <p class="font-mono text-[11px] text-slate-600">buildDeviceMenuItems · buildTranscriptionLanguageMenuItems · buildModelMenuItems — a map over a list, 20 lines each</p>
+                </div>
+                <svg width="100%" height="14"><line class="seam" x1="0" y1="7" x2="100%" y2="7" stroke="#475569" stroke-width="1.5"/></svg>
+                <div class="deep rounded-lg p-4 text-white">
+                  <p class="schem text-emerald-300">the rule worth a seam</p>
+                  <p class="font-mono text-sm mt-1">applySpeechModelChange(id)</p>
+                  <p class="text-[11px] text-slate-400 mt-2 leading-relaxed font-mono">coerce Transcription Language ·<br/>drop Live Transcription if unsupported ·<br/>sequence both writes</p>
+                  <p class="text-[10px] text-emerald-300 mt-2">two adapters: tray + webview — the second already exists, hand-written</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-5 space-y-4">
+            <div class="grid md:grid-cols-2 gap-5">
+              <div>
+                <p class="schem text-slate-500 mb-1">Problem</p>
+                <p class="text-sm leading-relaxed">Two of the three modules are maps over a list with one or zero callers, and the seam they create hides that the tray and the app menu pass different arguments.</p>
+              </div>
+              <div>
+                <p class="schem text-slate-500 mb-1">Solution</p>
+                <p class="text-sm leading-relaxed">Inline the menu building. Keep the Speech Model change rule as its own module and route the React path through it instead of its hand-written copy.</p>
+              </div>
+            </div>
+            <div class="rounded-lg bg-stone-100 p-4 space-y-2">
+              <p class="schem text-slate-600">Deletion test, per module</p>
+              <ul class="text-sm space-y-1.5 leading-relaxed">
+                <li><strong><span class="font-mono text-xs">device-actions.ts</span> — fails.</strong> ~20 lines move into two callers, nothing concentrates. Worse, it conceals a defect: <span class="font-mono text-xs">setup-menu.ts:83</span> omits <span class="font-mono text-xs">deviceDetails</span>, so <span class="font-mono text-xs">device-actions.ts:30</span> computes <span class="font-mono text-xs">deviceId = null</span> and wipes the persisted device id that <span class="font-mono text-xs">resolveAudioDevice</span> prefers (<span class="font-mono text-xs">AppConfig.ts:1284-1289</span>). Two adapters disagreeing is exactly what a seam should make visible; this one hides it.</li>
+                <li><strong><span class="font-mono text-xs">transcription-language-actions.ts</span> — fails.</strong> One caller. It also skips the Speech Model language coercion its sibling applies, so picking a language from the tray under a Parakeet Speech Model persists a language the Speech Engine ignores.</li>
+                <li><strong><span class="font-mono text-xs">model-actions.ts</span> — passes, narrowly.</strong> <span class="font-mono text-xs">handleModelAction:25-50</span> is the only place three rules compose. The complexity has already reappeared elsewhere: <span class="font-mono text-xs">MainContainer.tsx:190-216</span> re-implements it and disables Live Transcription unconditionally where <span class="font-mono text-xs">model-actions</span> only does so when unsupported.</li>
+              </ul>
+            </div>
+            <div>
+              <p class="schem text-slate-500 mb-1">Wins</p>
+              <ul class="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-1 list-disc list-inside">
+                <li>delete 2 pass-through modules</li>
+                <li>device id stops being wiped from the app menu</li>
+                <li>two adapters, one rule, one behaviour</li>
+                <li>locality: model-change rule stated once</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- ══════════════════ TOP RECOMMENDATION ══════════════════ -->
+      <section id="top-recommendation" class="space-y-4">
+        <h2 class="font-serif text-2xl border-b border-slate-300 pb-2">Top recommendation</h2>
+        <div class="rounded-xl deep text-white p-7 space-y-4">
+          <p class="schem text-emerald-300">start here</p>
+          <h3 class="font-serif text-3xl"><a href="#c-plan" class="underline decoration-emerald-400 decoration-2 underline-offset-4">A · Resolve the Dictation once, into a plan</a></h3>
+          <p class="text-slate-200 leading-relaxed max-w-3xl">It is the deepening the hot spots keep asking for. The last twenty commits — crispasr, hviske, the five Quantizations, Live Transcription's rename, Translate to English — all landed by adding another branch to the same scattered decision, and three of the four bugs found in this review are that scatter cashing out: translate silently dropped because of a file belonging to a model that is not running, stats naming a Speech Model that never ran, and a deleted Parakeet install leaving a Dictation that does nothing at all.</p>
+          <p class="text-slate-200 leading-relaxed max-w-3xl">It is also the cheapest to start. The pieces are already pure functions that accept their dependencies — <span class="font-mono text-sm">resolveTranslateModelId</span>, <span class="font-mono text-sm">getStreamModeReadiness</span>, <span class="font-mono text-sm">getTranslateReadiness</span>, <span class="font-mono text-sm">coerceTranscriptionLanguageIdForModel</span> — they are simply called from six places instead of one, and none of them is tested. Gathering them behind one plan needs no new adapter and no ADR revisited.</p>
+          <div class="pt-4 border-t border-white/20 text-sm text-slate-300 space-y-1">
+            <p><strong class="text-white">Then B</strong> — the plan gives <span class="font-mono text-xs">runDictation(plan, audio)</span> something to accept, which is what stops the benchmark writing into the live recording buffer.</p>
+            <p><strong class="text-white">E in parallel</strong> — it costs a <span class="font-mono text-xs">test</span> script and a CI job, and without it nothing above can be verified.</p>
+            <p><strong class="text-white">C independently</strong> — it touches no file the others touch, so it can go in any order.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="pt-6 border-t border-slate-300 text-xs text-slate-500 font-mono">
+        Every file:line reference above was read during this review. ADRs 0001–0004 treated as settled; the two amber callouts refine ADR-0002 and ADR-0003 rather than reopening them.
+      </footer>
+
+    </main>
+  </body>
+</html>
