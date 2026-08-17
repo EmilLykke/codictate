@@ -24,7 +24,7 @@ export interface WhisperHarnessCommand {
   languageArg: string
 }
 
-export function whisperHarnessThreadCount(): number {
+function whisperHarnessThreadCount(): number {
   return Math.max(4, availableParallelism?.() ?? 4)
 }
 
@@ -32,15 +32,21 @@ export function whisperHarnessThreadCount(): number {
  * The argv for one Whisper transcription, for either ASR Harness.
  *
  * crispasr is a verified drop-in for this exact flag set (`-m -t --language -f
- * --no-prints -nt`), which is why one builder covers both. `-tr` is accepted by
- * crispasr but has not been confirmed equivalent, so translate runs stay on the
- * default Harness until that is measured - see
- * docs/adr/0002-asr-harness-abstraction.md.
+ * --no-prints -nt`), which is why one builder covers both.
+ *
+ * Translate is the exception. `-tr` is accepted by crispasr but was not confirmed
+ * equivalent (a turbo-model test returned Danish rather than English), so a translate
+ * run is forced back onto the default Harness here rather than merely documented as
+ * such. See docs/adr/0002-asr-harness-abstraction.md.
  */
 export async function buildWhisperHarnessCommand(
   options: WhisperHarnessCommandOptions
 ): Promise<WhisperHarnessCommand> {
-  const harness = options.harness ?? DEFAULT_ASR_HARNESS
+  const requested = options.harness ?? DEFAULT_ASR_HARNESS
+  const harness =
+    options.translateToEnglish && requested !== DEFAULT_ASR_HARNESS
+      ? DEFAULT_ASR_HARNESS
+      : requested
   const binary = await findAsrHarnessBinary(harness)
   const languageArg = whisperCliLanguageArg(options.language)
 

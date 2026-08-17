@@ -560,7 +560,7 @@ export function parakeetSupportedLanguagesTooltipText(): string {
   ).filter((l): l is string => l != null)
   labels.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   return (
-    `Parakeet supports ${labels.length} languages for stream and batch dictation:\n` +
+    `Parakeet supports ${labels.length} languages for live and batch dictation:\n` +
     labels.join(', ') +
     '.'
   )

@@ -6,12 +6,15 @@ import type { PlatformRuntime } from './platform'
 export type ShortcutFamily = 'option' | 'fn' | 'control' | 'meta'
 
 /**
- * Presets involving Command / Win group under Meta rather than under their leading
- * modifier, because the Meta key is what a user scans for. Everything else groups by
- * leading modifier.
+ * A Preset's Shortcut Family comes from its explicit `family` field when it has one,
+ * and otherwise from its leading Modifier. Presets involving Command / Win set
+ * `family: 'meta'` because the Meta key is what a user scans the picker for, and it
+ * is stated per Preset rather than inferred from the id so a future id containing
+ * "meta" for another reason cannot silently land in the wrong group.
  */
 export function shortcutFamily(id: ShortcutId): ShortcutFamily {
-  if (id.includes('meta')) return 'meta'
+  const declared = SHORTCUT_OPTIONS.find((o) => o.id === id)?.family
+  if (declared) return declared
   if (id.startsWith('control-')) return 'control'
   if (id.startsWith('fn-')) return 'fn'
   return 'option'
@@ -25,6 +28,8 @@ export interface ShortcutOption {
   windowsKeys?: string[]
   windowsLabel?: string
   supportedPlatforms?: PlatformRuntime[]
+  /** Overrides the leading-Modifier grouping. See {@link shortcutFamily}. */
+  family?: ShortcutFamily
 }
 
 export const SHORTCUT_OPTIONS: ShortcutOption[] = [
@@ -107,6 +112,7 @@ export const SHORTCUT_OPTIONS: ShortcutOption[] = [
     windowsKeys: ['Ctrl', 'Win'],
     windowsLabel: 'Ctrl + Win',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'meta',
   },
   {
     id: 'control-meta-space',
@@ -115,6 +121,7 @@ export const SHORTCUT_OPTIONS: ShortcutOption[] = [
     windowsKeys: ['Ctrl', 'Win', 'Space'],
     windowsLabel: 'Ctrl + Win + Space',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'meta',
   },
 ]
 

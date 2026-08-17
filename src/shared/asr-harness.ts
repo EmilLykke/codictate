@@ -14,12 +14,6 @@ export type AsrHarnessId = (typeof ASR_HARNESS_IDS)[number]
 
 export const DEFAULT_ASR_HARNESS: AsrHarnessId = 'whisper-cli'
 
-/** Labels for benchmark reports and dev logs. Never shown in the app UI. */
-export const ASR_HARNESS_LABELS: Record<AsrHarnessId, string> = {
-  'whisper-cli': 'whisper-cli',
-  crispasr: 'crispasr',
-}
-
 export function isAsrHarnessId(value: unknown): value is AsrHarnessId {
   return (
     typeof value === 'string' &&

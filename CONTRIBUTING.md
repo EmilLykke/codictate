@@ -18,15 +18,33 @@ bun install
 bun run start          # or bun run dev:hmr for HMR
 ```
 
+cmake is needed only for `whisper-cli`, which is still built from source because
+upstream whisper.cpp publishes no macOS CLI asset. `llama-completion` and `crispasr`
+are downloaded prebuilt and sha256-verified, so they cost no build time. See
+[docs/adr/0001-vendor-binary-sourcing.md](docs/adr/0001-vendor-binary-sourcing.md).
+
 ### Windows (x64)
 
 **Requirements:** Bun v1.3+, cmake, Rust toolchain, [LunarG Vulkan SDK](https://vulkan.lunarg.com) (ensure `glslc` is on `PATH`)
 
-Vulkan is required to build `whisper-cli` and `llama-completion` with GPU support.
+Vulkan is required to build `whisper-cli` with GPU support. `llama-completion` and
+`crispasr` are downloaded prebuilt in their Vulkan variants, so they need no local
+Vulkan build.
 
 ```bash
 bun install
 bun run start:windows
+```
+
+### Vendoring one binary at a time
+
+The vendoring step caches into `vendors/` (gitignored) and only runs once. To refresh a
+single Vendor Binary without redoing the rest:
+
+```bash
+bun run scripts/pre-build.ts --llama-only
+bun run scripts/pre-build.ts --crispasr-only
+bun run scripts/pre-build.ts --parakeet-only   # macOS only
 ```
 
 ## Building

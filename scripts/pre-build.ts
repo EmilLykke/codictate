@@ -1029,6 +1029,33 @@ async function vendorWhisperModel() {
   console.log(`[pre-build] ${MODEL_NAME} vendored successfully`);
 }
 
+// Single-target flags are handled before the per-platform branches, because those
+// branches exit. Vendoring one binary must work the same on macOS and Windows:
+// `find-asr-harness.ts` points users at `--crispasr-only` on both.
+if (process.argv.includes("--llama-only")) {
+  await vendorLlamaBinaries();
+  console.log("[pre-build] llama-completion ready");
+  process.exit(0);
+}
+
+if (process.argv.includes("--crispasr-only")) {
+  await vendorCrispasrBinaries();
+  console.log("[pre-build] crispasr ready");
+  process.exit(0);
+}
+
+if (process.argv.includes("--parakeet-only")) {
+  if (process.platform !== "darwin") {
+    console.error(
+      "[pre-build] --parakeet-only is macOS only: CodictateParakeetHelper is a Swift package.",
+    );
+    process.exit(1);
+  }
+  await vendorParakeetHelper();
+  console.log("[pre-build] Parakeet helper (+ NeMo ITN) ready");
+  process.exit(0);
+}
+
 if (process.platform === "win32") {
   ensureWindowsTrayIcon();
   ensureWindowsVcRuntimeDlls();
@@ -1058,24 +1085,6 @@ if (process.platform !== "darwin") {
 
 syncMacAppIconArtifacts();
 syncWindowsAppIconFromIconset();
-
-if (process.argv.includes("--parakeet-only")) {
-  await vendorParakeetHelper();
-  console.log("[pre-build] Parakeet helper (+ NeMo ITN) ready");
-  process.exit(0);
-}
-
-if (process.argv.includes("--llama-only")) {
-  await vendorLlamaBinaries();
-  console.log("[pre-build] llama-completion ready");
-  process.exit(0);
-}
-
-if (process.argv.includes("--crispasr-only")) {
-  await vendorCrispasrBinaries();
-  console.log("[pre-build] crispasr ready");
-  process.exit(0);
-}
 
 await vendorWhisperBinaries();
 await vendorLlamaBinaries();

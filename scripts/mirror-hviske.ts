@@ -24,7 +24,9 @@ import { join } from 'node:path'
 
 const SOURCE_REPO = 'syvai/hviske-v5-tiny'
 const SOURCE_URL = `https://huggingface.co/${SOURCE_REPO}`
-const DEST_REPO = 'emillykkegrann/hviske-v5-tiny-GGUF'
+/** Override with HVISKE_MIRROR_REPO to publish under a different account. */
+const DEST_REPO =
+  process.env.HVISKE_MIRROR_REPO?.trim() || 'emillykkegrann/hviske-v5-tiny-GGUF'
 const LICENSE_ID = 'cc-by-nc-4.0'
 
 /**

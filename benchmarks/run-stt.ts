@@ -174,6 +174,7 @@ function parseArgs() {
     reportOnly: false,
     aggregate: false,
     noTui: false,
+    skipCoveredCombinations: false,
     name: undefined as string | undefined,
     description: undefined as string | undefined,
   };
@@ -369,6 +370,7 @@ async function main() {
     flags.samples = plan.samples;
     flags.name = plan.name;
     flags.description = plan.description;
+    flags.skipCoveredCombinations = plan.skipCoveredCombinations;
   }
 
   console.log("=== Codictate STT Benchmark ===");
@@ -626,6 +628,25 @@ async function main() {
           getCombinationResult(store, datasetKey, bucket, modelId) !== undefined
         ) {
           console.log(`  [${modelId}] ${label}: skipped (already done)`);
+          continue;
+        }
+
+        // Combination-level "only what is missing". Coverage spans every previous
+        // run, so a model selected because it was partially covered still skips the
+        // datasets it already has at this depth.
+        if (
+          flags.skipCoveredCombinations &&
+          isCombinationCovered(
+            coverage,
+            bucket,
+            modelId,
+            datasetKey,
+            flags.samples,
+          )
+        ) {
+          console.log(
+            `  [${modelId}] ${label}: skipped (already benchmarked at >= ${flags.samples} samples)`,
+          );
           continue;
         }
 

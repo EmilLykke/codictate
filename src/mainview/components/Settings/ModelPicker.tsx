@@ -248,7 +248,7 @@ export function ModelPicker({
                         <path d="M18 5v13" />
                         <path d="M22 10v3" />
                       </svg>
-                      Stream
+                      Live
                     </span>
                   )}
                 </div>

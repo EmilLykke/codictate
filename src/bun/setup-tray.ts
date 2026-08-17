@@ -108,12 +108,19 @@ export const setupTray = (
     }
   }
 
-  /** Compact form of both Dictation Shortcut slots, e.g. `⌥+Space / fn`. */
+  /**
+   * Compact form of both Dictation Shortcut slots, e.g. `⌥+Space / fn` on macOS and
+   * `Alt+Space` on Windows. The platform must be passed explicitly:
+   * `shortcutTrayCompact` defaults to macOS, and this string is the tray's first row,
+   * so defaulting would put ⌘ / ⌥ glyphs in front of Windows users. Platform parity
+   * in AGENTS.md forbids that.
+   */
   const shortcutSummary = () => {
-    const main = shortcutTrayCompact(appConfig.getShortcutId())
+    const platform = getPlatformRuntime()
+    const main = shortcutTrayCompact(appConfig.getShortcutId(), platform)
     const hold = appConfig.getShortcutHoldOnlyId()
     if (hold === null) return main
-    return `${main} / ${shortcutTrayCompact(hold)}`
+    return `${main} / ${shortcutTrayCompact(hold, platform)}`
   }
 
   const STATUS_LABELS: Record<TrayVisualState, string> = {

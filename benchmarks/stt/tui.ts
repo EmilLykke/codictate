@@ -29,7 +29,11 @@ import {
   getSpeechModel,
 } from "../../src/shared/speech-models";
 import { LIBRISPEECH_SPLITS } from "./datasets";
-import { formatModelCoverage, modelCoverage, type Coverage } from "./coverage";
+import {
+  formatModelCoverage,
+  isModelFullyCovered,
+  type Coverage,
+} from "./coverage";
 
 export interface BenchmarkPlan {
   harness: AsrHarnessId;
@@ -39,6 +43,12 @@ export interface BenchmarkPlan {
   samples: number;
   name: string;
   description: string;
+  /**
+   * Skip any Benchmark Combination already recorded at this sample depth or deeper.
+   * Always true for an interactive run: it is what makes enter-through mean "only
+   * what is missing" at Combination granularity rather than per Speech Model.
+   */
+  skipCoveredCombinations: boolean;
 }
 
 const SAMPLE_PRESETS = [50, 200, 500];
@@ -101,16 +111,19 @@ export async function promptBenchmarkPlan(
     label: modelLabel(id),
     hint: formatModelCoverage(coverage, harness, id),
   }));
-  const uncoveredModels = SPEECH_MODEL_IDS.filter(
-    (id) => modelCoverage(coverage, harness, id) === null,
+  // Partially covered models stay selected: a model benchmarked on LibriSpeech but
+  // never on FLEURS still has missing Combinations to fill, and pressing enter
+  // through the flow has to pick those up.
+  const incompleteModels = SPEECH_MODEL_IDS.filter(
+    (id) => !isModelFullyCovered(coverage, harness, id),
   );
 
   const models = exitIfCancelled(
     await multiselect({
       message: `Speech Models to run under ${harness}`,
       options: modelOptions,
-      // Already-covered models start off, so enter-through runs only the gaps.
-      initialValues: [...uncoveredModels],
+      // Fully covered models start off, so enter-through runs only the gaps.
+      initialValues: [...incompleteModels],
       required: true,
     }),
   ) as string[];
@@ -225,5 +238,14 @@ export async function promptBenchmarkPlan(
 
   outro("Starting benchmark");
 
-  return { harness, models, splits, languages, samples, name, description };
+  return {
+    harness,
+    models,
+    splits,
+    languages,
+    samples,
+    name,
+    description,
+    skipCoveredCombinations: true,
+  };
 }

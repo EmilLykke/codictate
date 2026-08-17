@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { getPlatformRuntime } from '../../platform/runtime'
 import {
@@ -72,13 +73,40 @@ export async function findWhisperCliBinary(): Promise<string> {
 let loggedHarnessOverride = false
 
 /**
- * The Harness the app transcribes with. Always the default unless the dev-only
- * `CODICTATE_ASR_HARNESS` env var names another one; there is deliberately no
- * user-facing picker (docs/adr/0002-asr-harness-abstraction.md).
+ * True when the main process is running out of a source checkout rather than a
+ * packaged app: only a checkout has the repo's `package.json` above `src/`.
+ *
+ * This is what makes the Harness override dev-only. Gating on it, rather than
+ * trusting the env var alone, means a released build cannot be pushed onto the
+ * unproven Harness by an environment variable inherited from whatever launched it.
+ */
+function isRunningFromSourceCheckout(): boolean {
+  return existsSync(join(import.meta.dir, '../../../../package.json'))
+}
+
+/**
+ * The Harness the app transcribes with. Always the default unless this is a source
+ * checkout AND the dev-only `CODICTATE_ASR_HARNESS` env var names another one; there
+ * is deliberately no user-facing picker
+ * (docs/adr/0002-asr-harness-abstraction.md).
  */
 export function resolveAppAsrHarness(): AsrHarnessId {
   const override = process.env[ASR_HARNESS_ENV_VAR]?.trim()
   if (!override) return DEFAULT_ASR_HARNESS
+
+  if (!isRunningFromSourceCheckout()) {
+    if (!loggedHarnessOverride) {
+      loggedHarnessOverride = true
+      log(
+        'whisper',
+        'ignoring ASR harness override outside a source checkout',
+        {
+          [ASR_HARNESS_ENV_VAR]: override,
+        }
+      )
+    }
+    return DEFAULT_ASR_HARNESS
+  }
 
   if (!isAsrHarnessId(override)) {
     if (!loggedHarnessOverride) {

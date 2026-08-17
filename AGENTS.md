@@ -15,7 +15,7 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | Frontend | React 19, Vite, Tailwind CSS v4 |
 | Animation | Motion (Framer Motion) |
 | Data fetching | @tanstack/react-query |
-| Speech-to-text | Whisper (whisper-cli via whisper.cpp) and Parakeet (FluidAudio/FluidInference via CodictateParakeetHelper) |
+| Speech-to-text | Whisper (via the `whisper-cli` or `crispasr` ASR Harness) and Parakeet (FluidAudio/FluidInference via CodictateParakeetHelper) |
 | Formatting | llama.cpp running Qwen2.5 3B / Qwen3 4B, or Apple Intelligence (macOS 26+) |
 | Native helpers | Swift (macOS), Rust (Windows) |
 
@@ -75,7 +75,11 @@ native/
 scripts/
   pre-build.ts                  # Downloads vendor binaries + Whisper model
   post-build.ts                 # App bundle patching + codesign
+  vendor-manifest.ts            # Pinned vendor releases + the file lists shipped from them
+  mirror-hviske.ts              # Maintainer-run: mirror the hviske GGUF weights
   release.sh                    # Version bump + tag push
+
+entitlements/                   # Per-helper macOS entitlements plists (codesigning)
 
 docs/
   INSTALL.md                    # User install guide
@@ -83,7 +87,9 @@ docs/
   RELEASING.md                  # Maintainer release guide
   RECORDING_INDICATOR.md        # Recording HUD architecture
   MACOS_SIGNING_AND_NOTARIZATION.md
+  HVISKE_MIRROR.md              # Mirroring the Danish hviske model
   AEROSPACE.md                  # AeroSpace window rule
+  adr/                          # Architecture decision records
 
 vendors/                        # Pre-built vendor binaries (whisper-cli, llama-completion, etc.)
 ```
@@ -106,7 +112,7 @@ See `docs/RECORDING_INDICATOR.md` for full details.
 
 ### Speech engines
 
-- **Whisper**: runs via `whisper-cli` (built from whisper.cpp). The default engine.
+- **Whisper**: the default engine. Runs under one of two **ASR Harnesses**: `whisper-cli` (built from whisper.cpp, the shipping default) or `crispasr` (prebuilt, benchmark-selectable and behind the dev-only `CODICTATE_ASR_HARNESS` env var). Harness is internal and never exposed to users; which one ships is decided by measured WER and RTF. See `docs/adr/0002-asr-harness-abstraction.md`.
 - **Parakeet**: runs via `CodictateParakeetHelper` (macOS only). The engine ID in code is `whisperkit` but the actual engine is **FluidAudio** (FluidInference) — not WhisperKit.
 
 ### Formatting pipeline
