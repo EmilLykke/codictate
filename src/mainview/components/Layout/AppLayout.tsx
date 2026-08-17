@@ -146,6 +146,8 @@ interface AppLayoutProps {
   onTabChange: (tab: SidebarTab) => void;
   onOpenSettings: () => void;
   onWordmarkSecretTap: () => void;
+  /** Sits above the content on every tab. Used for app-level notices. */
+  banner?: ReactNode;
   children: ReactNode;
 }
 
@@ -155,6 +157,7 @@ export function AppLayout({
   onTabChange,
   onOpenSettings,
   onWordmarkSecretTap,
+  banner,
   children,
 }: AppLayoutProps) {
   return (
@@ -254,11 +257,15 @@ export function AppLayout({
       {/* Content Area — left-aligned */}
       {activeTab === "home" ? (
         <div className="min-h-0 flex-1 flex flex-col px-8 pt-12">
+          {banner}
           {children}
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-16 pt-12">
-          <div className="max-w-3xl">{children}</div>
+          <div className="max-w-3xl">
+            {banner}
+            {children}
+          </div>
         </div>
       )}
     </div>

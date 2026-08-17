@@ -22,10 +22,6 @@ import { StatsManager } from './utils/stats/stats-manager'
 import { RECORDING_PATH } from './platform/runtime'
 import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
-import {
-  getStreamModeReadiness,
-  getTranslateReadiness,
-} from '../shared/dictation-plan'
 import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
 import { warmupParakeet } from './utils/whisper/speech2text'
 
@@ -93,30 +89,9 @@ const statsManager = new StatsManager(() =>
   UserAppConfig.getHistoryStoragePath()
 )
 
-// Heal disk state if translate was left on without a runnable model/language combo.
-if (UserAppConfig.getTranslateToEnglish()) {
-  const readiness = getTranslateReadiness(
-    UserAppConfig.getWhisperModelId(),
-    UserAppConfig.getTranscriptionLanguageId(),
-    UserAppConfig.getTranslateDefaultLanguageId(),
-    (id) => modelManager.isModelAvailable(id)
-  )
-  if (readiness.kind !== 'ready') {
-    await UserAppConfig.setTranslateOff()
-  }
-}
-
-if (UserAppConfig.getStreamMode()) {
-  const streamReady = getStreamModeReadiness(
-    UserAppConfig.getWhisperModelId(),
-    UserAppConfig.getTranscriptionLanguageId(),
-    (id) => modelManager.isModelAvailable(id),
-    UserAppConfig.isParakeetCoreMlReady()
-  )
-  if (streamReady.kind !== 'ready') {
-    await UserAppConfig.setStreamMode(false)
-  }
-}
+// The boot heal that used to live here - one field-specific check for Translate to English
+// and another for Live Transcription - is now `AppConfig.load()`'s own heal pass over the
+// whole runnable slice, so there is a single definition of what "runnable" means.
 
 let deviceSnapshot: AudioDeviceSnapshot = await findDevices()
 let devices = deviceSnapshot.devices

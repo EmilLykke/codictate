@@ -26,7 +26,6 @@ import { AppConfig } from './AppConfig/AppConfig'
 import { copyLogToClipboard } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
 import { formatterModelManager } from './utils/formatting/formatter-model-manager'
-import { isTranslateCapableModelId } from '../shared/dictation-plan'
 import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
 import { warmupParakeet } from './utils/whisper/speech2text'
 import { getPlatformRuntime } from './platform/runtime'
@@ -141,6 +140,23 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
       Math.round(width),
       Math.round(height)
     )
+  }
+
+  /**
+   * Downloading or deleting a Speech Model changes what the settings are allowed to say
+   * without any settings write happening, so the heal pass runs here too. Both the Translate
+   * and the Live Transcription hooks fire unconditionally: the heal may have switched either
+   * off, and the tray checkmarks and any running Parakeet stream have to follow.
+   */
+  async function healAfterAvailabilityChange(): Promise<void> {
+    await deps.appConfig.healRunnableSettings()
+    try {
+      rpc.send.updateSettings(deps.appConfig.getSettings())
+    } catch {
+      // Window may be closed during a long download
+    }
+    deps.onTranslateChanged?.()
+    deps.onStreamModeChanged?.()
   }
 
   const rpc = BrowserView.defineRPC<WebviewRPCType>({
@@ -408,10 +424,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
                   error,
                 })
                 if (done && !error) {
-                  rpc.send.updateSettings(deps.appConfig.getSettings())
-                  if (isTranslateCapableModelId(modelId)) {
-                    deps.onTranslateChanged?.()
-                  }
+                  void healAfterAvailabilityChange()
                   if (modelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
                     void warmupParakeet(async () => {
                       await deps.appConfig.markParakeetCoreMlReady()
@@ -431,15 +444,11 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         },
         deleteWhisperModel: ({ modelId }) => {
           const deleted = modelManager.deleteModel(modelId)
-          if (deleted) {
-            if (modelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-              void deps.appConfig.resetParakeetCoreMlReady()
-            }
-            rpc.send.updateSettings(deps.appConfig.getSettings())
-            if (isTranslateCapableModelId(modelId)) {
-              deps.onTranslateChanged?.()
-            }
-          }
+          if (!deleted) return
+          // Deleting weights is never refused, so the configuration is what gets corrected:
+          // a dangling selection, a Translate toggle with nothing to translate with, a Live
+          // Transcription switched on without Parakeet.
+          void healAfterAvailabilityChange()
         },
         downloadFormatterModel: ({ tier }) => {
           formatterModelManager

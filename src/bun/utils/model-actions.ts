@@ -1,8 +1,6 @@
 import {
   SPEECH_MODELS,
   coerceTranscriptionLanguageIdForModel,
-  getSpeechModel,
-  supportsStreamMode,
 } from '../../shared/speech-models'
 import { AppConfig } from '../AppConfig/AppConfig'
 import { modelManager } from './whisper/model-manager'
@@ -34,17 +32,14 @@ export function handleModelAction(
       id,
       appConfig.getTranscriptionLanguageId()
     )
-    const newModel = getSpeechModel(id)
-    const shouldDisableStream =
-      appConfig.getStreamMode() && newModel && !supportsStreamMode(newModel)
-
+    // Live Transcription is not switched off here: the heal pass inside
+    // updateTranscriptionSettings does it, and announces it, for every caller at once.
     const ok = await appConfig.updateTranscriptionSettings({
       whisperModelId: id,
       ...(nextLang !== appConfig.getTranscriptionLanguageId()
         ? { transcriptionLanguageId: nextLang }
         : {}),
     })
-    if (shouldDisableStream) await appConfig.setStreamMode(false)
     if (ok) onSuccess?.()
   })()
 }

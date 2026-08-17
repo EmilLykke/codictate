@@ -23,6 +23,25 @@ import {
 } from './speech-models'
 
 /**
+ * Everything outside the settings object that decides whether a Dictation can run: which
+ * Speech Model weights are on disk, and whether this platform ships the Live Transcription
+ * plumbing at all (the Parakeet helper is macOS and Windows; Linux is not there yet).
+ *
+ * Availability arrives as a predicate rather than a map so the caller owns what "installed"
+ * means on its side - the main process asks `modelManager`, the webview reads the
+ * availability map it was shipped.
+ *
+ * This is the "availability snapshot" half of the `(settings, availability)` pair that
+ * ADR-0005 names. The heal pass in settings-heal.ts takes it, and so will the Dictation
+ * Plan builder. Note what is deliberately absent: Parakeet warmup is persisted settings
+ * state, not availability, and it is no reason to call a configuration unrunnable.
+ */
+export interface DictationAvailability {
+  isModelAvailable: (speechModelId: string) => boolean
+  streamSupported: boolean
+}
+
+/**
  * Speech Models that support the `-tr` (translate to English) flag, in catalog order.
  * English-only and turbo Whisper models cannot, and neither Parakeet nor hviske can.
  */
@@ -79,6 +98,25 @@ export function resolveTranslateModelId(
     return null
   }
   return selectedSpeechModelId
+}
+
+/**
+ * Whether a translate run can load the Speech Model the user actually selected.
+ *
+ * This is what `resolveTranslateModelId` collapses to under ADR-0005 once the hviske swap
+ * and the "first installed translate-capable model" search are gone: no substitution, so
+ * the only question left is whether the selection itself can do the job. The heal pass
+ * enforces this now, which is what makes the swap unreachable ahead of the change that
+ * deletes it.
+ */
+export function isTranslateRunnableForSelection(
+  selectedSpeechModelId: string,
+  isModelAvailable: (id: string) => boolean
+): boolean {
+  return (
+    isTranslateCapableModelId(selectedSpeechModelId) &&
+    isModelAvailable(selectedSpeechModelId)
+  )
 }
 
 export function hasAnyTranslateCapableModelAvailable(

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { RPCSchema } from 'electrobun'
 import type { PlatformCapabilities } from './platform'
+import type { SettingsHealAnnouncement } from './settings-heal'
 import type {
   FormattingModeId,
   FormattingEmailGreetingStyle,
@@ -233,6 +234,12 @@ export interface AppSettings {
   stats: StatsSettings
   themePreference: ThemePreference
   modelAvailability: Record<string, boolean>
+  /**
+   * What the last heal pass changed behind the user's back: the Speech Model selection,
+   * Translate to English, Live Transcription. Empty almost always. The main process decides
+   * what to say and the window only renders it.
+   */
+  healAnnouncements: SettingsHealAnnouncement[]
 }
 
 export interface PermissionState {

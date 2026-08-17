@@ -8,6 +8,7 @@ import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
 import { HistorySection } from "./History/HistorySection";
 import { StatsPage } from "./Stats/StatsPage";
 import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
+import { HealNotices } from "./Common/HealNotices";
 import type {
   AppStatus,
   AppSettings,
@@ -235,48 +236,14 @@ export function MainContainer({
     });
   }, []);
 
-  const handleModelDelete = useCallback(
-    async (modelId: string) => {
-      deleteWhisperModel(modelId);
-      setModelAvailability((prev) => ({ ...prev, [modelId]: false }));
-
-      // If the deleted model was selected, fall back to the default model.
-      if (settings.whisperModelId === modelId) {
-        const hadStream = settings.streamMode;
-        queryClient.setQueryData(
-          ["settings"],
-          (old: AppSettings | undefined) =>
-            old
-              ? {
-                  ...old,
-                  whisperModelId: DEFAULT_MODEL_ID,
-                  ...(hadStream ? { streamMode: false } : {}),
-                }
-              : old,
-        );
-        await setWhisperModel(DEFAULT_MODEL_ID);
-        if (hadStream) {
-          const ok = await setStreamMode(false);
-          if (!ok) {
-            queryClient.setQueryData(["settings"], await fetchSettings());
-          }
-        }
-      }
-
-      if (
-        settings.translateToEnglish &&
-        isTranslateCapableModelId(modelId) &&
-        settings.whisperModelId === modelId
-      ) {
-        queryClient.setQueryData(["settings"], (old: AppSettings) => ({
-          ...old,
-          translateToEnglish: false,
-        }));
-        await setTranslateToEnglish(false);
-      }
-    },
-    [settings, queryClient],
-  );
+  const handleModelDelete = useCallback((modelId: string) => {
+    // Deleting weights is an availability change, so the main process heals the
+    // configuration - dangling selection, Translate to English, Live Transcription - and
+    // pushes the corrected settings back with whatever it had to announce. Nothing to
+    // reconcile here beyond the availability flag the picker draws from.
+    deleteWhisperModel(modelId);
+    setModelAvailability((prev) => ({ ...prev, [modelId]: false }));
+  }, []);
 
   const handleStreamToggle = useCallback(async () => {
     const newValue = !settings.streamMode;
@@ -422,6 +389,9 @@ export function MainContainer({
           setIsSettingsModalOpen(true);
         }}
         onWordmarkSecretTap={() => {}}
+        banner={
+          <HealNotices announcements={settings.healAnnouncements ?? []} />
+        }
       >
         {activeTab === "home" && (
           <HomeScreen
