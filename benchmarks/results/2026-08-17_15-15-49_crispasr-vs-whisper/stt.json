@@ -1,0 +1,259 @@
+{
+  "description": "to test which asr harnes is best.",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.5.1"
+  },
+  "runDate": "2026-08-17T15:24:38.975Z",
+  "config": {
+    "sampleSize": 20,
+    "warmupCount": 3,
+    "normalization": "whisper-basic"
+  },
+  "librispeech": {
+    "test-clean": {
+      "whisper-cli": {
+        "large-v3-turbo-q5_0": {
+          "wer": 0.031331592689295036,
+          "meanRTF": 0.11717628049439957,
+          "peakRSS_MB": {
+            "min": 798,
+            "avg": 800,
+            "max": 802
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 142.39499999999998,
+          "totalWallSec": 16.685316461000024
+        },
+        "medium.en-q5_0": {
+          "wer": 0.04960835509138381,
+          "meanRTF": 0.10202570490536926,
+          "peakRSS_MB": {
+            "min": 1117,
+            "avg": 1123,
+            "max": 1132
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 142.39499999999998,
+          "totalWallSec": 14.527950250000053
+        },
+        "large-v3-q5_0": {
+          "wer": 0.031331592689295036,
+          "meanRTF": 0.1492363858983823,
+          "peakRSS_MB": {
+            "min": 1983,
+            "avg": 1986,
+            "max": 1989
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 142.39499999999998,
+          "totalWallSec": 21.250515170000146
+        }
+      },
+      "crispasr": {
+        "large-v3-turbo-q5_0": {
+          "wer": 0.044386422976501305,
+          "meanRTF": 0.0743526844341443,
+          "peakRSS_MB": {
+            "min": 737,
+            "avg": 738,
+            "max": 739
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 142.39499999999998,
+          "totalWallSec": 10.587450499999978
+        },
+        "medium.en-q5_0": {
+          "wer": 0.04960835509138381,
+          "meanRTF": 0.0629038004494543,
+          "peakRSS_MB": {
+            "min": 830,
+            "avg": 832,
+            "max": 834
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 142.39499999999998,
+          "totalWallSec": 8.957186665000044
+        },
+        "large-v3-q5_0": {
+          "wer": 0.031331592689295036,
+          "meanRTF": 0.10941775108676476,
+          "peakRSS_MB": {
+            "min": 1504,
+            "avg": 1505,
+            "max": 1506
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 142.39499999999998,
+          "totalWallSec": 15.580540665999866
+        }
+      }
+    },
+    "test-other": {
+      "whisper-cli": {
+        "large-v3-turbo-q5_0": {
+          "wer": 0.05351170568561873,
+          "meanRTF": 0.137123663398937,
+          "peakRSS_MB": {
+            "min": 800,
+            "avg": 802,
+            "max": 805
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 106.26006250000002,
+          "totalWallSec": 14.57076904300001
+        },
+        "medium.en-q5_0": {
+          "wer": 0.07023411371237458,
+          "meanRTF": 0.1472662761514941,
+          "peakRSS_MB": {
+            "min": 1120,
+            "avg": 1123,
+            "max": 1128
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 106.26006250000002,
+          "totalWallSec": 15.648523708000024
+        },
+        "large-v3-q5_0": {
+          "wer": 0.056856187290969896,
+          "meanRTF": 0.20876417505400996,
+          "peakRSS_MB": {
+            "min": 1986,
+            "avg": 1987,
+            "max": 1989
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 106.26006250000002,
+          "totalWallSec": 22.18329428900004
+        }
+      },
+      "crispasr": {
+        "large-v3-turbo-q5_0": {
+          "wer": 0.056856187290969896,
+          "meanRTF": 0.09748264622938725,
+          "peakRSS_MB": {
+            "min": 737,
+            "avg": 739,
+            "max": 740
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 106.26006250000002,
+          "totalWallSec": 10.35851208100008
+        },
+        "medium.en-q5_0": {
+          "wer": 0.06354515050167224,
+          "meanRTF": 0.08189536047938836,
+          "peakRSS_MB": {
+            "min": 832,
+            "avg": 832,
+            "max": 833
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 106.26006250000002,
+          "totalWallSec": 8.702206122999838
+        },
+        "large-v3-q5_0": {
+          "wer": 0.05351170568561873,
+          "meanRTF": 0.14024585435379328,
+          "peakRSS_MB": {
+            "min": 1504,
+            "avg": 1505,
+            "max": 1506
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 106.26006250000002,
+          "totalWallSec": 14.902533248999973
+        }
+      }
+    }
+  },
+  "fleurs": {
+    "es_419": {
+      "whisper-cli": {
+        "large-v3-turbo-q5_0": {
+          "wer": 0.038461538461538464,
+          "meanRTF": 0.08756206523549664,
+          "peakRSS_MB": {
+            "min": 800,
+            "avg": 802,
+            "max": 806
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 208.92,
+          "totalWallSec": 18.293466668999958,
+          "cer": 0.025521207764198417
+        },
+        "medium.en-q5_0": {
+          "wer": 0.8547008547008547,
+          "meanRTF": 0.07285922701512593,
+          "peakRSS_MB": {
+            "min": 1120,
+            "avg": 1124,
+            "max": 1127
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 208.92,
+          "totalWallSec": 15.221749708000107,
+          "cer": 0.6103522645578721
+        },
+        "large-v3-q5_0": {
+          "wer": 0.042735042735042736,
+          "meanRTF": 0.13038970021060667,
+          "peakRSS_MB": {
+            "min": 1984,
+            "avg": 1990,
+            "max": 1995
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 208.92,
+          "totalWallSec": 27.24101616799994,
+          "cer": 0.02516175413371675
+        }
+      },
+      "crispasr": {
+        "large-v3-turbo-q5_0": {
+          "wer": 0.038461538461538464,
+          "meanRTF": 0.05066033647807716,
+          "peakRSS_MB": {
+            "min": 737,
+            "avg": 738,
+            "max": 740
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 208.92,
+          "totalWallSec": 10.58395749699988,
+          "cer": 0.026240115025161753
+        },
+        "medium.en-q5_0": {
+          "wer": 0.8632478632478633,
+          "meanRTF": 0.04593766552747522,
+          "peakRSS_MB": {
+            "min": 832,
+            "avg": 833,
+            "max": 834
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 208.92,
+          "totalWallSec": 9.597297082000122,
+          "cer": 0.5776419841840402
+        },
+        "large-v3-q5_0": {
+          "wer": 0.04487179487179487,
+          "meanRTF": 0.0829053401636982,
+          "peakRSS_MB": {
+            "min": 1504,
+            "avg": 1505,
+            "max": 1507
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 208.92,
+          "totalWallSec": 17.320583666999827,
+          "cer": 0.02516175413371675
+        }
+      }
+    }
+  }
+}

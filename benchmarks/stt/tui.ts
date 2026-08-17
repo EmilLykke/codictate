@@ -94,7 +94,7 @@ export async function promptBenchmarkPlan(
         hint:
           id === DEFAULT_ASR_HARNESS
             ? "shipping harness"
-            : "candidate, benchmark only",
+            : "previous shipping harness, kept as the fallback binary",
       })),
       initialValues: [...ASR_HARNESS_IDS],
       required: true,

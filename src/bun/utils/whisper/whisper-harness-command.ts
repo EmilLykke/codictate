@@ -5,7 +5,10 @@ import {
   type AsrHarnessId,
   type CrispasrBackendId,
 } from '../../../shared/asr-harness'
-import { findAsrHarnessBinary } from './find-asr-harness'
+import {
+  findAsrHarnessBinary,
+  resolveAsrHarnessBinary,
+} from './find-asr-harness'
 
 export interface WhisperHarnessCommandOptions {
   harness?: AsrHarnessId
@@ -41,35 +44,38 @@ function whisperHarnessThreadCount(): number {
  * The argv for one Whisper transcription, for either ASR Harness.
  *
  * crispasr is a verified drop-in for this exact flag set (`-m -t --language -f
- * --no-prints -nt`), which is why one builder covers both.
+ * --no-prints -nt`), which is why one builder covers both, and it is now the shipping
+ * default: measurably faster and lighter at equal WER.
  *
- * Translate is the exception. `-tr` is accepted by crispasr but was not confirmed
- * equivalent (a turbo-model test returned Danish rather than English), so a translate
- * run is forced back onto the default Harness here rather than merely documented as
- * such. See docs/adr/0002-asr-harness-abstraction.md.
+ * Translate is not an exception and gets no Harness special-casing. `-tr` was measured
+ * equivalent on a translate-capable Speech Model (large-v3, Danish and Spanish FLEURS):
+ * both Harnesses returned English on every sample, differing only by ordinary decoding
+ * variance. An earlier turbo-model test that came back in Danish was the wrong model, not a
+ * crispasr defect - `large-v3-turbo` is a transcribe-only distillation and returns the
+ * source language under either Harness, which is exactly why `resolveTranslateModelId()`
+ * swaps the Speech Model before a translate run. Translate is a Speech Model concern, not a
+ * Harness one.
  *
- * A pinned `crispasrBackend` (hviske) is the one case that cannot be moved: the weights
- * load under that backend alone, so the translate fallback is skipped and a translate
- * request is rejected outright instead of silently producing a run on the wrong weights.
- * crispasr's own `--list-backends` reports translate support for `cohere`, but that is
- * unverified here, so it stays unavailable until the benchmark says otherwise.
+ * A pinned `crispasrBackend` (hviske) is the one case that constrains the Harness: the
+ * weights load under that backend alone, and a translate request there is rejected outright
+ * instead of silently producing a run on the wrong weights. crispasr's own
+ * `--list-backends` reports translate support for `cohere`, but that is unverified here, so
+ * it stays unavailable until the benchmark says otherwise.
+ *
+ * The returned `harness` is the one whose binary actually resolved. A non-hviske run
+ * degrades to `whisper-cli` when the requested Harness has no binary, so that a missing
+ * crispasr costs speed rather than all dictation.
  */
 export async function buildWhisperHarnessCommand(
   options: WhisperHarnessCommandOptions
 ): Promise<WhisperHarnessCommand> {
-  const requested = options.harness ?? DEFAULT_ASR_HARNESS
+  const requestedHarness = options.harness ?? DEFAULT_ASR_HARNESS
   const backend = options.crispasrBackend
-  const harness =
-    backend == null &&
-    options.translateToEnglish &&
-    requested !== DEFAULT_ASR_HARNESS
-      ? DEFAULT_ASR_HARNESS
-      : requested
 
   if (backend != null) {
-    if (harness !== 'crispasr') {
+    if (requestedHarness !== 'crispasr') {
       throw new Error(
-        `ASR harness ${harness} has no --backend flag; ${backend} requires the crispasr harness`
+        `ASR harness ${requestedHarness} has no --backend flag; ${backend} requires the crispasr harness`
       )
     }
     if (options.translateToEnglish) {
@@ -79,7 +85,17 @@ export async function buildWhisperHarnessCommand(
     }
   }
 
-  const binary = await findAsrHarnessBinary(harness)
+  // A pinned backend must not degrade: whisper-cli has no --backend flag, so an hviske run
+  // either gets crispasr or fails loudly.
+  const resolved =
+    backend == null
+      ? await resolveAsrHarnessBinary(requestedHarness)
+      : {
+          harness: requestedHarness,
+          binary: await findAsrHarnessBinary(requestedHarness),
+        }
+  const harness = resolved.harness
+  const binary = resolved.binary
   const languageArg = whisperCliLanguageArg(options.language)
 
   const argv = [binary]

@@ -373,8 +373,10 @@ class ModelManager {
       return
     }
 
-    // hviske is prep-only: no UI surfaces it, but the download RPC takes any model id,
-    // so the same dev-only gate that guards the crispasr Harness guards the download.
+    // hviske is prep-only: no UI surfaces it, but the download RPC takes any model id, so
+    // the dev-only hviske gate guards the download too. It has to be its own gate rather
+    // than "is the app on crispasr", now that crispasr is the shipping Harness: otherwise
+    // every user could trigger a download against a Mirror that does not exist yet.
     if (model.engine === 'hviske' && !isHviskeEnabled()) {
       const message = 'This model is not available in this build of Codictate.'
       log('model-manager', 'refusing hviske download outside dev', { modelId })

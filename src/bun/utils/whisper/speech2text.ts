@@ -112,10 +112,12 @@ interface HviskeRunPlan {
  * Decide whether a selected hviske Speech Model may run.
  *
  * hviske is prep-only. It loads under the crispasr Harness with `--backend cohere` and
- * nowhere else, and that Harness is gated by {@link isHviskeEnabled} - which needs both a
- * source checkout and the dev-only env var. So in a released build, or in any dev run
- * without the override, or when the weights are simply not installed, this falls back to
- * the default Speech Model on the default Harness rather than attempting an hviske run.
+ * nowhere else, and is gated by {@link isHviskeEnabled} - which needs both a source
+ * checkout and an explicit `CODICTATE_ENABLE_HVISKE`. That gate is independent of the
+ * Harness default, so crispasr shipping as the default does not unlock hviske. In a
+ * released build, in any dev run without the flag, or when the weights are simply not
+ * installed, this falls back to the default Speech Model on the app Harness rather than
+ * attempting an hviske run.
  */
 function planHviskeRun(modelId: string): HviskeRunPlan {
   if (getSpeechModel(modelId)?.engine !== 'hviske') {
@@ -125,7 +127,7 @@ function planHviskeRun(modelId: string): HviskeRunPlan {
   if (!isHviskeEnabled()) {
     log(
       'whisper',
-      'hviske model selected without the dev-only crispasr harness - falling back to the default model',
+      'hviske model selected without the dev-only hviske flag - falling back to the default model',
       { modelId, fallbackModelId: DEFAULT_MODEL_ID }
     )
     return { modelId: DEFAULT_MODEL_ID }
@@ -207,7 +209,7 @@ export const transcribe = async (
     stderr: 'pipe',
     env: {
       ...process.env,
-      // Avoid C locale / missing UTF-8 so whisper-cli prints UTF-8 transcript
+      // Avoid C locale / missing UTF-8 so the ASR Harness prints a UTF-8 transcript
       LC_ALL: 'en_US.UTF-8',
       LANG: 'en_US.UTF-8',
     },
