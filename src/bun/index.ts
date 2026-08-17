@@ -396,8 +396,7 @@ trayHandlers = setupTray(
   onOpenSettings,
   onApplyUpdate,
   () => checkForUpdates(),
-  pushSettingsToWebview,
-  pushSettingsToWebview,
+  // onTranscriptionLanguageChanged, onFormattingModeChanged, onModelChanged
   pushSettingsToWebview,
   pushSettingsToWebview,
   pushSettingsToWebview

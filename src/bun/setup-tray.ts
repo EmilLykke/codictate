@@ -10,11 +10,6 @@ import {
   handleTranscriptionLanguageAction,
 } from './utils/transcription-language-actions'
 import { buildModelMenuItems, handleModelAction } from './utils/model-actions'
-import { modelManager } from './utils/whisper/model-manager'
-import {
-  getStreamModeReadiness,
-  getTranslateReadiness,
-} from '../shared/whisper-models'
 import { speechModelLocksTranscriptionLanguage } from '../shared/speech-models'
 import { shortcutTrayCompact } from '../shared/shortcut-options'
 import {
@@ -64,10 +59,6 @@ export const setupTray = (
   onCheckForUpdate?: () => void,
   /** After tray changes transcription language — sync webview (e.g. updateSettings). */
   onTranscriptionLanguageChanged?: () => void,
-  /** After tray toggles translate to English — sync webview. */
-  onTranslateToggled?: () => void,
-  /** After tray toggles stream mode — sync webview. */
-  onStreamModeToggled?: () => void,
   /** After tray changes formatting mode — sync webview. */
   onFormattingModeChanged?: () => void,
   /** After tray changes the transcription model — sync webview. */
@@ -92,6 +83,11 @@ export const setupTray = (
   type UpdateState = 'idle' | 'checking' | 'ready'
   let updateState: UpdateState = 'idle'
 
+  // Declared before buildMenu because the status row reads it on the very first
+  // setMenu call.
+  type TrayVisualState = 'idle' | 'recording' | 'transcribing' | 'streaming'
+  let trayVisualState: TrayVisualState = 'idle'
+
   const updateMenuItem = () => {
     if (updateState === 'ready')
       return {
@@ -112,83 +108,43 @@ export const setupTray = (
     }
   }
 
-  const buildTranslateMenuItem = (cfg: AppConfig) => {
-    const readiness = getTranslateReadiness(
-      cfg.getWhisperModelId(),
-      cfg.getTranscriptionLanguageId(),
-      cfg.getTranslateDefaultLanguageId(),
-      (id) => modelManager.isModelAvailable(id)
-    )
-
-    if (readiness.kind === 'need_language') {
-      return {
-        type: 'normal' as const,
-        label: 'Translate to English — set language in Settings',
-        action: 'open-settings',
-        checked: false,
-      }
-    }
-    if (readiness.kind === 'need_download') {
-      return {
-        type: 'normal' as const,
-        label: 'Translate to English — download Small or Large in Settings',
-        action: 'open-settings',
-        checked: false,
-      }
-    }
-    if (readiness.kind === 'need_switch_model') {
-      return {
-        type: 'normal' as const,
-        label: 'Translate to English — switch to Small or Large in Settings',
-        action: 'open-settings',
-        checked: false,
-      }
-    }
-    return {
-      type: 'normal' as const,
-      label: 'Translate to English',
-      action: 'toggle-translate',
-      checked: cfg.getTranslateToEnglish(),
-    }
-  }
-
-  const shortcutsMenuLabel = () => {
-    const h = appConfig.getShortcutId()
+  /** Compact form of both Dictation Shortcut slots, e.g. `⌥+Space / fn`. */
+  const shortcutSummary = () => {
+    const main = shortcutTrayCompact(appConfig.getShortcutId())
     const hold = appConfig.getShortcutHoldOnlyId()
-    const main = shortcutTrayCompact(h)
-    if (hold === null) return `Shortcuts: ${main}`
-    return `Shortcuts: ${main} · ${shortcutTrayCompact(hold)}`
+    if (hold === null) return main
+    return `${main} / ${shortcutTrayCompact(hold)}`
   }
 
-  const buildStreamModeMenuItem = (cfg: AppConfig) => {
-    const readiness = getStreamModeReadiness(
-      cfg.getWhisperModelId(),
-      cfg.getTranscriptionLanguageId(),
-      (id) => modelManager.isModelAvailable(id),
-      cfg.isParakeetCoreMlReady()
-    )
-    const streamOn = cfg.getStreamMode()
-    if (readiness.kind !== 'ready' && !streamOn) {
-      const labelByKind = {
-        need_parakeet_download: 'Stream mode — download Parakeet in Settings',
-        need_switch_model: 'Stream mode — switch to Parakeet in Settings',
-        need_language: 'Stream mode — set language in Settings',
-        need_warmup: 'Stream mode — preparing model…',
-      } as const
-      return {
-        type: 'normal' as const,
-        label: labelByKind[readiness.kind],
-        action: 'open-settings',
-        checked: false,
-      }
-    }
-    return {
-      type: 'normal' as const,
-      label: 'Stream mode',
-      action: 'toggle-stream-mode',
-      checked: streamOn,
-    }
+  const STATUS_LABELS: Record<TrayVisualState, string> = {
+    idle: 'Ready',
+    recording: 'Recording',
+    transcribing: 'Transcribing…',
+    streaming: 'Live transcription',
   }
+
+  /**
+   * Top item doubles as the status readout and the way into the app, which is why
+   * there is no separate "Open Codictate" entry.
+   */
+  const statusMenuItem = () => ({
+    type: 'normal' as const,
+    label: `● ${STATUS_LABELS[trayVisualState]} · ${shortcutSummary()}`,
+    action: 'open',
+  })
+
+  const selectedDeviceLabel = (selectedDevice: number) =>
+    buildDeviceMenuItems(currentDevices, selectedDevice).find((d) => d.checked)
+      ?.label ?? 'System default'
+
+  const selectedModelLabel = () =>
+    buildModelMenuItems(appConfig.getWhisperModelId()).find((m) => m.checked)
+      ?.label ?? appConfig.getWhisperModelId()
+
+  const selectedLanguageLabel = () =>
+    buildTranscriptionLanguageMenuItems(
+      appConfig.getTranscriptionLanguageId()
+    ).find((l) => l.checked)?.label ?? 'Automatic'
 
   const buildFormattingMenuItems = (cfg: AppConfig) => {
     const forced = cfg.getFormattingForceModeId()
@@ -213,64 +169,60 @@ export const setupTray = (
   }
 
   const formattingMenuLabel = (cfg: AppConfig) => {
+    if (!cfg.getFormattingEnabled()) return 'Formatting: Off'
     const forced = cfg.getFormattingForceModeId()
-    if (forced === null) return 'Format output: Auto'
-    return `Format output: Force ${formattingModeLabel(forced)}`
+    if (forced === null) return 'Formatting: Auto'
+    return `Formatting: ${formattingModeLabel(forced)}`
   }
 
+  /**
+   * Status and shortcut on top, then the four settings a user changes mid-session,
+   * then app-level actions. Translate to English and Live transcription are
+   * deliberately absent: they need readiness explanation that does not fit a menu
+   * label, so they live in Settings.
+   */
   const buildMenu = (selectedDevice: number) => [
-    { type: 'normal' as const, label: 'Open Codictate', action: 'open' },
-    { type: 'normal' as const, label: 'Settings', action: 'open-settings' },
-    {
-      type: 'normal' as const,
-      label: shortcutsMenuLabel(),
-      action: 'noop',
-    },
-    { type: 'divider' as const },
-    updateMenuItem(),
+    statusMenuItem(),
+    { type: 'normal' as const, label: 'Settings…', action: 'open-settings' },
     { type: 'divider' as const },
     {
       type: 'normal' as const,
-      label: 'Microphone',
+      label: `Microphone: ${selectedDeviceLabel(selectedDevice)}`,
       submenu: buildDeviceMenuItems(currentDevices, selectedDevice),
     },
     {
       type: 'normal' as const,
-      label: `Model: ${buildModelMenuItems(appConfig.getWhisperModelId()).find((m) => m.checked)?.label ?? appConfig.getWhisperModelId()}`,
+      label: `Model: ${selectedModelLabel()}`,
       submenu: buildModelMenuItems(appConfig.getWhisperModelId()),
     },
     speechModelLocksTranscriptionLanguage(appConfig.getWhisperModelId())
       ? {
           type: 'normal' as const,
-          label: 'Transcription language — automatic (Parakeet)',
+          label: 'Language: Automatic (Parakeet)',
           action: 'noop',
         }
       : {
           type: 'normal' as const,
-          label: 'Transcription language',
+          label: `Language: ${selectedLanguageLabel()}`,
           submenu: buildTranscriptionLanguageMenuItems(
             appConfig.getTranscriptionLanguageId()
           ),
         },
-    buildTranslateMenuItem(appConfig),
-    buildStreamModeMenuItem(appConfig),
     {
       type: 'normal' as const,
       label: formattingMenuLabel(appConfig),
       submenu: buildFormattingMenuItems(appConfig),
     },
     { type: 'divider' as const },
+    updateMenuItem(),
     {
       type: 'normal' as const,
-      label: 'Quit',
+      label: 'Quit Codictate',
       action: 'quit',
     },
   ]
 
   tray.setMenu(buildMenu(resolveCurrentDevice()))
-
-  type TrayVisualState = 'idle' | 'recording' | 'transcribing' | 'streaming'
-  let trayVisualState: TrayVisualState = 'idle'
 
   tray.on('tray-clicked', (e) => {
     const event = e as { data: { action: string } }
@@ -302,18 +254,6 @@ export const setupTray = (
       tray.setMenu(buildMenu(resolveCurrentDevice()))
       onModelChanged?.()
     })
-    if (event.data.action === 'toggle-stream-mode') {
-      void (async () => {
-        const next = !appConfig.getStreamMode()
-        const ok = await appConfig.setStreamMode(next)
-        tray.setMenu(buildMenu(resolveCurrentDevice()))
-        if (ok) {
-          onStreamModeToggled?.()
-        } else if (next) {
-          onOpenSettings?.()
-        }
-      })()
-    }
     if (event.data.action.startsWith('set-formatting-force-')) {
       const suffix = event.data.action.replace('set-formatting-force-', '')
       void (async () => {
@@ -340,39 +280,6 @@ export const setupTray = (
         if (ok) onFormattingModeChanged?.()
       })()
     }
-    if (event.data.action === 'toggle-translate') {
-      const translateWasOn = appConfig.getTranslateToEnglish()
-      void (async () => {
-        if (!translateWasOn) {
-          const readiness = getTranslateReadiness(
-            appConfig.getWhisperModelId(),
-            appConfig.getTranscriptionLanguageId(),
-            appConfig.getTranslateDefaultLanguageId(),
-            (id) => modelManager.isModelAvailable(id)
-          )
-          if (readiness.kind !== 'ready') {
-            onOpenSettings?.()
-            tray.setMenu(buildMenu(resolveCurrentDevice()))
-            return
-          }
-          if (appConfig.getTranscriptionLanguageId() === 'auto') {
-            const srcLang = appConfig.getTranslateDefaultLanguageId()
-            if (srcLang === 'auto') {
-              onOpenSettings?.()
-              tray.setMenu(buildMenu(resolveCurrentDevice()))
-              return
-            }
-            await appConfig.setTranslateOn(srcLang)
-          } else {
-            await appConfig.setTranslateToEnglish(true)
-          }
-        } else {
-          await appConfig.setTranslateOff()
-        }
-        tray.setMenu(buildMenu(resolveCurrentDevice()))
-        onTranslateToggled?.()
-      })()
-    }
   })
 
   tray.setTitle('')
@@ -396,7 +303,7 @@ export const setupTray = (
     },
     setTrayStreaming: () => {
       trayVisualState = 'streaming' as TrayVisualState
-      tray.setTitle(' Streaming…')
+      tray.setTitle(' Live…')
     },
     rebuildDeviceMenu: (selectedDevice: number) =>
       tray.setMenu(buildMenu(selectedDevice)),

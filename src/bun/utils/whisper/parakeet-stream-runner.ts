@@ -38,7 +38,7 @@ export function assertParakeetStreamRuntimeReady(): void {
   getPlatform().findParakeetHelperBinary()
   if (!modelManager.isModelAvailable(PARAKEET_MODEL_ID)) {
     throw new Error(
-      'Parakeet model is not installed. Download Parakeet TDT v3 in Settings to use stream mode.'
+      'Parakeet model is not installed. Download Parakeet TDT v3 in Settings to use live transcription.'
     )
   }
 }

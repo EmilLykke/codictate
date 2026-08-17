@@ -112,7 +112,7 @@ export class LinuxPlatformProvider implements PlatformProvider {
   findParakeetHelperBinary(): string {
     throw new Error(
       '[Linux] CodictateParakeetHelper (Core ML) is macOS-only.\n' +
-        'Stream mode is not available on Linux.'
+        'Live transcription is not available on Linux.'
     )
   }
 }

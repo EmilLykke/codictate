@@ -218,14 +218,14 @@ export function HomeScreen({
           <InstantTooltip
             text={
               !streamModeSupported
-                ? "Stream mode coming soon on this platform"
+                ? "Live transcription coming soon on this platform"
                 : !canStream
                   ? parakeetInstalled
-                    ? "Select the Parakeet model to enable stream mode"
-                    : "Download a stream-capable model (Parakeet) to enable"
+                    ? "Select the Parakeet model to enable live transcription"
+                    : "Download a live-transcription-capable model (Parakeet) to enable"
                   : isStreamMode
-                    ? "Stream mode active"
-                    : `Stream mode: continuous dictation (${streamModeLabel})`
+                    ? "Live transcription active"
+                    : `Live transcription: continuous dictation (${streamModeLabel})`
             }
             side="bottom"
             floatInViewport
@@ -245,7 +245,7 @@ export function HomeScreen({
                     ? TOGGLE_DIMMED
                     : TOGGLE_OFF
               }`}
-              aria-label="Toggle stream mode"
+              aria-label="Toggle live transcription"
             >
               <svg
                 width="16"

@@ -13,7 +13,7 @@ export type SpeechModelModeSupport = 'normal' | 'stream' | 'both'
 export const PARAKEET_COREML_PREP_STORAGE_KEY =
   'codictate.parakeetCoreMlPrepCompleted'
 
-/** One line under Transcribing… / Streaming… on first Parakeet use. */
+/** One line under Transcribing… / Live transcription on first Parakeet use. */
 export const PARAKEET_FIRST_RUN_READY_SUBTITLE =
   'First run: preparing the model can take 1-2 minutes. Later runs are fast.'
 
@@ -21,9 +21,9 @@ export const PARAKEET_FIRST_RUN_READY_SUBTITLE =
 export const PARAKEET_FIRST_RUN_SETTINGS_HINT =
   'First run: Codictate may take 1-2 minutes to prepare Parakeet for this device. It may look stuck, but subsequent runs are fast.'
 
-/** Stream mode helper (Transcription section has the full explanation). */
+/** Live transcription helper (Transcription section has the full explanation). */
 export const PARAKEET_FIRST_RUN_STREAM_HELPER =
-  'First stream run takes 1-2 minutes to prepare the model (see Transcription).'
+  'First live transcription run takes 1-2 minutes to prepare the model (see Transcription).'
 
 /** European-language set aligned with Parakeet TDT v3 multilingual (25 locales we expose in Settings). */
 const PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS = [
