@@ -42,10 +42,12 @@ import { modelManager } from "../src/bun/utils/whisper/model-manager";
 // -- Checkpoint types --
 
 interface CheckpointData {
-  harness: AsrHarnessId;
+  harnesses: AsrHarnessId[];
   librispeech: DatasetResults;
   fleurs: DatasetResults;
   inProgress?: {
+    /** Which Harness was mid-Combination, so a resume does not credit the wrong one. */
+    harness: AsrHarnessId;
     modelId: string;
     datasetKey: string;
     datasetType: "librispeech" | "fleurs";
@@ -67,7 +69,9 @@ async function loadCheckpoint(runDir: string): Promise<CheckpointData | null> {
   if (!existsSync(path)) return null;
   const raw = (await Bun.file(path).json()) as Partial<CheckpointData>;
   return {
-    harness: isAsrHarnessId(raw.harness) ? raw.harness : DEFAULT_ASR_HARNESS,
+    harnesses: Array.isArray(raw.harnesses)
+      ? raw.harnesses.filter(isAsrHarnessId)
+      : [DEFAULT_ASR_HARNESS],
     librispeech: normalizeDatasetResults(raw.librispeech),
     fleurs: normalizeDatasetResults(raw.fleurs),
     inProgress: raw.inProgress,
@@ -161,7 +165,7 @@ function existingRunNames(): string[] {
 function parseArgs() {
   const args = process.argv.slice(2);
   const flags = {
-    harness: DEFAULT_ASR_HARNESS as AsrHarnessId,
+    harnesses: [DEFAULT_ASR_HARNESS] as AsrHarnessId[],
     models: SPEECH_MODEL_IDS as string[],
     modelsExplicit: false,
     splits: [...LIBRISPEECH_SPLITS] as string[],
@@ -174,7 +178,6 @@ function parseArgs() {
     reportOnly: false,
     aggregate: false,
     noTui: false,
-    skipCoveredCombinations: false,
     name: undefined as string | undefined,
     description: undefined as string | undefined,
   };
@@ -182,14 +185,16 @@ function parseArgs() {
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case "--harness": {
-        const value = args[++i];
-        if (!isAsrHarnessId(value)) {
+        // Comma-separated so CI can compare Harnesses in one run, same as the TUI.
+        const values = args[++i].split(",");
+        const unknown = values.filter((v) => !isAsrHarnessId(v));
+        if (unknown.length > 0) {
           console.error(
-            `Error: unknown --harness "${value}". Known: ${ASR_HARNESS_IDS.join(", ")}`,
+            `Error: unknown --harness ${unknown.join(", ")}. Known: ${ASR_HARNESS_IDS.join(", ")}`,
           );
           process.exit(1);
         }
-        flags.harness = value;
+        flags.harnesses = values.filter(isAsrHarnessId);
         break;
       }
       case "--models":
@@ -363,19 +368,18 @@ async function main() {
       availableLanguages: DEFAULT_FLEURS_LANGUAGES,
       usedNames: existingRunNames(),
     });
-    flags.harness = plan.harness;
+    flags.harnesses = plan.harnesses;
     flags.models = plan.models;
     flags.splits = plan.splits;
     flags.languages = plan.languages;
     flags.samples = plan.samples;
     flags.name = plan.name;
     flags.description = plan.description;
-    flags.skipCoveredCombinations = plan.skipCoveredCombinations;
   }
 
   console.log("=== Codictate STT Benchmark ===");
   if (flags.name) console.log(`Name: ${flags.name}`);
-  console.log(`ASR harness: ${flags.harness}`);
+  console.log(`ASR harnesses: ${flags.harnesses.join(", ")}`);
   console.log(`Models: ${flags.models.join(", ")}`);
   console.log(`LibriSpeech splits: ${flags.splits.join(", ") || "none"}`);
   console.log(`FLEURS languages: ${flags.languages.join(", ") || "none"}`);
@@ -467,17 +471,23 @@ async function main() {
         console.log(`  [${modelId}] skipped (not a whisper_cpp model)`);
         continue;
       }
-      const bucket = harnessBucketForModel(modelId, flags.harness);
+      const buckets = [
+        ...new Set(
+          flags.harnesses.map((h) => harnessBucketForModel(modelId, h)),
+        ),
+      ];
       if (
         flags.skipExisting &&
         plannedDatasetKeys.length > 0 &&
-        plannedDatasetKeys.every((datasetKey) =>
-          isCombinationCovered(
-            coverage,
-            bucket,
-            modelId,
-            datasetKey,
-            flags.samples,
+        buckets.every((bucket) =>
+          plannedDatasetKeys.every((datasetKey) =>
+            isCombinationCovered(
+              coverage,
+              bucket,
+              modelId,
+              datasetKey,
+              flags.samples,
+            ),
           ),
         )
       ) {
@@ -526,12 +536,15 @@ async function main() {
 
   if (checkpoint) {
     console.log(`\n--- Resuming from checkpoint in ${existingRunDir} ---`);
-    if (checkpoint.harness !== flags.harness) {
+    const sameHarnesses =
+      checkpoint.harnesses.length === flags.harnesses.length &&
+      checkpoint.harnesses.every((h) => flags.harnesses.includes(h));
+    if (!sameHarnesses) {
       console.error(
-        `Error: checkpoint in ${existingRunDir} was run under harness "${checkpoint.harness}", not "${flags.harness}".`,
+        `Error: checkpoint in ${existingRunDir} was run under harness set "${checkpoint.harnesses.join(", ")}", not "${flags.harnesses.join(", ")}".`,
       );
       console.error(
-        "  Finish or delete that run before starting one on another harness.",
+        "  Finish or delete that run before starting one on another harness set.",
       );
       process.exit(1);
     }
@@ -573,6 +586,7 @@ async function main() {
   console.log("--- Running benchmarks ---");
 
   function getPartial(
+    harness: AsrHarnessId,
     type: "librispeech" | "fleurs",
     key: string,
     modelId: string,
@@ -580,6 +594,7 @@ async function main() {
     const ip = checkpoint?.inProgress;
     if (
       ip &&
+      ip.harness === harness &&
       ip.modelId === modelId &&
       ip.datasetType === type &&
       ip.datasetKey === key
@@ -593,85 +608,96 @@ async function main() {
     inProgress?: CheckpointData["inProgress"],
   ): CheckpointData {
     return {
-      harness: flags.harness,
+      harnesses: flags.harnesses,
       librispeech: librispeechResults,
       fleurs: fleursResults,
       inProgress,
     };
   }
 
-  for (const modelId of flags.models) {
-    console.log(`\n[${modelId} / ${flags.harness}]`);
-    const bucket = harnessBucketForModel(modelId, flags.harness);
-    if (bucket !== flags.harness) {
-      console.log(
-        `  [${modelId}] recorded under "${bucket}": Parakeet runs through its own helper, so harness does not apply`,
-      );
+  // Harness is the outer loop so every selected Harness transcribes the same sample
+  // files, which is what makes their WER and RTF comparable.
+  for (const harness of flags.harnesses) {
+    if (flags.harnesses.length > 1) {
+      console.log(`\n=== Harness: ${harness} ===`);
     }
 
-    for (const [datasetType, datasetManifests, store, computeCer] of [
-      [
-        "librispeech" as const,
-        manifests.librispeech,
-        librispeechResults,
-        false,
-      ],
-      ["fleurs" as const, manifests.fleurs, fleursResults, true],
-    ] as const) {
-      for (const [datasetKey, entries] of Object.entries(datasetManifests)) {
-        const label =
-          datasetType === "librispeech"
-            ? `LibriSpeech ${datasetKey}`
-            : `FLEURS ${datasetKey}`;
+    for (const modelId of flags.models) {
+      console.log(`\n[${modelId} / ${harness}]`);
+      const bucket = harnessBucketForModel(modelId, harness);
+      if (bucket !== harness) {
+        console.log(
+          `  [${modelId}] recorded under "${bucket}": Parakeet runs through its own helper, so harness does not apply`,
+        );
+      }
 
-        if (
-          getCombinationResult(store, datasetKey, bucket, modelId) !== undefined
-        ) {
-          console.log(`  [${modelId}] ${label}: skipped (already done)`);
-          continue;
-        }
+      for (const [datasetType, datasetManifests, store, computeCer] of [
+        [
+          "librispeech" as const,
+          manifests.librispeech,
+          librispeechResults,
+          false,
+        ],
+        ["fleurs" as const, manifests.fleurs, fleursResults, true],
+      ] as const) {
+        for (const [datasetKey, entries] of Object.entries(datasetManifests)) {
+          const label =
+            datasetType === "librispeech"
+              ? `LibriSpeech ${datasetKey}`
+              : `FLEURS ${datasetKey}`;
 
-        // Combination-level "only what is missing". Coverage spans every previous
-        // run, so a model selected because it was partially covered still skips the
-        // datasets it already has at this depth.
-        if (
-          flags.skipCoveredCombinations &&
-          isCombinationCovered(
-            coverage,
-            bucket,
-            modelId,
-            datasetKey,
-            flags.samples,
-          )
-        ) {
-          console.log(
-            `  [${modelId}] ${label}: skipped (already benchmarked at >= ${flags.samples} samples)`,
-          );
-          continue;
-        }
+          if (
+            getCombinationResult(store, datasetKey, bucket, modelId) !==
+            undefined
+          ) {
+            console.log(`  [${modelId}] ${label}: skipped (already done)`);
+            continue;
+          }
 
-        const capped = entries.slice(0, flags.samples);
-        const partial = getPartial(datasetType, datasetKey, modelId);
-
-        const result = await benchmarkModel(modelId, capped, label, {
-          harness: flags.harness,
-          partial,
-          computeCer,
-          onCheckpoint: (progress) => {
-            void saveCheckpoint(
-              runDir,
-              checkpointData({
-                modelId,
-                datasetKey,
-                datasetType,
-                partial: progress,
-              }),
+          // Combination-level skipping, opt-in via --skip-existing. Coverage spans every
+          // previous run, so this skips a Combination already recorded at least this deep
+          // even if it came from an older run. Interactive runs never set this: the models
+          // were hand-picked, so they run.
+          if (
+            flags.skipExisting &&
+            isCombinationCovered(
+              coverage,
+              bucket,
+              modelId,
+              datasetKey,
+              flags.samples,
+            )
+          ) {
+            console.log(
+              `  [${modelId}] ${label}: skipped (already benchmarked at >= ${flags.samples} samples)`,
             );
-          },
-        });
+            continue;
+          }
 
-        setCombinationResult(store, datasetKey, bucket, modelId, result);
-        void saveCheckpoint(runDir, checkpointData());
+          const capped = entries.slice(0, flags.samples);
+          const partial = getPartial(harness, datasetType, datasetKey, modelId);
+
+          const result = await benchmarkModel(modelId, capped, label, {
+            harness,
+            partial,
+            computeCer,
+            onCheckpoint: (progress) => {
+              void saveCheckpoint(
+                runDir,
+                checkpointData({
+                  harness,
+                  modelId,
+                  datasetKey,
+                  datasetType,
+                  partial: progress,
+                }),
+              );
+            },
+          });
+
+          setCombinationResult(store, datasetKey, bucket, modelId, result);
+          void saveCheckpoint(runDir, checkpointData());
+        }
       }
     }
   }

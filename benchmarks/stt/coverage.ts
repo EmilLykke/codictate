@@ -110,27 +110,6 @@ export function modelCoverage(
   };
 }
 
-/**
- * Whether a Speech Model has results for every dataset key any run has covered.
- *
- * This is what decides whether a model row starts deselected in the TUI. It is
- * deliberately stricter than "has any results": a model benchmarked on LibriSpeech but
- * never on FLEURS is NOT fully covered, so it stays selected and its missing datasets
- * still run. Sample depth is not considered here because the TUI asks for models before
- * it asks for a sample count; depth is enforced per Combination at run time by
- * {@link isCombinationCovered}.
- */
-export function isModelFullyCovered(
-  coverage: Coverage,
-  harness: AsrHarnessId,
-  modelId: string,
-): boolean {
-  if (coverage.knownDatasetKeys.length === 0) return false;
-  const byDataset = coverage.index[harness]?.[modelId];
-  if (!byDataset) return false;
-  return coverage.knownDatasetKeys.every((key) => (byDataset[key] ?? 0) > 0);
-}
-
 /** One-line coverage badge for a model row in the benchmark TUI. */
 export function formatModelCoverage(
   coverage: Coverage,

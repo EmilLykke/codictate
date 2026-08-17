@@ -29,26 +29,17 @@ import {
   getSpeechModel,
 } from "../../src/shared/speech-models";
 import { LIBRISPEECH_SPLITS } from "./datasets";
-import {
-  formatModelCoverage,
-  isModelFullyCovered,
-  type Coverage,
-} from "./coverage";
+import { formatModelCoverage, type Coverage } from "./coverage";
 
 export interface BenchmarkPlan {
-  harness: AsrHarnessId;
+  /** Every Harness to run, in order. More than one means a same-samples comparison. */
+  harnesses: AsrHarnessId[];
   models: string[];
   splits: string[];
   languages: string[];
   samples: number;
   name: string;
   description: string;
-  /**
-   * Skip any Benchmark Combination already recorded at this sample depth or deeper.
-   * Always true for an interactive run: it is what makes enter-through mean "only
-   * what is missing" at Combination granularity rather than per Speech Model.
-   */
-  skipCoveredCombinations: boolean;
 }
 
 const SAMPLE_PRESETS = [50, 200, 500];
@@ -91,10 +82,12 @@ export async function promptBenchmarkPlan(
     );
   }
 
-  const harness = exitIfCancelled(
-    await select({
-      message: "ASR Harness",
-      initialValue: DEFAULT_ASR_HARNESS,
+  // Selecting more than one Harness runs every selected Speech Model through each of
+  // them over the same sample files, which is the only way the WER and RTF numbers are
+  // comparable between Harnesses.
+  const harnesses = exitIfCancelled(
+    await multiselect({
+      message: "ASR Harnesses to compare",
       options: ASR_HARNESS_IDS.map((id) => ({
         value: id,
         label: id,
@@ -103,27 +96,26 @@ export async function promptBenchmarkPlan(
             ? "shipping harness"
             : "candidate, benchmark only",
       })),
+      initialValues: [...ASR_HARNESS_IDS],
+      required: true,
     }),
-  ) as AsrHarnessId;
+  ) as AsrHarnessId[];
 
   const modelOptions = SPEECH_MODEL_IDS.map((id) => ({
     value: id,
     label: modelLabel(id),
-    hint: formatModelCoverage(coverage, harness, id),
+    hint: harnesses
+      .map((h) => `${h} ${formatModelCoverage(coverage, h, id)}`)
+      .join("  |  "),
   }));
-  // Partially covered models stay selected: a model benchmarked on LibriSpeech but
-  // never on FLEURS still has missing Combinations to fill, and pressing enter
-  // through the flow has to pick those up.
-  const incompleteModels = SPEECH_MODEL_IDS.filter(
-    (id) => !isModelFullyCovered(coverage, harness, id),
-  );
-
   const models = exitIfCancelled(
     await multiselect({
-      message: `Speech Models to run under ${harness}`,
+      message: `Speech Models to run under ${harnesses.join(" and ")}`,
       options: modelOptions,
-      // Fully covered models start off, so enter-through runs only the gaps.
-      initialValues: [...incompleteModels],
+      // Nothing is preselected: a benchmark run is expensive, so every Speech Model is
+      // an explicit choice. The per-Harness coverage badge on each row is what tells the
+      // user which ones still have gaps.
+      initialValues: [],
       required: true,
     }),
   ) as string[];
@@ -217,7 +209,7 @@ export async function promptBenchmarkPlan(
 
   note(
     [
-      `Harness:    ${harness}`,
+      `Harnesses:  ${harnesses.join(", ")}`,
       `Models:     ${models.length} (${models.join(", ")})`,
       `LibriSpeech: ${splits.length > 0 ? splits.join(", ") : "none"}`,
       `FLEURS:     ${languages.length > 0 ? languages.join(", ") : "none"}`,
@@ -239,13 +231,12 @@ export async function promptBenchmarkPlan(
   outro("Starting benchmark");
 
   return {
-    harness,
+    harnesses,
     models,
     splits,
     languages,
     samples,
     name,
     description,
-    skipCoveredCombinations: true,
   };
 }
