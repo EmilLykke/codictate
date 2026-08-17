@@ -122,6 +122,46 @@ def condition_label(key: str) -> str:
     return CONDITION_LABELS.get(key, key)
 
 
+# ASR Harness ids, kept in sync with src/shared/asr-harness.ts.
+HARNESS_IDS = ("whisper-cli", "crispasr")
+DEFAULT_HARNESS = "whisper-cli"
+
+
+def _flatten_dataset(datasets: dict) -> dict:
+    """Collapse [dataset][harness][model] into [dataset][key].
+
+    Default-harness results keep the bare model id, so charts of runs that only
+    used whisper-cli look exactly as they did before Harness became a dimension.
+    Result files written before that change have no harness level and are read as
+    whisper-cli.
+    """
+    flat = {}
+    for dataset_key, inner in datasets.items():
+        if not isinstance(inner, dict):
+            continue
+        if inner and all(k in HARNESS_IDS for k in inner):
+            by_harness = inner
+        else:
+            by_harness = {DEFAULT_HARNESS: inner}
+        models = {}
+        for harness, by_model in by_harness.items():
+            if not isinstance(by_model, dict):
+                continue
+            for model_id, result in by_model.items():
+                key = model_id if harness == DEFAULT_HARNESS else f"{model_id}@{harness}"
+                models[key] = result
+        flat[dataset_key] = models
+    return flat
+
+
+def flatten_harnesses(results: dict) -> dict:
+    return {
+        **results,
+        "librispeech": _flatten_dataset(results.get("librispeech", {})),
+        "fleurs": _flatten_dataset(results.get("fleurs", {})),
+    }
+
+
 def extract_data(results: dict) -> list[dict]:
     points = []
     for dataset, models in results.get("librispeech", {}).items():
@@ -532,7 +572,7 @@ def main() -> None:
         sys.exit(1)
 
     with open(json_path) as f:
-        results = json.load(f)
+        results = flatten_harnesses(json.load(f))
 
     # Full charts (all models)
     generate_accuracy_bar(results, results_dir / "accuracy-comparison.png")

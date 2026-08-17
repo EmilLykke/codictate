@@ -9,6 +9,13 @@ import {
   modelSupportedLanguages,
   isEnglishOnlyModel,
 } from "./rating-utils";
+import {
+  flattenDatasetResults,
+  parseVariantKey,
+  variantModelId,
+  type DatasetResults,
+} from "./results-schema";
+import { DEFAULT_ASR_HARNESS } from "../../src/shared/asr-harness";
 
 export interface BenchmarkResults {
   description: string;
@@ -24,8 +31,8 @@ export interface BenchmarkResults {
     warmupCount: number;
     normalization: string;
   };
-  librispeech: Record<string, Record<string, ModelDatasetResult>>;
-  fleurs: Record<string, Record<string, ModelDatasetResult>>;
+  librispeech: DatasetResults;
+  fleurs: DatasetResults;
 }
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -36,20 +43,27 @@ const CONDITION_LABELS: Record<string, string> = {
   hu_hu: "Hungarian",
 };
 
-function modelName(id: string): string {
-  const model = getSpeechModel(id);
-  if (!model) return id;
+/**
+ * Row label for a flattened key. Non-default Harnesses are named explicitly so a
+ * report that mixes Harnesses stays readable; default-Harness rows read exactly as
+ * they did before Harness became a dimension.
+ */
+function modelName(key: string): string {
+  const { modelId, harness } = parseVariantKey(key);
+  const suffix = harness === DEFAULT_ASR_HARNESS ? "" : ` [${harness}]`;
+  const model = getSpeechModel(modelId);
+  if (!model) return `${modelId}${suffix}`;
   const parts = [model.label];
-  const qMatch = id.match(/-?(q\d+_\d+)/);
+  const qMatch = modelId.match(/-?(q\d+_\d+)/);
   if (qMatch) parts.push(qMatch[1]);
   else parts.push("full");
-  if (id.includes(".en")) parts.push("en");
-  if (id.includes("-tdrz")) parts.push("tdrz");
-  return parts.join(" ");
+  if (modelId.includes(".en")) parts.push("en");
+  if (modelId.includes("-tdrz")) parts.push("tdrz");
+  return `${parts.join(" ")}${suffix}`;
 }
 
-function modelDiskMB(id: string): number | null {
-  return getSpeechModel(id)?.downloadSizeMB ?? null;
+function modelDiskMB(key: string): number | null {
+  return getSpeechModel(variantModelId(key))?.downloadSizeMB ?? null;
 }
 
 function conditionLabel(key: string): string {
@@ -93,14 +107,22 @@ interface ConditionData {
   models: Record<string, ModelDatasetResult>;
 }
 
+/**
+ * One condition per dataset, with the Harness level collapsed into the row keys.
+ * Everything below this point works on flat `[key] -> result` maps.
+ */
 function buildConditions(results: BenchmarkResults): ConditionData[] {
   const conditions: ConditionData[] = [];
 
-  for (const [split, models] of Object.entries(results.librispeech)) {
+  for (const [split, models] of Object.entries(
+    flattenDatasetResults(results.librispeech),
+  )) {
     conditions.push({ key: split, label: conditionLabel(split), models });
   }
 
-  for (const [lang, models] of Object.entries(results.fleurs)) {
+  for (const [lang, models] of Object.entries(
+    flattenDatasetResults(results.fleurs),
+  )) {
     conditions.push({ key: lang, label: conditionLabel(lang), models });
   }
 
@@ -131,6 +153,7 @@ function splitConditions(conditions: ConditionData[]): {
   return { english, multilingual };
 }
 
+/** Flattened row keys (Model ID, or `modelId@harness` for a non-default Harness). */
 function collectModelIds(conditions: ConditionData[]): string[] {
   const ids = new Set<string>();
   for (const c of conditions) {
@@ -193,7 +216,7 @@ function computeRatings(
       allWers.length > 0
         ? 1 - allWers.reduce((sum, w) => sum + w, 0) / allWers.length
         : 0;
-    const langCount = modelSupportedLanguages(id);
+    const langCount = modelSupportedLanguages(variantModelId(id));
 
     const entry: ModelRatings = {
       speed: rateSpeed(rtf),
@@ -201,7 +224,7 @@ function computeRatings(
       languages: rateLanguages(langCount),
     };
 
-    if (isEnglishOnlyModel(id)) {
+    if (isEnglishOnlyModel(variantModelId(id))) {
       const enWers = english
         .map((c) => c.models[id]?.wer)
         .filter((w): w is number => w !== undefined && w >= 0);
@@ -239,7 +262,7 @@ export function generateMarkdownReport(
   );
   lines.push(`- **Samples per dataset:** ${results.config.sampleSize}`);
   lines.push(`- **Warmup utterances:** ${results.config.warmupCount}`);
-  lines.push(`- **Models tested:** ${modelIds.length}`);
+  lines.push(`- **Combinations tested:** ${modelIds.length}`);
   lines.push("");
 
   // Summary table

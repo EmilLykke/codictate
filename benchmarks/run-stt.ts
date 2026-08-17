@@ -14,24 +14,37 @@ import {
 } from "./scripts/download-fleurs";
 import { convertLibriSpeech } from "./scripts/convert-audio";
 import { buildAllManifests } from "./scripts/build-manifests";
-import {
-  benchmarkModel,
-  type ModelDatasetResult,
-  type PartialProgress,
-} from "./stt/runner";
+import { benchmarkModel, type PartialProgress } from "./stt/runner";
 import {
   generateMarkdownReport,
   writeReport,
   type BenchmarkResults,
 } from "./stt/report";
+import {
+  getCombinationResult,
+  harnessBucketForModel,
+  normalizeDatasetResults,
+  setCombinationResult,
+  type DatasetResults,
+} from "./stt/results-schema";
+import { LIBRISPEECH_SPLITS, isLibriSpeechSplit } from "./stt/datasets";
+import { loadCoverage, isCombinationCovered } from "./stt/coverage";
+import { promptBenchmarkPlan } from "./stt/tui";
+import {
+  DEFAULT_ASR_HARNESS,
+  isAsrHarnessId,
+  ASR_HARNESS_IDS,
+  type AsrHarnessId,
+} from "../src/shared/asr-harness";
 import { SPEECH_MODEL_IDS, getSpeechModel } from "../src/shared/speech-models";
 import { modelManager } from "../src/bun/utils/whisper/model-manager";
 
 // -- Checkpoint types --
 
 interface CheckpointData {
-  librispeech: Record<string, Record<string, ModelDatasetResult>>;
-  fleurs: Record<string, Record<string, ModelDatasetResult>>;
+  harness: AsrHarnessId;
+  librispeech: DatasetResults;
+  fleurs: DatasetResults;
   inProgress?: {
     modelId: string;
     datasetKey: string;
@@ -52,7 +65,13 @@ async function saveCheckpoint(
 async function loadCheckpoint(runDir: string): Promise<CheckpointData | null> {
   const path = join(runDir, CHECKPOINT_FILE);
   if (!existsSync(path)) return null;
-  return (await Bun.file(path).json()) as CheckpointData;
+  const raw = (await Bun.file(path).json()) as Partial<CheckpointData>;
+  return {
+    harness: isAsrHarnessId(raw.harness) ? raw.harness : DEFAULT_ASR_HARNESS,
+    librispeech: normalizeDatasetResults(raw.librispeech),
+    fleurs: normalizeDatasetResults(raw.fleurs),
+    inProgress: raw.inProgress,
+  };
 }
 
 function deleteCheckpoint(runDir: string): void {
@@ -77,23 +96,6 @@ function findIncompleteRun(): string | null {
   return null;
 }
 
-function isFullyCovered(
-  prev: BenchmarkResults,
-  modelId: string,
-  languages: string[],
-): boolean {
-  const libriSplits = Object.keys(prev.librispeech);
-  for (const split of libriSplits) {
-    const r = prev.librispeech[split]?.[modelId];
-    if (!r || r.utteranceCount === 0) return false;
-  }
-  for (const lang of languages) {
-    const r = prev.fleurs[lang]?.[modelId];
-    if (!r || r.utteranceCount === 0) return false;
-  }
-  return libriSplits.length > 0;
-}
-
 function loadLatestResults(): BenchmarkResults | null {
   if (!existsSync(RESULTS_BASE_DIR)) return null;
   const runs = readdirSync(RESULTS_BASE_DIR)
@@ -103,13 +105,23 @@ function loadLatestResults(): BenchmarkResults | null {
     const jsonPath = join(RESULTS_BASE_DIR, runs[i], "stt.json");
     if (existsSync(jsonPath)) {
       try {
-        return JSON.parse(readFileSync(jsonPath, "utf-8")) as BenchmarkResults;
+        return readResultsFile(jsonPath);
       } catch {
         continue;
       }
     }
   }
   return null;
+}
+
+/** Read a result file, migrating the pre-harness shape on the way in. */
+function readResultsFile(jsonPath: string): BenchmarkResults {
+  const parsed = JSON.parse(readFileSync(jsonPath, "utf-8"));
+  return {
+    ...parsed,
+    librispeech: normalizeDatasetResults(parsed.librispeech),
+    fleurs: normalizeDatasetResults(parsed.fleurs),
+  } as BenchmarkResults;
 }
 
 const DATASETS_DIR = join(import.meta.dir, "datasets");
@@ -130,12 +142,29 @@ function makeRunDir(name?: string): string {
   return dir;
 }
 
+function existingRunNames(): string[] {
+  if (!existsSync(RESULTS_BASE_DIR)) return [];
+  const names: string[] = [];
+  for (const dir of readdirSync(RESULTS_BASE_DIR)) {
+    const match = dir.match(/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_(.+)$/);
+    if (match) names.push(match[1]);
+  }
+  return names;
+}
+
 // -- CLI arg parsing --
 
+/**
+ * Flags stay the complete interface for CI. The TUI is offered only when
+ * `--models` is absent, which is also how a scripted run opts out of it.
+ */
 function parseArgs() {
   const args = process.argv.slice(2);
   const flags = {
+    harness: DEFAULT_ASR_HARNESS as AsrHarnessId,
     models: SPEECH_MODEL_IDS as string[],
+    modelsExplicit: false,
+    splits: [...LIBRISPEECH_SPLITS] as string[],
     languages: DEFAULT_FLEURS_LANGUAGES as string[],
     samples: 200,
     skipDownload: false,
@@ -144,15 +173,40 @@ function parseArgs() {
     offloadModels: false,
     reportOnly: false,
     aggregate: false,
+    noTui: false,
     name: undefined as string | undefined,
     description: undefined as string | undefined,
   };
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
+      case "--harness": {
+        const value = args[++i];
+        if (!isAsrHarnessId(value)) {
+          console.error(
+            `Error: unknown --harness "${value}". Known: ${ASR_HARNESS_IDS.join(", ")}`,
+          );
+          process.exit(1);
+        }
+        flags.harness = value;
+        break;
+      }
       case "--models":
         flags.models = args[++i].split(",");
+        flags.modelsExplicit = true;
         break;
+      case "--splits": {
+        const values = args[++i].split(",");
+        const unknown = values.filter((v) => !isLibriSpeechSplit(v));
+        if (unknown.length > 0) {
+          console.error(
+            `Error: unknown --splits ${unknown.join(", ")}. Known: ${LIBRISPEECH_SPLITS.join(", ")}`,
+          );
+          process.exit(1);
+        }
+        flags.splits = values;
+        break;
+      }
       case "--languages":
         flags.languages = args[++i].split(",");
         break;
@@ -176,6 +230,9 @@ function parseArgs() {
         break;
       case "--aggregate":
         flags.aggregate = true;
+        break;
+      case "--no-tui":
+        flags.noTui = true;
         break;
       case "--name":
         flags.name = args[++i];
@@ -218,15 +275,6 @@ function getHardwareInfo(): BenchmarkResults["hardware"] {
 async function main() {
   const flags = parseArgs();
 
-  console.log("=== Codictate STT Benchmark ===");
-  if (flags.name) console.log(`Name: ${flags.name}`);
-  console.log(`Models: ${flags.models.join(", ")}`);
-  console.log(`FLEURS languages: ${flags.languages.join(", ")}`);
-  console.log(`Samples: ${flags.samples}`);
-  if (flags.skipExisting) console.log("Skip existing: ON");
-  if (flags.offloadModels) console.log("Offload models: ON");
-  console.log("");
-
   // Report-only mode: regenerate reports + charts for all runs
   if (flags.reportOnly) {
     const runs = readdirSync(RESULTS_BASE_DIR)
@@ -241,8 +289,7 @@ async function main() {
       const jsonPath = join(runDir, "stt.json");
       if (!existsSync(jsonPath)) continue;
       console.log(`\n--- Regenerating: ${run} ---`);
-      const existing = (await Bun.file(jsonPath).json()) as BenchmarkResults;
-      await writeReport(existing, runDir);
+      await writeReport(readResultsFile(jsonPath), runDir);
     }
     return;
   }
@@ -270,9 +317,7 @@ async function main() {
     for (const run of runs) {
       const jsonPath = join(RESULTS_BASE_DIR, run, "stt.json");
       if (!existsSync(jsonPath)) continue;
-      const data = JSON.parse(
-        readFileSync(jsonPath, "utf-8"),
-      ) as BenchmarkResults;
+      const data = readResultsFile(jsonPath);
       console.log(`  merging: ${run}`);
 
       merged.config.sampleSize = Math.max(
@@ -280,19 +325,21 @@ async function main() {
         data.config.sampleSize,
       );
 
-      for (const [split, models] of Object.entries(data.librispeech)) {
-        if (!merged.librispeech[split]) merged.librispeech[split] = {};
-        for (const [modelId, result] of Object.entries(models)) {
-          if (result.utteranceCount > 0) {
-            merged.librispeech[split][modelId] = result;
-          }
-        }
-      }
-      for (const [lang, models] of Object.entries(data.fleurs)) {
-        if (!merged.fleurs[lang]) merged.fleurs[lang] = {};
-        for (const [modelId, result] of Object.entries(models)) {
-          if (result.utteranceCount > 0) {
-            merged.fleurs[lang][modelId] = result;
+      for (const field of ["librispeech", "fleurs"] as const) {
+        for (const [datasetKey, byHarness] of Object.entries(data[field])) {
+          for (const [harness, byModel] of Object.entries(byHarness)) {
+            if (!isAsrHarnessId(harness) || !byModel) continue;
+            for (const [modelId, result] of Object.entries(byModel)) {
+              if (result.utteranceCount > 0) {
+                setCombinationResult(
+                  merged[field],
+                  datasetKey,
+                  harness,
+                  modelId,
+                  result,
+                );
+              }
+            }
           }
         }
       }
@@ -306,6 +353,34 @@ async function main() {
     console.log("\n" + generateMarkdownReport(merged));
     return;
   }
+
+  // Interactive setup, unless the caller drove everything with flags.
+  const useTui = !flags.modelsExplicit && !flags.noTui;
+  if (useTui) {
+    const plan = await promptBenchmarkPlan({
+      coverage: loadCoverage(RESULTS_BASE_DIR),
+      availableLanguages: DEFAULT_FLEURS_LANGUAGES,
+      usedNames: existingRunNames(),
+    });
+    flags.harness = plan.harness;
+    flags.models = plan.models;
+    flags.splits = plan.splits;
+    flags.languages = plan.languages;
+    flags.samples = plan.samples;
+    flags.name = plan.name;
+    flags.description = plan.description;
+  }
+
+  console.log("=== Codictate STT Benchmark ===");
+  if (flags.name) console.log(`Name: ${flags.name}`);
+  console.log(`ASR harness: ${flags.harness}`);
+  console.log(`Models: ${flags.models.join(", ")}`);
+  console.log(`LibriSpeech splits: ${flags.splits.join(", ") || "none"}`);
+  console.log(`FLEURS languages: ${flags.languages.join(", ") || "none"}`);
+  console.log(`Samples: ${flags.samples}`);
+  if (flags.skipExisting) console.log("Skip existing: ON");
+  if (flags.offloadModels) console.log("Offload models: ON");
+  console.log("");
 
   if (!flags.name) {
     console.error(
@@ -348,7 +423,6 @@ async function main() {
   }
 
   // Step 1: Load previous results for --skip-existing
-  const skippedModels = new Set<string>();
   const previousResults = flags.skipExisting ? loadLatestResults() : null;
   if (flags.skipExisting) {
     if (previousResults) {
@@ -361,22 +435,28 @@ async function main() {
     console.log("");
   }
 
+  // A model is only skipped for download when every Combination it would run in
+  // this harness is already covered at this depth.
+  const coverage = loadCoverage(RESULTS_BASE_DIR);
+  const plannedDatasetKeys = [...flags.splits, ...flags.languages];
+  const skippedModels = new Set<string>();
+
   // Step 2: Download datasets
   if (!flags.skipDownload) {
     console.log("--- Downloading datasets ---");
-    await downloadLibriSpeech();
-    await downloadFleurs(flags.languages);
+    if (flags.splits.length > 0) await downloadLibriSpeech();
+    if (flags.languages.length > 0) await downloadFleurs(flags.languages);
     console.log("");
   }
 
   // Step 3: Convert audio
-  if (!flags.skipConvert) {
+  if (!flags.skipConvert && flags.splits.length > 0) {
     console.log("--- Converting audio ---");
     await convertLibriSpeech(DATASETS_DIR);
     console.log("");
   }
 
-  // Step 4: Download models (skip fully-covered models when --skip-existing)
+  // Step 4: Download models (skip fully-covered Combinations when --skip-existing)
   if (!flags.skipDownload) {
     console.log("--- Downloading models ---");
     for (const modelId of flags.models) {
@@ -385,9 +465,19 @@ async function main() {
         console.log(`  [${modelId}] skipped (not a whisper_cpp model)`);
         continue;
       }
+      const bucket = harnessBucketForModel(modelId, flags.harness);
       if (
-        previousResults &&
-        isFullyCovered(previousResults, modelId, flags.languages)
+        flags.skipExisting &&
+        plannedDatasetKeys.length > 0 &&
+        plannedDatasetKeys.every((datasetKey) =>
+          isCombinationCovered(
+            coverage,
+            bucket,
+            modelId,
+            datasetKey,
+            flags.samples,
+          ),
+        )
       ) {
         console.log(`  [${modelId}] skipped (already benchmarked)`);
         skippedModels.add(modelId);
@@ -421,6 +511,7 @@ async function main() {
     DATASETS_DIR,
     flags.languages,
     flags.samples,
+    flags.splits,
   );
   console.log("");
 
@@ -433,60 +524,57 @@ async function main() {
 
   if (checkpoint) {
     console.log(`\n--- Resuming from checkpoint in ${existingRunDir} ---`);
+    if (checkpoint.harness !== flags.harness) {
+      console.error(
+        `Error: checkpoint in ${existingRunDir} was run under harness "${checkpoint.harness}", not "${flags.harness}".`,
+      );
+      console.error(
+        "  Finish or delete that run before starting one on another harness.",
+      );
+      process.exit(1);
+    }
   }
 
-  const librispeechResults: Record<
-    string,
-    Record<string, ModelDatasetResult>
-  > = checkpoint?.librispeech ?? {};
-  const fleursResults: Record<
-    string,
-    Record<string, ModelDatasetResult>
-  > = checkpoint?.fleurs ?? {};
+  const librispeechResults: DatasetResults = checkpoint?.librispeech ?? {};
+  const fleursResults: DatasetResults = checkpoint?.fleurs ?? {};
 
   // Pre-fill results from previous run
   if (previousResults) {
-    let skippedCount = 0;
-    for (const [split, models] of Object.entries(previousResults.librispeech)) {
-      for (const [modelId, result] of Object.entries(models)) {
-        if (
-          flags.models.includes(modelId) &&
-          result.utteranceCount > 0 &&
-          !librispeechResults[split]?.[modelId]
-        ) {
-          if (!librispeechResults[split]) librispeechResults[split] = {};
-          librispeechResults[split][modelId] = result;
-          skippedCount++;
+    let prefilledCount = 0;
+    for (const [field, store] of [
+      ["librispeech", librispeechResults],
+      ["fleurs", fleursResults],
+    ] as const) {
+      for (const [datasetKey, byHarness] of Object.entries(
+        previousResults[field],
+      )) {
+        for (const [harness, byModel] of Object.entries(byHarness)) {
+          if (!isAsrHarnessId(harness) || !byModel) continue;
+          for (const [modelId, result] of Object.entries(byModel)) {
+            if (
+              flags.models.includes(modelId) &&
+              result.utteranceCount > 0 &&
+              getCombinationResult(store, datasetKey, harness, modelId) ===
+                undefined
+            ) {
+              setCombinationResult(
+                store,
+                datasetKey,
+                harness,
+                modelId,
+                result,
+              );
+              prefilledCount++;
+            }
+          }
         }
       }
     }
-    for (const [lang, models] of Object.entries(previousResults.fleurs)) {
-      for (const [modelId, result] of Object.entries(models)) {
-        if (
-          flags.models.includes(modelId) &&
-          result.utteranceCount > 0 &&
-          !fleursResults[lang]?.[modelId]
-        ) {
-          if (!fleursResults[lang]) fleursResults[lang] = {};
-          fleursResults[lang][modelId] = result;
-          skippedCount++;
-        }
-      }
-    }
-    console.log(`  ${skippedCount} model/dataset combinations pre-filled`);
+    console.log(`  ${prefilledCount} benchmark combinations pre-filled`);
   }
 
   // Step 7: Run benchmarks
   console.log("--- Running benchmarks ---");
-
-  function isCompleted(
-    type: "librispeech" | "fleurs",
-    key: string,
-    modelId: string,
-  ): boolean {
-    const store = type === "librispeech" ? librispeechResults : fleursResults;
-    return store[key]?.[modelId] !== undefined;
-  }
 
   function getPartial(
     type: "librispeech" | "fleurs",
@@ -505,84 +593,71 @@ async function main() {
     return undefined;
   }
 
+  function checkpointData(
+    inProgress?: CheckpointData["inProgress"],
+  ): CheckpointData {
+    return {
+      harness: flags.harness,
+      librispeech: librispeechResults,
+      fleurs: fleursResults,
+      inProgress,
+    };
+  }
+
   for (const modelId of flags.models) {
-    console.log(`\n[${modelId}]`);
-
-    // LibriSpeech
-    for (const [split, entries] of Object.entries(manifests.librispeech)) {
-      if (isCompleted("librispeech", split, modelId)) {
-        console.log(
-          `  [${modelId}] LibriSpeech ${split}: skipped (already done)`,
-        );
-        continue;
-      }
-      if (!librispeechResults[split]) librispeechResults[split] = {};
-      const capped = entries.slice(0, flags.samples);
-      const partial = getPartial("librispeech", split, modelId);
-
-      librispeechResults[split][modelId] = await benchmarkModel(
-        modelId,
-        capped,
-        `LibriSpeech ${split}`,
-        {
-          partial,
-          onCheckpoint: (progress) => {
-            void saveCheckpoint(runDir, {
-              librispeech: librispeechResults,
-              fleurs: fleursResults,
-              inProgress: {
-                modelId,
-                datasetKey: split,
-                datasetType: "librispeech",
-                partial: progress,
-              },
-            });
-          },
-        },
+    console.log(`\n[${modelId} / ${flags.harness}]`);
+    const bucket = harnessBucketForModel(modelId, flags.harness);
+    if (bucket !== flags.harness) {
+      console.log(
+        `  [${modelId}] recorded under "${bucket}": Parakeet runs through its own helper, so harness does not apply`,
       );
-
-      void saveCheckpoint(runDir, {
-        librispeech: librispeechResults,
-        fleurs: fleursResults,
-      });
     }
 
-    // FLEURS
-    for (const [lang, entries] of Object.entries(manifests.fleurs)) {
-      if (isCompleted("fleurs", lang, modelId)) {
-        console.log(`  [${modelId}] FLEURS ${lang}: skipped (already done)`);
-        continue;
-      }
-      if (!fleursResults[lang]) fleursResults[lang] = {};
-      const capped = entries.slice(0, flags.samples);
-      const partial = getPartial("fleurs", lang, modelId);
+    for (const [datasetType, datasetManifests, store, computeCer] of [
+      [
+        "librispeech" as const,
+        manifests.librispeech,
+        librispeechResults,
+        false,
+      ],
+      ["fleurs" as const, manifests.fleurs, fleursResults, true],
+    ] as const) {
+      for (const [datasetKey, entries] of Object.entries(datasetManifests)) {
+        const label =
+          datasetType === "librispeech"
+            ? `LibriSpeech ${datasetKey}`
+            : `FLEURS ${datasetKey}`;
 
-      fleursResults[lang][modelId] = await benchmarkModel(
-        modelId,
-        capped,
-        `FLEURS ${lang}`,
-        {
+        if (
+          getCombinationResult(store, datasetKey, bucket, modelId) !== undefined
+        ) {
+          console.log(`  [${modelId}] ${label}: skipped (already done)`);
+          continue;
+        }
+
+        const capped = entries.slice(0, flags.samples);
+        const partial = getPartial(datasetType, datasetKey, modelId);
+
+        const result = await benchmarkModel(modelId, capped, label, {
+          harness: flags.harness,
           partial,
-          computeCer: true,
+          computeCer,
           onCheckpoint: (progress) => {
-            void saveCheckpoint(runDir, {
-              librispeech: librispeechResults,
-              fleurs: fleursResults,
-              inProgress: {
+            void saveCheckpoint(
+              runDir,
+              checkpointData({
                 modelId,
-                datasetKey: lang,
-                datasetType: "fleurs",
+                datasetKey,
+                datasetType,
                 partial: progress,
-              },
-            });
+              }),
+            );
           },
-        },
-      );
+        });
 
-      void saveCheckpoint(runDir, {
-        librispeech: librispeechResults,
-        fleurs: fleursResults,
-      });
+        setCombinationResult(store, datasetKey, bucket, modelId, result);
+        void saveCheckpoint(runDir, checkpointData());
+      }
     }
   }
 

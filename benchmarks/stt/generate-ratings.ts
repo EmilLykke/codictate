@@ -16,6 +16,8 @@ import {
   modelSupportedLanguages,
   isEnglishOnlyModel,
 } from "./rating-utils";
+import { normalizeDatasetResults } from "./results-schema";
+import { DEFAULT_ASR_HARNESS } from "../../src/shared/asr-harness";
 
 const ROOT = join(import.meta.dir, "../..");
 const STT_JSON_PATH = Bun.argv[2]
@@ -35,12 +37,19 @@ const data = JSON.parse(raw);
 
 type ConditionModels = Record<string, DatasetResult>;
 
-const englishConditions: ConditionModels[] = Object.values(
-  data.librispeech as Record<string, ConditionModels>,
-);
-const multilingualConditions: ConditionModels[] = Object.values(
-  data.fleurs as Record<string, ConditionModels>,
-);
+/**
+ * Ratings describe what users get, so they come from the shipping ASR Harness
+ * only. Results from any other Harness exist to answer whether it should become
+ * the shipping one and must not leak into the app's model ratings.
+ */
+function shippingHarnessConditions(raw: unknown): ConditionModels[] {
+  return Object.values(normalizeDatasetResults(raw)).map(
+    (byHarness) => (byHarness[DEFAULT_ASR_HARNESS] ?? {}) as ConditionModels,
+  );
+}
+
+const englishConditions = shippingHarnessConditions(data.librispeech);
+const multilingualConditions = shippingHarnessConditions(data.fleurs);
 const allConditions: ConditionModels[] = [
   ...englishConditions,
   ...multilingualConditions,

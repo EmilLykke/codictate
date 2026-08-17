@@ -1,11 +1,13 @@
 import { copyFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { availableParallelism } from "node:os";
 import { RECORDING_PATH, MODELS_DIR } from "../../src/bun/platform/runtime";
 import { fixBrandMishearings } from "../../src/bun/utils/whisper/speech2text";
 import { getSpeechModel } from "../../src/shared/speech-models";
-import { whisperCliLanguageArg } from "../../src/shared/transcription-languages";
-import { findWhisperCliBinary } from "../../src/bun/utils/whisper/find-whisper-cli";
+import {
+  DEFAULT_ASR_HARNESS,
+  type AsrHarnessId,
+} from "../../src/shared/asr-harness";
+import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-harness-command";
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
 import { getPlatform } from "../../src/bun/platform";
 import { computeWer, computeCer, type WerResult } from "./wer";
@@ -101,24 +103,16 @@ async function drainStream(
 async function transcribeWhisper(
   modelPath: string,
   language: string,
+  harness: AsrHarnessId,
 ): Promise<string> {
-  const binary = await findWhisperCliBinary();
-  const lang = whisperCliLanguageArg(language);
-  const args = [
-    binary,
-    "-m",
+  const { argv } = await buildWhisperHarnessCommand({
+    harness,
     modelPath,
-    "-t",
-    String(Math.max(4, availableParallelism?.() ?? 4)),
-    "--language",
-    lang,
-    "-f",
-    RECORDING_PATH,
-    "--no-prints",
-    "-nt",
-  ];
+    language,
+    audioPath: RECORDING_PATH,
+  });
 
-  const proc = Bun.spawn(args, {
+  const proc = Bun.spawn(argv, {
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, LC_ALL: "en_US.UTF-8", LANG: "en_US.UTF-8" },
@@ -168,6 +162,7 @@ async function runUtterance(
   entry: ManifestEntry,
   modelId: string,
   modelPath: string,
+  harness: AsrHarnessId,
 ): Promise<UtteranceResult> {
   copyFileSync(entry.audioPath, RECORDING_PATH);
 
@@ -176,7 +171,7 @@ async function runUtterance(
   const hypothesis =
     speech.engine === "whisperkit"
       ? await transcribeParakeet(modelPath)
-      : await transcribeWhisper(modelPath, entry.language);
+      : await transcribeWhisper(modelPath, entry.language, harness);
   const wallClockMs = performance.now() - start;
 
   const wer = computeWer(entry.transcript, hypothesis);
@@ -187,6 +182,7 @@ async function measureModelMemory(
   modelId: string,
   modelPath: string,
   sampleEntry: ManifestEntry,
+  harness: AsrHarnessId,
 ): Promise<number | null> {
   const speech = getSpeechModel(modelId);
   if (!speech) return null;
@@ -199,20 +195,14 @@ async function measureModelMemory(
     const helper = getPlatform().findParakeetHelperBinary();
     command = [helper, "transcribe", RECORDING_PATH, modelPath];
   } else {
-    const binary = await findWhisperCliBinary();
-    command = [
-      binary,
-      "-m",
-      modelPath,
-      "-t",
-      String(Math.max(4, availableParallelism?.() ?? 4)),
-      "--language",
-      "auto",
-      "-f",
-      RECORDING_PATH,
-      "--no-prints",
-      "-nt",
-    ];
+    command = (
+      await buildWhisperHarnessCommand({
+        harness,
+        modelPath,
+        language: null,
+        audioPath: RECORDING_PATH,
+      })
+    ).argv;
   }
 
   const result = await measurePeakRss(command);
@@ -230,8 +220,14 @@ export async function benchmarkModel(
     partial?: PartialProgress;
     onCheckpoint?: CheckpointCallback;
     computeCer?: boolean;
+    /**
+     * ASR Harness to run Whisper models under. Ignored for Parakeet, which has
+     * only its own helper.
+     */
+    harness?: AsrHarnessId;
   },
 ): Promise<ModelDatasetResult> {
+  const harness = options?.harness ?? DEFAULT_ASR_HARNESS;
   const speech = getSpeechModel(modelId);
   if (!speech) {
     throw new Error(`Unknown model: ${modelId}`);
@@ -270,7 +266,7 @@ export async function benchmarkModel(
   if (startOffset === 0) {
     const warmupEntries = entries.slice(0, WARMUP_COUNT);
     for (let i = 0; i < warmupEntries.length; i++) {
-      await runUtterance(warmupEntries[i], modelId, modelPath);
+      await runUtterance(warmupEntries[i], modelId, modelPath, harness);
       process.stdout.write(`    warmup ${i + 1}/${WARMUP_COUNT}\r`);
     }
   }
@@ -287,7 +283,7 @@ export async function benchmarkModel(
 
   for (let i = startOffset; i < benchEntries.length; i++) {
     const entry = benchEntries[i];
-    const result = await runUtterance(entry, modelId, modelPath);
+    const result = await runUtterance(entry, modelId, modelPath, harness);
     results.push(result);
 
     totalWer +=
@@ -331,7 +327,7 @@ export async function benchmarkModel(
     const memSample = benchEntries.slice(0, MEMORY_SAMPLE_COUNT);
     const validResults: number[] = [];
     for (const entry of memSample) {
-      const rss = await measureModelMemory(modelId, modelPath, entry);
+      const rss = await measureModelMemory(modelId, modelPath, entry, harness);
       if (rss !== null) validResults.push(rss);
     }
     if (validResults.length > 0) {

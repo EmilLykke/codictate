@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { LIBRISPEECH_SPLITS } from "../stt/datasets";
 
 export interface ManifestEntry {
   id: string;
@@ -219,12 +220,13 @@ export function buildAllManifests(
   datasetsDir: string,
   fleursLanguages: string[],
   sampleSize: number,
+  librispeechSplits: readonly string[] = LIBRISPEECH_SPLITS,
 ): {
   librispeech: Record<string, ManifestEntry[]>;
   fleurs: Record<string, ManifestEntry[]>;
 } {
   const librispeech: Record<string, ManifestEntry[]> = {};
-  for (const split of ["test-clean", "test-other"]) {
+  for (const split of librispeechSplits) {
     const entries = buildLibriSpeechManifest(datasetsDir, split);
     if (entries.length > 0) librispeech[split] = entries;
   }
