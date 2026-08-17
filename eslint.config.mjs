@@ -23,6 +23,7 @@ export default defineConfig(
       "build/**",
       "dist/**",
       "artifacts/**",
+      "vendors/**",
       "scripts/**",
       "postcss.config.js",
     ],
