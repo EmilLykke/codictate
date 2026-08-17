@@ -19,8 +19,8 @@ import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
  * - They come from a Mirror repo, not from `ggerganov/whisper.cpp`, so the
  *   `whisperModelDownloadUrl` builder that every `whisper_cpp` model uses would
  *   produce a dead URL.
- * - Every existing `engine === 'whisper_cpp'` filter (WHISPER_MODELS,
- *   TRANSLATE_CAPABLE_MODEL_IDS, the Settings model list) would otherwise pick hviske up
+ * - Every existing `engine === 'whisper_cpp'` filter (TRANSLATE_CAPABLE_MODEL_IDS in
+ *   dictation-plan.ts, the Settings model list) would otherwise pick hviske up
  *   silently. A separate id keeps it out of all of them by construction, and the surfaces
  *   that *should* offer hviske name it explicitly instead - see BROWSABLE_SPEECH_MODELS.
  *
@@ -633,6 +633,11 @@ export function supportsStreamMode(model: SpeechModel): boolean {
 /** True for the Danish hviske Speech Models, which run under crispasr `--backend cohere`. */
 export function isHviskeSpeechModelId(id: string): boolean {
   return getSpeechModel(id)?.engine === 'hviske'
+}
+
+/** Upstream ggml weights for every `whisper_cpp` Speech Model, keyed by `artifactName`. */
+export function whisperModelDownloadUrl(artifactName: string): string {
+  return `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${artifactName}`
 }
 
 /**

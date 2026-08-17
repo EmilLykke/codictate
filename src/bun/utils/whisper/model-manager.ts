@@ -15,9 +15,9 @@ import {
   SPEECH_MODELS,
   getSpeechModel,
   hviskeMirrorFileUrl,
+  whisperModelDownloadUrl,
   type SpeechModel,
 } from '../../../shared/speech-models'
-import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 import { log } from '../logger'
 import { MODELS_DIR, getPlatformRuntime } from '../../platform/runtime'
 

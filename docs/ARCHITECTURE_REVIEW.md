@@ -23,7 +23,7 @@ This is a review, not a decision record. Decisions that come out of it belong in
 | C | Give a Preset one exhaustive definition | Strong |
 | D | Shrink AppConfig's interface to the eight members that carry it | Strong |
 | E | Make the interface the test surface | Strong |
-| F | Retire the whisper-models shim | Worth exploring |
+| F | Retire the whisper-models shim | Done (#45) |
 | G | One module resolves Vendor Binaries and Native Helpers | Worth exploring |
 | H | Collapse the tray action modules | Worth exploring |
 
@@ -31,7 +31,7 @@ This is a review, not a decision record. Decisions that come out of it belong in
 
 **Decided 2026-08-17: `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.** The decision went further than this candidate proposed - rather than resolving fallbacks in one place, the fallbacks are removed and the state is kept runnable. Read the ADR, not this section, for what was agreed.
 
-**Files**: `src/bun/utils/whisper/speech2text.ts:110-160` · `src/shared/whisper-models.ts:78-92,158-177` · `src/shared/speech-models.ts:647-689` · `src/bun/utils/audio/start-rec.ts:210-239` · `src/bun/setup-recording.ts:286-310` · `src/bun/AppConfig/AppConfig.ts:1071-1089,1343-1354` · `src/bun/utils/model-actions.ts:33-47` · `src/mainview/components/MainContainer.tsx:190-216`
+**Files**: `src/bun/utils/whisper/speech2text.ts:110-160` · `src/shared/dictation-plan.ts` (`resolveTranslateModelId`, `getStreamModeReadiness`) · `src/shared/speech-models.ts:647-689` · `src/bun/utils/audio/start-rec.ts:210-239` · `src/bun/setup-recording.ts:286-310` · `src/bun/AppConfig/AppConfig.ts:1071-1089,1343-1354` · `src/bun/utils/model-actions.ts:33-47` · `src/mainview/components/MainContainer.tsx:190-216`
 
 **Problem**: which Speech Model, Speech Engine, Transcription Language and crispasr backend actually run is decided in six modules and re-decided at three different moments, so no caller can name the run it just asked for.
 
@@ -113,7 +113,7 @@ What the wide interface hides:
 
 ### E — Make the interface the test surface
 
-**Files**: `package.json:14-38` · `.github/workflows/*` · `src/bun/utils/stats/stats-manager.ts:77-272` · `src/shared/whisper-models.ts:78-177` · `src/bun/utils/whisper/model-download-reachability.manual.ts` (was `model-downloads.test.ts`) · `benchmarks/stt/results-archive.manual.ts` (was `results-schema.test.ts`)
+**Files**: `package.json:14-38` · `.github/workflows/*` · `src/bun/utils/stats/stats-manager.ts:77-272` · `src/shared/dictation-plan.ts` (was `src/shared/whisper-models.ts:78-177`) · `src/bun/utils/whisper/model-download-reachability.manual.ts` (was `model-downloads.test.ts`) · `benchmarks/stt/results-archive.manual.ts` (was `results-schema.test.ts`)
 
 **Problem**: nothing runs the tests that exist, and the two most testable modules in the repo — both of which already accept their dependencies — have no tests at all.
 
@@ -123,13 +123,15 @@ Two of the five existing test files do not test Codictate. `model-downloads.test
 
 - `stats-manager` — accepts a `() => string` path. Holds the most date-sensitive logic in the repo: streak maths, the DST fudge at `:264`, and a month-boundary branch duplicated at `:139` and `:194`.
 - `history-manager` — accepts its path, queues writes.
-- `resolveTranslateModelId`, `getStreamModeReadiness`, `getTranslateReadiness` — pure functions of an injected `isModelAvailable`.
+- ~~`resolveTranslateModelId`, `getStreamModeReadiness`, `getTranslateReadiness` — pure functions of an injected `isModelAvailable`.~~ **Covered by #45**: `src/shared/dictation-plan.test.ts`.
 - `buildWhisperHarnessCommand` — pin `availableParallelism` and argv becomes assertable.
 - `hook.rs` matchers — `cargo test` is already wired via `check:native:windows-helper`, just never called by CI.
 
 **Landed (#44)**: the runner half is done. `bun run test` exists, `.github/workflows/ci.yml` runs test / lint / tsc on push and pull request plus `check:native:windows-helper` on a Windows runner, and the two suites that do not test Codictate moved out of the default run under a `.manual.ts` suffix (`model-download-reachability.manual.ts`, `results-archive.manual.ts`), invoked on purpose with `bun run test:manual`. What remains of this candidate is the coverage list above.
 
 ### F — Retire the whisper-models shim
+
+**Done (#45).** `src/shared/whisper-models.ts` is deleted. `resolveTranslateModelId`, `getTranslateReadiness` and `getStreamModeReadiness` (plus `TRANSLATE_CAPABLE_MODEL_IDS`, `DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID` and `isStreamCapableModelId`) now live in `src/shared/dictation-plan.ts` with characterisation tests beside them; `whisperModelDownloadUrl` moved into the catalog next to `hviskeMirrorFileUrl`; the projection, the `@deprecated` type and the re-exports are gone, with callers pointed at `speech-models.ts`. `isValidWhisperModelId` became `isValidSpeechModelId` at its one caller, `AppConfig`. Behaviour is unchanged - the fallbacks are removed later, by the rest of ADR-0005.
 
 **Files**: `src/shared/whisper-models.ts` (177 lines) · `src/shared/speech-models.ts` · `src/bun/AppConfig/AppConfig.ts:1034-1038` · `src/mainview/components/Settings/ModelPicker.tsx`
 

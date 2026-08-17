@@ -19,13 +19,10 @@ import {
   SPEECH_MODELS,
   getSpeechModel,
   supportsStreamMode,
+  formatModelSize,
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
 } from "../../../shared/speech-models";
-import {
-  getWhisperModel,
-  formatModelSize,
-  isTranslateCapableModelId,
-} from "../../../shared/whisper-models";
+import { isTranslateCapableModelId } from "../../../shared/dictation-plan";
 import { LanguagePicker } from "../Settings/LanguagePicker";
 import { InstantTooltip } from "../Common/InstantTooltip";
 import { HomeHistoryTimeline } from "./HomeHistoryTimeline";
@@ -432,11 +429,12 @@ export function HomeScreen({
               <div className="flex-1">
                 <p className="text-[13px] text-overlay/50 leading-relaxed">
                   Downloading{" "}
-                  {getWhisperModel(translateDownloadModelId)?.label ??
+                  {getSpeechModel(translateDownloadModelId)?.label ??
                     translateDownloadModelId}{" "}
                   (
                   {formatModelSize(
-                    getWhisperModel(translateDownloadModelId)?.sizeMB ?? 0,
+                    getSpeechModel(translateDownloadModelId)?.downloadSizeMB ??
+                      0,
                   )}
                   )
                 </p>

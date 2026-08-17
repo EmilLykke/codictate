@@ -88,7 +88,7 @@ src/
     types.ts                    # Core shared types
     platform.ts                 # Platform detection
     speech-models.ts            # Speech model definitions
-    whisper-models.ts           # Whisper model configs
+    dictation-plan.ts           # Translate resolution + readiness (pure, no platform)
     formatting-modes.ts         # Formatting mode definitions
     dictation-shortcut.ts       # Shortcut config types
     shortcut-options.ts         # Available shortcut options

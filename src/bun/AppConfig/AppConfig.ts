@@ -33,9 +33,9 @@ import type {
 } from '../../shared/types'
 import {
   DEFAULT_MODEL_ID,
-  getStreamModeReadiness,
-  isValidWhisperModelId,
-} from '../../shared/whisper-models'
+  isValidSpeechModelId,
+} from '../../shared/speech-models'
+import { getStreamModeReadiness } from '../../shared/dictation-plan'
 import {
   FORMATTING_MODE_ORDER,
   isValidDocumentStructure,
@@ -391,7 +391,7 @@ export class AppConfig {
     }
     if (
       typeof raw.whisperModelId === 'string' &&
-      isValidWhisperModelId(raw.whisperModelId)
+      isValidSpeechModelId(raw.whisperModelId)
     ) {
       this.whisperModelId = raw.whisperModelId
     }
@@ -1032,7 +1032,7 @@ export class AppConfig {
     }
     if (
       patch.whisperModelId !== undefined &&
-      !isValidWhisperModelId(patch.whisperModelId)
+      !isValidSpeechModelId(patch.whisperModelId)
     ) {
       return false
     }

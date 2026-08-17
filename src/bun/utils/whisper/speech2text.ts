@@ -5,7 +5,7 @@ import {
   isHviskeSpeechModelId,
 } from '../../../shared/speech-models'
 import { HVISKE_CRISPASR_BACKEND } from '../../../shared/asr-harness'
-import { resolveTranslateModelId } from '../../../shared/whisper-models'
+import { resolveTranslateModelId } from '../../../shared/dictation-plan'
 import { modelManager } from './model-manager'
 import { pasteTranscript } from '../keyboard/keyboard-events'
 import { applyFormatting } from '../formatting/apply-formatting'

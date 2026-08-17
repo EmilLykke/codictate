@@ -25,8 +25,8 @@ import { listFiles, downloadFile } from '@huggingface/hub'
 import {
   SPEECH_MODELS,
   hviskeMirrorFileUrl,
+  whisperModelDownloadUrl,
 } from '../../../shared/speech-models'
-import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 
 const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter((m) => !m.bundled)
 

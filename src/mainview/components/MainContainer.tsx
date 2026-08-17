@@ -17,16 +17,15 @@ import type {
 } from "../../shared/types";
 import { appEvents } from "../app-events";
 import {
-  DEFAULT_MODEL_ID,
   DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID,
-  LARGE_V3_Q5_MODEL_ID,
   isTranslateCapableModelId,
   getTranslateReadiness,
-  getWhisperModel,
-} from "../../shared/whisper-models";
+} from "../../shared/dictation-plan";
 import {
+  DEFAULT_MODEL_ID,
   SPEECH_MODELS,
   coerceTranscriptionLanguageIdForModel,
+  getSpeechModel,
 } from "../../shared/speech-models";
 import {
   cancelModelDownload,
@@ -42,6 +41,9 @@ import {
   setTranslateToEnglish,
   setWhisperModel,
 } from "../rpc";
+
+/** The one Speech Model a finished download never auto-selects (see the handler below). */
+const LARGE_V3_Q5_MODEL_ID = "large-v3-q5_0";
 
 export function MainContainer({
   status,
@@ -340,7 +342,7 @@ export function MainContainer({
     }
 
     const isModelAvail = (id: string) =>
-      modelAvailability[id] ?? getWhisperModel(id)?.bundled ?? false;
+      modelAvailability[id] ?? getSpeechModel(id)?.bundled ?? false;
 
     const readiness = getTranslateReadiness(
       settings.whisperModelId,

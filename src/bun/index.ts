@@ -25,7 +25,7 @@ import { SPEECH_MODELS } from '../shared/speech-models'
 import {
   getStreamModeReadiness,
   getTranslateReadiness,
-} from '../shared/whisper-models'
+} from '../shared/dictation-plan'
 import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
 import { warmupParakeet } from './utils/whisper/speech2text'
 
