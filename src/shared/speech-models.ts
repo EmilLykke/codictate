@@ -91,7 +91,7 @@ export const HVISKE_MIRROR_REPO_ID = 'emillykkegrann/hviske-v5-tiny-GGUF'
 /** hviske is Danish-only, so a run pins `--language da` rather than auto-detecting. */
 export const HVISKE_TRANSCRIPTION_LANGUAGE_ID = 'da'
 
-/** The hviske Quantization the benchmark should treat as primary (identical WER, larger). */
+/** The hviske Quantization the benchmark should treat as primary (identical WER, largest). */
 export const PRIMARY_HVISKE_MODEL_ID = 'hviske-v5-tiny-f16'
 
 export interface SpeechModel {
@@ -527,26 +527,77 @@ export const SPEECH_MODELS: SpeechModel[] = [
 
   // ── hviske (Danish) - PREP ONLY, deliberately not user-reachable ────
   //
-  // Neither entry sets `curated`, and `engine: 'hviske'` keeps both out of every
+  // One entry per Quantization the Mirror carries, because different Quantizations of
+  // the same weights are separate Speech Models with separate Model IDs (CONTEXT.md).
+  // The set is complete so a maintainer, and later a user, can pick a size instead of
+  // being handed one.
+  //
+  // No entry sets `curated`, and `engine: 'hviske'` keeps all of them out of every
   // whisper_cpp / whisperkit filter the Settings UI builds its lists from, so they do
-  // not appear in the model picker or the browse modal. Transcription is additionally
-  // gated on the dev-only crispasr Harness override (see
-  // src/bun/utils/whisper/find-asr-harness.ts), and the Mirror they download from does
-  // not exist yet. Whether hviske ships at all is a benchmark decision that has not
-  // been taken.
+  // not appear in the model picker or the browse modal. Availability is additionally
+  // gated on `isHviskeEnabled()` (see src/bun/utils/whisper/find-asr-harness.ts), which
+  // needs a source checkout and an explicit env var, and the Mirror they download from
+  // does not exist yet. Whether hviske ships at all is a benchmark decision that has
+  // not been taken. Adding Quantizations does not change any of that: a released build
+  // still cannot see one.
   //
   // `peakRamMB` is an unmeasured estimate, roughly the file size plus decode overhead.
-  // The benchmark has to replace both numbers before either entry could be curated.
-  // The model card lists an identical Danish WER of 10.51 for the two Quantizations.
+  // The benchmark has to replace those numbers before any entry could be curated.
+  // `downloadSizeMB` is the MiB figure the Hugging Face API reports for the source file.
+  // The model card lists an identical Danish WER of 10.51 for all five Quantizations, so
+  // the only real difference between them is size and speed: larger is slower.
   {
     id: 'hviske-v5-tiny-f16',
     engine: 'hviske',
     modeSupport: 'normal',
     artifactName: 'hviske-v5-tiny-f16.gguf',
-    downloadSizeMB: 527,
-    peakRamMB: 700,
-    label: 'Hviske V5 Tiny',
-    description: 'Danish model · Danish only, full precision, 10.5 WER',
+    downloadSizeMB: 503,
+    peakRamMB: 675,
+    label: 'Hviske V5 Tiny F16',
+    description:
+      'Danish model · Danish only, full precision, largest and slowest, 10.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
+  },
+  {
+    id: 'hviske-v5-tiny-q8_0',
+    engine: 'hviske',
+    modeSupport: 'normal',
+    artifactName: 'hviske-v5-tiny-q8_0.gguf',
+    downloadSizeMB: 268,
+    peakRamMB: 440,
+    label: 'Hviske V5 Tiny Q8',
+    description:
+      'Danish model · Danish only, Q8 quantized, about half the size of F16, 10.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
+  },
+  {
+    id: 'hviske-v5-tiny-q6_k',
+    engine: 'hviske',
+    modeSupport: 'normal',
+    artifactName: 'hviske-v5-tiny-q6_k.gguf',
+    downloadSizeMB: 232,
+    peakRamMB: 405,
+    label: 'Hviske V5 Tiny Q6',
+    description:
+      'Danish model · Danish only, Q6 quantized, a little smaller than Q8, 10.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
+  },
+  {
+    id: 'hviske-v5-tiny-q5_0',
+    engine: 'hviske',
+    modeSupport: 'normal',
+    artifactName: 'hviske-v5-tiny-q5_0.gguf',
+    downloadSizeMB: 181,
+    peakRamMB: 350,
+    label: 'Hviske V5 Tiny Q5',
+    description:
+      'Danish model · Danish only, Q5 quantized, smaller than Q6, 10.5 WER',
     translationSupport: false,
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
@@ -556,10 +607,11 @@ export const SPEECH_MODELS: SpeechModel[] = [
     engine: 'hviske',
     modeSupport: 'normal',
     artifactName: 'hviske-v5-tiny-q4_k.gguf',
-    downloadSizeMB: 160,
-    peakRamMB: 330,
-    label: 'Hviske V5 Tiny',
-    description: 'Danish model · Danish only, Q4 quantized, 10.5 WER',
+    downloadSizeMB: 153,
+    peakRamMB: 325,
+    label: 'Hviske V5 Tiny Q4',
+    description:
+      'Danish model · Danish only, Q4 quantized, smallest and fastest, 10.5 WER',
     translationSupport: false,
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],

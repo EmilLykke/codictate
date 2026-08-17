@@ -30,21 +30,43 @@ const DEST_REPO =
 const LICENSE_ID = 'cc-by-nc-4.0'
 
 /**
- * Both quantizations ship so the benchmark can settle which to default to. The model
- * card lists identical WER (10.51) for the two, and f16 is the chosen primary.
+ * All five Quantizations the source repo publishes ship, so a user can pick their own
+ * size/accuracy trade-off and the benchmark can settle which to default to. The model
+ * card lists an identical Danish WER (10.51) for every one of them, so size and speed
+ * are the only real differences: larger is slower. f16 is the chosen primary.
+ *
+ * Sizes are the MiB figures the Hugging Face API reports, listed largest first.
  */
 const FILES = [
   {
     sourcePath: 'gguf/hviske-v5-tiny-f16.gguf',
     name: 'hviske-v5-tiny-f16.gguf',
-    approxSize: '527 MB',
-    note: 'primary',
+    approxSize: '503 MB',
+    note: 'primary, full precision, largest and slowest',
+  },
+  {
+    sourcePath: 'gguf/hviske-v5-tiny-q8_0.gguf',
+    name: 'hviske-v5-tiny-q8_0.gguf',
+    approxSize: '268 MB',
+    note: 'about half the size of f16',
+  },
+  {
+    sourcePath: 'gguf/hviske-v5-tiny-q6_k.gguf',
+    name: 'hviske-v5-tiny-q6_k.gguf',
+    approxSize: '232 MB',
+    note: 'smaller than q8_0',
+  },
+  {
+    sourcePath: 'gguf/hviske-v5-tiny-q5_0.gguf',
+    name: 'hviske-v5-tiny-q5_0.gguf',
+    approxSize: '181 MB',
+    note: 'smaller than q6_k',
   },
   {
     sourcePath: 'gguf/hviske-v5-tiny-q4_k.gguf',
     name: 'hviske-v5-tiny-q4_k.gguf',
-    approxSize: '160 MB',
-    note: 'smallest',
+    approxSize: '153 MB',
+    note: 'smallest and fastest',
   },
 ]
 
@@ -104,7 +126,7 @@ language:
 
 # hviske-v5-tiny GGUF (mirror)
 
-This is an **unmodified mirror** of the GGUF conversions of
+This is an **unmodified mirror** of all ${FILES.length} GGUF conversions of
 [\`${SOURCE_REPO}\`](${SOURCE_URL}), created by
 [syvai](https://huggingface.co/syvai). All credit for the model belongs to them.
 
@@ -129,6 +151,9 @@ paid version and no commercial use.
 | --- | --- | --- |
 ${FILES.map((f) => `| \`${f.name}\` | ${f.approxSize} | ${f.note} |`).join('\n')}
 
+The model card of the original repository reports the same Danish WER (10.51) for every
+one of these, so the choice is a size and speed trade-off rather than an accuracy one.
+
 \`${primary}\` is the default Codictate uses.
 
 ## Runtime
@@ -144,7 +169,7 @@ taken down, open an issue on the Codictate repository and it will be removed.
 }
 
 async function main() {
-  // Lets the model card be reviewed without a 690 MB download first.
+  // Lets the model card be reviewed without a 1.3 GB download first.
   if (printReadmeOnly) {
     console.log(buildReadme())
     return
@@ -266,7 +291,7 @@ async function main() {
       '--repo-type',
       'model',
       '--commit-message',
-      `Mirror ${FILES.map((f) => f.name).join(' and ')} from ${SOURCE_REPO} (CC BY-NC 4.0)`,
+      `Mirror ${FILES.length} GGUF quantizations from ${SOURCE_REPO} (CC BY-NC 4.0)`,
     ],
     writeToken!,
   )
