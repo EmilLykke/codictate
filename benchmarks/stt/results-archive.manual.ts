@@ -10,6 +10,24 @@
  *
  * If a test here fails, the archive has stopped parsing. Do not adjust the expected
  * numbers to match; fix the read path.
+ *
+ * This is deliberately outside the default `bun test` run - the `.manual.ts` suffix keeps
+ * it out of test discovery. The assertions are pinned to the four archived runs that exist
+ * today (`coverage.runCount` is asserted to be exactly 4), so a fifth Benchmark Run turns
+ * the suite red without anything having broken. Its subject is the archive on disk, not
+ * the code under change, which makes it a check to run when the archive moves rather than
+ * a gate on every commit.
+ *
+ * Run it deliberately:
+ *
+ *   bun run test:manual
+ *   bun test ./benchmarks/stt/results-archive.manual.ts
+ *
+ * The leading `./` matters: without it `bun test` reads the argument as a name filter,
+ * finds nothing that matches the default test globs, and exits without running anything.
+ *
+ * Run it after archiving a Benchmark Run or touching the results read path, and update
+ * the pinned run list and counts in the same change.
  */
 
 import { describe, expect, test } from "bun:test";

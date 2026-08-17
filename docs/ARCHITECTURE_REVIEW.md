@@ -12,6 +12,8 @@ This is a review, not a decision record. Decisions that come out of it belong in
 
 28,662 lines of TS/TSX. 5 `*.test.ts` files. **No `test` script in `package.json`**, and no workflow in `.github/workflows/` runs `bun test`, `lint`, or `tsc`. Zero tests exist for `AppConfig.ts`, `setup-recording.ts`, `speech2text.ts`, `keyboard-events.ts`, `rpc.ts`. Every "tests would improve" claim below is a claim about a test surface that does not exist yet.
 
+> Updated after #44: a `test` script and `.github/workflows/ci.yml` now exist, so `bun test`, `lint` and `tsc` gate every push to `main` and every pull request, and the Rust helper checks run on a Windows runner. The line count of untested modules above is unchanged - only the runner landed.
+
 ## Candidates
 
 | | Candidate | Strength |
@@ -111,7 +113,7 @@ What the wide interface hides:
 
 ### E — Make the interface the test surface
 
-**Files**: `package.json:14-38` · `.github/workflows/*` · `src/bun/utils/stats/stats-manager.ts:77-272` · `src/shared/whisper-models.ts:78-177` · `src/bun/utils/whisper/model-downloads.test.ts` · `benchmarks/stt/results-schema.test.ts:34-174`
+**Files**: `package.json:14-38` · `.github/workflows/*` · `src/bun/utils/stats/stats-manager.ts:77-272` · `src/shared/whisper-models.ts:78-177` · `src/bun/utils/whisper/model-download-reachability.manual.ts` (was `model-downloads.test.ts`) · `benchmarks/stt/results-archive.manual.ts` (was `results-schema.test.ts`)
 
 **Problem**: nothing runs the tests that exist, and the two most testable modules in the repo — both of which already accept their dependencies — have no tests at all.
 
@@ -124,6 +126,8 @@ Two of the five existing test files do not test Codictate. `model-downloads.test
 - `resolveTranslateModelId`, `getStreamModeReadiness`, `getTranslateReadiness` — pure functions of an injected `isModelAvailable`.
 - `buildWhisperHarnessCommand` — pin `availableParallelism` and argv becomes assertable.
 - `hook.rs` matchers — `cargo test` is already wired via `check:native:windows-helper`, just never called by CI.
+
+**Landed (#44)**: the runner half is done. `bun run test` exists, `.github/workflows/ci.yml` runs test / lint / tsc on push and pull request plus `check:native:windows-helper` on a Windows runner, and the two suites that do not test Codictate moved out of the default run under a `.manual.ts` suffix (`model-download-reachability.manual.ts`, `results-archive.manual.ts`), invoked on purpose with `bun run test:manual`. What remains of this candidate is the coverage list above.
 
 ### F — Retire the whisper-models shim
 

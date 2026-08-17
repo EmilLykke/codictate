@@ -12,6 +12,8 @@
     "url": "https://github.com/EmilLykke/codictate/issues"
   },
   "scripts": {
+    "test": "bun test",
+    "test:manual": "bun test ./src/bun/utils/whisper/model-download-reachability.manual.ts ./benchmarks/stt/results-archive.manual.ts",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "tsc": "tsc -p tsconfig.bun.json --noEmit && tsc -p tsconfig.vite.json --noEmit",

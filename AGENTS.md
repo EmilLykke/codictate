@@ -28,8 +28,26 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | `bun run start:windows` | Dev mode (Windows) |
 | `bun run lint:fix` | ESLint fix |
 | `bun run tsc` | Type-check both tsconfigs |
+| `bun run test` | Run the test suite |
+| `bun run test:manual` | Run the two opt-in suites (network, Benchmark Run archive) |
+| `bun run check:native:windows-helper` | Rust helper fmt / check / clippy / test (Windows host) |
 
-There is no `test` script. Five `*.test.ts` files exist and are run with `bun test <path>`; no CI workflow runs tests, lint or type-checking. See `docs/ARCHITECTURE_REVIEW.md` candidate E.
+## Tests and CI
+
+`bun run test` is `bun test` with no arguments: it discovers every `*.test.ts` in the repo. Those are pure-function tests - no spawn, no filesystem, no webview - which is what lets them run on any platform.
+
+Two suites are deliberately outside that run and carry a `.manual.ts` suffix so `bun test` never discovers them:
+
+| Suite | Why it is opt-in |
+|-------|------------------|
+| `src/bun/utils/whisper/model-download-reachability.manual.ts` | Live `fetch` against Hugging Face and the hviske Mirror. Flakes offline or behind a proxy, and it imports no Codictate download code. Run it after changing a download URL or the Speech Model list. |
+| `benchmarks/stt/results-archive.manual.ts` | Pinned to the four committed Benchmark Runs, including an exact `runCount`. A fifth archived run turns it red with nothing broken. Run it when the archive or the results read path moves, and update the pinned numbers in the same change. |
+
+Run both with `bun run test:manual`, or one with `bun test ./benchmarks/stt/results-archive.manual.ts`. The leading `./` is required: without it `bun test` reads the argument as a name filter, matches nothing, and runs nothing.
+
+`.github/workflows/ci.yml` runs `test`, `lint` and `tsc` on every push to `main` and every pull request, and runs `check:native:windows-helper` (which includes `cargo test` for the Rust matchers) on a Windows runner. The opt-in suites are not in CI by design.
+
+New tests go in a `*.test.ts` beside the module they cover, and only pure functions belong in the default run. See `docs/ARCHITECTURE_REVIEW.md` candidate E for the interfaces still waiting for coverage.
 
 ## Project structure
 
