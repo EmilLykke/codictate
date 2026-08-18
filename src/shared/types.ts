@@ -413,6 +413,18 @@ export type WebviewRPCType = {
         params: { patch: DictionarySettingsPatch }
         response: boolean
       }
+      /**
+       * Dismiss a banner notice for good.
+       *
+       * The notice lives in the main process, so dismissal has to as well. Keeping it as
+       * webview state made it a property of one mounted component: the banner slot renders
+       * in two branches of `AppLayout`'s tab ternary, so changing tab remounted it and the
+       * dismissal was forgotten.
+       */
+      dismissDictationNotice: {
+        params: { notice: 'heal' | 'blocked' }
+        response: boolean
+      }
       getHistoryEntries: {
         params: { search?: string }
         response: HistoryEntry[]

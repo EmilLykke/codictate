@@ -1102,6 +1102,16 @@ export class AppConfig {
     return this.blockedDictation === null ? null : { ...this.blockedDictation }
   }
 
+  /**
+   * Retire a correction because the user said they had read it. Returns true when there was
+   * one to retire, so the caller only pushes settings when something actually changed.
+   */
+  public dismissHealAnnouncements(): boolean {
+    if (this.healAnnouncements.length === 0) return false
+    this.healAnnouncements = []
+    return true
+  }
+
   public getHealAnnouncements(): SettingsHealAnnouncement[] {
     return this.healAnnouncements.map((announcement) => ({ ...announcement }))
   }

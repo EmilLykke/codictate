@@ -25,6 +25,7 @@ import {
 import {
   cancelModelDownload,
   deleteWhisperModel,
+  dismissDictationNotice,
   downloadWhisperModel,
   fetchSettings,
   setFormattingEnabled,
@@ -269,6 +270,29 @@ export function MainContainer({
     queryClient,
   ]);
 
+  /**
+   * Retire a banner notice in the main process, which owns whether it is still standing.
+   *
+   * Optimistic so the click feels immediate; the push that follows the request is what makes
+   * it stick across a tab change, which remounts the banner slot.
+   */
+  const handleDismissNotice = useCallback(
+    async (notice: "heal" | "blocked") => {
+      queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+        old
+          ? notice === "heal"
+            ? { ...old, healAnnouncements: [] }
+            : { ...old, blockedDictation: null }
+          : old,
+      );
+      const ok = await dismissDictationNotice(notice);
+      if (!ok) {
+        queryClient.setQueryData(["settings"], await fetchSettings());
+      }
+    },
+    [queryClient],
+  );
+
   const handleFormattingToggle = useCallback(async () => {
     const newValue = !(settings.formatting?.enabled ?? false);
     queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
@@ -394,6 +418,7 @@ export function MainContainer({
           <HealNotices
             announcements={settings.healAnnouncements ?? []}
             blocked={settings.blockedDictation ?? null}
+            onDismiss={handleDismissNotice}
           />
         }
       >

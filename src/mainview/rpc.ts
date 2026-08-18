@@ -149,6 +149,12 @@ export async function setAudioDevice(index: number): Promise<boolean> {
   return rpc.request.setAudioDevice({ index })
 }
 
+export async function dismissDictationNotice(
+  notice: 'heal' | 'blocked'
+): Promise<boolean> {
+  return rpc.request.dismissDictationNotice({ notice })
+}
+
 export function triggerUpdateCheck(): void {
   rpc.send.triggerUpdateCheck({})
 }

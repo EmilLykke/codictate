@@ -183,6 +183,25 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           }
         },
         getSettings: async () => deps.appConfig.getSettings(),
+        dismissDictationNotice: async ({
+          notice,
+        }: {
+          notice: 'heal' | 'blocked'
+        }) => {
+          const dismissed =
+            notice === 'heal'
+              ? deps.appConfig.dismissHealAnnouncements()
+              : deps.appConfig.clearBlockedDictation()
+          if (!dismissed) return false
+          // Pushed back rather than left to the caller's own state, so every mount of the
+          // banner slot agrees about what is dismissed.
+          try {
+            rpc.send.updateSettings(deps.appConfig.getSettings())
+          } catch {
+            // Window may have been closed between the click and this push
+          }
+          return true
+        },
         updateGeneralSettings: async ({
           patch,
         }: {
