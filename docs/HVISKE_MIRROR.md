@@ -9,16 +9,12 @@ The Mirror is live:
 **https://huggingface.co/emillykkegrann/hviske-v5-tiny-GGUF**
 
 All five Quantizations the source repo publishes are mirrored and verified. hviske is
-wired into the app and **ungated**: there is no `CODICTATE_ENABLE_HVISKE` env var and no
-source-checkout requirement. All five Quantizations appear in the browse modal
+wired into the app . All five Quantizations appear in the browse modal
 ("Browse more models" in Settings), none is marked `curated`, so a user who wants Danish
-opens browse and picks their own size and speed trade-off. The decision behind that shape, and the
-alternatives rejected, are in
-[docs/adr/0004-hviske-danish-ungated.md](adr/0004-hviske-danish-ungated.md).
+opens browse and picks their own size and speed trade-off.
 
 `scripts/mirror-hviske.ts` is what created it, and it is what you re-run if the Mirror
-ever has to be rebuilt or refreshed. **You run that script, not an agent**, because it
-needs a Hugging Face write token. Never paste a write token into an agent conversation.
+ever has to be rebuilt or refreshed.
 
 ## Licence position
 
@@ -107,36 +103,3 @@ bun run scripts/mirror-hviske.ts --print-readme   # review the model card
 bun run scripts/mirror-hviske.ts --dry-run        # download and stage, upload nothing
 bun run scripts/mirror-hviske.ts                  # create the repo and upload
 ```
-
-## Message to syvai
-
-This is the message sent before mirroring, kept as the record of what was asked:
-
-> Hej syvai
->
-> Jeg har fået adgang til hviske-v5-tiny og har testet GGUF-versionerne via CrispASR.
-> Tallene er stærke: q4_k er 153 MB og kører omkring 56x realtid på en M4, f16 er
-> 503 MB og kører omkring 39x realtid, og dansk WER ligger omkring 10,5. Flot arbejde.
->
-> Jeg udvikler Codictate (https://github.com/EmilLykke/codictate), en gratis open
-> source diktat-app til macOS og Windows. Den kører 100% lokalt, uden cloud, uden
-> konto og uden analytics. Appen er gratis og kommer ikke til at koste penge. Der
-> bliver ingen betalt version og ingen kommerciel udnyttelse.
->
-> Jeg vil rigtig gerne tilbyde hviske-v5-tiny som dansk model i appen. Problemet er,
-> at jeres repo er gated, så mine brugere ikke kan hente modellen direkte inde fra
-> appen. Derfor vil jeg spørge, om det er i orden, at jeg lægger en kopi af alle fem
-> GGUF-kvantiseringer fra gguf/ (f16, q8_0, q6_k, q5_0 og q4_k) op i mit eget
-> offentlige Hugging Face-repo, så brugerne selv kan vælge mellem størrelse og
-> hastighed. Kopien får tydelig kreditering til jer, link tilbage til original-repoet,
-> og uændret CC BY-NC 4.0-licens. Filerne bliver ikke ændret.
->
-> Som jeg læser CC BY-NC 4.0, må jeg dele materialet ikke-kommercielt med
-> kreditering. Men da I bevidst har sat repoet til manuel godkendelse, vil jeg
-> hellere spørge først end bare gøre det.
->
-> Sig til, hvis I har ønsker til, hvordan krediteringen skal formuleres, eller hvis I
-> foretrækker en anden løsning.
->
-> Mvh
-> Emil Lykke Grann
