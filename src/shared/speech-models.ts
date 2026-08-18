@@ -33,21 +33,18 @@ export type SpeechEngineId = 'whisper_cpp' | 'whisperkit' | 'hviske'
 
 export type SpeechModelModeSupport = 'normal' | 'stream' | 'both'
 
-/** localStorage: set after first Parakeet transcribe/stream session ends so Ready UI stops showing the prep hint. */
-export const PARAKEET_COREML_PREP_STORAGE_KEY =
-  'codictate.parakeetCoreMlPrepCompleted'
-
-/** One line under Transcribing… / Live transcription on first Parakeet use. */
-export const PARAKEET_FIRST_RUN_READY_SUBTITLE =
-  'First run: preparing the model can take 1-2 minutes. Later runs are fast.'
-
-/** Settings / model row: why the first session can feel stuck. */
-export const PARAKEET_FIRST_RUN_SETTINGS_HINT =
-  'First run: Codictate may take 1-2 minutes to prepare Parakeet for this device. It may look stuck, but subsequent runs are fast.'
-
-/** Live transcription helper (Transcription section has the full explanation). */
-export const PARAKEET_FIRST_RUN_STREAM_HELPER =
-  'First live transcription run takes 1-2 minutes to prepare the model (see Transcription).'
+/**
+ * Settings / model row: what is happening while Parakeet prepares itself, shown only while a
+ * preparation can actually be under way (Parakeet selected, installed, not yet prepared).
+ *
+ * The three sentences this replaces all described the old behaviour, where preparation
+ * happened inside the user's first Dictation and the app "may look stuck". ADR-0005 makes
+ * preparation start on selection instead, so there is nothing to warn about and nothing to
+ * ask the user to do - only a fact to state, which disappears on its own when the settings
+ * push says the preparation finished.
+ */
+export const PARAKEET_PREPARING_SETTINGS_HINT =
+  'Codictate is preparing Parakeet for this device. It takes a minute or two, runs in the background, and a dictation started before it finishes waits for it.'
 
 /** European-language set aligned with Parakeet TDT v3 multilingual (25 locales we expose in Settings). */
 const PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS = [

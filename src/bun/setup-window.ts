@@ -26,8 +26,6 @@ import { AppConfig } from './AppConfig/AppConfig'
 import { copyLogToClipboard } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
 import { formatterModelManager } from './utils/formatting/formatter-model-manager'
-import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
-import { warmupParakeet } from './utils/whisper/speech2text'
 import { getPlatformRuntime } from './platform/runtime'
 import { setWindowsWindowIcon } from './utils/window/windows-window-icon'
 import type { AudioDeviceSnapshot } from './utils/audio/devices'
@@ -242,13 +240,10 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           ) {
             deps.onStreamModeChanged?.()
           }
-          if (patch.whisperModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-            void warmupParakeet(async () => {
-              await deps.appConfig.markParakeetCoreMlReady()
-              rpc.send.updateSettings(deps.appConfig.getSettings())
-              deps.onStreamModeChanged?.()
-            })
-          }
+          // No warmup call here. Selecting Parakeet starts its preparation, but the
+          // trigger lives on `AppConfig`'s runnable-settings observer so that the tray menu
+          // and the "download then select" path get it too - see `installParakeetWarmup` in
+          // index.ts.
           return true
         },
         setAudioDevice: async ({ index }) => {
@@ -424,14 +419,10 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
                   error,
                 })
                 if (done && !error) {
+                  // The heal pass also settles the runnable-settings observer, which is what
+                  // starts Parakeet's preparation when the weights that just landed are the
+                  // ones the user has selected.
                   void healAfterAvailabilityChange()
-                  if (modelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-                    void warmupParakeet(async () => {
-                      await deps.appConfig.markParakeetCoreMlReady()
-                      rpc.send.updateSettings(deps.appConfig.getSettings())
-                      deps.onStreamModeChanged?.()
-                    })
-                  }
                 }
               } catch {
                 // Window may be closed during a long download

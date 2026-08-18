@@ -22,8 +22,10 @@ import { StatsManager } from './utils/stats/stats-manager'
 import { RECORDING_PATH } from './platform/runtime'
 import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
-import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
-import { warmupParakeet } from './utils/whisper/speech2text'
+import {
+  ensureParakeetWarm,
+  installParakeetWarmup,
+} from './utils/whisper/parakeet-warmup'
 import type {
   BlockedDictationPlan,
   DictationPlan,
@@ -353,16 +355,29 @@ menuHandlers = setupApplicationMenu(
 const pushSettingsToWebview = () =>
   win.send.updateSettings(UserAppConfig.getSettings())
 
-if (
-  modelManager.isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID) &&
-  !UserAppConfig.isParakeetCoreMlReady()
-) {
-  void warmupParakeet(async () => {
-    await UserAppConfig.markParakeetCoreMlReady()
+/**
+ * Parakeet's one-time on-device preparation, wired once.
+ *
+ * There used to be three callers of the warmup routine - here at boot, the transcription
+ * settings write in `setup-window.ts`, and the completion of a Parakeet download - each with
+ * its own idea of when a preparation was due and none of them aware of the others. ADR-0005
+ * makes *selection* the trigger, and `AppConfig` already funnels every change to the
+ * `(settings, availability)` pair through two entry points, so one observer covers all three
+ * moments and cannot start two overlapping compiles.
+ *
+ * `onPrepared` is the "no restart" half: the settings push carries the new state into the
+ * window, so Live Transcription stops mentioning the wait on its own.
+ */
+installParakeetWarmup({
+  getSelectedSpeechModelId: () => UserAppConfig.getWhisperModelId(),
+  isPrepared: () => UserAppConfig.isParakeetCoreMlReady(),
+  markPrepared: () => UserAppConfig.markParakeetCoreMlReady(),
+  onPrepared: () => {
     pushSettingsToWebview()
     trayHandlers?.syncStreamModeState()
-  })
-}
+  },
+})
+UserAppConfig.observeRunnableDictationSettings(ensureParakeetWarm)
 
 trayHandlers = setupTray(
   (onAction) => win.getOrCreateWindow(onAction),

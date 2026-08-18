@@ -291,15 +291,17 @@ function streamModeReadiness(
     }
   }
 
-  // A cold Parakeet is ready, just slow the first time: the run prepares itself. Warmup was
-  // a readiness reason nobody could act on, and ADR-0005 takes it out of the user-facing
-  // set rather than dressing it up as unavailability.
+  // A cold Parakeet is ready, and its preparation is already running: selecting Parakeet
+  // starts it. Warmup was a readiness reason nobody could act on, and ADR-0005 takes it out
+  // of the user-facing set rather than dressing it up as unavailability. What is left is a
+  // fact, and it stops being said the moment the preparation reports done - the settings push
+  // recomputes this, so the copy corrects itself with no restart and no second attempt.
   return {
     ready: true,
     reason: null,
     message: input.parakeetCoreMlReady
       ? 'Live transcription: continuous dictation.'
-      : `Live transcription: continuous dictation. The first run takes a moment while ${PARAKEET_LABEL} prepares itself on this device.`,
+      : `Live transcription: continuous dictation. ${PARAKEET_LABEL} is preparing itself on this device; a dictation started before it finishes waits for it.`,
     downloadModelId: null,
   }
 }

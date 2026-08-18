@@ -240,12 +240,6 @@ export const startRecording = async (
                 log('stats', 'failed to save session', { err: String(err) })
               }
             }
-            if (
-              plan.engineId === 'whisperkit' &&
-              !appConfig.isParakeetCoreMlReady()
-            ) {
-              await appConfig.markParakeetCoreMlReady()
-            }
           }
         } catch (err) {
           log('whisper', 'transcription pipeline failed', {

@@ -18,7 +18,7 @@ This is a review, not a decision record. Decisions that come out of it belong in
 
 | | Candidate | Strength |
 | --- | --- | --- |
-| A | Resolve the Dictation once, into a plan | Done (#48) |
+| A | Resolve the Dictation once, into a plan | Done (#44 - #49) |
 | B | Make the Dictation run return a result instead of pasting one | Strong |
 | C | Give a Preset one exhaustive definition | Strong |
 | D | Shrink AppConfig's interface to the eight members that carry it | Strong |
@@ -31,9 +31,11 @@ This is a review, not a decision record. Decisions that come out of it belong in
 
 **Decided 2026-08-17: `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.** The decision went further than this candidate proposed - rather than resolving fallbacks in one place, the fallbacks are removed and the state is kept runnable. Read the ADR, not this section, for what was agreed.
 
-**Done (#44 - #48).** `buildDictationPlan` in `src/shared/dictation-plan.ts` is the one resolver: a pure function of `(settings, availability snapshot)` returning a runnable or blocked Dictation Plan, with batch Dictation and Live Transcription as one union. `AppConfig.getDictationPlan()` is its only caller, and `speech2text`, `startRecording` and `startParakeetStream` consume the plan rather than re-reading config.
+**Done (#44 - #49). ADR-0005's sequence is closed - no ticket in it is outstanding.** `buildDictationPlan` in `src/shared/dictation-plan.ts` is the one resolver: a pure function of `(settings, availability snapshot)` returning a runnable or blocked Dictation Plan, with batch Dictation and Live Transcription as one union. `AppConfig.getDictationPlan()` is its only caller, and `speech2text`, `startRecording` and `startParakeetStream` consume the plan rather than re-reading config.
 
 All three fallbacks are deleted: the hviske weights-missing substitution and the silent translate drop are gone from `speech2text.ts`, and `resolveTranslateModelId` is gone entirely - translate resolution is now `isTranslateRunnableForSelection`, one capability-and-availability question. A blocked plan reaches four surfaces (error chime, tray error state, notification when the window is closed, `HealNotices` banner when it is open via `AppSettings.blockedDictation`) and triggers the heal pass. `assertParakeetStreamRuntimeReady` survived as the pre-spawn race check but returns a plan-shaped blocked reason instead of a discarded `Error`. Stats take the Speech Model and Transcription Language from the plan. The blocked reasons are a closed eight-member union with an exhaustive message `Record`, so a new failure mode does not compile until it has a sentence. The benchmark is untouched and still enters at the ASR Harness command builder.
+
+Parakeet warmup (#49) is the last piece, and it is a lifecycle change rather than a plan change. Preparation now starts when Parakeet *becomes the selected Speech Model*: `AppConfig.observeRunnableDictationSettings` fires on every settle of the `(settings, availability)` pair - a transcription settings write, and the heal pass at boot, on a download, on a delete and after a blocked Dictation - and `src/bun/utils/whisper/parakeet-warmup.ts` decides from that whether a preparation is due. The three uncoordinated callers of the old `warmupParakeet` (boot in `index.ts`, the Parakeet-selected branch in `setup-window.ts`, the post-download branch beside it) are gone, as is the fourth writer of the flag - the "mark warmup done after a batch Parakeet run" branch in `start-rec.ts`. One preparation runs at a time, held in a single in-flight promise, and a Dictation that lands inside the window waits on that promise (`awaitParakeetWarmup`, called from `startParakeetStream` and from the Parakeet batch transcribe) instead of racing it with a second helper process and coming back with nothing. `parakeetCoreMlReady` finishing pushes settings to the window, so Live Transcription drops the line about the wait with no restart. The routine's hardcoded `'parakeet-tdt-0.6b-v3'` is a parameter now, which was the last hardcoded Speech Model id on the run path.
 
 The five items below are the problems this candidate was written against; all five are addressed, and `src/shared/dictation-plan.test.ts` covers the builder with no subprocess and no filesystem. They are kept for the record.
 
@@ -132,6 +134,8 @@ Two of the five existing test files do not test Codictate. `model-downloads.test
 - ~~`resolveTranslateModelId`, `getStreamModeReadiness`, `getTranslateReadiness` — pure functions of an injected `isModelAvailable`.~~ **Covered by #45**: `src/shared/dictation-plan.test.ts`.
 - `buildWhisperHarnessCommand` — pin `availableParallelism` and argv becomes assertable.
 - `hook.rs` matchers — `cargo test` is already wired via `check:native:windows-helper`, just never called by CI.
+
+**Landed (#49)**: `shouldStartParakeetWarmup` in `src/bun/utils/whisper/parakeet-warmup.test.ts` - the one decision inside the warmup lifecycle that is a pure function of plain values, split out from the glue so it can be pinned without a spawn.
 
 **Landed (#44)**: the runner half is done. `bun run test` exists, `.github/workflows/ci.yml` runs test / lint / tsc on push and pull request plus `check:native:windows-helper` on a Windows runner, and the two suites that do not test Codictate moved out of the default run under a `.manual.ts` suffix (`model-download-reachability.manual.ts`, `results-archive.manual.ts`), invoked on purpose with `bun run test:manual`. What remains of this candidate is the coverage list above.
 

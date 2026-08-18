@@ -3,7 +3,8 @@ import type { AppSettings } from "../../../../shared/types";
 import {
   SPEECH_MODELS,
   BROWSABLE_SPEECH_MODELS,
-  PARAKEET_FIRST_RUN_SETTINGS_HINT,
+  DEFAULT_STREAM_CAPABLE_MODEL_ID,
+  PARAKEET_PREPARING_SETTINGS_HINT,
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
 import { ModelBrowseModal } from "../ModelBrowseModal";
@@ -30,6 +31,15 @@ export function SectionModels({
   onModelDelete,
 }: Props) {
   const [isBrowseOpen, setIsBrowseOpen] = useState(false);
+
+  // Preparation is automatic and starts the moment Parakeet becomes the selection, so this is
+  // a statement of what is happening rather than a warning about a first run. The three
+  // conditions are exactly the ones that make a preparation possible; when the main process
+  // reports it finished, the settings push takes the line away without a restart.
+  const isPreparingParakeet =
+    settings.whisperModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID &&
+    modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] === true &&
+    !settings.parakeetCoreMlReady;
 
   // Curated whisper.cpp models, plus anything the user has already downloaded - hviske
   // included, even though no hviske entry is ever curated.
@@ -135,9 +145,11 @@ export function SectionModels({
           onCancelDownload={onCancelDownload}
           onDelete={onModelDelete}
         />
-        <p className={`${settingsHelperClass} text-accent-amber/55`}>
-          {PARAKEET_FIRST_RUN_SETTINGS_HINT}
-        </p>
+        {isPreparingParakeet && (
+          <p className={`${settingsHelperClass} text-accent-amber/55`}>
+            {PARAKEET_PREPARING_SETTINGS_HINT}
+          </p>
+        )}
       </div>
 
       <ModelBrowseModal

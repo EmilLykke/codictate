@@ -274,17 +274,17 @@ describe('getDictationReadiness - Live Transcription', () => {
   })
 
   /**
-   * Warmup is not a readiness reason. A cold Parakeet is slow on its first run, not
-   * unavailable, so the toggle stays live and the copy says so (ADR-0005; #49 removes the
-   * wait itself by warming automatically).
+   * Warmup is not a readiness reason. A cold Parakeet is being prepared right now - selecting
+   * it starts the preparation - so the toggle stays live and the copy states the fact rather
+   * than asking the user to do anything about it.
    */
-  test('is ready while Parakeet is still cold, and says the first run is slow', () => {
+  test('is ready while Parakeet is still cold, and says it is preparing', () => {
     const readiness = live(
       input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
       available(PARAKEET)
     )
     expect(readiness.ready).toBe(true)
-    expect(readiness.message).toContain('first run')
+    expect(readiness.message).toContain('preparing')
   })
 
   test('the platform question comes before everything else', () => {

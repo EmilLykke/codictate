@@ -263,6 +263,18 @@ export class AppConfig {
    */
   private blockedDictation: BlockedDictationPlan | null = null
 
+  /**
+   * Wired once at boot. Everything derived from the `(settings, availability)` pair that
+   * lives outside this class - today only Parakeet's automatic preparation - has to hear
+   * about every change to either half, and there are two entry points rather than one: a
+   * transcription settings write, and the heal pass that runs at boot, on a download, on a
+   * delete and after a blocked Dictation.
+   *
+   * A callback rather than a direct call, so that `AppConfig` stays the settings adapter and
+   * needs to know nothing about the process a preparation spawns.
+   */
+  private runnableDictationObserver: (() => void) | null = null
+
   constructor() {
     this.audioDeviceName = null
     this.audioDeviceId = null
@@ -984,6 +996,21 @@ export class AppConfig {
   }
 
   /**
+   * Register the observer above, and fire it once immediately.
+   *
+   * The immediate call is deliberate: `load()` has already healed by the time boot gets here,
+   * so the current selection is the first change the observer needs to hear about.
+   */
+  public observeRunnableDictationSettings(observer: () => void): void {
+    this.runnableDictationObserver = observer
+    observer()
+  }
+
+  private notifyRunnableDictationSettled(): void {
+    this.runnableDictationObserver?.()
+  }
+
+  /**
    * The availability arm of the enforcement: run after a Speech Model is downloaded or
    * deleted, and at boot. It corrects rather than refuses, because someone deleting
    * multi-gigabyte weights wants the disk space, not an argument.
@@ -996,10 +1023,17 @@ export class AppConfig {
       this.runnableDictationSettings(),
       this.dictationAvailability()
     )
-    if (result.unchanged) return []
+    if (result.unchanged) {
+      // Still a settled `(settings, availability)` pair, and the availability half may be
+      // what moved: a finished Parakeet download changes nothing about the settings and is
+      // exactly the moment a preparation becomes possible.
+      this.notifyRunnableDictationSettled()
+      return []
+    }
     this.applyRunnableDictationSettings(result.settings)
     this.recordHealAnnouncements(result.announcements)
     await this.saveMain()
+    this.notifyRunnableDictationSettled()
     return result.announcements
   }
 
@@ -1248,6 +1282,7 @@ export class AppConfig {
     this.recordHealAnnouncements(outcome.announcements)
 
     await this.saveMain()
+    this.notifyRunnableDictationSettled()
     return true
   }
 

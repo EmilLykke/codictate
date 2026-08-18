@@ -12,6 +12,7 @@ import type {
 import { applyDictionary } from '../dictionary/apply-dictionary'
 import { RECORDING_PATH } from '../../platform/runtime'
 import { buildWhisperHarnessCommand } from './whisper-harness-command'
+import { awaitParakeetWarmup } from './parakeet-warmup'
 
 /**
  * Whisper often splits or mishears the product name — normalize before paste.
@@ -160,6 +161,11 @@ export const transcribe = async (plan: RunnableDictationPlan) => {
 }
 
 async function transcribeParakeet(modelId: string): Promise<string> {
+  // Serialise behind an in-flight preparation rather than racing it. Recording is already
+  // over by the time this runs and the indicator says "transcribing", so the wait is visible
+  // and it is the same compile this spawn would otherwise have paid for itself.
+  await awaitParakeetWarmup()
+
   const helper = getPlatform().findParakeetHelperBinary()
   const modelDir = modelManager.getParakeetInstallDir(modelId)
 
@@ -215,66 +221,6 @@ async function transcribeParakeet(modelId: string): Promise<string> {
   })
 
   return transcript
-}
-
-function createSilentWav(): Uint8Array {
-  const sampleRate = 16000
-  const numSamples = Math.floor(sampleRate * 0.5)
-  const dataSize = numSamples * 2
-  const buf = new Uint8Array(44 + dataSize)
-  const view = new DataView(buf.buffer)
-  buf[0] = 0x52
-  buf[1] = 0x49
-  buf[2] = 0x46
-  buf[3] = 0x46 // RIFF
-  view.setUint32(4, 36 + dataSize, true)
-  buf[8] = 0x57
-  buf[9] = 0x41
-  buf[10] = 0x56
-  buf[11] = 0x45 // WAVE
-  buf[12] = 0x66
-  buf[13] = 0x6d
-  buf[14] = 0x74
-  buf[15] = 0x20 // fmt
-  view.setUint32(16, 16, true)
-  view.setUint16(20, 1, true) // PCM
-  view.setUint16(22, 1, true) // mono
-  view.setUint32(24, sampleRate, true)
-  view.setUint32(28, sampleRate * 2, true)
-  view.setUint16(32, 2, true)
-  view.setUint16(34, 16, true)
-  buf[36] = 0x64
-  buf[37] = 0x61
-  buf[38] = 0x74
-  buf[39] = 0x61 // data
-  view.setUint32(40, dataSize, true)
-  return buf
-}
-
-export async function warmupParakeet(
-  onReady?: () => Promise<void>
-): Promise<void> {
-  const PARAKEET_MODEL_ID = 'parakeet-tdt-0.6b-v3'
-  if (!modelManager.isModelAvailable(PARAKEET_MODEL_ID)) return
-  try {
-    const helper = getPlatform().findParakeetHelperBinary()
-    const modelDir = modelManager.getParakeetInstallDir(PARAKEET_MODEL_ID)
-    const warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
-    await Bun.write(warmupPath, createSilentWav())
-    log('parakeet', 'starting model warmup')
-    const proc = Bun.spawn([helper, 'transcribe', warmupPath, modelDir], {
-      stdout: 'ignore',
-      stderr: 'ignore',
-      env: { ...process.env, LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
-    })
-    await proc.exited
-    log('parakeet', 'model warmup complete', { exitCode: proc.exitCode })
-    if (proc.exitCode === 0) {
-      await onReady?.()
-    }
-  } catch (err) {
-    log('parakeet', 'model warmup error', { err: String(err) })
-  }
 }
 
 export interface Speech2TextResult {

@@ -12,6 +12,7 @@ import {
 } from '../../../shared/dictation-plan'
 import { getPlatform } from '../../platform'
 import { modelManager } from './model-manager'
+import { awaitParakeetWarmup } from './parakeet-warmup'
 import { log } from '../logger'
 import { duckDelayAfterStartChimeMs } from '../sound/play-sound'
 
@@ -88,6 +89,15 @@ export async function startParakeetStream(
 ): Promise<ParakeetStreamStartResult> {
   const blocked = checkParakeetStreamRuntimeReady(plan)
   if (blocked !== null) return { status: 'blocked', plan: blocked }
+
+  // A press that lands inside Parakeet's one-time preparation waits for it instead of racing
+  // it. Not a blocked plan: the press is already acknowledged by the caller (start chime,
+  // recording indicator, tray) before this function is reached, the wait is the compile the
+  // spawn below would have paid for anyway, and blocking would make the user press twice for
+  // something that is about to work on its own. What it prevents is two helper processes
+  // compiling the same weights, where the loser exits with nothing and the press appears to
+  // have done nothing at all.
+  await awaitParakeetWarmup()
 
   const binary = getPlatform().findParakeetHelperBinary()
   const modelDir = modelManager.getParakeetInstallDir(plan.speechModelId)
