@@ -8,7 +8,7 @@ import {
 } from "../../../shared/speech-models";
 import { MODEL_RATINGS } from "../../../shared/model-ratings";
 import { InstantTooltip } from "../Common/InstantTooltip";
-import { parseModelTags } from "./ModelBrowseModal";
+import { accuracyStatLabel, parseModelTags } from "./ModelBrowseModal";
 
 const SHORT_DESC: Record<string, string> = {
   "parakeet-tdt-0.6b-v3": "Fastest. 3-10x faster, 80 MB RAM.",
@@ -159,9 +159,7 @@ export function ModelPicker({
                 {stats && (
                   <div className="flex flex-col gap-1 shrink-0 pt-0.5">
                     <StatBar
-                      label={
-                        model.id.includes(".en") ? "accuracy (en)" : "accuracy"
-                      }
+                      label={accuracyStatLabel(model)}
                       value={stats.accuracy}
                     />
                     <StatBar label="speed" value={stats.speed} />

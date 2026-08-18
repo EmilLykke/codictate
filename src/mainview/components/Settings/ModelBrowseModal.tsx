@@ -33,15 +33,37 @@ export function parseModelTags(model: SpeechModel): string[] {
   if (qMatch) tags.push(qMatch[1]);
   else tags.push("full");
 
-  const languageIds = model.supportedTranscriptionLanguageIds;
-  if (model.id.includes(".en")) tags.push("\u{1F1EC}\u{1F1E7} (only)");
-  else if (languageIds?.length === 1)
-    tags.push(transcriptionLanguageLabel(languageIds[0]));
+  const soleLanguageId = soleTranscriptionLanguageId(model);
+  if (soleLanguageId === "en") tags.push("\u{1F1EC}\u{1F1E7} (only)");
+  else if (soleLanguageId)
+    tags.push(transcriptionLanguageLabel(soleLanguageId));
   else tags.push("Multilingual");
 
   if (model.id.includes("-tdrz")) tags.push("TDRZ");
 
   return tags;
+}
+
+/**
+ * The one Transcription Language a Speech Model is limited to, or null if it can do more
+ * than one. `.en` is checked before the catalog field for the reason above: the
+ * English-only Whisper models predate `supportedTranscriptionLanguageIds` and do not set it.
+ */
+export function soleTranscriptionLanguageId(model: SpeechModel): string | null {
+  if (model.id.includes(".en")) return "en";
+  const languageIds = model.supportedTranscriptionLanguageIds;
+  return languageIds?.length === 1 ? languageIds[0] : null;
+}
+
+/**
+ * Label for the accuracy bar. A single-language Speech Model names its language, because
+ * its rating was averaged over that language's benchmark conditions alone and comparing it
+ * to a multilingual model's overall accuracy is not like for like: `accuracy (en)` for the
+ * English-only Whisper models, `accuracy (da)` for the Danish hviske ones.
+ */
+export function accuracyStatLabel(model: SpeechModel): string {
+  const soleLanguageId = soleTranscriptionLanguageId(model);
+  return soleLanguageId ? `accuracy (${soleLanguageId})` : "accuracy";
 }
 
 /** The display name for a language id, falling back to the raw id if it is not in the list. */
@@ -229,11 +251,7 @@ export function ModelBrowseModal({
                               {stats && (
                                 <div className="flex gap-3 mt-1.5">
                                   <StatBar
-                                    label={
-                                      model.id.includes(".en")
-                                        ? "accuracy (en)"
-                                        : "accuracy"
-                                    }
+                                    label={accuracyStatLabel(model)}
                                     value={stats.accuracy}
                                   />
                                   <StatBar label="speed" value={stats.speed} />
