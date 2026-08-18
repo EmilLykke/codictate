@@ -35,7 +35,11 @@ import {
   DEFAULT_MODEL_ID,
   isValidSpeechModelId,
 } from '../../shared/speech-models'
-import type { DictationAvailability } from '../../shared/dictation-plan'
+import {
+  getDictationReadiness,
+  type DictationAvailability,
+  type DictationReadiness,
+} from '../../shared/dictation-plan'
 import {
   applyRunnableDictationPatch,
   healDictationSettings,
@@ -921,6 +925,7 @@ export class AppConfig {
       themePreference: this.themePreference,
       modelAvailability: modelManager.getAvailabilityMap(),
       healAnnouncements: this.getHealAnnouncements(),
+      dictationReadiness: this.getDictationReadiness(),
     }
   }
 
@@ -988,6 +993,20 @@ export class AppConfig {
     this.recordHealAnnouncements(result.announcements)
     await this.saveMain()
     return result.announcements
+  }
+
+  /**
+   * The one answer to "can Translate to English / Live Transcription run right now",
+   * computed here because `dictationAvailability()` reads the filesystem and carries a
+   * predicate that cannot cross the RPC bridge. Shipped as plain data in `getSettings()`.
+   *
+   * The Dictation Plan builder will replace the call inside without changing this seam.
+   */
+  public getDictationReadiness(): DictationReadiness {
+    return getDictationReadiness(
+      this.runnableDictationSettings(),
+      this.dictationAvailability()
+    )
   }
 
   public getHealAnnouncements(): SettingsHealAnnouncement[] {

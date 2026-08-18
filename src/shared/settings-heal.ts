@@ -27,8 +27,7 @@
  */
 
 import {
-  getStreamModeReadiness,
-  isTranslateRunnableForSelection,
+  getDictationReadiness,
   type DictationAvailability,
 } from './dictation-plan'
 import {
@@ -129,83 +128,75 @@ export function healDictationSettings(
     next.parakeetCoreMlReady = false
   }
 
-  if (next.translateToEnglish) {
-    // Deliberately not `getTranslateReadiness`: that still reports `ready` for an hviske
-    // selection whenever some other translate-capable Speech Model happens to be installed,
-    // via the runtime swap ADR-0005 removes. Applying the collapsed rule here is what makes
-    // that state unreachable, so the swap has nothing left to catch when it goes.
-    if (
-      !isTranslateRunnableForSelection(
-        next.speechModelId,
-        availability.isModelAvailable
-      )
-    ) {
-      next.translateToEnglish = false
-      announce(
-        'translate_to_english',
-        'model_cannot_translate',
-        `Translate to English turned off because ${modelLabel(next.speechModelId)} cannot translate.`
-      )
-    } else if (
-      next.transcriptionLanguageId === 'auto' &&
-      next.translateDefaultLanguageId === 'auto'
-    ) {
-      next.translateToEnglish = false
-      announce(
-        'translate_to_english',
-        'no_translate_source_language',
-        'Translate to English turned off because it needs a source language rather than automatic detection.'
-      )
+  // The same readiness the webview is shipped, asked here about the *corrected* settings.
+  // One definition of "can this run", so the heal pass and the UI cannot disagree about the
+  // hviske combination or about anything else. What differs is only the tense: readiness
+  // says why an option is unavailable, an announcement says what was switched off.
+  const readiness = getDictationReadiness(next, availability)
+
+  const translate = readiness.translateToEnglish
+  if (next.translateToEnglish && !translate.ready) {
+    next.translateToEnglish = false
+    switch (translate.reason) {
+      case 'hviske_selected':
+      case 'model_cannot_translate':
+        announce(
+          'translate_to_english',
+          'model_cannot_translate',
+          `Translate to English turned off because ${modelLabel(next.speechModelId)} cannot translate.`
+        )
+        break
+      case 'model_not_installed':
+        // Unreachable while the selection is healed first, and kept honest anyway so the
+        // union stays closed.
+        announce(
+          'translate_to_english',
+          'model_cannot_translate',
+          `Translate to English turned off because the ${modelLabel(next.speechModelId)} weights are no longer installed.`
+        )
+        break
+      case 'needs_source_language':
+        announce(
+          'translate_to_english',
+          'no_translate_source_language',
+          'Translate to English turned off because it needs a source language rather than automatic detection.'
+        )
+        break
     }
   }
 
-  if (next.streamMode) {
-    if (!availability.streamSupported) {
-      next.streamMode = false
-      announce(
-        'live_transcription',
-        'live_transcription_unsupported_platform',
-        'Live transcription turned off because this platform cannot run it yet.'
-      )
-    } else {
-      const readiness = getStreamModeReadiness(
-        next.speechModelId,
-        next.transcriptionLanguageId,
-        availability.isModelAvailable,
-        next.parakeetCoreMlReady
-      )
-      switch (readiness.kind) {
-        case 'need_parakeet_download':
-          next.streamMode = false
-          announce(
-            'live_transcription',
-            'parakeet_not_installed',
-            `Live transcription turned off because the ${PARAKEET_LABEL} weights are no longer installed.`
-          )
-          break
-        case 'need_switch_model':
-          next.streamMode = false
-          announce(
-            'live_transcription',
-            'model_cannot_stream',
-            `Live transcription turned off because ${modelLabel(next.speechModelId)} cannot run it.`
-          )
-          break
-        case 'need_language':
-          next.streamMode = false
-          announce(
-            'live_transcription',
-            'language_not_supported_by_parakeet',
-            `Live transcription turned off because ${PARAKEET_LABEL} does not support the selected transcription language.`
-          )
-          break
-        case 'need_warmup':
-        case 'ready':
-          // Warmup is transient state the user cannot act on, and a cold Parakeet run
-          // prepares itself, so it is not a reason to switch anything off. ADR-0005 takes
-          // it out of the user-facing set entirely.
-          break
-      }
+  const live = readiness.liveTranscription
+  if (next.streamMode && !live.ready) {
+    next.streamMode = false
+    switch (live.reason) {
+      case 'unsupported_platform':
+        announce(
+          'live_transcription',
+          'live_transcription_unsupported_platform',
+          'Live transcription turned off because this platform cannot run it yet.'
+        )
+        break
+      case 'parakeet_not_installed':
+        announce(
+          'live_transcription',
+          'parakeet_not_installed',
+          `Live transcription turned off because the ${PARAKEET_LABEL} weights are no longer installed.`
+        )
+        break
+      case 'model_cannot_stream':
+        announce(
+          'live_transcription',
+          'model_cannot_stream',
+          `Live transcription turned off because ${modelLabel(next.speechModelId)} cannot run it.`
+        )
+        break
+      case 'language_not_supported':
+        announce(
+          'live_transcription',
+          'language_not_supported_by_parakeet',
+          `Live transcription turned off because ${PARAKEET_LABEL} does not support the selected transcription language.`
+        )
+        break
     }
   }
 

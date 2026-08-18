@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { RPCSchema } from 'electrobun'
 import type { PlatformCapabilities } from './platform'
+import type { DictationReadiness } from './dictation-plan'
 import type { SettingsHealAnnouncement } from './settings-heal'
 import type {
   FormattingModeId,
@@ -240,6 +241,16 @@ export interface AppSettings {
    * what to say and the window only renders it.
    */
   healAnnouncements: SettingsHealAnnouncement[]
+  /**
+   * What can run right now: Translate to English and Live Transcription, each with the
+   * sentence to show when it cannot. Decided in the main process from the settings plus the
+   * on-disk Speech Models, because the availability half is a filesystem question the window
+   * cannot ask. The window renders this and derives nothing from raw availability.
+   *
+   * Recomputed on every settings push, including the one the heal pass sends after a Speech
+   * Model is downloaded or deleted, which is what keeps it live without a refresh.
+   */
+  dictationReadiness: DictationReadiness
 }
 
 export interface PermissionState {

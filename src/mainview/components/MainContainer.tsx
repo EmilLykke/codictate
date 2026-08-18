@@ -18,15 +18,9 @@ import type {
 } from "../../shared/types";
 import { appEvents } from "../app-events";
 import {
-  DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID,
-  isTranslateCapableModelId,
-  getTranslateReadiness,
-} from "../../shared/dictation-plan";
-import {
   DEFAULT_MODEL_ID,
   SPEECH_MODELS,
   coerceTranscriptionLanguageIdForModel,
-  getSpeechModel,
 } from "../../shared/speech-models";
 import {
   cancelModelDownload,
@@ -123,10 +117,13 @@ export function MainContainer({
         if (pendingTranslate === modelId) {
           setTranslateDownloadModelId(null);
           translatePendingRef.current = null;
-          if (!error && isTranslateCapableModelId(modelId)) {
+          if (!error) {
+            // The download was started *for* Translate to English, against the Speech Model
+            // the main process named in its readiness. Nothing to re-derive here: select it
+            // and ask for the toggle.
             const current = queryClient.getQueryData<AppSettings>(["settings"]);
             const sel = current?.whisperModelId ?? DEFAULT_MODEL_ID;
-            if (!isTranslateCapableModelId(sel) || sel !== modelId) {
+            if (sel !== modelId) {
               const hadStream = current?.streamMode ?? false;
               await setWhisperModel(modelId);
               queryClient.setQueryData(["settings"], (old: AppSettings) => ({
@@ -246,6 +243,17 @@ export function MainContainer({
   }, []);
 
   const handleStreamToggle = useCallback(async () => {
+    const readiness = settings.dictationReadiness.liveTranscription;
+    // Turning it *off* never needs readiness: an unrunnable Live Transcription is exactly
+    // what the user is trying to get out of.
+    if (!settings.streamMode && !readiness.ready) {
+      // The only unavailable case with a way forward. Downloading Parakeet selects it, and
+      // the settings push that follows makes the toggle live.
+      if (readiness.downloadModelId !== null) {
+        handleModelDownload(readiness.downloadModelId);
+      }
+      return;
+    }
     const newValue = !settings.streamMode;
     queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
       old ? { ...old, streamMode: newValue } : old,
@@ -254,7 +262,12 @@ export function MainContainer({
     if (!ok) {
       queryClient.setQueryData(["settings"], await fetchSettings());
     }
-  }, [settings.streamMode, queryClient]);
+  }, [
+    settings.streamMode,
+    settings.dictationReadiness.liveTranscription,
+    handleModelDownload,
+    queryClient,
+  ]);
 
   const handleFormattingToggle = useCallback(async () => {
     const newValue = !(settings.formatting?.enabled ?? false);
@@ -308,17 +321,9 @@ export function MainContainer({
       return;
     }
 
-    const isModelAvail = (id: string) =>
-      modelAvailability[id] ?? getSpeechModel(id)?.bundled ?? false;
+    const readiness = settings.dictationReadiness.translateToEnglish;
 
-    const readiness = getTranslateReadiness(
-      settings.whisperModelId,
-      settings.transcriptionLanguageId,
-      settings.translateDefaultLanguageId,
-      isModelAvail,
-    );
-
-    if (readiness.kind === "ready") {
+    if (readiness.ready) {
       const sourceLanguageId =
         settings.transcriptionLanguageId === "auto"
           ? settings.translateDefaultLanguageId
@@ -341,21 +346,17 @@ export function MainContainer({
       return;
     }
 
-    if (readiness.kind === "need_download") {
-      const sel = settings.whisperModelId;
-      const target =
-        isTranslateCapableModelId(sel) && !isModelAvail(sel)
-          ? sel
-          : DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID;
+    // The main process already picked the Speech Model whose download unblocks Translate,
+    // or said that no download does. The rest - switch to a model you already have, choose a
+    // source language - is the user's move, and the toggle says which one.
+    if (readiness.downloadModelId !== null) {
+      const target = readiness.downloadModelId;
       translatePendingRef.current = target;
       setTranslateDownloadModelId(target);
       setDownloadProgress((prev) => ({ ...prev, [target]: 0 }));
       downloadWhisperModel(target);
-      return;
     }
-
-    // need_switch_model or need_language — handled in Settings UI / language pickers.
-  }, [settings, queryClient, modelAvailability]);
+  }, [settings, queryClient]);
 
   const handleStreamTranscriptionModeChange = useCallback(
     async (mode: StreamTranscriptionMode) => {

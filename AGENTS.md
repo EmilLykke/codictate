@@ -88,7 +88,7 @@ src/
     types.ts                    # Core shared types
     platform.ts                 # Platform detection
     speech-models.ts            # Speech model definitions
-    dictation-plan.ts           # Translate resolution + readiness (pure, no platform)
+    dictation-plan.ts           # Translate resolution + shipped readiness (pure, no platform)
     settings-heal.ts            # Whole-object validation + the heal pass (pure, no platform)
     formatting-modes.ts         # Formatting mode definitions
     dictation-shortcut.ts       # Shortcut config types
@@ -160,7 +160,7 @@ A Dictation never adapts to an unrunnable state; the state is kept runnable inst
 - **One resolver.** `src/shared/dictation-plan.ts` turns `(settings, availability snapshot)` into a **Dictation Plan** - a pure value, no `modelManager` and no `getPlatform`. Batch Dictation and Live Transcription are one union. Never re-derive which Speech Model, Speech Engine, Transcription Language or crispasr backend runs anywhere else.
 - **Runnable or blocked, nothing in between.** A blocked plan carries a reason from a closed union, starts no Dictation, surfaces a message, and triggers the heal pass. There is no substitution and no silent drop.
 - **Enforced in three places.** `src/shared/settings-heal.ts` owns all three, as pure functions over `(settings, availability snapshot)`: `applyRunnableDictationPatch` validates the object a settings write would produce (a patch can be valid and its result invalid) and refuses a patch that asks for something unrunnable; `healDictationSettings` corrects the configuration on every availability change and at boot, because refusing to delete weights that happen to be selected is arguing with the user. `AppConfig` is the adapter: `updateTranscriptionSettings` for writes, `healRunnableSettings()` for `load()` and for a Speech Model download or delete. The heal pass announces changes to the Speech Model selection, Translate to English and Live Transcription in `AppSettings.healAnnouncements`, and corrects everything else in silence. Still to come: the blocked-plan path for state that changed behind the app's back.
-- **Readiness is computed in the main process** and shipped in the settings payload. The webview renders it and derives nothing.
+- **Readiness is computed in the main process** and shipped in the settings payload. `getDictationReadiness(settings, availability)` in `dictation-plan.ts` answers "can Translate to English / Live Transcription run right now" as plain serialisable data - a closed reason union plus the finished sentence to show - and `AppConfig.getSettings()` puts it in `AppSettings.dictationReadiness`. The heal pass asks the same function, so the UI and the correction cannot disagree. The webview renders it and derives nothing from raw availability. Parakeet warmup is not a readiness reason: a cold Parakeet is slow on its first run, not unavailable.
 - The benchmark is outside all of this: no settings, no availability healing, no fallback semantics. It reuses the ASR Harness command builder, not the plan.
 
 See `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.

@@ -7,10 +7,14 @@
  * Availability arrives as an `isModelAvailable(id)` predicate so the caller owns the
  * question of what "installed" means on its side.
  *
- * This is where the Dictation Plan lands. See
- * docs/adr/0005-no-runtime-fallbacks-for-dictation.md: the fallbacks still expressed below
- * are on their way out, and they stay only until the settings can no longer reach a state
- * that needs them.
+ * This is where the Dictation Plan lands, and it is the only place that answers "can this
+ * run right now". `getDictationReadiness` is that answer as a plain serialisable value:
+ * the main process computes it once, ships it in the settings payload, and the webview
+ * renders it. Nothing downstream re-derives it - not the heal pass, not a component.
+ *
+ * See docs/adr/0005-no-runtime-fallbacks-for-dictation.md: the fallbacks still expressed
+ * below are on their way out, and they stay only until the settings can no longer reach a
+ * state that needs them.
  */
 
 import {
@@ -125,69 +129,229 @@ export function hasAnyTranslateCapableModelAvailable(
   return TRANSLATE_CAPABLE_MODEL_IDS.some((id) => isModelAvailable(id))
 }
 
-export type TranslateReadiness =
-  | { kind: 'ready' }
-  | { kind: 'need_download' }
-  | { kind: 'need_switch_model' }
-  | { kind: 'need_language' }
-
-export function getTranslateReadiness(
-  speechModelId: string,
-  transcriptionLanguageId: string,
-  translateDefaultLanguageId: string,
-  isModelAvailable: (id: string) => boolean
-): TranslateReadiness {
-  const langOk =
-    transcriptionLanguageId !== 'auto' || translateDefaultLanguageId !== 'auto'
-  if (!langOk) {
-    return { kind: 'need_language' }
-  }
-
-  if (resolveTranslateModelId(speechModelId, isModelAvailable) !== null) {
-    return { kind: 'ready' }
-  }
-
-  if (isTranslateCapableModelId(speechModelId)) {
-    return { kind: 'need_download' }
-  }
-
-  if (hasAnyTranslateCapableModelAvailable(isModelAvailable)) {
-    return { kind: 'need_switch_model' }
-  }
-
-  return { kind: 'need_download' }
-}
-
 export function isStreamCapableModelId(id: string): boolean {
   const m = getSpeechModel(id)
   return m != null && supportsStreamMode(m)
 }
 
-export type StreamModeReadiness =
-  | { kind: 'ready' }
-  | { kind: 'need_parakeet_download' }
-  | { kind: 'need_switch_model' }
-  | { kind: 'need_language' }
-  | { kind: 'need_warmup' }
+/** The Speech Model's user-facing name, or the raw id when the catalog has never heard of it. */
+function modelLabel(speechModelId: string): string {
+  return getSpeechModel(speechModelId)?.label ?? speechModelId
+}
 
-/** Whether stream (Parakeet) dictation can be enabled with the given config. */
-export function getStreamModeReadiness(
-  speechModelId: string,
-  transcriptionLanguageId: string,
-  isModelAvailable: (id: string) => boolean,
+const PARAKEET_LABEL = modelLabel(DEFAULT_STREAM_CAPABLE_MODEL_ID)
+
+/**
+ * The settings readiness depends on. Deliberately not the whole settings object and
+ * deliberately not `RunnableDictationSettings` (which lives one module up and imports this
+ * one): a `RunnableDictationSettings` satisfies it structurally, so `AppConfig` passes the
+ * one it already builds.
+ *
+ * Note what is absent: `translateToEnglish` and `streamMode`. Readiness is "can this run",
+ * not "is this on", and mixing the two is how a component ends up deciding for itself.
+ */
+export interface DictationReadinessInput {
+  speechModelId: string
+  transcriptionLanguageId: string
+  translateDefaultLanguageId: string
+  /** Parakeet has finished its one-time on-device preparation. */
   parakeetCoreMlReady: boolean
+}
+
+/**
+ * Why Translate to English cannot run. Closed union, so a new way for it to be unavailable
+ * cannot arrive without `tsc` demanding a sentence for it.
+ */
+export type TranslateReadinessReason =
+  /** hviske is selected: Danish-only GGUF weights that cannot translate at all. */
+  | 'hviske_selected'
+  /** A turbo, English-only or Parakeet selection: translation is not in the weights. */
+  | 'model_cannot_translate'
+  /** The selection could translate, but its weights are not on disk. */
+  | 'model_not_installed'
+  /** Translating from automatic detection is not a thing whisper.cpp can do. */
+  | 'needs_source_language'
+
+/** Why Live Transcription cannot run. Closed union, same contract. */
+export type StreamModeReadinessReason =
+  /** No Parakeet plumbing on this platform yet. */
+  | 'unsupported_platform'
+  | 'parakeet_not_installed'
+  | 'model_cannot_stream'
+  | 'language_not_supported'
+
+/**
+ * One capability, decided. Plain data: it rides the settings payload across the Electrobun
+ * RPC bridge, so no functions and no class instances.
+ *
+ * `message` is a finished sentence written here rather than in the window, for the same
+ * reason `SettingsHealAnnouncement.message` is: the rule and the wording it justifies drift
+ * apart the moment they live in different files.
+ */
+export type CapabilityReadiness<Reason extends string> =
+  | {
+      /** Runnable right now, exactly as configured. */
+      ready: true
+      reason: null
+      /** One finished sentence, shown to the user as written. */
+      message: string
+      downloadModelId: null
+    }
+  | {
+      ready: false
+      /** Why not. Discriminated on `ready`, so a reader cannot forget to check. */
+      reason: Reason
+      /** One finished sentence, shown to the user as written. */
+      message: string
+      /**
+       * The Speech Model whose download would unblock this capability, or `null` when no
+       * download helps and the user has to change the configuration instead. This is what
+       * lets the UI offer a way forward rather than only refusing.
+       */
+      downloadModelId: string | null
+    }
+
+export type TranslateReadiness = CapabilityReadiness<TranslateReadinessReason>
+export type StreamModeReadiness = CapabilityReadiness<StreamModeReadinessReason>
+
+/** What the webview is shipped, and the whole of what it knows about what can run. */
+export interface DictationReadiness {
+  translateToEnglish: TranslateReadiness
+  liveTranscription: StreamModeReadiness
+}
+
+function translateReadiness(
+  input: DictationReadinessInput,
+  availability: DictationAvailability
+): TranslateReadiness {
+  const selected = input.speechModelId
+  const selectedLabel = modelLabel(selected)
+
+  // hviske before the general capability check, because "Danish-only weights" is a better
+  // sentence than "cannot translate" and because this is the combination ADR-0005 stops
+  // offering. It used to appear to work by loading a Whisper model the user never chose.
+  if (isHviskeSpeechModelId(selected)) {
+    return {
+      ready: false,
+      reason: 'hviske_selected',
+      message: `Translate to English is unavailable while ${selectedLabel} is selected: its Danish weights cannot translate. Switch to a Whisper Small or Large Speech Model.`,
+      downloadModelId: null,
+    }
+  }
+
+  if (!isTranslateCapableModelId(selected)) {
+    const canSwitchToInstalled = hasAnyTranslateCapableModelAvailable(
+      availability.isModelAvailable
+    )
+    return {
+      ready: false,
+      reason: 'model_cannot_translate',
+      message: canSwitchToInstalled
+        ? `${selectedLabel} cannot translate to English. Switch to an installed Whisper Small or Large Speech Model.`
+        : `${selectedLabel} cannot translate to English. Download ${modelLabel(DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID)} to use it.`,
+      downloadModelId: canSwitchToInstalled
+        ? null
+        : DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID,
+    }
+  }
+
+  if (!availability.isModelAvailable(selected)) {
+    return {
+      ready: false,
+      reason: 'model_not_installed',
+      message: `Translate to English needs the ${selectedLabel} weights, which are not installed. Download them to use it.`,
+      downloadModelId: selected,
+    }
+  }
+
+  if (
+    input.transcriptionLanguageId === 'auto' &&
+    input.translateDefaultLanguageId === 'auto'
+  ) {
+    return {
+      ready: false,
+      reason: 'needs_source_language',
+      message:
+        'Translate to English needs a source language rather than automatic detection. Choose one below.',
+      downloadModelId: null,
+    }
+  }
+
+  return {
+    ready: true,
+    reason: null,
+    message: 'Translate mode: transcribe and translate to English.',
+    downloadModelId: null,
+  }
+}
+
+function streamModeReadiness(
+  input: DictationReadinessInput,
+  availability: DictationAvailability
 ): StreamModeReadiness {
-  if (!isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID)) {
-    return { kind: 'need_parakeet_download' }
+  if (!availability.streamSupported) {
+    return {
+      ready: false,
+      reason: 'unsupported_platform',
+      message: 'Live transcription is not available on this platform yet.',
+      downloadModelId: null,
+    }
   }
-  if (!isStreamCapableModelId(speechModelId)) {
-    return { kind: 'need_switch_model' }
+
+  if (!availability.isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID)) {
+    return {
+      ready: false,
+      reason: 'parakeet_not_installed',
+      message: `Live transcription needs the ${PARAKEET_LABEL} weights. Download them to use it.`,
+      downloadModelId: DEFAULT_STREAM_CAPABLE_MODEL_ID,
+    }
   }
-  if (!parakeetSupportsTranscriptionLanguageId(transcriptionLanguageId)) {
-    return { kind: 'need_language' }
+
+  if (!isStreamCapableModelId(input.speechModelId)) {
+    return {
+      ready: false,
+      reason: 'model_cannot_stream',
+      message: `${modelLabel(input.speechModelId)} cannot run live transcription. Switch to ${PARAKEET_LABEL}.`,
+      downloadModelId: null,
+    }
   }
-  if (!parakeetCoreMlReady) {
-    return { kind: 'need_warmup' }
+
+  if (!parakeetSupportsTranscriptionLanguageId(input.transcriptionLanguageId)) {
+    return {
+      ready: false,
+      reason: 'language_not_supported',
+      message: `${PARAKEET_LABEL} does not support the selected transcription language.`,
+      downloadModelId: null,
+    }
   }
-  return { kind: 'ready' }
+
+  // A cold Parakeet is ready, just slow the first time: the run prepares itself. Warmup was
+  // a readiness reason nobody could act on, and ADR-0005 takes it out of the user-facing
+  // set rather than dressing it up as unavailability.
+  return {
+    ready: true,
+    reason: null,
+    message: input.parakeetCoreMlReady
+      ? 'Live transcription: continuous dictation.'
+      : `Live transcription: continuous dictation. The first run takes a moment while ${PARAKEET_LABEL} prepares itself on this device.`,
+    downloadModelId: null,
+  }
+}
+
+/**
+ * The single answer to "what can run right now", for every surface that asks.
+ *
+ * Computed in the main process (`AppConfig.getSettings`) and shipped whole, because the
+ * availability half of the pair is a filesystem question the window cannot ask and a
+ * predicate that cannot cross the RPC bridge. Recomputed on every settings push, which is
+ * what keeps it live when a Speech Model is downloaded or deleted.
+ */
+export function getDictationReadiness(
+  input: DictationReadinessInput,
+  availability: DictationAvailability
+): DictationReadiness {
+  return {
+    translateToEnglish: translateReadiness(input, availability),
+    liveTranscription: streamModeReadiness(input, availability),
+  }
 }
