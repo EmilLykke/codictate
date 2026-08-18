@@ -1018,12 +1018,28 @@ export class AppConfig {
    * Returns what has to be said out loud, so the caller can also resync the tray and stop a
    * Live Transcription that just lost its Speech Model.
    */
-  public async healRunnableSettings(): Promise<SettingsHealAnnouncement[]> {
+  public async healRunnableSettings(options?: {
+    /**
+     * Retire an earlier correction if this pass finds nothing left to heal.
+     *
+     * Only the availability callers pass this. A correction is worth saying once and then
+     * leaving on screen, so an ordinary settings write must not wipe it half a second after
+     * it appeared - but a Speech Model finishing its download is the user fixing the very
+     * thing the correction was about, and a notice that outlives its cause is just wrong.
+     */
+    retireSettledAnnouncements?: boolean
+  }): Promise<SettingsHealAnnouncement[]> {
     const result = healDictationSettings(
       this.runnableDictationSettings(),
       this.dictationAvailability()
     )
     if (result.unchanged) {
+      if (
+        options?.retireSettledAnnouncements === true &&
+        this.healAnnouncements.length > 0
+      ) {
+        this.healAnnouncements = []
+      }
       // Still a settled `(settings, availability)` pair, and the availability half may be
       // what moved: a finished Parakeet download changes nothing about the settings and is
       // exactly the moment a preparation becomes possible.

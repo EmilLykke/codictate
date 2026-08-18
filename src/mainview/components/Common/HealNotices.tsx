@@ -8,8 +8,11 @@ import type { SettingsHealAnnouncement } from "../../../shared/settings-heal";
  * Two notices, one banner slot, one channel. The main process decides both the fact and the
  * wording (see docs/adr/0005-no-runtime-fallbacks-for-dictation.md); this renders it and
  * derives nothing. Both ride the settings payload, so they arrive again with every unrelated
- * settings push - hence dismissal is keyed on the *set* of notices rather than on a timer or
- * an id, and only a genuinely different set reappears after a dismissal.
+ * settings push - hence dismissal is keyed on *what the notice says* rather than on a timer or
+ * an id, and only a genuinely different notice reappears after a dismissal.
+ *
+ * Each notice keeps its own key. They share a payload, not a fate: dismissing a correction
+ * that already happened should not also dismiss the reason a Dictation just refused to run.
  *
  * The blocked notice comes first and in red: it is the reason a Dictation the user asked for
  * produced nothing, where the amber rows below are corrections that already happened. When
@@ -22,21 +25,36 @@ export function HealNotices({
   announcements: SettingsHealAnnouncement[];
   blocked?: BlockedDictationPlan | null;
 }) {
-  const key = [
-    ...(blocked ? [`blocked:${blocked.mode}:${blocked.reason}`] : []),
-    ...announcements.map((a) => `${a.target}:${a.reason}`),
-  ].join("|");
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  // One key per notice, not one for both. They arrive on the same payload but they are
+  // independent facts with independent dismiss buttons, and a single shared key meant
+  // dismissing the amber row also hid the red one - then a change to either row produced a
+  // new combined key and resurrected both.
+  const blockedKey = blocked ? `${blocked.mode}:${blocked.reason}` : "";
+  const announcementsKey = announcements
+    .map((a) => `${a.target}:${a.reason}`)
+    .join("|");
+  const [dismissedBlocked, setDismissedBlocked] = useState<string | null>(null);
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
-    if (!key) setDismissedKey(null);
-  }, [key]);
+    if (!blockedKey) setDismissedBlocked(null);
+  }, [blockedKey]);
 
-  if (!key || key === dismissedKey) return null;
+  useEffect(() => {
+    if (!announcementsKey) setDismissedAnnouncements(null);
+  }, [announcementsKey]);
+
+  const showBlocked = blockedKey !== "" && blockedKey !== dismissedBlocked;
+  const showAnnouncements =
+    announcementsKey !== "" && announcementsKey !== dismissedAnnouncements;
+
+  if (!showBlocked && !showAnnouncements) return null;
 
   return (
     <div className="mb-4 flex flex-col gap-3">
-      {blocked !== null && (
+      {showBlocked && blocked !== null && (
         <div className="flex items-start gap-3 rounded-xl border border-accent-red/30 bg-accent-red/10 px-4 py-3">
           <svg
             width="18"
@@ -60,11 +78,11 @@ export function HealNotices({
           >
             {blocked.message}
           </p>
-          <DismissButton onClick={() => setDismissedKey(key)} />
+          <DismissButton onClick={() => setDismissedBlocked(blockedKey)} />
         </div>
       )}
 
-      {announcements.length > 0 && (
+      {showAnnouncements && (
         <div className="flex items-start gap-3 rounded-xl border border-accent-amber/30 bg-accent-amber/10 px-4 py-3">
           <svg
             width="18"
@@ -92,7 +110,9 @@ export function HealNotices({
               </li>
             ))}
           </ul>
-          <DismissButton onClick={() => setDismissedKey(key)} />
+          <DismissButton
+            onClick={() => setDismissedAnnouncements(announcementsKey)}
+          />
         </div>
       )}
     </div>

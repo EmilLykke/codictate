@@ -147,7 +147,12 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
    * off, and the tray checkmarks and any running Parakeet stream have to follow.
    */
   async function healAfterAvailabilityChange(): Promise<void> {
-    await deps.appConfig.healRunnableSettings()
+    // Availability moving is the one moment an earlier correction can have been undone by
+    // the user - they downloaded the Speech Model back - so a pass with nothing left to heal
+    // retires the notice here rather than leaving it claiming a switch that no longer holds.
+    await deps.appConfig.healRunnableSettings({
+      retireSettledAnnouncements: true,
+    })
     try {
       rpc.send.updateSettings(deps.appConfig.getSettings())
     } catch {
