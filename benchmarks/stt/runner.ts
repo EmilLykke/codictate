@@ -31,8 +31,12 @@ function resolveModelPath(modelId: string): string | null {
   if (!speech) return null;
 
   if (speech.engine === "whisperkit") {
-    const dir = modelManager.getParakeetInstallDir(modelId);
-    return existsSync(dir) ? dir : null;
+    // `isModelAvailable`, not `existsSync`: the directory existing is not the same as the
+    // weights being loadable, and it is also what migrates an install left under the old
+    // Parakeet folder name. A half-populated directory used to pass this check and then
+    // spend the whole Benchmark Run re-downloading, once per utterance.
+    if (!modelManager.isModelAvailable(modelId)) return null;
+    return modelManager.getParakeetInstallDir(modelId);
   }
 
   // Check standard model manager path first
@@ -138,6 +142,34 @@ function harnessInvocationFor(
   return { harness, language };
 }
 
+/**
+ * Say so when a Harness process fails, once per distinct failure.
+ *
+ * A non-zero exit used to be indistinguishable from silence: the transcript came back empty,
+ * the empty string scored as a 100% WER utterance, and the Benchmark Run finished with
+ * plausible-looking numbers produced by a Harness that never transcribed anything. The
+ * process stderr was already being captured and then dropped on the floor.
+ *
+ * Deduplicated because a broken Harness fails identically on all 200 utterances, and 200
+ * copies of one stack trace buries the run's actual progress.
+ */
+const reportedHelperFailures = new Set<string>();
+
+function reportHelperFailure(
+  label: string,
+  exitCode: number | null,
+  stderrText: string,
+): void {
+  if (exitCode === 0) return;
+  const tail = stderrText.split("\n").slice(-3).join(" | ").slice(-400);
+  const key = `${label}:${exitCode}:${tail}`;
+  if (reportedHelperFailures.has(key)) return;
+  reportedHelperFailures.add(key);
+  console.error(
+    `    [!] ${label} exited ${exitCode}${tail === "" ? "" : `: ${tail}`}`,
+  );
+}
+
 async function transcribeWhisper(
   modelPath: string,
   audioPath: string,
@@ -160,7 +192,10 @@ async function transcribeWhisper(
   const stderrPromise = drainStream(proc.stderr);
   const stdoutPromise = drainStream(proc.stdout);
   await proc.exited;
-  await stderrPromise;
+  const stderrText = new TextDecoder("utf-8")
+    .decode(await stderrPromise)
+    .trim();
+  reportHelperFailure(harness, proc.exitCode, stderrText);
   const stdoutBytes = await stdoutPromise;
   const raw = new TextDecoder("utf-8").decode(stdoutBytes).trim();
   return fixBrandMishearings(raw);
@@ -180,7 +215,10 @@ async function transcribeParakeet(
   const stderrPromise = drainStream(proc.stderr);
   const stdoutPromise = drainStream(proc.stdout);
   await proc.exited;
-  await stderrPromise;
+  const stderrText = new TextDecoder("utf-8")
+    .decode(await stderrPromise)
+    .trim();
+  reportHelperFailure("parakeet", proc.exitCode, stderrText);
   const out = new TextDecoder("utf-8").decode(await stdoutPromise).trim();
 
   let text = "";

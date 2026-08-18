@@ -664,6 +664,28 @@ export function transcriptionLanguageAllowedForModel(
   return (list as readonly string[]).includes(transcriptionLanguageId)
 }
 
+/**
+ * The directory name FluidAudio will actually read Parakeet's Core ML weights from.
+ *
+ * FluidAudio does not read the directory it is handed. `AsrModels.load(from:)` takes that
+ * directory's *parent* and re-appends `Repo.folderName`, and for the v3 Parakeet repo
+ * `folderName` is the repo slug with every `-coreml` stripped out (FluidAudio 0.13.6,
+ * `ModelNames.swift`, the `default:` arm of `folderName`). `DownloadUtils.loadModels` then
+ * resolves the same `directory + folderName` path.
+ *
+ * So weights installed under the repo slug itself are invisible to the loader: it decides
+ * they are missing and downloads its own copy into the name it expected. Worse, a failed
+ * load deletes that directory and retries once (`DownloadUtils.loadModels`), so a mismatch
+ * costs a fresh 461 MB fetch on every single attempt, with nothing on stdout to say so.
+ *
+ * macOS only. The Windows helper is ONNX and reads the directory it is given.
+ */
+export function fluidAudioModelFolderName(artifactName: string): string {
+  // split/join rather than replaceAll: it matches Swift's replacingOccurrences on every
+  // occurrence, and replaceAll is past this project's configured lib target.
+  return artifactName.split('-coreml').join('')
+}
+
 export function parakeetSupportsTranscriptionLanguageId(id: string): boolean {
   return transcriptionLanguageAllowedForModel(
     DEFAULT_STREAM_CAPABLE_MODEL_ID,

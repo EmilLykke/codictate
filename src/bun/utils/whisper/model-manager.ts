@@ -16,6 +16,7 @@ import {
   getSpeechModel,
   hviskeMirrorFileUrl,
   whisperModelDownloadUrl,
+  fluidAudioModelFolderName,
   type SpeechModel,
 } from '../../../shared/speech-models'
 import { log } from '../logger'
@@ -161,7 +162,54 @@ function parakeetInstallComplete(dir: string): boolean {
 function parakeetArtifactName(model: SpeechModel): string {
   if (getPlatformRuntime() === 'windows')
     return WINDOWS_PARAKEET_ONNX_ARTIFACT_NAME
-  return model.artifactName
+  return fluidAudioModelFolderName(model.artifactName)
+}
+
+/**
+ * Where Parakeet's weights used to be installed: under the Hugging Face repo slug, which
+ * is one `-coreml` away from the only name FluidAudio ever looks at. Returns null when
+ * the two names agree and there is nothing to migrate.
+ */
+function legacyParakeetInstallDir(model: SpeechModel): string | null {
+  if (getPlatformRuntime() === 'windows') return null
+  const legacy = join(MODELS_DIR, model.artifactName)
+  const current = join(MODELS_DIR, parakeetArtifactName(model))
+  return legacy === current ? null : legacy
+}
+
+/**
+ * Move a pre-existing install to the name FluidAudio reads, so the fix costs no download.
+ *
+ * Deliberately conservative about the delete: it only clears the target when the target is
+ * incomplete *and* the legacy install is complete, which is exactly the wreckage a
+ * mismatched load leaves behind - FluidAudio's own partial fetch of weights that were
+ * already on disk under the other name.
+ */
+function migrateLegacyParakeetInstall(model: SpeechModel): void {
+  const legacyDir = legacyParakeetInstallDir(model)
+  if (legacyDir === null) return
+  const targetDir = join(MODELS_DIR, parakeetArtifactName(model))
+  if (!parakeetCoreMlInstallComplete(legacyDir)) return
+  if (parakeetCoreMlInstallComplete(targetDir)) return
+  try {
+    if (existsSync(targetDir))
+      rmSync(targetDir, { recursive: true, force: true })
+    renameSync(legacyDir, targetDir)
+    log(
+      'model-manager',
+      'migrated Parakeet install to the FluidAudio folder name',
+      {
+        from: legacyDir,
+        to: targetDir,
+      }
+    )
+  } catch (err) {
+    log('model-manager', 'could not migrate Parakeet install', {
+      from: legacyDir,
+      to: targetDir,
+      err: String(err),
+    })
+  }
 }
 
 function parakeetRepoId(model: SpeechModel): string | undefined {
@@ -172,6 +220,7 @@ function parakeetRepoId(model: SpeechModel): string | undefined {
 class ModelManager {
   private downloads = new Map<string, AbortController>()
   private coreMlCleaned = new Set<string>()
+  private legacyMigrated = new Set<string>()
 
   private modelInfo(modelId: string): SpeechModel | undefined {
     return getSpeechModel(modelId)
@@ -183,6 +232,12 @@ class ModelManager {
     if (model.bundled) return true
     if (model.engine === 'whisperkit') {
       const dir = this.getParakeetInstallDir(modelId)
+      // Before the answer is given, not after: an install sitting under the old name is
+      // present, and reporting it missing would offer the user a download they already have.
+      if (!this.legacyMigrated.has(dir)) {
+        migrateLegacyParakeetInstall(model)
+        this.legacyMigrated.add(dir)
+      }
       if (!parakeetInstallComplete(dir)) return false
       if (!this.coreMlCleaned.has(dir)) {
         cleanupParakeetCoreMlInstall(dir)
@@ -464,10 +519,16 @@ class ModelManager {
     if (!model || model.bundled) return false
     if (model.engine === 'whisperkit') {
       const dir = join(MODELS_DIR, parakeetArtifactName(model))
-      if (!existsSync(dir)) return false
-      return this.tryRemoveDownloadedModel(modelId, () =>
+      // A copy under the old name is the same weights taking the same disk space, so a
+      // delete that left it behind would not free what the user asked to free.
+      const legacyDir = legacyParakeetInstallDir(model)
+      const stale =
+        legacyDir !== null && existsSync(legacyDir) ? legacyDir : null
+      if (!existsSync(dir) && stale === null) return false
+      return this.tryRemoveDownloadedModel(modelId, () => {
         rmSync(dir, { recursive: true, force: true })
-      )
+        if (stale !== null) rmSync(stale, { recursive: true, force: true })
+      })
     }
     const modelPath = join(MODELS_DIR, model.artifactName)
     if (!existsSync(modelPath)) return false

@@ -672,9 +672,16 @@ async function main() {
     }
 
     for (const modelId of flags.models) {
-      console.log(`\n[${modelId} / ${harness}]`);
+      // The header names what actually transcribes, not the Harness that was selected.
+      // Parakeet ignores the selected Harness entirely, so printing one next to it read as
+      // a claim that crispasr produced the numbers.
+      // Historical engine label: the engine behind it is FluidAudio, not WhisperKit.
+      const runsOwnHelper = getSpeechModel(modelId)?.engine === "whisperkit";
+      console.log(
+        `\n[${modelId} / ${runsOwnHelper ? "parakeet helper" : harness}]`,
+      );
       const bucket = harnessBucketForModel(modelId, harness);
-      if (bucket !== harness) {
+      if (runsOwnHelper || bucket !== harness) {
         console.log(
           `  [${modelId}] recorded under "${bucket}": Parakeet runs through its own helper, so harness does not apply`,
         );

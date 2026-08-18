@@ -213,15 +213,23 @@ async function runParakeetWarmup(speechModelId: string): Promise<boolean> {
     const modelDir = modelManager.getParakeetInstallDir(speechModelId)
     const warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
     await Bun.write(warmupPath, createSilentWav())
-    log('parakeet', 'starting model warmup', { speechModelId })
+    log('parakeet', 'starting model warmup', { speechModelId, modelDir })
+    // stderr is captured rather than ignored. The helper reports its phases there, and
+    // discarding them is what let a mismatched model directory read as a freeze: FluidAudio
+    // was re-downloading 461 MB on every attempt and saying so to nobody.
     const proc = Bun.spawn([helper, 'transcribe', warmupPath, modelDir], {
       stdout: 'ignore',
-      stderr: 'ignore',
+      stderr: 'pipe',
       env: { ...process.env, LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
     })
+    const stderr = (await new Response(proc.stderr).text()).trim()
     await proc.exited
-    log('parakeet', 'model warmup complete', { exitCode: proc.exitCode })
-    return proc.exitCode === 0
+    const failed = proc.exitCode !== 0
+    log('parakeet', failed ? 'model warmup failed' : 'model warmup complete', {
+      exitCode: proc.exitCode,
+      ...(stderr === '' ? {} : { stderr: stderr.slice(-2000) }),
+    })
+    return !failed
   } catch (err) {
     log('parakeet', 'model warmup error', { err: String(err) })
     return false
