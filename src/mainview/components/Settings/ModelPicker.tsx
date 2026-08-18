@@ -17,13 +17,16 @@ const SHORT_DESC: Record<string, string> = {
   "small-q5_1": "Lightweight multilingual. 475 MB RAM.",
   "large-v3-turbo-q5_0": "Daily driver multilingual. 800 MB RAM.",
   "large-v3-q5_0": "Highest accuracy, multilingual. 2.0 GB RAM.",
-  // The five hviske Quantizations differ only in size and speed: syvai's model card reports
-  // the same Danish WER (10.51) for all of them, so the trade-off is the whole story here.
-  "hviske-v5-tiny-f16": "Danish only, full precision. 675 MB RAM.",
-  "hviske-v5-tiny-q8_0": "Danish only, near-full precision. 440 MB RAM.",
-  "hviske-v5-tiny-q6_k": "Danish only, balanced. 405 MB RAM.",
-  "hviske-v5-tiny-q5_0": "Danish only, compact. 350 MB RAM.",
-  "hviske-v5-tiny-q4_k": "Danish only, smallest and fastest. 325 MB RAM.",
+  // The five hviske Quantizations differ only in size and speed. The Benchmark Run
+  // 2026-08-18_08-17-28_hviske-vs-main-models measured Danish WER from 11.29 to 11.67
+  // across all five, a spread inside the noise on 197 utterances, so the model card's
+  // claim of one WER for every Quantization holds and the trade-off is the whole story.
+  // RAM figures are that run's average peak RSS, not estimates.
+  "hviske-v5-tiny-f16": "Danish only, full precision. 601 MB RAM.",
+  "hviske-v5-tiny-q8_0": "Danish only, near-full precision. 368 MB RAM.",
+  "hviske-v5-tiny-q6_k": "Danish only, balanced. 332 MB RAM.",
+  "hviske-v5-tiny-q5_0": "Danish only, compact. 282 MB RAM.",
+  "hviske-v5-tiny-q4_k": "Danish only, smallest and fastest. 253 MB RAM.",
 };
 
 function StatBar({

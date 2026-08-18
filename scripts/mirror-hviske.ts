@@ -32,13 +32,15 @@ const LICENSE_ID = 'cc-by-nc-4.0'
 /**
  * All five Quantizations the source repo publishes ship, so a user can pick their own
  * size/accuracy trade-off. The model card lists an identical Danish WER (10.51) for every
- * one of them, so size and speed are the only real differences: larger is slower.
+ * one of them, and the Benchmark Run 2026-08-18_08-17-28_hviske-vs-main-models confirmed it
+ * on FLEURS da_dk: 11.29 to 11.67 WER across all five, noise on 197 utterances. So size and
+ * speed are the only real differences: larger is slower.
  *
  * Codictate does not default to any of them. None is marked `curated`, so all five appear
- * only in the browse modal and a user reaches every one the same way. f16 is what the docs
- * recommend starting with, on the reasoning that it is full precision and the source repo's
- * own primary, so it is least likely to be where the unverified equal-WER claim breaks
- * down. That is a recommendation, not a default.
+ * only in the browse modal and a user reaches every one the same way. q5_0 is what the docs
+ * recommend starting with, on the measurement above: it took the lowest WER in the run at a
+ * third of f16's size, and q4_k is the pick when the download size matters more. That is a
+ * recommendation, not a default.
  *
  * Sizes are the MiB figures the Hugging Face API reports, listed largest first.
  */
@@ -117,7 +119,14 @@ function runHf(
 }
 
 function buildReadme(): string {
-  const primary = FILES[0].name
+  // The Quantization the README points a first-time reader at. `q5_0` rather than
+  // `FILES[0]` (f16, largest first): the Benchmark Run measured the lowest WER of the five
+  // here, at a third of f16's size. Named by artifact so a reordering of FILES cannot
+  // silently move the recommendation.
+  const primary = 'hviske-v5-tiny-q5_0.gguf'
+  if (!FILES.some((f) => f.name === primary)) {
+    throw new Error(`README recommends ${primary}, which is not in the mirrored file list`)
+  }
   return `---
 license: ${LICENSE_ID}
 base_model: ${SOURCE_REPO}
@@ -158,11 +167,13 @@ ${FILES.map((f) => `| \`${f.name}\` | ${f.approxSize} | ${f.note} |`).join('\n')
 
 The model card of the original repository reports the same Danish WER (10.51) for every
 one of these, so the choice is a size and speed trade-off rather than an accuracy one.
+Codictate measured all five independently on FLEURS \`da_dk\` (197 utterances, Apple M4 Max,
+CrispASR \`--backend cohere\`) and got 11.29% to 11.67% WER across the whole set, a spread
+small enough to be noise on that sample. The identical-WER claim holds.
 
 Codictate does not default to any one of these. All five are offered side by side, and the
 user picks the size and speed trade-off they want. If you want a starting point, \`${primary}\`
-is full precision and the source repo's own primary, so it is the safest choice if you would
-rather not rely on the identical-WER claim above holding at the smaller Quantizations.
+took the lowest measured WER of the five, at a third of the size of the \`f16\` weights.
 
 ## Runtime
 

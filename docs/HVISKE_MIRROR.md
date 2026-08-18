@@ -49,21 +49,44 @@ Each Quantization is a separate Speech Model with its own Model ID in
 
 ## Which Quantization to recommend
 
-**`f16`**, and the recommendation is a judgement rather than a measurement.
+**`q5_0`**, or **`q4_k`** if the download size matters more than 28 MB, and both are now
+measurements rather than judgements.
 
-syvai's model card claims an identical Danish WER of **10.51 for all five
-Quantizations**. Codictate has not verified that independently, and it is an unusual
-claim: an identical error rate from full precision `f16` down to `q4_k` is not what
-quantization normally does. `f16` is full precision and the source repo's own primary,
-so it is the Quantization least likely to be the one where that claim breaks down. That
-is the whole reason it is recommended over the much smaller `q4_k`. State the caveat
-wherever the recommendation is made.
+The Benchmark Run `2026-08-18_08-17-28_hviske-vs-main-models` measured all five on FLEURS
+`da_dk`: 197 scored utterances, 3 warmup, Apple M4 Max, macOS 26.5.1, through the shipping
+`crispasr` Harness with `--backend cohere`.
 
-syvai publishes speed figures for two of the five only: roughly 39x realtime for `f16`
-and roughly 56x realtime for `q4_k`, both on an M4. The three in between have no
-published numbers, and Codictate has measured none of them. Danish WER is unmeasured by
-Codictate for every Quantization, so no hviske entry should be marked `curated` until
-that changes.
+| Quantization | Disk | Avg peak RSS | ms / sec audio | Danish WER | Danish CER |
+| --- | --- | --- | --- | --- | --- |
+| `f16` | 503 MB | 601 MB | 21 ms | 11.48% | 6.79% |
+| `q8_0` | 268 MB | 368 MB | 18 ms | 11.53% | 6.80% |
+| `q6_k` | 232 MB | 332 MB | 17 ms | 11.67% | 6.82% |
+| `q5_0` | 181 MB | 282 MB | 16 ms | **11.29%** | 6.72% |
+| `q4_k` | 153 MB | 253 MB | 16 ms | 11.43% | 6.83% |
+
+A 0.38 point spread over a 3.3x range in file size, on 197 utterances, is noise. Read it
+as "the Quantization does not change the accuracy", not as a ranking: `f16` placing third
+means nothing. syvai's claim of an identical Danish WER of **10.51 for all five
+Quantizations** therefore holds, one point higher in absolute terms on this dataset than
+on theirs.
+
+That measurement is what retired the old `f16` recommendation. `f16` was recommended only
+because it was full precision and the source repo's own primary, so it was the least
+likely place for an unverified equal-WER claim to break down. The claim is no longer
+unverified, so that hedge costs 2.8x the disk, 2.1x the memory and 31% more time per
+second of audio than `q5_0`, for nothing measurable.
+
+For context on how good these numbers are: the best Danish result from any Whisper Speech
+Model Codictate has ever measured is Large V3 at full precision, 12.67% WER for 2.9 GB of
+weights. `q4_k` beats it at 153 MB.
+
+Codictate's own speed figures supersede syvai's published ones, which covered two of the
+five only (roughly 39x realtime for `f16` and 56x realtime for `q4_k` on an M4). Measured
+here, `q5_0` and `q4_k` run at about 61x and 63x realtime, `f16` at 47x.
+
+Danish WER being measured now removes the blocker on marking an hviske entry `curated`.
+None is marked, and that is for a different reason: a Danish-only Speech Model does not
+belong in the main Settings list that every user scans.
 
 ## Runtime constraint
 

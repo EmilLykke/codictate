@@ -1,0 +1,113 @@
+{
+  "description": "This benchmark compares the hviske model to the already main models recommended in Codictate",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.5.1"
+  },
+  "runDate": "2026-08-18T08:24:00.473Z",
+  "config": {
+    "sampleSize": 200,
+    "warmupCount": 3,
+    "normalization": "whisper-basic"
+  },
+  "librispeech": {},
+  "fleurs": {
+    "da_dk": {
+      "crispasr": {
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.19357177380376994,
+          "meanRTF": 0.016616616299236074,
+          "peakRSS_MB": {
+            "min": 78,
+            "avg": 79,
+            "max": 80
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 36.67652782799986,
+          "cer": 0.08497932935231971
+        },
+        "large-v3-turbo-q5_0": {
+          "wer": 0.15200579990333493,
+          "meanRTF": 0.051842375967053406,
+          "peakRSS_MB": {
+            "min": 741,
+            "avg": 742,
+            "max": 742
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 114.42752908199965,
+          "cer": 0.06538049303322616
+        },
+        "hviske-v5-tiny-f16": {
+          "wer": 0.11478975350410826,
+          "meanRTF": 0.021264334056414966,
+          "peakRSS_MB": {
+            "min": 595,
+            "avg": 601,
+            "max": 604
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 46.935063416000254,
+          "cer": 0.06794518450467003
+        },
+        "hviske-v5-tiny-q8_0": {
+          "wer": 0.1152730787820203,
+          "meanRTF": 0.017546516890477322,
+          "peakRSS_MB": {
+            "min": 362,
+            "avg": 368,
+            "max": 372
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 38.72902301099937,
+          "cer": 0.06798346348185577
+        },
+        "hviske-v5-tiny-q6_k": {
+          "wer": 0.11672305461575641,
+          "meanRTF": 0.01681509649649786,
+          "peakRSS_MB": {
+            "min": 327,
+            "avg": 332,
+            "max": 336
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 37.114617289000016,
+          "cer": 0.06821313734497014
+        },
+        "hviske-v5-tiny-q5_0": {
+          "wer": 0.11285645239246013,
+          "meanRTF": 0.016491096681345616,
+          "peakRSS_MB": {
+            "min": 277,
+            "avg": 282,
+            "max": 285
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 36.39947841699968,
+          "cer": 0.06717960496095544
+        },
+        "hviske-v5-tiny-q4_k": {
+          "wer": 0.11430642822619623,
+          "meanRTF": 0.01579096655838553,
+          "peakRSS_MB": {
+            "min": 248,
+            "avg": 253,
+            "max": 256
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 34.85413720699972,
+          "cer": 0.06825141632215587
+        }
+      }
+    }
+  }
+}

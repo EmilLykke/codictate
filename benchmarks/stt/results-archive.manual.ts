@@ -12,8 +12,8 @@
  * numbers to match; fix the read path.
  *
  * This is deliberately outside the default `bun test` run - the `.manual.ts` suffix keeps
- * it out of test discovery. The assertions are pinned to the four archived runs that exist
- * today (`coverage.runCount` is asserted to be exactly 4), so a fifth Benchmark Run turns
+ * it out of test discovery. The assertions are pinned to the five archived runs that exist
+ * today (`coverage.runCount` is asserted to be exactly 5), so a sixth Benchmark Run turns
  * the suite red without anything having broken. Its subject is the archive on disk, not
  * the code under change, which makes it a check to run when the archive moves rather than
  * a gate on every commit.
@@ -182,14 +182,14 @@ describe("pre-harness archived runs", () => {
 describe("coverage across every archived run", () => {
   const coverage = loadCoverage(RESULTS_DIR);
 
-  test("all four run directories are counted", () => {
+  test("all five run directories are counted", () => {
     const runDirs = readdirSync(RESULTS_DIR).filter(
       (d) =>
         /^\d{4}-\d{2}-\d{2}/.test(d) &&
         existsSync(join(RESULTS_DIR, d, "stt.json")),
     );
     expect(coverage.runCount).toBe(runDirs.length);
-    expect(coverage.runCount).toBe(4);
+    expect(coverage.runCount).toBe(5);
   });
 
   test("archived whisper-cli Combinations count as measured", () => {
