@@ -32,9 +32,13 @@ function resolveModelPath(modelId: string): string | null {
 
   if (speech.engine === "whisperkit") {
     // `isModelAvailable`, not `existsSync`: the directory existing is not the same as the
-    // weights being loadable, and it is also what migrates an install left under the old
-    // Parakeet folder name. A half-populated directory used to pass this check and then
+    // weights being loadable. A half-populated directory used to pass this check and then
     // spend the whole Benchmark Run re-downloading, once per utterance.
+    //
+    // `reconcileInstalls` first, because the predicate is pure and the benchmark has no boot
+    // sequence to have called it: without this, an install still under the old Parakeet
+    // folder name reads as missing here.
+    modelManager.reconcileInstalls();
     if (!modelManager.isModelAvailable(modelId)) return null;
     return modelManager.getParakeetInstallDir(modelId);
   }

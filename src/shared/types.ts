@@ -197,8 +197,14 @@ export interface AppSettings {
   soundEffectsEnabled: boolean
   /** `auto` = language detection; else a key from `TRANSCRIPTION_LANGUAGE_OPTIONS`. */
   transcriptionLanguageId: string
-  /** ID of the Whisper model to use for transcription. Defaults to `large-v3-turbo-q5_0` (bundled). */
-  whisperModelId: string
+  /**
+   * The selected Speech Model's id. Defaults to `large-v3-turbo-q5_0` (bundled).
+   *
+   * Not whisper-only, which is why it is not named for whisper: hviske and Parakeet ids live
+   * here too, and the Speech Engine that runs it comes from the catalog entry
+   * (`getSpeechModel(id).engine`), never from the shape of the id.
+   */
+  speechModelId: string
   /** When true, Whisper translates speech to English using the selected Small or Large model (not Turbo). */
   translateToEnglish: boolean
   /**
@@ -263,6 +269,14 @@ export interface AppSettings {
   blockedDictation: BlockedDictationPlan | null
 }
 
+/**
+ * Which of the two dictation notices a dismissal refers to: the heal announcements or the
+ * blocked plan, the two fields above. Named once because the same pair travels through the
+ * RPC schema, the window handler, the webview client and the banner, and four hand-written
+ * copies of a two-member union are four chances to add a third member to three of them.
+ */
+export type DictationNoticeKind = 'heal' | 'blocked'
+
 export interface PermissionState {
   inputMonitoring: boolean
   microphone: boolean
@@ -299,7 +313,7 @@ export interface GeneralSettingsPatch {
 export interface TranscriptionSettingsPatch {
   transcriptionLanguageId?: string
   maxRecordingDuration?: number
-  whisperModelId?: string
+  speechModelId?: string
   translateToEnglish?: boolean
   translateDefaultLanguageId?: string
   streamMode?: boolean
@@ -422,7 +436,7 @@ export type WebviewRPCType = {
        * dismissal was forgotten.
        */
       dismissDictationNotice: {
-        params: { notice: 'heal' | 'blocked' }
+        params: { notice: DictationNoticeKind }
         response: boolean
       }
       getHistoryEntries: {

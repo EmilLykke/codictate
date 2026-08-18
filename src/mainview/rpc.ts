@@ -7,6 +7,7 @@ import type {
   AppSettings,
   DictionaryCandidate,
   DictionaryEntry,
+  DictationNoticeKind,
   FormatterModelTier,
   HistoryEntry,
   HistorySettingsPatch,
@@ -150,7 +151,7 @@ export async function setAudioDevice(index: number): Promise<boolean> {
 }
 
 export async function dismissDictationNotice(
-  notice: 'heal' | 'blocked'
+  notice: DictationNoticeKind
 ): Promise<boolean> {
   return rpc.request.dismissDictationNotice({ notice })
 }
@@ -259,9 +260,9 @@ export function copyDebugLog(): void {
   rpc.send.copyDebugLog({})
 }
 
-export async function setWhisperModel(modelId: string): Promise<boolean> {
+export async function setSpeechModel(modelId: string): Promise<boolean> {
   return rpc.request.updateTranscriptionSettings({
-    patch: { whisperModelId: modelId },
+    patch: { speechModelId: modelId },
   })
 }
 

@@ -610,8 +610,22 @@ export const SPEECH_MODELS: SpeechModel[] = [
 
 export const DEFAULT_MODEL_ID = 'large-v3-turbo-q5_0'
 
+/**
+ * The large non-turbo model. Named here rather than at its callers because it is a catalog
+ * fact, and the one Speech Model a finished download never auto-selects: it is slow enough
+ * that landing on it by accident reads as the app breaking.
+ */
+export const LARGE_V3_Q5_MODEL_ID = 'large-v3-q5_0'
+
 /** Recommended stream engine model (must be installed; not bundled). */
 export const DEFAULT_STREAM_CAPABLE_MODEL_ID = 'parakeet-tdt-0.6b-v3'
+
+/**
+ * The Parakeet engine id. A misnomer kept for config compatibility - the engine is
+ * FluidAudio, not WhisperKit (see SpeechEngineId). Named once so the run path, the warmup
+ * routine and the benchmark compare against one constant instead of re-typing the literal.
+ */
+export const PARAKEET_ENGINE_ID: SpeechEngineId = 'whisperkit'
 
 export const SPEECH_MODEL_IDS = SPEECH_MODELS.map((m) => m.id)
 
@@ -649,7 +663,7 @@ export function hviskeMirrorFileUrl(artifactName: string): string {
 export function speechModelLocksTranscriptionLanguage(
   speechModelId: string
 ): boolean {
-  return getSpeechModel(speechModelId)?.engine === 'whisperkit'
+  return getSpeechModel(speechModelId)?.engine === PARAKEET_ENGINE_ID
 }
 
 /** `auto` is always allowed. Whisper models (no `supportedTranscriptionLanguageIds`) allow every picker id. */

@@ -24,6 +24,7 @@
  */
 
 import {
+  PARAKEET_ENGINE_ID,
   getSpeechModel,
   type SpeechEngineId,
 } from '../../../shared/speech-models'
@@ -31,12 +32,6 @@ import { getPlatform } from '../../platform'
 import { getPlatformCapabilities } from '../../platform/runtime'
 import { modelManager } from './model-manager'
 import { log } from '../logger'
-
-/**
- * The Speech Engine id that routes to the Parakeet Native Helper. Historical label: the
- * engine behind it is FluidAudio (FluidInference), not WhisperKit.
- */
-const PARAKEET_ENGINE_ID: SpeechEngineId = 'whisperkit'
 
 /**
  * How long the run path waits for an in-flight preparation before spawning regardless.

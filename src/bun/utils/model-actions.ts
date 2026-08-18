@@ -35,7 +35,7 @@ export function handleModelAction(
     // Live Transcription is not switched off here: the heal pass inside
     // updateTranscriptionSettings does it, and announces it, for every caller at once.
     const ok = await appConfig.updateTranscriptionSettings({
-      whisperModelId: id,
+      speechModelId: id,
       ...(nextLang !== appConfig.getTranscriptionLanguageId()
         ? { transcriptionLanguageId: nextLang }
         : {}),

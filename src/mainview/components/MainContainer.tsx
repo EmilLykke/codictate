@@ -14,11 +14,13 @@ import type {
   AppSettings,
   DeviceInfo,
   DevAppPreviewRoute,
+  DictationNoticeKind,
   StreamTranscriptionMode,
 } from "../../shared/types";
 import { appEvents } from "../app-events";
 import {
   DEFAULT_MODEL_ID,
+  LARGE_V3_Q5_MODEL_ID,
   SPEECH_MODELS,
   coerceTranscriptionLanguageIdForModel,
 } from "../../shared/speech-models";
@@ -35,11 +37,8 @@ import {
   setStreamTranscriptionMode,
   setTranslateDefaultLanguage,
   setTranslateToEnglish,
-  setWhisperModel,
+  setSpeechModel,
 } from "../rpc";
-
-/** The one Speech Model a finished download never auto-selects (see the handler below). */
-const LARGE_V3_Q5_MODEL_ID = "large-v3-q5_0";
 
 export function MainContainer({
   status,
@@ -123,13 +122,13 @@ export function MainContainer({
             // the main process named in its readiness. Nothing to re-derive here: select it
             // and ask for the toggle.
             const current = queryClient.getQueryData<AppSettings>(["settings"]);
-            const sel = current?.whisperModelId ?? DEFAULT_MODEL_ID;
+            const sel = current?.speechModelId ?? DEFAULT_MODEL_ID;
             if (sel !== modelId) {
               const hadStream = current?.streamMode ?? false;
-              await setWhisperModel(modelId);
+              await setSpeechModel(modelId);
               queryClient.setQueryData(["settings"], (old: AppSettings) => ({
                 ...old,
-                whisperModelId: modelId,
+                speechModelId: modelId,
                 ...(hadStream ? { streamMode: false } : {}),
               }));
               if (hadStream) {
@@ -165,10 +164,10 @@ export function MainContainer({
               modelId,
               cur?.transcriptionLanguageId ?? "auto",
             );
-            await setWhisperModel(modelId);
+            await setSpeechModel(modelId);
             queryClient.setQueryData(["settings"], (old: AppSettings) => ({
               ...old,
-              whisperModelId: modelId,
+              speechModelId: modelId,
               transcriptionLanguageId: nextLang,
               ...(hadStream ? { streamMode: false } : {}),
             }));
@@ -190,7 +189,7 @@ export function MainContainer({
 
   const handleModelSelect = useCallback(
     async (modelId: string) => {
-      if (modelId === settings.whisperModelId) return;
+      if (modelId === settings.speechModelId) return;
       const hadStream = settings.streamMode;
       const nextLang = coerceTranscriptionLanguageIdForModel(
         modelId,
@@ -198,11 +197,11 @@ export function MainContainer({
       );
       queryClient.setQueryData(["settings"], {
         ...settings,
-        whisperModelId: modelId,
+        speechModelId: modelId,
         transcriptionLanguageId: nextLang,
         ...(hadStream ? { streamMode: false } : {}),
       });
-      await setWhisperModel(modelId);
+      await setSpeechModel(modelId);
       if (nextLang !== settings.transcriptionLanguageId) {
         await setTranscriptionLanguage(nextLang);
       }
@@ -277,7 +276,7 @@ export function MainContainer({
    * it stick across a tab change, which remounts the banner slot.
    */
   const handleDismissNotice = useCallback(
-    async (notice: "heal" | "blocked") => {
+    async (notice: DictationNoticeKind) => {
       queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
         old
           ? notice === "heal"

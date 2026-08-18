@@ -28,10 +28,7 @@ import type {
   ThemePreference,
   TranscriptionSettingsPatch,
 } from '../../shared/types'
-import {
-  DEFAULT_MODEL_ID,
-  isValidSpeechModelId,
-} from '../../shared/speech-models'
+import { DEFAULT_MODEL_ID } from '../../shared/speech-models'
 import {
   buildDictationPlan,
   getDictationReadiness,
@@ -58,6 +55,7 @@ import {
   type FormattingModeId,
 } from '../../shared/formatting-modes'
 import { modelManager } from '../utils/whisper/model-manager'
+import { persistedSpeechModelId } from './persisted-speech-model'
 import {
   detectFormattingAvailable,
   isFormatterModelInstalled,
@@ -193,7 +191,7 @@ interface PersistedMainSettings {
   soundEffectsEnabled: boolean
   transcriptionLanguageId: string
   maxRecordingDuration: RecordingDurationPresetSeconds
-  whisperModelId: string
+  speechModelId: string
   translateToEnglish: boolean
   translateDefaultLanguageId: string
   onboardingCompleted: boolean
@@ -226,7 +224,7 @@ export class AppConfig {
   private soundEffectsEnabled: boolean
   private transcriptionLanguageId: string
   private maxRecordingDuration: RecordingDurationPresetSeconds
-  private whisperModelId: string
+  private speechModelId: string
   private translateToEnglish: boolean
   private translateDefaultLanguageId: string
   private onboardingCompleted: boolean
@@ -286,7 +284,7 @@ export class AppConfig {
     this.soundEffectsEnabled = true
     this.transcriptionLanguageId = 'auto'
     this.maxRecordingDuration = DEFAULT_MAX_RECORDING_DURATION_SECONDS
-    this.whisperModelId = DEFAULT_MODEL_ID
+    this.speechModelId = DEFAULT_MODEL_ID
     this.translateToEnglish = false
     this.translateDefaultLanguageId = 'auto'
     this.onboardingCompleted = false
@@ -322,7 +320,7 @@ export class AppConfig {
       soundEffectsEnabled: this.soundEffectsEnabled,
       transcriptionLanguageId: this.transcriptionLanguageId,
       maxRecordingDuration: this.maxRecordingDuration,
-      whisperModelId: this.whisperModelId,
+      speechModelId: this.speechModelId,
       translateToEnglish: this.translateToEnglish,
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       onboardingCompleted: this.onboardingCompleted,
@@ -424,12 +422,10 @@ export class AppConfig {
     ) {
       this.maxRecordingDuration = raw.maxRecordingDuration
     }
-    if (
-      typeof raw.whisperModelId === 'string' &&
-      isValidSpeechModelId(raw.whisperModelId)
-    ) {
-      this.whisperModelId = raw.whisperModelId
-    }
+    // Reads the pre-rename key too. See persisted-speech-model.ts, which owns both key names
+    // and is tested without a filesystem.
+    const selected = persistedSpeechModelId(raw)
+    if (selected !== null) this.speechModelId = selected
     if (typeof raw.translateToEnglish === 'boolean') {
       this.translateToEnglish = raw.translateToEnglish
     }
@@ -908,7 +904,7 @@ export class AppConfig {
       funModeEnabled: this.funModeEnabled,
       soundEffectsEnabled: this.soundEffectsEnabled,
       transcriptionLanguageId: this.transcriptionLanguageId,
-      whisperModelId: this.whisperModelId,
+      speechModelId: this.speechModelId,
       translateToEnglish: this.translateToEnglish,
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       onboardingCompleted: this.onboardingCompleted,
@@ -962,7 +958,7 @@ export class AppConfig {
 
   private runnableDictationSettings(): RunnableDictationSettings {
     return {
-      speechModelId: this.whisperModelId,
+      speechModelId: this.speechModelId,
       transcriptionLanguageId: this.transcriptionLanguageId,
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       translateToEnglish: this.translateToEnglish,
@@ -974,7 +970,7 @@ export class AppConfig {
   private applyRunnableDictationSettings(
     next: RunnableDictationSettings
   ): void {
-    this.whisperModelId = next.speechModelId
+    this.speechModelId = next.speechModelId
     this.transcriptionLanguageId = next.transcriptionLanguageId
     this.translateDefaultLanguageId = next.translateDefaultLanguageId
     this.translateToEnglish = next.translateToEnglish
@@ -1234,7 +1230,7 @@ export class AppConfig {
     patch: TranscriptionSettingsPatch
   ): Promise<boolean> {
     // Vocabulary checks first: these fields have a fixed set of legal values and nothing to
-    // do with what is installed. `whisperModelId` used to be checked here too; an unknown or
+    // do with what is installed. `speechModelId` used to be checked here too; an unknown or
     // uninstalled Speech Model is now the heal pass's business, below, because the field-level
     // version of that check was exactly the "patch valid, result invalid" gap.
     if (
@@ -1268,8 +1264,8 @@ export class AppConfig {
     const outcome = applyRunnableDictationPatch(
       this.runnableDictationSettings(),
       {
-        ...(patch.whisperModelId !== undefined
-          ? { speechModelId: patch.whisperModelId }
+        ...(patch.speechModelId !== undefined
+          ? { speechModelId: patch.speechModelId }
           : {}),
         ...(patch.transcriptionLanguageId !== undefined
           ? { transcriptionLanguageId: patch.transcriptionLanguageId }
@@ -1604,12 +1600,12 @@ export class AppConfig {
     return this.updateTranscriptionSettings({ maxRecordingDuration: seconds })
   }
 
-  public getWhisperModelId(): string {
-    return this.whisperModelId
+  public getSpeechModelId(): string {
+    return this.speechModelId
   }
 
-  public async setWhisperModelId(id: string): Promise<boolean> {
-    return this.updateTranscriptionSettings({ whisperModelId: id })
+  public async setSpeechModelId(id: string): Promise<boolean> {
+    return this.updateTranscriptionSettings({ speechModelId: id })
   }
 
   public getTranslateToEnglish(): boolean {

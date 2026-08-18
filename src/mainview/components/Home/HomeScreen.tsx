@@ -185,7 +185,7 @@ export function HomeScreen({
           <div>
             <div className="text-[16px] text-overlay/40 mb-2">Model</div>
             <DropdownSelect
-              value={settings?.whisperModelId ?? ""}
+              value={settings?.speechModelId ?? ""}
               onChange={onModelChange}
               ariaLabel="Speech model"
               align="start"
@@ -200,7 +200,7 @@ export function HomeScreen({
             <LanguagePicker
               value={currentLanguageId}
               onChange={onLanguageChange}
-              speechModelId={settings?.whisperModelId ?? null}
+              speechModelId={settings?.speechModelId ?? null}
             />
           </div>
           <div>

@@ -488,7 +488,7 @@ describe('applyRunnableDictationPatch - refused', () => {
   })
 
   /**
-   * The gap the ticket names: `whisperModelId` and `translateToEnglish` are each perfectly
+   * The gap the ticket names: `speechModelId` and `translateToEnglish` are each perfectly
    * valid values, and together they are a Dictation that cannot do what was asked.
    */
   test('refuses a patch whose fields are individually valid and jointly unrunnable', () => {

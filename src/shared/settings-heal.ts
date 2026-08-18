@@ -27,13 +27,14 @@
  */
 
 import {
+  PARAKEET_LABEL,
   getDictationReadiness,
+  modelLabel,
   type DictationAvailability,
 } from './dictation-plan'
 import {
   DEFAULT_MODEL_ID,
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
-  getSpeechModel,
   isValidSpeechModelId,
 } from './speech-models'
 
@@ -51,6 +52,29 @@ export interface RunnableDictationSettings {
   /** Parakeet has finished its one-time on-device preparation. */
   parakeetCoreMlReady: boolean
 }
+
+/**
+ * Every field of `RunnableDictationSettings`, as an exhaustive `Record` for the same reason
+ * `BLOCKED_MESSAGES` is one: `tsc` refuses to compile a new field that is not listed here.
+ * `unchanged` walks this rather than comparing fields by hand, so a field added to the
+ * interface cannot silently read as unchanged - and `isRunnableDictationSettings` is
+ * `unchanged`, so that silence would have passed an unrunnable object as runnable.
+ */
+const RUNNABLE_DICTATION_SETTINGS_FIELDS: Record<
+  keyof RunnableDictationSettings,
+  true
+> = {
+  speechModelId: true,
+  transcriptionLanguageId: true,
+  translateDefaultLanguageId: true,
+  translateToEnglish: true,
+  streamMode: true,
+  parakeetCoreMlReady: true,
+}
+
+const RUNNABLE_DICTATION_SETTINGS_KEYS = Object.keys(
+  RUNNABLE_DICTATION_SETTINGS_FIELDS
+) as (keyof RunnableDictationSettings)[]
 
 /** The three user choices the heal pass is allowed to change out loud. */
 export type SettingsHealTarget =
@@ -84,12 +108,6 @@ export interface SettingsHealResult {
   /** True when nothing changed at all, announced or quiet: the object was already runnable. */
   unchanged: boolean
 }
-
-function modelLabel(speechModelId: string): string {
-  return getSpeechModel(speechModelId)?.label ?? speechModelId
-}
-
-const PARAKEET_LABEL = modelLabel(DEFAULT_STREAM_CAPABLE_MODEL_ID)
 
 export function healDictationSettings(
   settings: RunnableDictationSettings,
@@ -203,13 +221,9 @@ export function healDictationSettings(
   return {
     settings: next,
     announcements,
-    unchanged:
-      next.speechModelId === settings.speechModelId &&
-      next.transcriptionLanguageId === settings.transcriptionLanguageId &&
-      next.translateDefaultLanguageId === settings.translateDefaultLanguageId &&
-      next.translateToEnglish === settings.translateToEnglish &&
-      next.streamMode === settings.streamMode &&
-      next.parakeetCoreMlReady === settings.parakeetCoreMlReady,
+    unchanged: RUNNABLE_DICTATION_SETTINGS_KEYS.every(
+      (key) => next[key] === settings[key]
+    ),
   }
 }
 

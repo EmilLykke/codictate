@@ -24,6 +24,8 @@ Its blocked reasons are a closed union, so a new failure mode cannot join a gene
 
 The benchmark is deliberately outside this. It has no settings, no availability healing and no fallback semantics; it reuses the ASR Harness command builder, not the plan.
 
+"Outside" means outside the plan and the heal pass, not off limits. The implementing branch did change `benchmarks/stt/runner.ts`, in two places where the benchmark had the same class of defect this ADR is about - failure reported as a plausible number instead of as a failure. A non-zero Harness exit was indistinguishable from silence, so an empty transcript scored as a 100% WER utterance and a Harness that never transcribed anything produced a finished-looking Benchmark Run; and `resolveModelPath` accepted a half-populated Parakeet directory on `existsSync`, then re-downloaded once per utterance. Neither change gives the benchmark a plan, a settings read or a fallback.
+
 ## Considered Options
 
 - **Keep resolving at run time, but log it loudly.** Rejected. This is what the code already did — every one of the three fallbacks logs. Logging is not a user-visible surface, and the whole defect is that the user is told nothing while getting a transcript from a Speech Model they did not select, in a language they did not ask for.

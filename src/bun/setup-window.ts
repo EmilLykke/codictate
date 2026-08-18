@@ -8,6 +8,7 @@ import type {
   AppStatus,
   DeviceInfo,
   AudioDuckingSettingsPatch,
+  DictationNoticeKind,
   DictionarySettingsPatch,
   FormattingSettingsPatch,
   GeneralSettingsPatch,
@@ -186,7 +187,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         dismissDictationNotice: async ({
           notice,
         }: {
-          notice: 'heal' | 'blocked'
+          notice: DictationNoticeKind
         }) => {
           const dismissed =
             notice === 'heal'
@@ -250,7 +251,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             deps.onTranscriptionMenuSync?.()
           }
           if (
-            patch.whisperModelId !== undefined ||
+            patch.speechModelId !== undefined ||
             patch.translateToEnglish !== undefined ||
             patch.translateDefaultLanguageId !== undefined ||
             patch.transcriptionLanguageId !== undefined
@@ -260,7 +261,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           if (
             patch.streamMode !== undefined ||
             patch.streamTranscriptionMode !== undefined ||
-            patch.whisperModelId !== undefined
+            patch.speechModelId !== undefined
           ) {
             deps.onStreamModeChanged?.()
           }

@@ -1,5 +1,6 @@
 import type { BlockedDictationPlan } from "../../../shared/dictation-plan";
 import type { SettingsHealAnnouncement } from "../../../shared/settings-heal";
+import type { DictationNoticeKind } from "../../../shared/types";
 
 /**
  * What the app changed behind the user's back, and what it refused to do, said out loud.
@@ -25,7 +26,7 @@ export function HealNotices({
 }: {
   announcements: SettingsHealAnnouncement[];
   blocked?: BlockedDictationPlan | null;
-  onDismiss: (notice: "heal" | "blocked") => void;
+  onDismiss: (notice: DictationNoticeKind) => void;
 }) {
   if (blocked === null && announcements.length === 0) return null;
 

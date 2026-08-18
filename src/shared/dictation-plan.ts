@@ -26,6 +26,7 @@ import { HVISKE_CRISPASR_BACKEND, type CrispasrBackendId } from './asr-harness'
 import {
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
   HVISKE_TRANSCRIPTION_LANGUAGE_ID,
+  PARAKEET_ENGINE_ID,
   SPEECH_MODELS,
   getSpeechModel,
   isHviskeSpeechModelId,
@@ -100,12 +101,17 @@ export function isStreamCapableModelId(id: string): boolean {
   return m != null && supportsStreamMode(m)
 }
 
-/** The Speech Model's user-facing name, or the raw id when the catalog has never heard of it. */
-function modelLabel(speechModelId: string): string {
+/**
+ * The Speech Model's user-facing name, or the raw id when the catalog has never heard of it.
+ *
+ * Exported because the heal pass writes the past-tense version of these same sentences, and
+ * two copies of the label rule are two copies that drift.
+ */
+export function modelLabel(speechModelId: string): string {
   return getSpeechModel(speechModelId)?.label ?? speechModelId
 }
 
-const PARAKEET_LABEL = modelLabel(DEFAULT_STREAM_CAPABLE_MODEL_ID)
+export const PARAKEET_LABEL = modelLabel(DEFAULT_STREAM_CAPABLE_MODEL_ID)
 
 /**
  * The settings readiness depends on. Deliberately not the whole settings object and
@@ -144,6 +150,14 @@ export type StreamModeReadinessReason =
   | 'unsupported_platform'
   | 'parakeet_not_installed'
   | 'model_cannot_stream'
+  /**
+   * Unreachable while Parakeet locks the Transcription Language to automatic
+   * (`speechModelLocksTranscriptionLanguage`, and `coerceTranscriptionLanguageIdForModel`
+   * pins it on every model switch), because `auto` is always allowed. Kept as the guard for
+   * the case that lock stops holding - a Parakeet variant with a fixed-language setting, or
+   * a stored language that reached config without passing the coercion - since the
+   * alternative is a Dictation that silently transcribes in the wrong language.
+   */
   | 'language_not_supported'
 
 /**
@@ -184,6 +198,17 @@ export type StreamModeReadiness = CapabilityReadiness<StreamModeReadinessReason>
 export interface DictationReadiness {
   translateToEnglish: TranslateReadiness
   liveTranscription: StreamModeReadiness
+  /**
+   * Parakeet's one-time on-device preparation is under way right now: it is the selection,
+   * its weights are installed, and it has not reported done yet.
+   *
+   * A fact rather than a `CapabilityReadiness`, because nothing is unavailable while it runs
+   * - a Dictation started inside the window waits for it. It is shipped instead of left to
+   * the Settings screen because deciding it there means a component reading raw availability
+   * and reaching its own conclusion, which is the pattern ADR-0005 removes. Goes false on
+   * the settings push that follows the preparation, so the line clears itself.
+   */
+  parakeetPreparing: boolean
 }
 
 function translateReadiness(
@@ -321,7 +346,23 @@ export function getDictationReadiness(
   return {
     translateToEnglish: translateReadiness(input, availability),
     liveTranscription: streamModeReadiness(input, availability),
+    parakeetPreparing: isParakeetPreparing(input, availability),
   }
+}
+
+/**
+ * The three conditions that make a preparation possible, in one place. Deliberately not a
+ * readiness reason: see `DictationReadiness.parakeetPreparing`.
+ */
+function isParakeetPreparing(
+  input: DictationReadinessInput,
+  availability: DictationAvailability
+): boolean {
+  return (
+    input.speechModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID &&
+    availability.isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID) &&
+    !input.parakeetCoreMlReady
+  )
 }
 
 // ── The Dictation Plan ──────────────────────────────────────────────────────────
@@ -375,6 +416,7 @@ export type DictationBlockedReason =
   | 'live_transcription_unsupported_platform'
   | 'parakeet_not_installed'
   | 'model_cannot_stream'
+  /** Same guard as `StreamModeReadinessReason['language_not_supported']`, and unreachable for the same reason. */
   | 'language_not_supported_by_parakeet'
   /**
    * The Parakeet Native Helper binary is missing from the installation. Only the pre-spawn
@@ -528,7 +570,7 @@ export function buildDictationPlan(
       status: 'runnable',
       mode,
       speechModelId: selected,
-      engineId: getSpeechModel(selected)?.engine ?? 'whisperkit',
+      engineId: getSpeechModel(selected)?.engine ?? PARAKEET_ENGINE_ID,
       crispasrBackend: null,
       transcriptionLanguageId: input.transcriptionLanguageId,
       // Parakeet detects the language itself and takes no language argument, and Translate
@@ -574,7 +616,7 @@ export function buildDictationPlan(
     crispasrBackend: isHviskeRun ? HVISKE_CRISPASR_BACKEND : null,
     transcriptionLanguageId,
     languageCode:
-      model.engine === 'whisperkit'
+      model.engine === PARAKEET_ENGINE_ID
         ? null
         : whisperCodeForTranscriptionId(transcriptionLanguageId),
     translateToEnglish: input.translateToEnglish,

@@ -325,6 +325,56 @@ describe('getDictationReadiness - Live Transcription', () => {
   })
 })
 
+describe('getDictationReadiness - parakeetPreparing', () => {
+  const preparing = (i: DictationReadinessInput, a: DictationAvailability) =>
+    getDictationReadiness(i, a).parakeetPreparing
+
+  test('true when Parakeet is selected and installed but not yet prepared', () => {
+    expect(
+      preparing(
+        input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
+        available(PARAKEET)
+      )
+    ).toBe(true)
+  })
+
+  test('false once the preparation reports done, so the line clears itself', () => {
+    expect(
+      preparing(
+        input({ speechModelId: PARAKEET, parakeetCoreMlReady: true }),
+        available(PARAKEET)
+      )
+    ).toBe(false)
+  })
+
+  test('false when Parakeet is not the selection, however cold it is', () => {
+    expect(
+      preparing(
+        input({ speechModelId: TRANSCRIBE_ONLY, parakeetCoreMlReady: false }),
+        available(PARAKEET, TRANSCRIBE_ONLY)
+      )
+    ).toBe(false)
+  })
+
+  test('false before the weights are on disk: nothing can be preparing yet', () => {
+    expect(
+      preparing(
+        input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
+        available()
+      )
+    ).toBe(false)
+  })
+
+  test('does not make Live Transcription unavailable - a Dictation waits for it', () => {
+    const readiness = getDictationReadiness(
+      input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
+      available(PARAKEET)
+    )
+    expect(readiness.parakeetPreparing).toBe(true)
+    expect(readiness.liveTranscription.ready).toBe(true)
+  })
+})
+
 describe('getDictationReadiness - the copy', () => {
   test('every reason carries its own sentence, and no two reasons share one', () => {
     const translateCases: [DictationReadinessInput, DictationAvailability][] = [

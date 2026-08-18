@@ -84,6 +84,13 @@ async function getMainViewUrl(): Promise<string> {
 
 const url = await getMainViewUrl()
 
+// Before the first availability read, because `AppConfig.load()`'s heal pass acts on
+// availability: a Parakeet install still sitting under the old folder name reads as missing,
+// and the heal would switch the user's Speech Model away from weights that are on disk.
+// `isModelAvailable` is a pure question now, so this is the boot half of the write work it
+// used to do on the way to its answer (the other half runs when a download finishes).
+modelManager.reconcileInstalls()
+
 export const UserAppConfig = new AppConfig()
 await UserAppConfig.load()
 
@@ -369,7 +376,7 @@ const pushSettingsToWebview = () =>
  * window, so Live Transcription stops mentioning the wait on its own.
  */
 installParakeetWarmup({
-  getSelectedSpeechModelId: () => UserAppConfig.getWhisperModelId(),
+  getSelectedSpeechModelId: () => UserAppConfig.getSpeechModelId(),
   isPrepared: () => UserAppConfig.isParakeetCoreMlReady(),
   markPrepared: () => UserAppConfig.markParakeetCoreMlReady(),
   onPrepared: () => {

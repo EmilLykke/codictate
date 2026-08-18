@@ -3,7 +3,7 @@ import type { AppSettings } from "../../../../shared/types";
 import {
   SPEECH_MODELS,
   BROWSABLE_SPEECH_MODELS,
-  DEFAULT_STREAM_CAPABLE_MODEL_ID,
+  PARAKEET_ENGINE_ID,
   PARAKEET_PREPARING_SETTINGS_HINT,
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
@@ -33,13 +33,10 @@ export function SectionModels({
   const [isBrowseOpen, setIsBrowseOpen] = useState(false);
 
   // Preparation is automatic and starts the moment Parakeet becomes the selection, so this is
-  // a statement of what is happening rather than a warning about a first run. The three
-  // conditions are exactly the ones that make a preparation possible; when the main process
-  // reports it finished, the settings push takes the line away without a restart.
-  const isPreparingParakeet =
-    settings.whisperModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID &&
-    modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] === true &&
-    !settings.parakeetCoreMlReady;
+  // a statement of what is happening rather than a warning about a first run. The main
+  // process decides it (ADR-0005: this screen derives nothing from raw availability) and the
+  // settings push that reports it finished takes the line away without a restart.
+  const isPreparingParakeet = settings.dictationReadiness.parakeetPreparing;
 
   // Curated whisper.cpp models, plus anything the user has already downloaded - hviske
   // included, even though no hviske entry is ever curated.
@@ -59,7 +56,7 @@ export function SectionModels({
     [modelAvailability],
   );
   const nvidiaModels = useMemo(
-    () => SPEECH_MODELS.filter((m) => m.engine === "whisperkit"),
+    () => SPEECH_MODELS.filter((m) => m.engine === PARAKEET_ENGINE_ID),
     [],
   );
 
@@ -100,7 +97,7 @@ export function SectionModels({
           Whisper
         </h2>
         <ModelPicker
-          value={settings.whisperModelId}
+          value={settings.speechModelId}
           models={whisperModels}
           modelAvailability={modelAvailability}
           downloadProgress={downloadProgress}
@@ -136,7 +133,7 @@ export function SectionModels({
           NVIDIA
         </h2>
         <ModelPicker
-          value={settings.whisperModelId}
+          value={settings.speechModelId}
           models={nvidiaModels}
           modelAvailability={modelAvailability}
           downloadProgress={downloadProgress}

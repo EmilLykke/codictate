@@ -169,8 +169,8 @@ export const setupTray = (
       ?.label ?? 'System default'
 
   const selectedModelLabel = () =>
-    buildModelMenuItems(appConfig.getWhisperModelId()).find((m) => m.checked)
-      ?.label ?? appConfig.getWhisperModelId()
+    buildModelMenuItems(appConfig.getSpeechModelId()).find((m) => m.checked)
+      ?.label ?? appConfig.getSpeechModelId()
 
   const selectedLanguageLabel = () =>
     buildTranscriptionLanguageMenuItems(
@@ -224,9 +224,9 @@ export const setupTray = (
     {
       type: 'normal' as const,
       label: `Model: ${selectedModelLabel()}`,
-      submenu: buildModelMenuItems(appConfig.getWhisperModelId()),
+      submenu: buildModelMenuItems(appConfig.getSpeechModelId()),
     },
-    speechModelLocksTranscriptionLanguage(appConfig.getWhisperModelId())
+    speechModelLocksTranscriptionLanguage(appConfig.getSpeechModelId())
       ? {
           type: 'normal' as const,
           label: 'Language: Automatic (Parakeet)',

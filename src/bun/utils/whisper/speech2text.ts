@@ -1,4 +1,5 @@
 import type { RunnableDictationPlan } from '../../../shared/dictation-plan'
+import { PARAKEET_ENGINE_ID } from '../../../shared/speech-models'
 import { modelManager } from './model-manager'
 import { pasteTranscript } from '../keyboard/keyboard-events'
 import { applyFormatting } from '../formatting/apply-formatting'
@@ -104,7 +105,7 @@ async function drainReadableStream(
  * before the spawn (buildDictationPlan). See ADR-0005.
  */
 export const transcribe = async (plan: RunnableDictationPlan) => {
-  if (plan.engineId === 'whisperkit') {
+  if (plan.engineId === PARAKEET_ENGINE_ID) {
     return transcribeParakeet(plan.speechModelId)
   }
 
