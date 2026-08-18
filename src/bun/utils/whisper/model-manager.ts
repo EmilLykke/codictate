@@ -12,12 +12,14 @@ import { pipeline } from 'stream/promises'
 import { Readable } from 'node:stream'
 import { downloadFile, listFiles } from '@huggingface/hub'
 import {
+  PARAKEET_ENGINE_ID,
   SPEECH_MODELS,
   getSpeechModel,
   hviskeMirrorFileUrl,
+  whisperModelDownloadUrl,
+  fluidAudioModelFolderName,
   type SpeechModel,
 } from '../../../shared/speech-models'
-import { whisperModelDownloadUrl } from '../../../shared/whisper-models'
 import { log } from '../logger'
 import { MODELS_DIR, getPlatformRuntime } from '../../platform/runtime'
 
@@ -161,7 +163,54 @@ function parakeetInstallComplete(dir: string): boolean {
 function parakeetArtifactName(model: SpeechModel): string {
   if (getPlatformRuntime() === 'windows')
     return WINDOWS_PARAKEET_ONNX_ARTIFACT_NAME
-  return model.artifactName
+  return fluidAudioModelFolderName(model.artifactName)
+}
+
+/**
+ * Where Parakeet's weights used to be installed: under the Hugging Face repo slug, which
+ * is one `-coreml` away from the only name FluidAudio ever looks at. Returns null when
+ * the two names agree and there is nothing to migrate.
+ */
+function legacyParakeetInstallDir(model: SpeechModel): string | null {
+  if (getPlatformRuntime() === 'windows') return null
+  const legacy = join(MODELS_DIR, model.artifactName)
+  const current = join(MODELS_DIR, parakeetArtifactName(model))
+  return legacy === current ? null : legacy
+}
+
+/**
+ * Move a pre-existing install to the name FluidAudio reads, so the fix costs no download.
+ *
+ * Deliberately conservative about the delete: it only clears the target when the target is
+ * incomplete *and* the legacy install is complete, which is exactly the wreckage a
+ * mismatched load leaves behind - FluidAudio's own partial fetch of weights that were
+ * already on disk under the other name.
+ */
+function migrateLegacyParakeetInstall(model: SpeechModel): void {
+  const legacyDir = legacyParakeetInstallDir(model)
+  if (legacyDir === null) return
+  const targetDir = join(MODELS_DIR, parakeetArtifactName(model))
+  if (!parakeetCoreMlInstallComplete(legacyDir)) return
+  if (parakeetCoreMlInstallComplete(targetDir)) return
+  try {
+    if (existsSync(targetDir))
+      rmSync(targetDir, { recursive: true, force: true })
+    renameSync(legacyDir, targetDir)
+    log(
+      'model-manager',
+      'migrated Parakeet install to the FluidAudio folder name',
+      {
+        from: legacyDir,
+        to: targetDir,
+      }
+    )
+  } catch (err) {
+    log('model-manager', 'could not migrate Parakeet install', {
+      from: legacyDir,
+      to: targetDir,
+      err: String(err),
+    })
+  }
 }
 
 function parakeetRepoId(model: SpeechModel): string | undefined {
@@ -172,31 +221,69 @@ function parakeetRepoId(model: SpeechModel): string | undefined {
 class ModelManager {
   private downloads = new Map<string, AbortController>()
   private coreMlCleaned = new Set<string>()
+  private legacyMigrated = new Set<string>()
 
   private modelInfo(modelId: string): SpeechModel | undefined {
     return getSpeechModel(modelId)
   }
 
+  /**
+   * Is this Speech Model's weights on disk, ready to load?
+   *
+   * A question, and only a question: it stats and reads directories and changes nothing.
+   * It used to migrate a legacy Parakeet install and delete stale Core ML files on the way
+   * to its answer, which made every asker a writer - and this predicate is asked 2-4 times
+   * per Dictation Plan build, once per model inside every `getSettings()`, and from the
+   * pre-spawn check on the Dictation hot path. `reconcileInstalls()` below does that work,
+   * at the two moments that should be doing it.
+   */
   isModelAvailable(modelId: string): boolean {
     const model = this.modelInfo(modelId)
     if (!model) return false
     if (model.bundled) return true
-    if (model.engine === 'whisperkit') {
-      const dir = this.getParakeetInstallDir(modelId)
-      if (!parakeetInstallComplete(dir)) return false
-      if (!this.coreMlCleaned.has(dir)) {
-        cleanupParakeetCoreMlInstall(dir)
-        this.coreMlCleaned.add(dir)
-      }
-      return true
+    if (model.engine === PARAKEET_ENGINE_ID) {
+      return parakeetInstallComplete(this.getParakeetInstallDir(modelId))
     }
     return existsSync(join(MODELS_DIR, model.artifactName))
+  }
+
+  /**
+   * Bring the Parakeet install directories into the shape `isModelAvailable` expects, and
+   * reclaim what a download left behind.
+   *
+   * Two jobs, both writes, neither of which belongs inside a predicate:
+   *
+   * - **Migrate.** An install under the old Hugging Face repo slug is the same weights one
+   *   `-coreml` away from the only name FluidAudio reads. It has to move before the first
+   *   availability read, because reporting it missing offers the user a download they
+   *   already have - and now that the heal pass acts on availability, it would also switch
+   *   their Speech Model away from weights that are sitting right there.
+   * - **Tidy.** A finished Core ML download leaves entries FluidAudio never loads. Stale
+   *   files only waste disk, so this is best-effort and failure is not reported.
+   *
+   * Idempotent, and remembers what it has already done this session, so calling it at boot
+   * and after every download costs one `readdir` per directory. Call it before availability
+   * is first read, and after a download completes. Nothing else needs it.
+   */
+  reconcileInstalls(): void {
+    for (const model of SPEECH_MODELS) {
+      if (model.engine !== PARAKEET_ENGINE_ID) continue
+      const dir = join(MODELS_DIR, parakeetArtifactName(model))
+      if (!this.legacyMigrated.has(dir)) {
+        migrateLegacyParakeetInstall(model)
+        this.legacyMigrated.add(dir)
+      }
+      if (!parakeetInstallComplete(dir)) continue
+      if (this.coreMlCleaned.has(dir)) continue
+      cleanupParakeetCoreMlInstall(dir)
+      this.coreMlCleaned.add(dir)
+    }
   }
 
   getModelPath(modelId: string): string {
     const model = this.modelInfo(modelId)
     if (!model) throw new Error(`Unknown speech model: ${modelId}`)
-    if (model.engine === 'whisperkit') {
+    if (model.engine === PARAKEET_ENGINE_ID) {
       return this.getParakeetInstallDir(modelId)
     }
     if (model.bundled) return BUNDLED_MODEL_PATH
@@ -206,7 +293,7 @@ class ModelManager {
   /** Directory passed to the platform Parakeet helper (Core ML on macOS, ONNX on Windows). */
   getParakeetInstallDir(modelId: string): string {
     const model = this.modelInfo(modelId)
-    if (!model || model.engine !== 'whisperkit') {
+    if (!model || model.engine !== PARAKEET_ENGINE_ID) {
       throw new Error(`Not a Parakeet / WhisperKit model: ${modelId}`)
     }
     return join(MODELS_DIR, parakeetArtifactName(model))
@@ -373,7 +460,7 @@ class ModelManager {
     const controller = new AbortController()
     this.downloads.set(modelId, controller)
 
-    if (model.engine === 'whisperkit') {
+    if (model.engine === PARAKEET_ENGINE_ID) {
       const destDir = join(MODELS_DIR, parakeetArtifactName(model))
       const tempDir = destDir + '.tmp'
       try {
@@ -387,6 +474,13 @@ class ModelManager {
           onProgress
         )
         this.downloads.delete(modelId)
+        // A finished download is one of the two moments that owns the write work
+        // `isModelAvailable` no longer does. The session memo has to be forgotten first:
+        // boot already reconciled this directory, and the files worth reclaiming are the
+        // ones that just landed in it.
+        this.coreMlCleaned.delete(destDir)
+        this.legacyMigrated.delete(destDir)
+        this.reconcileInstalls()
         log('model-manager', 'download complete', { modelId })
         onProgress(1, true)
       } catch (err) {
@@ -462,12 +556,18 @@ class ModelManager {
   deleteModel(modelId: string): boolean {
     const model = this.modelInfo(modelId)
     if (!model || model.bundled) return false
-    if (model.engine === 'whisperkit') {
+    if (model.engine === PARAKEET_ENGINE_ID) {
       const dir = join(MODELS_DIR, parakeetArtifactName(model))
-      if (!existsSync(dir)) return false
-      return this.tryRemoveDownloadedModel(modelId, () =>
+      // A copy under the old name is the same weights taking the same disk space, so a
+      // delete that left it behind would not free what the user asked to free.
+      const legacyDir = legacyParakeetInstallDir(model)
+      const stale =
+        legacyDir !== null && existsSync(legacyDir) ? legacyDir : null
+      if (!existsSync(dir) && stale === null) return false
+      return this.tryRemoveDownloadedModel(modelId, () => {
         rmSync(dir, { recursive: true, force: true })
-      )
+        if (stale !== null) rmSync(stale, { recursive: true, force: true })
+      })
     }
     const modelPath = join(MODELS_DIR, model.artifactName)
     if (!existsSync(modelPath)) return false

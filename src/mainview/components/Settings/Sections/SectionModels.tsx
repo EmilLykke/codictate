@@ -3,7 +3,8 @@ import type { AppSettings } from "../../../../shared/types";
 import {
   SPEECH_MODELS,
   BROWSABLE_SPEECH_MODELS,
-  PARAKEET_FIRST_RUN_SETTINGS_HINT,
+  PARAKEET_ENGINE_ID,
+  PARAKEET_PREPARING_SETTINGS_HINT,
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
 import { ModelBrowseModal } from "../ModelBrowseModal";
@@ -31,6 +32,12 @@ export function SectionModels({
 }: Props) {
   const [isBrowseOpen, setIsBrowseOpen] = useState(false);
 
+  // Preparation is automatic and starts the moment Parakeet becomes the selection, so this is
+  // a statement of what is happening rather than a warning about a first run. The main
+  // process decides it (ADR-0005: this screen derives nothing from raw availability) and the
+  // settings push that reports it finished takes the line away without a restart.
+  const isPreparingParakeet = settings.dictationReadiness.parakeetPreparing;
+
   // Curated whisper.cpp models, plus anything the user has already downloaded - hviske
   // included, even though no hviske entry is ever curated.
   //
@@ -49,7 +56,7 @@ export function SectionModels({
     [modelAvailability],
   );
   const nvidiaModels = useMemo(
-    () => SPEECH_MODELS.filter((m) => m.engine === "whisperkit"),
+    () => SPEECH_MODELS.filter((m) => m.engine === PARAKEET_ENGINE_ID),
     [],
   );
 
@@ -90,7 +97,7 @@ export function SectionModels({
           Whisper
         </h2>
         <ModelPicker
-          value={settings.whisperModelId}
+          value={settings.speechModelId}
           models={whisperModels}
           modelAvailability={modelAvailability}
           downloadProgress={downloadProgress}
@@ -126,7 +133,7 @@ export function SectionModels({
           NVIDIA
         </h2>
         <ModelPicker
-          value={settings.whisperModelId}
+          value={settings.speechModelId}
           models={nvidiaModels}
           modelAvailability={modelAvailability}
           downloadProgress={downloadProgress}
@@ -135,9 +142,11 @@ export function SectionModels({
           onCancelDownload={onCancelDownload}
           onDelete={onModelDelete}
         />
-        <p className={`${settingsHelperClass} text-accent-amber/55`}>
-          {PARAKEET_FIRST_RUN_SETTINGS_HINT}
-        </p>
+        {isPreparingParakeet && (
+          <p className={`${settingsHelperClass} text-accent-amber/55`}>
+            {PARAKEET_PREPARING_SETTINGS_HINT}
+          </p>
+        )}
       </div>
 
       <ModelBrowseModal

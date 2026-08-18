@@ -7,7 +7,7 @@ import { log } from '../logger'
 import { stat } from 'node:fs/promises'
 import { RECORDING_PATH } from '../../platform/runtime'
 import { getPlatformRuntime } from '../../platform/runtime'
-import { getSpeechModel } from '../../../shared/speech-models'
+import type { RunnableDictationPlan } from '../../../shared/dictation-plan'
 
 /** Set `discard: true` before killing the recorder so onExit skips transcription and UI handoff. */
 export type RecordingSession = { discard: boolean; startedAtMs: number }
@@ -98,15 +98,21 @@ async function shouldSkipTranscriptionForShortCapture(
 
 export const startRecording = async (
   appConfig: AppConfig,
+  /** The run this recording feeds, decided before the recorder was spawned. */
+  plan: RunnableDictationPlan,
   onComplete: () => void,
   onDone: () => void,
   session: RecordingSession,
   /** Live snapshot from the main process (refreshed at startup + on an interval). Avoids spawning `MicRecorder --list-devices` on every shortcut press. */
   getDeviceSnapshot?: () => AudioDeviceSnapshot,
   onHistorySave?: (transcript: string) => Promise<void>,
-  onStatsSave?: (result: Speech2TextResult, durationMs: number) => Promise<void>
+  onStatsSave?: (
+    result: Speech2TextResult,
+    durationMs: number,
+    plan: RunnableDictationPlan
+  ) => Promise<void>
 ) => {
-  if (appConfig.getStreamMode()) {
+  if (plan.mode !== 'batch') {
     log(
       'stream',
       'unexpected fallback into MicRecorder while stream mode is enabled'
@@ -214,9 +220,7 @@ export const startRecording = async (
             if (appConfig.getSoundEffectsEnabled())
               playEndSound(appConfig.getFunModeEnabled())
             const result = await speech2text(
-              appConfig.getRuntimeTranscriptionWhisperCode(),
-              appConfig.getWhisperModelId(),
-              appConfig.getTranslateToEnglish(),
+              plan,
               appConfig.getFormattingRuntimeSettings(),
               appConfig.getDictionaryEntries(),
               () => appConfig.acceptPreviouslyAppliedEntries(),
@@ -231,17 +235,10 @@ export const startRecording = async (
             }
             if (onStatsSave) {
               try {
-                await onStatsSave(result, recordingCheck.durationMs ?? 0)
+                await onStatsSave(result, recordingCheck.durationMs ?? 0, plan)
               } catch (err) {
                 log('stats', 'failed to save session', { err: String(err) })
               }
-            }
-            if (
-              getSpeechModel(appConfig.getWhisperModelId())?.engine ===
-                'whisperkit' &&
-              !appConfig.isParakeetCoreMlReady()
-            ) {
-              await appConfig.markParakeetCoreMlReady()
             }
           }
         } catch (err) {

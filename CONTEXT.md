@@ -30,7 +30,7 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **ASR Harness** - the specific binary and CLI contract used to execute a Speech Engine. There is one Harness, `crispasr`, and it executes both Whisper and hviske. Harness is an internal concept and is never exposed to end users. See `docs/adr/0002-asr-harness-abstraction.md`.
 
-**Speech Model** - the weights a Speech Engine loads, identified by a Model ID (`large-v3-turbo-q5_0`). Distinct from the Speech Engine that runs it and the Harness that executes it.
+**Speech Model** - the weights a Speech Engine loads, identified by a Model ID (`large-v3-turbo-q5_0`). Distinct from the Speech Engine that runs it and the Harness that executes it. In code and in the persisted config the selection is `speechModelId`; `whisperModelId` was its name until it held hviske and Parakeet ids too, and survives only as a key an old config file is still read from.
 
 **Quantization** - the precision variant of a Speech Model (`q4_k`, `q5_0`, `f16`). Different Quantizations of the same weights are separate Speech Models with separate Model IDs.
 

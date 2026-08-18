@@ -8,6 +8,12 @@ import {
   stopParakeetStream,
   type StreamSession,
 } from './utils/whisper/parakeet-stream-runner'
+import type {
+  BlockedDictationPlan,
+  DictationMode,
+  DictationPlan,
+  RunnableDictationPlan,
+} from '../shared/dictation-plan'
 import {
   finishObservedCorrection,
   FN_PHYSICAL_KEYCODES,
@@ -19,7 +25,11 @@ import {
   type KeyEvent,
   type PermissionStatus,
 } from './utils/keyboard/keyboard-events'
-import { playCancelSound, playStartSound } from './utils/sound/play-sound'
+import {
+  playCancelSound,
+  playErrorSound,
+  playStartSound,
+} from './utils/sound/play-sound'
 import { AppConfig } from './AppConfig/AppConfig'
 import type { TrayHandlers } from './setup-tray'
 import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
@@ -82,13 +92,24 @@ export const setupRecording = (
     setTrayRecording,
     setTrayTranscribing,
     setTrayStreaming,
+    setTrayError,
   }: TrayHandlers,
   onStatusChange?: (status: AppStatus) => void,
   onPermissions?: (status: PermissionStatus) => void,
   getAudioDevices?: () => AudioDeviceSnapshot,
   onAutoLearnedEntry?: () => void,
   onHistorySave?: (transcript: string) => Promise<void>,
-  onStatsSave?: (result: Speech2TextResult, durationMs: number) => Promise<void>
+  onStatsSave?: (
+    result: Speech2TextResult,
+    durationMs: number,
+    plan: RunnableDictationPlan
+  ) => Promise<void>,
+  /**
+   * Every Dictation Plan a shortcut press produces, runnable or blocked. The main process
+   * owns the surfaces a blocked plan has to reach that this module cannot: the notification,
+   * the in-window banner, and the heal pass that makes the next press work.
+   */
+  onDictationPlan?: (plan: DictationPlan) => Promise<void>
 ) => {
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null
   let recordingSession: RecordingSession | null = null
@@ -264,14 +285,16 @@ export const setupRecording = (
   const logShortcutDecision = (
     reason: string,
     mode: 'hybrid' | 'holdOnly',
-    action: 'start' | 'stop',
-    keyEvent?: KeyEvent
+    action: 'start' | 'stop' | 'blocked',
+    keyEvent?: KeyEvent,
+    /** The Dictation Plan's own mode, when a plan was built for this press. */
+    planMode?: DictationMode
   ) => {
     log('shortcut', 'routing shortcut', {
       reason,
       mode,
       action,
-      streamMode: appConfig.getStreamMode(),
+      planMode,
       streamSessionActive: streamSession !== null,
       streamDebugId: streamSession?.streamDebugId,
       activeStreamShortcutMode,
@@ -283,34 +306,70 @@ export const setupRecording = (
     })
   }
 
+  /**
+   * A Dictation that will not run, made impossible to miss.
+   *
+   * Four surfaces, because the app is usable with no window open: the error chime and the
+   * tray error state are owned here, and `onDictationPlan` carries the same sentence out to
+   * the notification (window closed) or the in-window banner (window open) and runs the heal
+   * pass so the next press works. ADR-0005: a blocked Dictation is never silent.
+   */
+  const reportBlockedDictation = async (plan: BlockedDictationPlan) => {
+    log('shortcut', 'dictation blocked', {
+      planMode: plan.mode,
+      reason: plan.reason,
+    })
+    if (appConfig.getSoundEffectsEnabled()) playErrorSound()
+    setTrayError(plan.message)
+    await onDictationPlan?.(plan)
+  }
+
   const routeShortcutAction = async (
     mode: 'hybrid' | 'holdOnly',
     keyEvent: KeyEvent,
     reason: string
   ) => {
-    const streamMode = appConfig.getStreamMode()
-    if (!streamMode && streamSession !== null) {
+    const plan = appConfig.getDictationPlan()
+
+    if (plan.status === 'blocked') {
+      // A running stream still has to be stoppable: its weights can vanish mid-session, and
+      // the press that notices must not leave the helper running.
+      if (streamSession !== null) {
+        logShortcutDecision(reason, mode, 'stop', keyEvent, plan.mode)
+        await tryStopStream()
+      }
+      logShortcutDecision(reason, mode, 'blocked', keyEvent, plan.mode)
+      await reportBlockedDictation(plan)
+      return
+    }
+
+    await onDictationPlan?.(plan)
+
+    if (plan.mode !== 'live' && streamSession !== null) {
       log('shortcut', 'stopping orphan Parakeet stream (stream mode off)')
       await tryStopStream()
     }
-    if (streamMode) {
+    if (plan.mode === 'live') {
       logShortcutDecision(
         reason,
         mode,
         streamSession !== null ? 'stop' : 'start',
-        keyEvent
+        keyEvent,
+        plan.mode
       )
       if (streamSession !== null) await tryStopStream()
-      else await tryStartStream(mode)
+      else await tryStartStream(plan, mode)
       return
     }
 
-    logShortcutDecision(reason, mode, 'start', keyEvent)
-    await tryStart(mode)
+    logShortcutDecision(reason, mode, 'start', keyEvent, plan.mode)
+    await tryStart(plan, mode)
   }
 
-  const tryStartStream = async (shortcutMode: 'hybrid' | 'holdOnly') => {
-    if (!appConfig.getStreamMode()) return
+  const tryStartStream = async (
+    plan: RunnableDictationPlan,
+    shortcutMode: 'hybrid' | 'holdOnly'
+  ) => {
     if (
       streamSession !== null ||
       streamStarting ||
@@ -326,9 +385,8 @@ export const setupRecording = (
     try {
       const streamDeviceRef = await resolveStreamDeviceRef()
       log('stream', 'starting Parakeet stream session', {
-        streamMode: appConfig.getStreamMode(),
         streamTranscriptionMode: appConfig.getStreamTranscriptionMode(),
-        whisperModelId: appConfig.getWhisperModelId(),
+        speechModelId: plan.speechModelId,
         shortcutMode,
         streamDebugId,
         deviceRef: streamDeviceRef,
@@ -337,7 +395,8 @@ export const setupRecording = (
         playStartSound(appConfig.getFunModeEnabled())
       setTrayStreaming()
       onStatusChange?.('streaming')
-      streamSession = await startParakeetStream(
+      const started = await startParakeetStream(
+        plan,
         appConfig.getStreamTranscriptionMode(),
         {
           onStopped: () => {
@@ -358,6 +417,18 @@ export const setupRecording = (
           deviceRef: streamDeviceRef,
         }
       )
+      // The pre-spawn race check lost: the helper or the weights went away between building
+      // the plan and spawning. Same four surfaces as any other blocked Dictation.
+      if (started.status === 'blocked') {
+        streamSession = null
+        activeStreamShortcutMode = null
+        resetHoldGate()
+        setTrayIdle()
+        onStatusChange?.('ready')
+        await reportBlockedDictation(started.plan)
+        return
+      }
+      streamSession = started.session
       if (pendingStreamHoldReleaseWhileStarting && streamSession !== null) {
         resetHoldGate()
         await tryStopStream()
@@ -417,7 +488,10 @@ export const setupRecording = (
     }
   }
 
-  const tryStart = async (mode: 'hybrid' | 'holdOnly') => {
+  const tryStart = async (
+    plan: RunnableDictationPlan,
+    mode: 'hybrid' | 'holdOnly'
+  ) => {
     if (
       recorderProc !== null ||
       sessionStarting ||
@@ -432,7 +506,8 @@ export const setupRecording = (
     try {
       log('shortcut', 'starting recorder session', {
         mode,
-        streamMode: appConfig.getStreamMode(),
+        planMode: plan.mode,
+        speechModelId: plan.speechModelId,
       })
       if (appConfig.getSoundEffectsEnabled())
         playStartSound(appConfig.getFunModeEnabled())
@@ -441,6 +516,7 @@ export const setupRecording = (
       recordingSession = { discard: false, startedAtMs: Date.now() }
       recorderProc = await startRecording(
         appConfig,
+        plan,
         () => {
           recorderProc = null
           transcriptionPipelineActive = true
@@ -507,7 +583,7 @@ export const setupRecording = (
     const hybrid = getHybridShortcut()
     const holdOnly = getHoldOnlyShortcut()
 
-    if (streamSession !== null && appConfig.getStreamMode()) {
+    if (streamSession !== null) {
       const activeStreamShortcut =
         activeStreamShortcutMode === 'holdOnly' && holdOnly !== null
           ? holdOnly
@@ -586,7 +662,7 @@ export const setupRecording = (
 
     if (transcriptionPipelineActive || sessionStarting) return
 
-    if (streamStarting && appConfig.getStreamMode()) {
+    if (streamStarting) {
       if (
         activeStreamShortcutMode === 'hybrid' &&
         hybrid.matchesHoldUp(keyEvent)

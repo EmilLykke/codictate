@@ -19,8 +19,8 @@ import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
  * - They come from a Mirror repo, not from `ggerganov/whisper.cpp`, so the
  *   `whisperModelDownloadUrl` builder that every `whisper_cpp` model uses would
  *   produce a dead URL.
- * - Every existing `engine === 'whisper_cpp'` filter (WHISPER_MODELS,
- *   TRANSLATE_CAPABLE_MODEL_IDS, the Settings model list) would otherwise pick hviske up
+ * - Every existing `engine === 'whisper_cpp'` filter (TRANSLATE_CAPABLE_MODEL_IDS in
+ *   dictation-plan.ts, the Settings model list) would otherwise pick hviske up
  *   silently. A separate id keeps it out of all of them by construction, and the surfaces
  *   that *should* offer hviske name it explicitly instead - see BROWSABLE_SPEECH_MODELS.
  *
@@ -33,21 +33,18 @@ export type SpeechEngineId = 'whisper_cpp' | 'whisperkit' | 'hviske'
 
 export type SpeechModelModeSupport = 'normal' | 'stream' | 'both'
 
-/** localStorage: set after first Parakeet transcribe/stream session ends so Ready UI stops showing the prep hint. */
-export const PARAKEET_COREML_PREP_STORAGE_KEY =
-  'codictate.parakeetCoreMlPrepCompleted'
-
-/** One line under Transcribing… / Live transcription on first Parakeet use. */
-export const PARAKEET_FIRST_RUN_READY_SUBTITLE =
-  'First run: preparing the model can take 1-2 minutes. Later runs are fast.'
-
-/** Settings / model row: why the first session can feel stuck. */
-export const PARAKEET_FIRST_RUN_SETTINGS_HINT =
-  'First run: Codictate may take 1-2 minutes to prepare Parakeet for this device. It may look stuck, but subsequent runs are fast.'
-
-/** Live transcription helper (Transcription section has the full explanation). */
-export const PARAKEET_FIRST_RUN_STREAM_HELPER =
-  'First live transcription run takes 1-2 minutes to prepare the model (see Transcription).'
+/**
+ * Settings / model row: what is happening while Parakeet prepares itself, shown only while a
+ * preparation can actually be under way (Parakeet selected, installed, not yet prepared).
+ *
+ * The three sentences this replaces all described the old behaviour, where preparation
+ * happened inside the user's first Dictation and the app "may look stuck". ADR-0005 makes
+ * preparation start on selection instead, so there is nothing to warn about and nothing to
+ * ask the user to do - only a fact to state, which disappears on its own when the settings
+ * push says the preparation finished.
+ */
+export const PARAKEET_PREPARING_SETTINGS_HINT =
+  'Codictate is preparing Parakeet for this device. It takes a minute or two, runs in the background, and a dictation started before it finishes waits for it.'
 
 /** European-language set aligned with Parakeet TDT v3 multilingual (25 locales we expose in Settings). */
 const PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS = [
@@ -613,8 +610,22 @@ export const SPEECH_MODELS: SpeechModel[] = [
 
 export const DEFAULT_MODEL_ID = 'large-v3-turbo-q5_0'
 
+/**
+ * The large non-turbo model. Named here rather than at its callers because it is a catalog
+ * fact, and the one Speech Model a finished download never auto-selects: it is slow enough
+ * that landing on it by accident reads as the app breaking.
+ */
+export const LARGE_V3_Q5_MODEL_ID = 'large-v3-q5_0'
+
 /** Recommended stream engine model (must be installed; not bundled). */
 export const DEFAULT_STREAM_CAPABLE_MODEL_ID = 'parakeet-tdt-0.6b-v3'
+
+/**
+ * The Parakeet engine id. A misnomer kept for config compatibility - the engine is
+ * FluidAudio, not WhisperKit (see SpeechEngineId). Named once so the run path, the warmup
+ * routine and the benchmark compare against one constant instead of re-typing the literal.
+ */
+export const PARAKEET_ENGINE_ID: SpeechEngineId = 'whisperkit'
 
 export const SPEECH_MODEL_IDS = SPEECH_MODELS.map((m) => m.id)
 
@@ -635,6 +646,11 @@ export function isHviskeSpeechModelId(id: string): boolean {
   return getSpeechModel(id)?.engine === 'hviske'
 }
 
+/** Upstream ggml weights for every `whisper_cpp` Speech Model, keyed by `artifactName`. */
+export function whisperModelDownloadUrl(artifactName: string): string {
+  return `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${artifactName}`
+}
+
 /**
  * Direct file URL in the hviske Mirror. Used instead of `whisperModelDownloadUrl`,
  * which points at `ggerganov/whisper.cpp` and has no hviske weights.
@@ -647,7 +663,7 @@ export function hviskeMirrorFileUrl(artifactName: string): string {
 export function speechModelLocksTranscriptionLanguage(
   speechModelId: string
 ): boolean {
-  return getSpeechModel(speechModelId)?.engine === 'whisperkit'
+  return getSpeechModel(speechModelId)?.engine === PARAKEET_ENGINE_ID
 }
 
 /** `auto` is always allowed. Whisper models (no `supportedTranscriptionLanguageIds`) allow every picker id. */
@@ -660,6 +676,28 @@ export function transcriptionLanguageAllowedForModel(
   const list = model?.supportedTranscriptionLanguageIds
   if (!list?.length) return true
   return (list as readonly string[]).includes(transcriptionLanguageId)
+}
+
+/**
+ * The directory name FluidAudio will actually read Parakeet's Core ML weights from.
+ *
+ * FluidAudio does not read the directory it is handed. `AsrModels.load(from:)` takes that
+ * directory's *parent* and re-appends `Repo.folderName`, and for the v3 Parakeet repo
+ * `folderName` is the repo slug with every `-coreml` stripped out (FluidAudio 0.13.6,
+ * `ModelNames.swift`, the `default:` arm of `folderName`). `DownloadUtils.loadModels` then
+ * resolves the same `directory + folderName` path.
+ *
+ * So weights installed under the repo slug itself are invisible to the loader: it decides
+ * they are missing and downloads its own copy into the name it expected. Worse, a failed
+ * load deletes that directory and retries once (`DownloadUtils.loadModels`), so a mismatch
+ * costs a fresh 461 MB fetch on every single attempt, with nothing on stdout to say so.
+ *
+ * macOS only. The Windows helper is ONNX and reads the directory it is given.
+ */
+export function fluidAudioModelFolderName(artifactName: string): string {
+  // split/join rather than replaceAll: it matches Swift's replacingOccurrences on every
+  // occurrence, and replaceAll is past this project's configured lib target.
+  return artifactName.split('-coreml').join('')
 }
 
 export function parakeetSupportsTranscriptionLanguageId(id: string): boolean {

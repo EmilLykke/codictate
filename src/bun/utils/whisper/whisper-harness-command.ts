@@ -49,16 +49,17 @@ function whisperHarnessThreadCount(): number {
  * sample, differing only by ordinary decoding variance. An earlier turbo-model test that
  * came back in Danish was the wrong model, not a crispasr defect - `large-v3-turbo` is a
  * transcribe-only distillation and returns the source language whatever runs it, which is
- * exactly why `resolveTranslateModelId()` picks the Speech Model for a translate run.
- * Translate is a Speech Model concern, not a Harness one.
+ * why translate depends on the Speech Model selection. Translate is a Speech Model concern,
+ * not a Harness one.
  *
  * The `translateToEnglish` + pinned-backend combination is rejected rather than run,
  * because hviske's weights are Danish-only and cannot translate: a run there would
  * silently produce Danish for a user who asked for English. crispasr's own
  * `--list-backends` claims translate support for `cohere`, but that is unverified, so it
  * stays unavailable until the benchmark says otherwise. This is a last-resort invariant
- * and should be unreachable: `resolveTranslateModelId()` resolves an hviske selection to a
- * translate-capable Whisper Speech Model before it ever gets here.
+ * and should be unreachable: Translate to English cannot be turned on under an hviske
+ * selection (settings-heal.ts) and `buildDictationPlan` blocks the Dictation rather than
+ * building a command for it. See ADR-0005.
  */
 export async function buildWhisperHarnessCommand(
   options: WhisperHarnessCommandOptions

@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The TypeScript suite, ESLint and tsc are platform-independent: the default `bun test`
+  # run covers pure functions only (no spawn, no filesystem, no webview), so it runs on the
+  # cheapest runner rather than on macOS. Platform-specific code is covered by the
+  # windows-helper job below and by the build-macos / build-windows workflows.
+  checks:
+    name: Tests, lint and typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run tsc
+
+      - name: Lint
+        run: bun run lint
+
+      # `bun test` deliberately skips the two `*.manual.ts` suites: one needs the network,
+      # the other is pinned to the committed Benchmark Run archive. Run those with
+      # `bun run test:manual`.
+      - name: Test
+        run: bun run test
+
+  # Windows parity: the Rust helper only compiles against the windows crates on a Windows
+  # host, so its fmt / check / clippy / test pass needs its own runner.
+  windows-helper:
+    name: Windows native helper (Rust)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/CodictateWindowsHelper/target
+          key: windows-cargo-${{ hashFiles('native/CodictateWindowsHelper/Cargo.lock') }}
+          restore-keys: |
+            windows-cargo-
+
+      - name: Check native helper (fmt, check, clippy, test)
+        run: bun run check:native:windows-helper

@@ -5,10 +5,7 @@ import {
   type RecordingDurationPresetSeconds,
 } from '../../shared/recording-duration-presets'
 import { SHORTCUT_OPTIONS } from '../../shared/shortcut-options'
-import {
-  isValidTranscriptionLanguageId,
-  whisperCodeForTranscriptionId,
-} from '../../shared/transcription-languages'
+import { isValidTranscriptionLanguageId } from '../../shared/transcription-languages'
 import type {
   AppSettings,
   AudioDeviceDetails,
@@ -31,11 +28,21 @@ import type {
   ThemePreference,
   TranscriptionSettingsPatch,
 } from '../../shared/types'
+import { DEFAULT_MODEL_ID } from '../../shared/speech-models'
 import {
-  DEFAULT_MODEL_ID,
-  getStreamModeReadiness,
-  isValidWhisperModelId,
-} from '../../shared/whisper-models'
+  buildDictationPlan,
+  getDictationReadiness,
+  type BlockedDictationPlan,
+  type DictationAvailability,
+  type DictationPlan,
+  type DictationReadiness,
+} from '../../shared/dictation-plan'
+import {
+  applyRunnableDictationPatch,
+  healDictationSettings,
+  type RunnableDictationSettings,
+  type SettingsHealAnnouncement,
+} from '../../shared/settings-heal'
 import {
   FORMATTING_MODE_ORDER,
   isValidDocumentStructure,
@@ -48,6 +55,7 @@ import {
   type FormattingModeId,
 } from '../../shared/formatting-modes'
 import { modelManager } from '../utils/whisper/model-manager'
+import { persistedSpeechModelId } from './persisted-speech-model'
 import {
   detectFormattingAvailable,
   isFormatterModelInstalled,
@@ -183,7 +191,7 @@ interface PersistedMainSettings {
   soundEffectsEnabled: boolean
   transcriptionLanguageId: string
   maxRecordingDuration: RecordingDurationPresetSeconds
-  whisperModelId: string
+  speechModelId: string
   translateToEnglish: boolean
   translateDefaultLanguageId: string
   onboardingCompleted: boolean
@@ -216,7 +224,7 @@ export class AppConfig {
   private soundEffectsEnabled: boolean
   private transcriptionLanguageId: string
   private maxRecordingDuration: RecordingDurationPresetSeconds
-  private whisperModelId: string
+  private speechModelId: string
   private translateToEnglish: boolean
   private translateDefaultLanguageId: string
   private onboardingCompleted: boolean
@@ -239,6 +247,31 @@ export class AppConfig {
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
     null
+  /**
+   * What the most recent heal pass changed behind the user's back, carried in the settings
+   * payload so the window can say it out loud. In memory only: an announcement describes one
+   * moment, and replaying it after a restart would be a lie.
+   */
+  private healAnnouncements: SettingsHealAnnouncement[] = []
+
+  /**
+   * The last Dictation that refused to start, carried in the same settings payload for the
+   * same reason. In memory only, and cleared by the first press that runs - which is the
+   * whole promise a blocked plan makes.
+   */
+  private blockedDictation: BlockedDictationPlan | null = null
+
+  /**
+   * Wired once at boot. Everything derived from the `(settings, availability)` pair that
+   * lives outside this class - today only Parakeet's automatic preparation - has to hear
+   * about every change to either half, and there are two entry points rather than one: a
+   * transcription settings write, and the heal pass that runs at boot, on a download, on a
+   * delete and after a blocked Dictation.
+   *
+   * A callback rather than a direct call, so that `AppConfig` stays the settings adapter and
+   * needs to know nothing about the process a preparation spawns.
+   */
+  private runnableDictationObserver: (() => void) | null = null
 
   constructor() {
     this.audioDeviceName = null
@@ -251,7 +284,7 @@ export class AppConfig {
     this.soundEffectsEnabled = true
     this.transcriptionLanguageId = 'auto'
     this.maxRecordingDuration = DEFAULT_MAX_RECORDING_DURATION_SECONDS
-    this.whisperModelId = DEFAULT_MODEL_ID
+    this.speechModelId = DEFAULT_MODEL_ID
     this.translateToEnglish = false
     this.translateDefaultLanguageId = 'auto'
     this.onboardingCompleted = false
@@ -287,7 +320,7 @@ export class AppConfig {
       soundEffectsEnabled: this.soundEffectsEnabled,
       transcriptionLanguageId: this.transcriptionLanguageId,
       maxRecordingDuration: this.maxRecordingDuration,
-      whisperModelId: this.whisperModelId,
+      speechModelId: this.speechModelId,
       translateToEnglish: this.translateToEnglish,
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       onboardingCompleted: this.onboardingCompleted,
@@ -389,12 +422,10 @@ export class AppConfig {
     ) {
       this.maxRecordingDuration = raw.maxRecordingDuration
     }
-    if (
-      typeof raw.whisperModelId === 'string' &&
-      isValidWhisperModelId(raw.whisperModelId)
-    ) {
-      this.whisperModelId = raw.whisperModelId
-    }
+    // Reads the pre-rename key too. See persisted-speech-model.ts, which owns both key names
+    // and is tested without a filesystem.
+    const selected = persistedSpeechModelId(raw)
+    if (selected !== null) this.speechModelId = selected
     if (typeof raw.translateToEnglish === 'boolean') {
       this.translateToEnglish = raw.translateToEnglish
     }
@@ -780,6 +811,16 @@ export class AppConfig {
   }
 
   public async load() {
+    await this.loadFromDisk()
+
+    // Weights can vanish between two launches - a Finder delete, a failed disk, a
+    // cloud-storage eviction - with no settings write to notice it. Boot is the one place
+    // that always gets to look, so the same heal pass runs here rather than a second
+    // field-by-field definition of the same thing.
+    await this.healRunnableSettings()
+  }
+
+  private async loadFromDisk() {
     try {
       const [hasMain, hasDictionary, hasLegacy] = await Promise.all([
         Bun.file(MAIN_CONFIG_PATH).exists(),
@@ -863,7 +904,7 @@ export class AppConfig {
       funModeEnabled: this.funModeEnabled,
       soundEffectsEnabled: this.soundEffectsEnabled,
       transcriptionLanguageId: this.transcriptionLanguageId,
-      whisperModelId: this.whisperModelId,
+      speechModelId: this.speechModelId,
       translateToEnglish: this.translateToEnglish,
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       onboardingCompleted: this.onboardingCompleted,
@@ -898,7 +939,177 @@ export class AppConfig {
       },
       themePreference: this.themePreference,
       modelAvailability: modelManager.getAvailabilityMap(),
+      healAnnouncements: this.getHealAnnouncements(),
+      dictationReadiness: this.getDictationReadiness(),
+      blockedDictation: this.getBlockedDictation(),
     }
+  }
+
+  /**
+   * The `(settings, availability)` pair ADR-0005 is built on. `modelManager` and the platform
+   * probe are read here and nowhere deeper, which is what keeps the heal pass itself pure.
+   */
+  private dictationAvailability(): DictationAvailability {
+    return {
+      isModelAvailable: (id) => modelManager.isModelAvailable(id),
+      streamSupported: getPlatformCapabilities().supportsStreamMode,
+    }
+  }
+
+  private runnableDictationSettings(): RunnableDictationSettings {
+    return {
+      speechModelId: this.speechModelId,
+      transcriptionLanguageId: this.transcriptionLanguageId,
+      translateDefaultLanguageId: this.translateDefaultLanguageId,
+      translateToEnglish: this.translateToEnglish,
+      streamMode: this.streamMode,
+      parakeetCoreMlReady: this.parakeetCoreMlReady,
+    }
+  }
+
+  private applyRunnableDictationSettings(
+    next: RunnableDictationSettings
+  ): void {
+    this.speechModelId = next.speechModelId
+    this.transcriptionLanguageId = next.transcriptionLanguageId
+    this.translateDefaultLanguageId = next.translateDefaultLanguageId
+    this.translateToEnglish = next.translateToEnglish
+    this.streamMode = next.streamMode
+    this.parakeetCoreMlReady = next.parakeetCoreMlReady
+  }
+
+  private recordHealAnnouncements(
+    announcements: SettingsHealAnnouncement[]
+  ): void {
+    if (announcements.length === 0) return
+    this.healAnnouncements = announcements
+    for (const announcement of announcements) {
+      log('config', 'healed settings', {
+        target: announcement.target,
+        reason: announcement.reason,
+      })
+    }
+  }
+
+  /**
+   * Register the observer above, and fire it once immediately.
+   *
+   * The immediate call is deliberate: `load()` has already healed by the time boot gets here,
+   * so the current selection is the first change the observer needs to hear about.
+   */
+  public observeRunnableDictationSettings(observer: () => void): void {
+    this.runnableDictationObserver = observer
+    observer()
+  }
+
+  private notifyRunnableDictationSettled(): void {
+    this.runnableDictationObserver?.()
+  }
+
+  /**
+   * The availability arm of the enforcement: run after a Speech Model is downloaded or
+   * deleted, and at boot. It corrects rather than refuses, because someone deleting
+   * multi-gigabyte weights wants the disk space, not an argument.
+   *
+   * Returns what has to be said out loud, so the caller can also resync the tray and stop a
+   * Live Transcription that just lost its Speech Model.
+   */
+  public async healRunnableSettings(options?: {
+    /**
+     * Retire an earlier correction if this pass finds nothing left to heal.
+     *
+     * Only the availability callers pass this. A correction is worth saying once and then
+     * leaving on screen, so an ordinary settings write must not wipe it half a second after
+     * it appeared - but a Speech Model finishing its download is the user fixing the very
+     * thing the correction was about, and a notice that outlives its cause is just wrong.
+     */
+    retireSettledAnnouncements?: boolean
+  }): Promise<SettingsHealAnnouncement[]> {
+    const result = healDictationSettings(
+      this.runnableDictationSettings(),
+      this.dictationAvailability()
+    )
+    if (result.unchanged) {
+      if (
+        options?.retireSettledAnnouncements === true &&
+        this.healAnnouncements.length > 0
+      ) {
+        this.healAnnouncements = []
+      }
+      // Still a settled `(settings, availability)` pair, and the availability half may be
+      // what moved: a finished Parakeet download changes nothing about the settings and is
+      // exactly the moment a preparation becomes possible.
+      this.notifyRunnableDictationSettled()
+      return []
+    }
+    this.applyRunnableDictationSettings(result.settings)
+    this.recordHealAnnouncements(result.announcements)
+    await this.saveMain()
+    this.notifyRunnableDictationSettled()
+    return result.announcements
+  }
+
+  /**
+   * The one answer to "can Translate to English / Live Transcription run right now",
+   * computed here because `dictationAvailability()` reads the filesystem and carries a
+   * predicate that cannot cross the RPC bridge. Shipped as plain data in `getSettings()`.
+   */
+  public getDictationReadiness(): DictationReadiness {
+    return getDictationReadiness(
+      this.runnableDictationSettings(),
+      this.dictationAvailability()
+    )
+  }
+
+  /**
+   * The whole run decision for one press of the Dictation Shortcut: which Speech Model,
+   * Speech Engine, crispasr backend and Transcription Language will run, or the closed reason
+   * nothing will. The Dictation path consumes this and re-derives none of it.
+   *
+   * Built fresh on every press rather than cached, because the availability half is a
+   * filesystem question and weights can vanish between two presses with no settings write in
+   * between. That case is the entire reason a blocked plan exists.
+   */
+  public getDictationPlan(): DictationPlan {
+    return buildDictationPlan(
+      this.runnableDictationSettings(),
+      this.dictationAvailability()
+    )
+  }
+
+  /**
+   * Remember a Dictation that refused to start, so the window can show it in the banner slot
+   * the heal announcements already use. Not persisted: the next press either works or blocks
+   * again.
+   */
+  public recordBlockedDictation(plan: BlockedDictationPlan): void {
+    this.blockedDictation = { ...plan }
+    log('config', 'dictation blocked', { mode: plan.mode, reason: plan.reason })
+  }
+
+  /** Retires the notice once a Dictation runs. Returns true when there was one to retire. */
+  public clearBlockedDictation(): boolean {
+    if (this.blockedDictation === null) return false
+    this.blockedDictation = null
+    return true
+  }
+
+  public getBlockedDictation(): BlockedDictationPlan | null {
+    return this.blockedDictation === null ? null : { ...this.blockedDictation }
+  }
+
+  /**
+   * Retire a correction because the user said they had read it. Returns true when there was
+   * one to retire, so the caller only pushes settings when something actually changed.
+   */
+  public dismissHealAnnouncements(): boolean {
+    if (this.healAnnouncements.length === 0) return false
+    this.healAnnouncements = []
+    return true
+  }
+
+  public getHealAnnouncements(): SettingsHealAnnouncement[] {
+    return this.healAnnouncements.map((announcement) => ({ ...announcement }))
   }
 
   public getFormattingRuntimeSettings(): FormattingRuntimeSettings {
@@ -1018,6 +1229,10 @@ export class AppConfig {
   public async updateTranscriptionSettings(
     patch: TranscriptionSettingsPatch
   ): Promise<boolean> {
+    // Vocabulary checks first: these fields have a fixed set of legal values and nothing to
+    // do with what is installed. `speechModelId` used to be checked here too; an unknown or
+    // uninstalled Speech Model is now the heal pass's business, below, because the field-level
+    // version of that check was exactly the "patch valid, result invalid" gap.
     if (
       patch.transcriptionLanguageId !== undefined &&
       !isValidTranscriptionLanguageId(patch.transcriptionLanguageId)
@@ -1027,12 +1242,6 @@ export class AppConfig {
     if (
       patch.maxRecordingDuration !== undefined &&
       !isValidMaxRecordingDurationSeconds(patch.maxRecordingDuration)
-    ) {
-      return false
-    }
-    if (
-      patch.whisperModelId !== undefined &&
-      !isValidWhisperModelId(patch.whisperModelId)
     ) {
       return false
     }
@@ -1050,45 +1259,52 @@ export class AppConfig {
       return false
     }
 
-    if (patch.transcriptionLanguageId !== undefined) {
-      this.transcriptionLanguageId = patch.transcriptionLanguageId
+    // Validate the object the patch would produce, not the fields in the patch. This is the
+    // only write path that touches the runnable slice, so it is the only one that has to.
+    const outcome = applyRunnableDictationPatch(
+      this.runnableDictationSettings(),
+      {
+        ...(patch.speechModelId !== undefined
+          ? { speechModelId: patch.speechModelId }
+          : {}),
+        ...(patch.transcriptionLanguageId !== undefined
+          ? { transcriptionLanguageId: patch.transcriptionLanguageId }
+          : {}),
+        ...(patch.translateDefaultLanguageId !== undefined
+          ? { translateDefaultLanguageId: patch.translateDefaultLanguageId }
+          : {}),
+        ...(patch.translateToEnglish !== undefined
+          ? { translateToEnglish: patch.translateToEnglish }
+          : {}),
+        ...(patch.streamMode !== undefined
+          ? { streamMode: patch.streamMode }
+          : {}),
+      },
+      this.dictationAvailability()
+    )
+
+    if (outcome.kind === 'refused') {
+      log('config', 'transcription settings write refused', {
+        targets: outcome.refusedTargets,
+        reasons: outcome.announcements.map((a) => a.reason),
+      })
+      // The patch is dropped, but whatever availability broke underneath it still gets
+      // corrected: refusing a write is no reason to leave the config unrunnable.
+      await this.healRunnableSettings()
+      return false
     }
+
     if (patch.maxRecordingDuration !== undefined) {
       this.maxRecordingDuration = patch.maxRecordingDuration
-    }
-    if (patch.whisperModelId !== undefined) {
-      this.whisperModelId = patch.whisperModelId
-    }
-    if (patch.translateDefaultLanguageId !== undefined) {
-      this.translateDefaultLanguageId = patch.translateDefaultLanguageId
-    }
-    if (patch.translateToEnglish !== undefined) {
-      this.translateToEnglish = patch.translateToEnglish
     }
     if (patch.streamTranscriptionMode !== undefined) {
       this.streamTranscriptionMode = patch.streamTranscriptionMode
     }
-    if (patch.streamMode !== undefined) {
-      if (patch.streamMode) {
-        const readiness = getStreamModeReadiness(
-          this.whisperModelId,
-          this.transcriptionLanguageId,
-          (id) => modelManager.isModelAvailable(id),
-          this.parakeetCoreMlReady
-        )
-        if (readiness.kind !== 'ready') {
-          log('config', 'stream mode blocked', {
-            reason: readiness.kind,
-            whisperModelId: this.whisperModelId,
-            transcriptionLanguageId: this.transcriptionLanguageId,
-          })
-          return false
-        }
-      }
-      this.streamMode = patch.streamMode
-    }
+    this.applyRunnableDictationSettings(outcome.settings)
+    this.recordHealAnnouncements(outcome.announcements)
 
     await this.saveMain()
+    this.notifyRunnableDictationSettled()
     return true
   }
 
@@ -1336,22 +1552,11 @@ export class AppConfig {
     return this.transcriptionLanguageId
   }
 
-  public getTranscriptionWhisperCode(): string | null {
-    return whisperCodeForTranscriptionId(this.transcriptionLanguageId)
-  }
-
-  public getRuntimeTranscriptionWhisperCode(): string | null {
-    if (!this.translateToEnglish) {
-      return this.getTranscriptionWhisperCode()
-    }
-
-    const sourceLanguageId =
-      this.transcriptionLanguageId !== 'auto'
-        ? this.transcriptionLanguageId
-        : this.translateDefaultLanguageId
-
-    return whisperCodeForTranscriptionId(sourceLanguageId)
-  }
+  // `getTranscriptionWhisperCode` and `getRuntimeTranscriptionWhisperCode` are gone. They
+  // were AppConfig's own copy of "which language does the run actually use", including the
+  // translate-from-auto rule, and their one caller was the transcription path. That answer
+  // now lives on the Dictation Plan (`languageCode` / `transcriptionLanguageId`), which is
+  // also what stats record. ADR-0005: nothing re-derives the run.
 
   public getShortcutId(): ShortcutId {
     return this.shortcutId
@@ -1395,12 +1600,12 @@ export class AppConfig {
     return this.updateTranscriptionSettings({ maxRecordingDuration: seconds })
   }
 
-  public getWhisperModelId(): string {
-    return this.whisperModelId
+  public getSpeechModelId(): string {
+    return this.speechModelId
   }
 
-  public async setWhisperModelId(id: string): Promise<boolean> {
-    return this.updateTranscriptionSettings({ whisperModelId: id })
+  public async setSpeechModelId(id: string): Promise<boolean> {
+    return this.updateTranscriptionSettings({ speechModelId: id })
   }
 
   public getTranslateToEnglish(): boolean {
@@ -1412,22 +1617,18 @@ export class AppConfig {
   }
 
   public async setTranslateOn(sourceLanguageId: string): Promise<boolean> {
-    if (
-      !isValidTranscriptionLanguageId(sourceLanguageId) ||
-      sourceLanguageId === 'auto'
-    ) {
-      return false
-    }
-    this.transcriptionLanguageId = sourceLanguageId
-    this.translateToEnglish = true
-    await this.saveMain()
-    return true
+    if (sourceLanguageId === 'auto') return false
+    return this.updateTranscriptionSettings({
+      transcriptionLanguageId: sourceLanguageId,
+      translateToEnglish: true,
+    })
   }
 
   public async setTranslateOff(): Promise<void> {
-    this.translateToEnglish = false
-    this.transcriptionLanguageId = 'auto'
-    await this.saveMain()
+    await this.updateTranscriptionSettings({
+      translateToEnglish: false,
+      transcriptionLanguageId: 'auto',
+    })
   }
 
   public getTranslateDefaultLanguageId(): string {
@@ -1633,11 +1834,9 @@ export class AppConfig {
     await this.saveMain()
   }
 
-  public async resetParakeetCoreMlReady(): Promise<void> {
-    if (!this.parakeetCoreMlReady) return
-    this.parakeetCoreMlReady = false
-    await this.saveMain()
-  }
+  // No `resetParakeetCoreMlReady`: warmup cannot outlive the weights it prepared, so the
+  // heal pass clears the flag whenever Parakeet is not installed. Quietly - it is state the
+  // user never chose.
 
   public getStreamMode(): boolean {
     return this.streamMode

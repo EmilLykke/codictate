@@ -8,6 +8,7 @@ import type {
   AppStatus,
   DeviceInfo,
   AudioDuckingSettingsPatch,
+  DictationNoticeKind,
   DictionarySettingsPatch,
   FormattingSettingsPatch,
   GeneralSettingsPatch,
@@ -26,9 +27,6 @@ import { AppConfig } from './AppConfig/AppConfig'
 import { copyLogToClipboard } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
 import { formatterModelManager } from './utils/formatting/formatter-model-manager'
-import { isTranslateCapableModelId } from '../shared/whisper-models'
-import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
-import { warmupParakeet } from './utils/whisper/speech2text'
 import { getPlatformRuntime } from './platform/runtime'
 import { setWindowsWindowIcon } from './utils/window/windows-window-icon'
 import type { AudioDeviceSnapshot } from './utils/audio/devices'
@@ -143,6 +141,28 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
     )
   }
 
+  /**
+   * Downloading or deleting a Speech Model changes what the settings are allowed to say
+   * without any settings write happening, so the heal pass runs here too. Both the Translate
+   * and the Live Transcription hooks fire unconditionally: the heal may have switched either
+   * off, and the tray checkmarks and any running Parakeet stream have to follow.
+   */
+  async function healAfterAvailabilityChange(): Promise<void> {
+    // Availability moving is the one moment an earlier correction can have been undone by
+    // the user - they downloaded the Speech Model back - so a pass with nothing left to heal
+    // retires the notice here rather than leaving it claiming a switch that no longer holds.
+    await deps.appConfig.healRunnableSettings({
+      retireSettledAnnouncements: true,
+    })
+    try {
+      rpc.send.updateSettings(deps.appConfig.getSettings())
+    } catch {
+      // Window may be closed during a long download
+    }
+    deps.onTranslateChanged?.()
+    deps.onStreamModeChanged?.()
+  }
+
   const rpc = BrowserView.defineRPC<WebviewRPCType>({
     handlers: {
       requests: {
@@ -164,6 +184,25 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           }
         },
         getSettings: async () => deps.appConfig.getSettings(),
+        dismissDictationNotice: async ({
+          notice,
+        }: {
+          notice: DictationNoticeKind
+        }) => {
+          const dismissed =
+            notice === 'heal'
+              ? deps.appConfig.dismissHealAnnouncements()
+              : deps.appConfig.clearBlockedDictation()
+          if (!dismissed) return false
+          // Pushed back rather than left to the caller's own state, so every mount of the
+          // banner slot agrees about what is dismissed.
+          try {
+            rpc.send.updateSettings(deps.appConfig.getSettings())
+          } catch {
+            // Window may have been closed between the click and this push
+          }
+          return true
+        },
         updateGeneralSettings: async ({
           patch,
         }: {
@@ -212,7 +251,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             deps.onTranscriptionMenuSync?.()
           }
           if (
-            patch.whisperModelId !== undefined ||
+            patch.speechModelId !== undefined ||
             patch.translateToEnglish !== undefined ||
             patch.translateDefaultLanguageId !== undefined ||
             patch.transcriptionLanguageId !== undefined
@@ -222,17 +261,14 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           if (
             patch.streamMode !== undefined ||
             patch.streamTranscriptionMode !== undefined ||
-            patch.whisperModelId !== undefined
+            patch.speechModelId !== undefined
           ) {
             deps.onStreamModeChanged?.()
           }
-          if (patch.whisperModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-            void warmupParakeet(async () => {
-              await deps.appConfig.markParakeetCoreMlReady()
-              rpc.send.updateSettings(deps.appConfig.getSettings())
-              deps.onStreamModeChanged?.()
-            })
-          }
+          // No warmup call here. Selecting Parakeet starts its preparation, but the
+          // trigger lives on `AppConfig`'s runnable-settings observer so that the tray menu
+          // and the "download then select" path get it too - see `installParakeetWarmup` in
+          // index.ts.
           return true
         },
         setAudioDevice: async ({ index }) => {
@@ -408,17 +444,10 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
                   error,
                 })
                 if (done && !error) {
-                  rpc.send.updateSettings(deps.appConfig.getSettings())
-                  if (isTranslateCapableModelId(modelId)) {
-                    deps.onTranslateChanged?.()
-                  }
-                  if (modelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-                    void warmupParakeet(async () => {
-                      await deps.appConfig.markParakeetCoreMlReady()
-                      rpc.send.updateSettings(deps.appConfig.getSettings())
-                      deps.onStreamModeChanged?.()
-                    })
-                  }
+                  // The heal pass also settles the runnable-settings observer, which is what
+                  // starts Parakeet's preparation when the weights that just landed are the
+                  // ones the user has selected.
+                  void healAfterAvailabilityChange()
                 }
               } catch {
                 // Window may be closed during a long download
@@ -431,15 +460,11 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         },
         deleteWhisperModel: ({ modelId }) => {
           const deleted = modelManager.deleteModel(modelId)
-          if (deleted) {
-            if (modelId === DEFAULT_STREAM_CAPABLE_MODEL_ID) {
-              void deps.appConfig.resetParakeetCoreMlReady()
-            }
-            rpc.send.updateSettings(deps.appConfig.getSettings())
-            if (isTranslateCapableModelId(modelId)) {
-              deps.onTranslateChanged?.()
-            }
-          }
+          if (!deleted) return
+          // Deleting weights is never refused, so the configuration is what gets corrected:
+          // a dangling selection, a Translate toggle with nothing to translate with, a Live
+          // Transcription switched on without Parakeet.
+          void healAfterAvailabilityChange()
         },
         downloadFormatterModel: ({ tier }) => {
           formatterModelManager

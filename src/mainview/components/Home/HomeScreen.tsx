@@ -18,14 +18,8 @@ import { Kbd } from "../Common/Kbd";
 import {
   SPEECH_MODELS,
   getSpeechModel,
-  supportsStreamMode,
-  DEFAULT_STREAM_CAPABLE_MODEL_ID,
-} from "../../../shared/speech-models";
-import {
-  getWhisperModel,
   formatModelSize,
-  isTranslateCapableModelId,
-} from "../../../shared/whisper-models";
+} from "../../../shared/speech-models";
 import { LanguagePicker } from "../Settings/LanguagePicker";
 import { InstantTooltip } from "../Common/InstantTooltip";
 import { HomeHistoryTimeline } from "./HomeHistoryTimeline";
@@ -134,11 +128,6 @@ export function HomeScreen({
       : null;
   }, [settings?.capabilities.platform, settings?.shortcutHoldOnlyId]);
 
-  const currentModel = settings?.whisperModelId
-    ? getSpeechModel(settings.whisperModelId)
-    : null;
-  const canStream = currentModel ? supportsStreamMode(currentModel) : false;
-
   const availableModels = SPEECH_MODELS.filter(
     (m) => modelAvailability[m.id] || m.bundled,
   );
@@ -146,9 +135,6 @@ export function HomeScreen({
   const currentLanguageId = settings?.transcriptionLanguageId ?? "auto";
 
   const isStreamMode = settings?.streamMode ?? false;
-  const streamModeSupported = settings?.capabilities.supportsStreamMode ?? true;
-  const streamModeLabel =
-    settings?.streamTranscriptionMode === "live" ? "Live" : "VAD";
 
   const formattingSupported =
     settings?.capabilities?.supportsFormatting ?? false;
@@ -161,11 +147,36 @@ export function HomeScreen({
     (settings?.formatting?.enabled ?? false) && formattingAvailable;
 
   const isTranslateOn = settings?.translateToEnglish ?? false;
-  const parakeetInstalled =
-    modelAvailability[DEFAULT_STREAM_CAPABLE_MODEL_ID] ?? false;
 
-  const canTranslate =
-    isTranslateOn || isTranslateCapableModelId(settings?.whisperModelId ?? "");
+  /**
+   * What can run, decided in the main process and shipped in the settings payload. Nothing
+   * on this screen re-derives it from `modelAvailability` or from the Speech Model catalog:
+   * that is the whole of ADR-0005's readiness transport, and the reason the Home copy used
+   * to disagree with the rest of the app.
+   *
+   * A toggle stays clickable when it is already on (turning something unrunnable *off* is
+   * always allowed) or when readiness names a Speech Model whose download unblocks it.
+   */
+  const streamReadiness = settings?.dictationReadiness.liveTranscription;
+  const translateReadiness = settings?.dictationReadiness.translateToEnglish;
+
+  const streamClickable =
+    isStreamMode ||
+    (streamReadiness !== undefined &&
+      (streamReadiness.ready || streamReadiness.downloadModelId !== null));
+  const translateClickable =
+    isTranslateOn ||
+    (translateReadiness !== undefined &&
+      (translateReadiness.ready ||
+        translateReadiness.downloadModelId !== null));
+
+  /**
+   * Translate needs a fixed source language, and the picker for it only ever appeared once
+   * Translate was on - which it could not be until a source language was picked. Readiness
+   * names that state, so the picker shows up while the toggle is still off.
+   */
+  const showTranslateSource =
+    isTranslateOn || translateReadiness?.reason === "needs_source_language";
 
   const overviewCard = (
     <div className="h-full rounded-2xl bg-surface-1 border border-overlay/14 p-7">
@@ -174,7 +185,7 @@ export function HomeScreen({
           <div>
             <div className="text-[16px] text-overlay/40 mb-2">Model</div>
             <DropdownSelect
-              value={settings?.whisperModelId ?? ""}
+              value={settings?.speechModelId ?? ""}
               onChange={onModelChange}
               ariaLabel="Speech model"
               align="start"
@@ -189,7 +200,7 @@ export function HomeScreen({
             <LanguagePicker
               value={currentLanguageId}
               onChange={onLanguageChange}
-              speechModelId={settings?.whisperModelId ?? null}
+              speechModelId={settings?.speechModelId ?? null}
             />
           </div>
           <div>
@@ -217,33 +228,22 @@ export function HomeScreen({
         {settings !== undefined && (
           <InstantTooltip
             text={
-              !streamModeSupported
-                ? "Live transcription coming soon on this platform"
-                : !canStream
-                  ? parakeetInstalled
-                    ? "Select the Parakeet model to enable live transcription"
-                    : "Download a live-transcription-capable model (Parakeet) to enable"
-                  : isStreamMode
-                    ? "Live transcription active"
-                    : `Live transcription: continuous dictation (${streamModeLabel})`
+              isStreamMode
+                ? "Live transcription active"
+                : (streamReadiness?.message ?? "")
             }
             side="bottom"
             floatInViewport
           >
             <button
               onClick={onStreamToggle}
-              disabled={
-                isRecording ||
-                isTranscribing ||
-                !streamModeSupported ||
-                !canStream
-              }
+              disabled={isRecording || isTranscribing || !streamClickable}
               className={`${TOGGLE_BASE} disabled:opacity-50 disabled:pointer-events-none ${
-                isStreamMode && streamModeSupported && canStream
+                isStreamMode
                   ? TOGGLE_ON_BLUE
-                  : !streamModeSupported || !canStream
-                    ? TOGGLE_DIMMED
-                    : TOGGLE_OFF
+                  : streamReadiness?.ready
+                    ? TOGGLE_OFF
+                    : TOGGLE_DIMMED
               }`}
               aria-label="Toggle live transcription"
             >
@@ -317,22 +317,20 @@ export function HomeScreen({
             text={
               isTranslateOn
                 ? "Translate mode active"
-                : !canTranslate
-                  ? "Select a translate-capable model (Small or Large Whisper) to enable"
-                  : "Translate mode: transcribe and translate to English"
+                : (translateReadiness?.message ?? "")
             }
             side="bottom"
             floatInViewport
           >
             <button
               onClick={onTranslateToggle}
-              disabled={!isIdle || !canTranslate}
+              disabled={!isIdle || !translateClickable}
               className={`${TOGGLE_BASE} disabled:opacity-50 disabled:pointer-events-none ${
                 isTranslateOn
                   ? TOGGLE_ON_BLUE
-                  : !canTranslate
-                    ? TOGGLE_DIMMED
-                    : TOGGLE_OFF
+                  : translateReadiness?.ready
+                    ? TOGGLE_OFF
+                    : TOGGLE_DIMMED
               }`}
               aria-label="Toggle translate mode"
             >
@@ -357,7 +355,7 @@ export function HomeScreen({
           </InstantTooltip>
         )}
 
-        {(isStreamMode || isTranslateOn) && (
+        {(isStreamMode || showTranslateSource) && (
           <div className="ml-auto flex items-center gap-3">
             {isStreamMode && (
               <div className="flex items-center gap-1.5">
@@ -393,7 +391,7 @@ export function HomeScreen({
                 })}
               </div>
             )}
-            {isTranslateOn && (
+            {showTranslateSource && (
               <div className="flex items-center gap-2">
                 <span className="text-[13px] text-overlay/38 shrink-0">
                   Source
@@ -432,11 +430,12 @@ export function HomeScreen({
               <div className="flex-1">
                 <p className="text-[13px] text-overlay/50 leading-relaxed">
                   Downloading{" "}
-                  {getWhisperModel(translateDownloadModelId)?.label ??
+                  {getSpeechModel(translateDownloadModelId)?.label ??
                     translateDownloadModelId}{" "}
                   (
                   {formatModelSize(
-                    getWhisperModel(translateDownloadModelId)?.sizeMB ?? 0,
+                    getSpeechModel(translateDownloadModelId)?.downloadSizeMB ??
+                      0,
                   )}
                   )
                 </p>

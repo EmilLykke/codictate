@@ -1,11 +1,5 @@
-import {
-  DEFAULT_MODEL_ID,
-  HVISKE_TRANSCRIPTION_LANGUAGE_ID,
-  getSpeechModel,
-  isHviskeSpeechModelId,
-} from '../../../shared/speech-models'
-import { HVISKE_CRISPASR_BACKEND } from '../../../shared/asr-harness'
-import { resolveTranslateModelId } from '../../../shared/whisper-models'
+import type { RunnableDictationPlan } from '../../../shared/dictation-plan'
+import { PARAKEET_ENGINE_ID } from '../../../shared/speech-models'
 import { modelManager } from './model-manager'
 import { pasteTranscript } from '../keyboard/keyboard-events'
 import { applyFormatting } from '../formatting/apply-formatting'
@@ -19,6 +13,7 @@ import type {
 import { applyDictionary } from '../dictionary/apply-dictionary'
 import { RECORDING_PATH } from '../../platform/runtime'
 import { buildWhisperHarnessCommand } from './whisper-harness-command'
+import { awaitParakeetWarmup } from './parakeet-warmup'
 
 /**
  * Whisper often splits or mishears the product name — normalize before paste.
@@ -99,79 +94,29 @@ async function drainReadableStream(
 }
 
 /**
- * The Speech Model an hviske selection should actually run.
+ * One Dictation, exactly as the Dictation Plan describes it.
  *
- * hviske weights are a separate download and the selected Model ID outlives them in
- * AppConfig, so a selection can point at weights the user has since deleted. Falling back
- * to the default Speech Model keeps that a transcript in the wrong language rather than a
- * failed Dictation. Every other Speech Model is passed through untouched; the surfaces that
- * offer them already filter on availability.
+ * Every question this used to ask - is the selection installed, can it translate, which
+ * backend, which language - was answered when the plan was built, so nothing is re-derived
+ * here and there is nothing left to fall back to. The two fallbacks that used to live in
+ * this function are gone: an hviske selection with deleted weights no longer transcribes
+ * with the default Speech Model, and Translate to English is no longer dropped when the
+ * selection cannot do it. Both states are now unreachable (settings-heal.ts) or blocked
+ * before the spawn (buildDictationPlan). See ADR-0005.
  */
-function resolveInstalledHviskeModelId(modelId: string): string {
-  if (!isHviskeSpeechModelId(modelId)) return modelId
-  if (modelManager.isModelAvailable(modelId)) return modelId
-
-  log(
-    'whisper',
-    'hviske model selected but weights are not installed - falling back to the default model',
-    { modelId, fallbackModelId: DEFAULT_MODEL_ID }
-  )
-  return DEFAULT_MODEL_ID
-}
-
-export const transcribe = async (
-  whisperLanguageCode: string | null | undefined,
-  requestedModelId: string,
-  translateToEnglish: boolean
-) => {
-  const speech = getSpeechModel(requestedModelId)
-  if (speech?.engine === 'whisperkit') {
-    return transcribeParakeet(requestedModelId)
+export const transcribe = async (plan: RunnableDictationPlan) => {
+  if (plan.engineId === PARAKEET_ENGINE_ID) {
+    return transcribeParakeet(plan.speechModelId)
   }
 
-  const modelId = resolveInstalledHviskeModelId(requestedModelId)
-
-  // Resolved from the *selected* Model ID, not the hviske fallback above. The two rules are
-  // independent: "hviske weights are missing, transcribe with the default instead" and
-  // "this selection cannot translate, run a translate-capable model instead". Feeding the
-  // fallback in here conflated them - an hviske selection with deleted weights became
-  // large-v3-turbo, which is not translate-capable, so Translate to English was dropped
-  // even when a translate-capable Speech Model was installed. Whether translate works must
-  // not depend on a file belonging to a Speech Model that is not the one running.
-  const translateRunModelId = resolveTranslateModelId(requestedModelId, (id) =>
-    modelManager.isModelAvailable(id)
-  )
-  const useTranslate = translateToEnglish && translateRunModelId !== null
-  if (translateToEnglish && translateRunModelId === null) {
-    log(
-      'whisper',
-      'translate requested but no translate-capable model selected or available — transcribing without -tr',
-      { transcriptionModelId: modelId }
-    )
-  }
-
-  const effectiveModelId = useTranslate ? translateRunModelId : modelId
-  const model = modelManager.getModelPath(effectiveModelId)
-
-  // Backend and language follow the Speech Model that actually runs, not the one the user
-  // selected. hviske GGUF weights load under `--backend cohere` alone and are Danish only,
-  // so its language is pinned rather than taken from the user's Transcription Language
-  // (which may be auto, or another language entirely). A translate request on an hviske
-  // selection resolves away from hviske to a translate-capable Whisper Speech Model
-  // (resolveTranslateModelId), and that model must inherit neither the backend nor the
-  // pinned Danish.
-  const isHviskeRun = isHviskeSpeechModelId(effectiveModelId)
-  const crispasrBackend = isHviskeRun ? HVISKE_CRISPASR_BACKEND : undefined
-  const language = isHviskeRun
-    ? HVISKE_TRANSCRIPTION_LANGUAGE_ID
-    : whisperLanguageCode
+  const model = modelManager.getModelPath(plan.speechModelId)
 
   const command = await buildWhisperHarnessCommand({
-    crispasrBackend,
+    crispasrBackend: plan.crispasrBackend ?? undefined,
     modelPath: model,
-    language,
+    language: plan.languageCode,
     audioPath: RECORDING_PATH,
-    translateToEnglish: useTranslate,
+    translateToEnglish: plan.translateToEnglish,
   })
 
   log('whisper', 'spawning ASR harness', {
@@ -181,9 +126,9 @@ export const transcribe = async (
     model,
     whisperLanguageCode: command.languageArg,
     languageMode: command.languageArg === 'auto' ? 'auto-detect' : 'fixed',
-    modelId: effectiveModelId,
-    requestedModelId,
-    translateToEnglish: useTranslate,
+    modelId: plan.speechModelId,
+    transcriptionLanguageId: plan.transcriptionLanguageId,
+    translateToEnglish: plan.translateToEnglish,
   })
 
   const proc = Bun.spawn(command.argv, {
@@ -217,6 +162,11 @@ export const transcribe = async (
 }
 
 async function transcribeParakeet(modelId: string): Promise<string> {
+  // Serialise behind an in-flight preparation rather than racing it. Recording is already
+  // over by the time this runs and the indicator says "transcribing", so the wait is visible
+  // and it is the same compile this spawn would otherwise have paid for itself.
+  await awaitParakeetWarmup()
+
   const helper = getPlatform().findParakeetHelperBinary()
   const modelDir = modelManager.getParakeetInstallDir(modelId)
 
@@ -274,66 +224,6 @@ async function transcribeParakeet(modelId: string): Promise<string> {
   return transcript
 }
 
-function createSilentWav(): Uint8Array {
-  const sampleRate = 16000
-  const numSamples = Math.floor(sampleRate * 0.5)
-  const dataSize = numSamples * 2
-  const buf = new Uint8Array(44 + dataSize)
-  const view = new DataView(buf.buffer)
-  buf[0] = 0x52
-  buf[1] = 0x49
-  buf[2] = 0x46
-  buf[3] = 0x46 // RIFF
-  view.setUint32(4, 36 + dataSize, true)
-  buf[8] = 0x57
-  buf[9] = 0x41
-  buf[10] = 0x56
-  buf[11] = 0x45 // WAVE
-  buf[12] = 0x66
-  buf[13] = 0x6d
-  buf[14] = 0x74
-  buf[15] = 0x20 // fmt
-  view.setUint32(16, 16, true)
-  view.setUint16(20, 1, true) // PCM
-  view.setUint16(22, 1, true) // mono
-  view.setUint32(24, sampleRate, true)
-  view.setUint32(28, sampleRate * 2, true)
-  view.setUint16(32, 2, true)
-  view.setUint16(34, 16, true)
-  buf[36] = 0x64
-  buf[37] = 0x61
-  buf[38] = 0x74
-  buf[39] = 0x61 // data
-  view.setUint32(40, dataSize, true)
-  return buf
-}
-
-export async function warmupParakeet(
-  onReady?: () => Promise<void>
-): Promise<void> {
-  const PARAKEET_MODEL_ID = 'parakeet-tdt-0.6b-v3'
-  if (!modelManager.isModelAvailable(PARAKEET_MODEL_ID)) return
-  try {
-    const helper = getPlatform().findParakeetHelperBinary()
-    const modelDir = modelManager.getParakeetInstallDir(PARAKEET_MODEL_ID)
-    const warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
-    await Bun.write(warmupPath, createSilentWav())
-    log('parakeet', 'starting model warmup')
-    const proc = Bun.spawn([helper, 'transcribe', warmupPath, modelDir], {
-      stdout: 'ignore',
-      stderr: 'ignore',
-      env: { ...process.env, LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
-    })
-    await proc.exited
-    log('parakeet', 'model warmup complete', { exitCode: proc.exitCode })
-    if (proc.exitCode === 0) {
-      await onReady?.()
-    }
-  } catch (err) {
-    log('parakeet', 'model warmup error', { err: String(err) })
-  }
-}
-
 export interface Speech2TextResult {
   raw: string
   output: string
@@ -341,9 +231,7 @@ export interface Speech2TextResult {
 }
 
 export const speech2text = async (
-  whisperLanguageCode: string | null | undefined,
-  modelId: string,
-  translateToEnglish: boolean,
+  plan: RunnableDictationPlan,
   formattingSettings: FormattingRuntimeSettings,
   dictionaryEntries: DictionaryEntry[] = [],
   onBeforeTranscription?: () => Promise<void>,
@@ -351,11 +239,7 @@ export const speech2text = async (
 ): Promise<Speech2TextResult> => {
   if (onBeforeTranscription) await onBeforeTranscription()
 
-  let transcript = await transcribe(
-    whisperLanguageCode,
-    modelId,
-    translateToEnglish
-  )
+  let transcript = await transcribe(plan)
   if (dictionaryEntries.length > 0) {
     const result = applyDictionary(transcript, dictionaryEntries, {
       trackApplied: true,

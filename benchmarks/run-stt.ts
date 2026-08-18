@@ -38,7 +38,11 @@ import {
   ASR_HARNESS_IDS,
   type AsrHarnessId,
 } from "../src/shared/asr-harness";
-import { SPEECH_MODEL_IDS, getSpeechModel } from "../src/shared/speech-models";
+import {
+  PARAKEET_ENGINE_ID,
+  SPEECH_MODEL_IDS,
+  getSpeechModel,
+} from "../src/shared/speech-models";
 import { modelManager } from "../src/bun/utils/whisper/model-manager";
 
 // -- Checkpoint types --
@@ -672,9 +676,16 @@ async function main() {
     }
 
     for (const modelId of flags.models) {
-      console.log(`\n[${modelId} / ${harness}]`);
+      // The header names what actually transcribes, not the Harness that was selected.
+      // Parakeet ignores the selected Harness entirely, so printing one next to it read as
+      // a claim that crispasr produced the numbers.
+      const runsOwnHelper =
+        getSpeechModel(modelId)?.engine === PARAKEET_ENGINE_ID;
+      console.log(
+        `\n[${modelId} / ${runsOwnHelper ? "parakeet helper" : harness}]`,
+      );
       const bucket = harnessBucketForModel(modelId, harness);
-      if (bucket !== harness) {
+      if (runsOwnHelper || bucket !== harness) {
         console.log(
           `  [${modelId}] recorded under "${bucket}": Parakeet runs through its own helper, so harness does not apply`,
         );

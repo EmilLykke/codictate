@@ -8,29 +8,26 @@ import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
 import { HistorySection } from "./History/HistorySection";
 import { StatsPage } from "./Stats/StatsPage";
 import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
+import { HealNotices } from "./Common/HealNotices";
 import type {
   AppStatus,
   AppSettings,
   DeviceInfo,
   DevAppPreviewRoute,
+  DictationNoticeKind,
   StreamTranscriptionMode,
 } from "../../shared/types";
 import { appEvents } from "../app-events";
 import {
   DEFAULT_MODEL_ID,
-  DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID,
   LARGE_V3_Q5_MODEL_ID,
-  isTranslateCapableModelId,
-  getTranslateReadiness,
-  getWhisperModel,
-} from "../../shared/whisper-models";
-import {
   SPEECH_MODELS,
   coerceTranscriptionLanguageIdForModel,
 } from "../../shared/speech-models";
 import {
   cancelModelDownload,
   deleteWhisperModel,
+  dismissDictationNotice,
   downloadWhisperModel,
   fetchSettings,
   setFormattingEnabled,
@@ -40,7 +37,7 @@ import {
   setStreamTranscriptionMode,
   setTranslateDefaultLanguage,
   setTranslateToEnglish,
-  setWhisperModel,
+  setSpeechModel,
 } from "../rpc";
 
 export function MainContainer({
@@ -120,15 +117,18 @@ export function MainContainer({
         if (pendingTranslate === modelId) {
           setTranslateDownloadModelId(null);
           translatePendingRef.current = null;
-          if (!error && isTranslateCapableModelId(modelId)) {
+          if (!error) {
+            // The download was started *for* Translate to English, against the Speech Model
+            // the main process named in its readiness. Nothing to re-derive here: select it
+            // and ask for the toggle.
             const current = queryClient.getQueryData<AppSettings>(["settings"]);
-            const sel = current?.whisperModelId ?? DEFAULT_MODEL_ID;
-            if (!isTranslateCapableModelId(sel) || sel !== modelId) {
+            const sel = current?.speechModelId ?? DEFAULT_MODEL_ID;
+            if (sel !== modelId) {
               const hadStream = current?.streamMode ?? false;
-              await setWhisperModel(modelId);
+              await setSpeechModel(modelId);
               queryClient.setQueryData(["settings"], (old: AppSettings) => ({
                 ...old,
-                whisperModelId: modelId,
+                speechModelId: modelId,
                 ...(hadStream ? { streamMode: false } : {}),
               }));
               if (hadStream) {
@@ -164,10 +164,10 @@ export function MainContainer({
               modelId,
               cur?.transcriptionLanguageId ?? "auto",
             );
-            await setWhisperModel(modelId);
+            await setSpeechModel(modelId);
             queryClient.setQueryData(["settings"], (old: AppSettings) => ({
               ...old,
-              whisperModelId: modelId,
+              speechModelId: modelId,
               transcriptionLanguageId: nextLang,
               ...(hadStream ? { streamMode: false } : {}),
             }));
@@ -189,7 +189,7 @@ export function MainContainer({
 
   const handleModelSelect = useCallback(
     async (modelId: string) => {
-      if (modelId === settings.whisperModelId) return;
+      if (modelId === settings.speechModelId) return;
       const hadStream = settings.streamMode;
       const nextLang = coerceTranscriptionLanguageIdForModel(
         modelId,
@@ -197,11 +197,11 @@ export function MainContainer({
       );
       queryClient.setQueryData(["settings"], {
         ...settings,
-        whisperModelId: modelId,
+        speechModelId: modelId,
         transcriptionLanguageId: nextLang,
         ...(hadStream ? { streamMode: false } : {}),
       });
-      await setWhisperModel(modelId);
+      await setSpeechModel(modelId);
       if (nextLang !== settings.transcriptionLanguageId) {
         await setTranscriptionLanguage(nextLang);
       }
@@ -233,50 +233,27 @@ export function MainContainer({
     });
   }, []);
 
-  const handleModelDelete = useCallback(
-    async (modelId: string) => {
-      deleteWhisperModel(modelId);
-      setModelAvailability((prev) => ({ ...prev, [modelId]: false }));
-
-      // If the deleted model was selected, fall back to the default model.
-      if (settings.whisperModelId === modelId) {
-        const hadStream = settings.streamMode;
-        queryClient.setQueryData(
-          ["settings"],
-          (old: AppSettings | undefined) =>
-            old
-              ? {
-                  ...old,
-                  whisperModelId: DEFAULT_MODEL_ID,
-                  ...(hadStream ? { streamMode: false } : {}),
-                }
-              : old,
-        );
-        await setWhisperModel(DEFAULT_MODEL_ID);
-        if (hadStream) {
-          const ok = await setStreamMode(false);
-          if (!ok) {
-            queryClient.setQueryData(["settings"], await fetchSettings());
-          }
-        }
-      }
-
-      if (
-        settings.translateToEnglish &&
-        isTranslateCapableModelId(modelId) &&
-        settings.whisperModelId === modelId
-      ) {
-        queryClient.setQueryData(["settings"], (old: AppSettings) => ({
-          ...old,
-          translateToEnglish: false,
-        }));
-        await setTranslateToEnglish(false);
-      }
-    },
-    [settings, queryClient],
-  );
+  const handleModelDelete = useCallback((modelId: string) => {
+    // Deleting weights is an availability change, so the main process heals the
+    // configuration - dangling selection, Translate to English, Live Transcription - and
+    // pushes the corrected settings back with whatever it had to announce. Nothing to
+    // reconcile here beyond the availability flag the picker draws from.
+    deleteWhisperModel(modelId);
+    setModelAvailability((prev) => ({ ...prev, [modelId]: false }));
+  }, []);
 
   const handleStreamToggle = useCallback(async () => {
+    const readiness = settings.dictationReadiness.liveTranscription;
+    // Turning it *off* never needs readiness: an unrunnable Live Transcription is exactly
+    // what the user is trying to get out of.
+    if (!settings.streamMode && !readiness.ready) {
+      // The only unavailable case with a way forward. Downloading Parakeet selects it, and
+      // the settings push that follows makes the toggle live.
+      if (readiness.downloadModelId !== null) {
+        handleModelDownload(readiness.downloadModelId);
+      }
+      return;
+    }
     const newValue = !settings.streamMode;
     queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
       old ? { ...old, streamMode: newValue } : old,
@@ -285,7 +262,35 @@ export function MainContainer({
     if (!ok) {
       queryClient.setQueryData(["settings"], await fetchSettings());
     }
-  }, [settings.streamMode, queryClient]);
+  }, [
+    settings.streamMode,
+    settings.dictationReadiness.liveTranscription,
+    handleModelDownload,
+    queryClient,
+  ]);
+
+  /**
+   * Retire a banner notice in the main process, which owns whether it is still standing.
+   *
+   * Optimistic so the click feels immediate; the push that follows the request is what makes
+   * it stick across a tab change, which remounts the banner slot.
+   */
+  const handleDismissNotice = useCallback(
+    async (notice: DictationNoticeKind) => {
+      queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+        old
+          ? notice === "heal"
+            ? { ...old, healAnnouncements: [] }
+            : { ...old, blockedDictation: null }
+          : old,
+      );
+      const ok = await dismissDictationNotice(notice);
+      if (!ok) {
+        queryClient.setQueryData(["settings"], await fetchSettings());
+      }
+    },
+    [queryClient],
+  );
 
   const handleFormattingToggle = useCallback(async () => {
     const newValue = !(settings.formatting?.enabled ?? false);
@@ -339,17 +344,9 @@ export function MainContainer({
       return;
     }
 
-    const isModelAvail = (id: string) =>
-      modelAvailability[id] ?? getWhisperModel(id)?.bundled ?? false;
+    const readiness = settings.dictationReadiness.translateToEnglish;
 
-    const readiness = getTranslateReadiness(
-      settings.whisperModelId,
-      settings.transcriptionLanguageId,
-      settings.translateDefaultLanguageId,
-      isModelAvail,
-    );
-
-    if (readiness.kind === "ready") {
+    if (readiness.ready) {
       const sourceLanguageId =
         settings.transcriptionLanguageId === "auto"
           ? settings.translateDefaultLanguageId
@@ -372,21 +369,17 @@ export function MainContainer({
       return;
     }
 
-    if (readiness.kind === "need_download") {
-      const sel = settings.whisperModelId;
-      const target =
-        isTranslateCapableModelId(sel) && !isModelAvail(sel)
-          ? sel
-          : DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID;
+    // The main process already picked the Speech Model whose download unblocks Translate,
+    // or said that no download does. The rest - switch to a model you already have, choose a
+    // source language - is the user's move, and the toggle says which one.
+    if (readiness.downloadModelId !== null) {
+      const target = readiness.downloadModelId;
       translatePendingRef.current = target;
       setTranslateDownloadModelId(target);
       setDownloadProgress((prev) => ({ ...prev, [target]: 0 }));
       downloadWhisperModel(target);
-      return;
     }
-
-    // need_switch_model or need_language — handled in Settings UI / language pickers.
-  }, [settings, queryClient, modelAvailability]);
+  }, [settings, queryClient]);
 
   const handleStreamTranscriptionModeChange = useCallback(
     async (mode: StreamTranscriptionMode) => {
@@ -420,6 +413,13 @@ export function MainContainer({
           setIsSettingsModalOpen(true);
         }}
         onWordmarkSecretTap={() => {}}
+        banner={
+          <HealNotices
+            announcements={settings.healAnnouncements ?? []}
+            blocked={settings.blockedDictation ?? null}
+            onDismiss={handleDismissNotice}
+          />
+        }
       >
         {activeTab === "home" && (
           <HomeScreen

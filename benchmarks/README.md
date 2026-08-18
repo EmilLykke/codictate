@@ -20,7 +20,7 @@ Those whisper-cli numbers can never be re-measured, so **two separate concepts**
 - **Runnable Harness** - `ASR_HARNESS_IDS` in `src/shared/asr-harness.ts`. What a new run may execute. Used for `--harness` validation and for building a run plan.
 - **Archived Harness label** - `BENCHMARK_HARNESS_LABELS` in `stt/results-schema.ts`. What a Harness key in a result file may legitimately say. Append-only, and still contains `whisper-cli`. **Every read path must validate against this one**: parsing, migration, flattening, coverage, reporting, checkpoint resume, and `stt/charts.py`.
 
-`stt/results-schema.test.ts` reads the four real run directories and fails if any archived whisper-cli bucket stops parsing. Run it with `bun test benchmarks/`.
+`stt/results-archive.manual.ts` reads the four real run directories and fails if any archived whisper-cli bucket stops parsing. It is pinned to those four runs, so it sits outside the default `bun test` run (hence the `.manual.ts` suffix) and CI never touches it. Run it with `bun test ./benchmarks/stt/results-archive.manual.ts`, and update its pinned run list and counts whenever a Benchmark Run is archived.
 
 In reports and charts, rows from the shipping Harness carry a bare Model ID and every other archived Harness is tagged, so archived rows read as `Large V3 q5_0 [whisper-cli]`. A run spanning more than one Harness also gets an **ASR Harnesses** line in the report header naming which Harness the untagged rows came from. Parakeet and hviske ignore the selected Harness (their own helper, and crispasr's pinned `cohere` backend) and are always recorded under the Harness that actually produced them.
 
