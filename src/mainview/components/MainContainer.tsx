@@ -391,7 +391,10 @@ export function MainContainer({
         }}
         onWordmarkSecretTap={() => {}}
         banner={
-          <HealNotices announcements={settings.healAnnouncements ?? []} />
+          <HealNotices
+            announcements={settings.healAnnouncements ?? []}
+            blocked={settings.blockedDictation ?? null}
+          />
         }
       >
         {activeTab === "home" && (

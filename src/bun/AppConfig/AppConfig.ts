@@ -5,10 +5,7 @@ import {
   type RecordingDurationPresetSeconds,
 } from '../../shared/recording-duration-presets'
 import { SHORTCUT_OPTIONS } from '../../shared/shortcut-options'
-import {
-  isValidTranscriptionLanguageId,
-  whisperCodeForTranscriptionId,
-} from '../../shared/transcription-languages'
+import { isValidTranscriptionLanguageId } from '../../shared/transcription-languages'
 import type {
   AppSettings,
   AudioDeviceDetails,
@@ -36,8 +33,11 @@ import {
   isValidSpeechModelId,
 } from '../../shared/speech-models'
 import {
+  buildDictationPlan,
   getDictationReadiness,
+  type BlockedDictationPlan,
   type DictationAvailability,
+  type DictationPlan,
   type DictationReadiness,
 } from '../../shared/dictation-plan'
 import {
@@ -255,6 +255,13 @@ export class AppConfig {
    * moment, and replaying it after a restart would be a lie.
    */
   private healAnnouncements: SettingsHealAnnouncement[] = []
+
+  /**
+   * The last Dictation that refused to start, carried in the same settings payload for the
+   * same reason. In memory only, and cleared by the first press that runs - which is the
+   * whole promise a blocked plan makes.
+   */
+  private blockedDictation: BlockedDictationPlan | null = null
 
   constructor() {
     this.audioDeviceName = null
@@ -926,6 +933,7 @@ export class AppConfig {
       modelAvailability: modelManager.getAvailabilityMap(),
       healAnnouncements: this.getHealAnnouncements(),
       dictationReadiness: this.getDictationReadiness(),
+      blockedDictation: this.getBlockedDictation(),
     }
   }
 
@@ -999,14 +1007,49 @@ export class AppConfig {
    * The one answer to "can Translate to English / Live Transcription run right now",
    * computed here because `dictationAvailability()` reads the filesystem and carries a
    * predicate that cannot cross the RPC bridge. Shipped as plain data in `getSettings()`.
-   *
-   * The Dictation Plan builder will replace the call inside without changing this seam.
    */
   public getDictationReadiness(): DictationReadiness {
     return getDictationReadiness(
       this.runnableDictationSettings(),
       this.dictationAvailability()
     )
+  }
+
+  /**
+   * The whole run decision for one press of the Dictation Shortcut: which Speech Model,
+   * Speech Engine, crispasr backend and Transcription Language will run, or the closed reason
+   * nothing will. The Dictation path consumes this and re-derives none of it.
+   *
+   * Built fresh on every press rather than cached, because the availability half is a
+   * filesystem question and weights can vanish between two presses with no settings write in
+   * between. That case is the entire reason a blocked plan exists.
+   */
+  public getDictationPlan(): DictationPlan {
+    return buildDictationPlan(
+      this.runnableDictationSettings(),
+      this.dictationAvailability()
+    )
+  }
+
+  /**
+   * Remember a Dictation that refused to start, so the window can show it in the banner slot
+   * the heal announcements already use. Not persisted: the next press either works or blocks
+   * again.
+   */
+  public recordBlockedDictation(plan: BlockedDictationPlan): void {
+    this.blockedDictation = { ...plan }
+    log('config', 'dictation blocked', { mode: plan.mode, reason: plan.reason })
+  }
+
+  /** Retires the notice once a Dictation runs. Returns true when there was one to retire. */
+  public clearBlockedDictation(): boolean {
+    if (this.blockedDictation === null) return false
+    this.blockedDictation = null
+    return true
+  }
+
+  public getBlockedDictation(): BlockedDictationPlan | null {
+    return this.blockedDictation === null ? null : { ...this.blockedDictation }
   }
 
   public getHealAnnouncements(): SettingsHealAnnouncement[] {
@@ -1452,22 +1495,11 @@ export class AppConfig {
     return this.transcriptionLanguageId
   }
 
-  public getTranscriptionWhisperCode(): string | null {
-    return whisperCodeForTranscriptionId(this.transcriptionLanguageId)
-  }
-
-  public getRuntimeTranscriptionWhisperCode(): string | null {
-    if (!this.translateToEnglish) {
-      return this.getTranscriptionWhisperCode()
-    }
-
-    const sourceLanguageId =
-      this.transcriptionLanguageId !== 'auto'
-        ? this.transcriptionLanguageId
-        : this.translateDefaultLanguageId
-
-    return whisperCodeForTranscriptionId(sourceLanguageId)
-  }
+  // `getTranscriptionWhisperCode` and `getRuntimeTranscriptionWhisperCode` are gone. They
+  // were AppConfig's own copy of "which language does the run actually use", including the
+  // translate-from-auto rule, and their one caller was the transcription path. That answer
+  // now lives on the Dictation Plan (`languageCode` / `transcriptionLanguageId`), which is
+  // also what stats record. ADR-0005: nothing re-derives the run.
 
   public getShortcutId(): ShortcutId {
     return this.shortcutId

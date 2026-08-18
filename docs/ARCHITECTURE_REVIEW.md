@@ -18,7 +18,7 @@ This is a review, not a decision record. Decisions that come out of it belong in
 
 | | Candidate | Strength |
 | --- | --- | --- |
-| A | Resolve the Dictation once, into a plan | Strong |
+| A | Resolve the Dictation once, into a plan | Done (#48) |
 | B | Make the Dictation run return a result instead of pasting one | Strong |
 | C | Give a Preset one exhaustive definition | Strong |
 | D | Shrink AppConfig's interface to the eight members that carry it | Strong |
@@ -30,6 +30,12 @@ This is a review, not a decision record. Decisions that come out of it belong in
 ### A — Resolve the Dictation once, into a plan
 
 **Decided 2026-08-17: `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.** The decision went further than this candidate proposed - rather than resolving fallbacks in one place, the fallbacks are removed and the state is kept runnable. Read the ADR, not this section, for what was agreed.
+
+**Done (#44 - #48).** `buildDictationPlan` in `src/shared/dictation-plan.ts` is the one resolver: a pure function of `(settings, availability snapshot)` returning a runnable or blocked Dictation Plan, with batch Dictation and Live Transcription as one union. `AppConfig.getDictationPlan()` is its only caller, and `speech2text`, `startRecording` and `startParakeetStream` consume the plan rather than re-reading config.
+
+All three fallbacks are deleted: the hviske weights-missing substitution and the silent translate drop are gone from `speech2text.ts`, and `resolveTranslateModelId` is gone entirely - translate resolution is now `isTranslateRunnableForSelection`, one capability-and-availability question. A blocked plan reaches four surfaces (error chime, tray error state, notification when the window is closed, `HealNotices` banner when it is open via `AppSettings.blockedDictation`) and triggers the heal pass. `assertParakeetStreamRuntimeReady` survived as the pre-spawn race check but returns a plan-shaped blocked reason instead of a discarded `Error`. Stats take the Speech Model and Transcription Language from the plan. The blocked reasons are a closed eight-member union with an exhaustive message `Record`, so a new failure mode does not compile until it has a sentence. The benchmark is untouched and still enters at the ASR Harness command builder.
+
+The five items below are the problems this candidate was written against; all five are addressed, and `src/shared/dictation-plan.test.ts` covers the builder with no subprocess and no filesystem. They are kept for the record.
 
 **Files**: `src/bun/utils/whisper/speech2text.ts:110-160` · `src/shared/dictation-plan.ts` (`resolveTranslateModelId`, `getStreamModeReadiness`) · `src/shared/speech-models.ts:647-689` · `src/bun/utils/audio/start-rec.ts:210-239` · `src/bun/setup-recording.ts:286-310` · `src/bun/AppConfig/AppConfig.ts:1071-1089,1343-1354` · `src/bun/utils/model-actions.ts:33-47` · `src/mainview/components/MainContainer.tsx:190-216`
 
@@ -169,6 +175,6 @@ Two of the five existing test files do not test Codictate. `model-downloads.test
 
 1. **The four live bugs** (done 2026-08-17) — cheap, independent of any deepening, and they make A and B verifiable.
 2. **E** — costs a `test` script and a CI job; without it nothing below can be verified.
-3. **A**, then **B** — the plan gives `runDictation(plan, audio)` something to accept. **F** folds into A.
+3. ~~**A**, then **B** — the plan gives `runDictation(plan, audio)` something to accept. **F** folds into A.~~ **A is done (#48)**, and it landed the plan **B** wants to accept. What remains of B is the paste / history / stats orchestration moving out of `speech2text.ts` and the two Speech Engine invocations going behind one interface.
 4. **C** — touches no file the others touch, so it can go in any order.
 5. **D**, **G**, **H** — independent.

@@ -192,11 +192,12 @@ describe('healDictationSettings - Translate to English', () => {
   })
 
   /**
-   * The state ADR-0005 exists to remove. `resolveTranslateModelId` still swaps an hviske
-   * selection for the first installed translate-capable model, and
-   * `getTranslateReadiness` still calls that combination `ready`; the heal pass applies
-   * the collapsed rule ("is the *selection* translate-capable and installed") so the state
-   * is unreachable and #48 can delete the swap with nothing left for it to catch.
+   * The state ADR-0005 exists to remove. Translate to English used to appear to work under
+   * an hviske selection by swapping in the first installed translate-capable Whisper model.
+   * The heal pass applies the collapsed rule ("is the *selection* translate-capable and
+   * installed"), which is what made the swap unreachable before it was deleted - and what
+   * keeps `buildDictationPlan`'s `model_cannot_translate` block a last resort rather than
+   * something a user meets by ordinary use.
    */
   test('turns Translate off under an hviske selection even with a translate-capable model installed', () => {
     expect(

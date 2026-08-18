@@ -99,3 +99,15 @@ export const playEndSound = (funModeEnabled = false) => {
 export const playCancelSound = () => {
   getPlatform().playSound(soundPath('dictation-cancel.wav'))
 }
+
+/**
+ * A Dictation that refused to start.
+ *
+ * The same chime as a cancelled Dictation, because it is the same message - nothing was
+ * recorded - and Codictate ships no separate error asset. The name exists so the blocked
+ * path is not calling something named "cancel", and so a dedicated chime is a one-line
+ * change here rather than a hunt through the shortcut path. See ADR-0005.
+ */
+export const playErrorSound = () => {
+  getPlatform().playSound(soundPath('dictation-cancel.wav'))
+}

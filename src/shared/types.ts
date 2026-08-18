@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { RPCSchema } from 'electrobun'
 import type { PlatformCapabilities } from './platform'
-import type { DictationReadiness } from './dictation-plan'
+import type { BlockedDictationPlan, DictationReadiness } from './dictation-plan'
 import type { SettingsHealAnnouncement } from './settings-heal'
 import type {
   FormattingModeId,
@@ -251,6 +251,16 @@ export interface AppSettings {
    * Model is downloaded or deleted, which is what keeps it live without a refresh.
    */
   dictationReadiness: DictationReadiness
+  /**
+   * The last Dictation that refused to start, or `null`. Reached only when the world changed
+   * behind the app's back - weights deleted in Finder, a failed disk, a cloud-storage
+   * eviction - because the settings themselves are kept runnable. Rides this payload so the
+   * blocked reason reaches the in-window banner through the channel the heal announcements
+   * already use; when no window is open the same sentence goes out as a notification instead.
+   *
+   * Cleared by the first press that runs.
+   */
+  blockedDictation: BlockedDictationPlan | null
 }
 
 export interface PermissionState {

@@ -24,6 +24,10 @@ import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
 import { DEFAULT_STREAM_CAPABLE_MODEL_ID } from '../shared/speech-models'
 import { warmupParakeet } from './utils/whisper/speech2text'
+import type {
+  BlockedDictationPlan,
+  DictationPlan,
+} from '../shared/dictation-plan'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -382,6 +386,57 @@ trayHandlers = setupTray(
   pushSettingsToWebview
 )
 
+/**
+ * A blocked Dictation, on the surface the user is actually looking at.
+ *
+ * The tray error state and the error chime are handled inside `setupRecording`, which owns
+ * both. What is left is the sentence: a native notification when the main window is closed,
+ * and the in-window banner when it is open. The banner arrives the way heal announcements
+ * already do - `AppSettings.blockedDictation` rides the settings push and `HealNotices`
+ * renders it - rather than through a second channel.
+ *
+ * Then the heal pass, because a blocked plan means the world changed underneath settings that
+ * were runnable when they were written. Correcting them here is what makes the next press
+ * work, and what stops Settings claiming a deleted Speech Model is still selected.
+ */
+const reportDictationPlan = async (plan: DictationPlan): Promise<void> => {
+  if (plan.status !== 'blocked') {
+    // A Dictation ran, so the last blocked notice is stale.
+    if (UserAppConfig.clearBlockedDictation()) pushSettingsToWebview()
+    return
+  }
+
+  UserAppConfig.recordBlockedDictation(plan)
+  const windowOpen = win.hasWindow()
+  await UserAppConfig.healRunnableSettings()
+  pushSettingsToWebview()
+  trayHandlers.syncTranslateState()
+  trayHandlers.syncStreamModeState()
+  if (!windowOpen) notifyBlockedDictation(plan)
+}
+
+/**
+ * The blocked reason as a native notification, for the closed-window case. Electrobun's
+ * notification path is the same call on macOS and Windows; a platform without it must not
+ * cost the user their Dictation, so a failure here is logged and nothing else.
+ */
+function notifyBlockedDictation(plan: BlockedDictationPlan): void {
+  try {
+    Utils.showNotification({
+      title:
+        plan.mode === 'live'
+          ? 'Live transcription could not start'
+          : 'Dictation could not start',
+      body: plan.message,
+    })
+  } catch (err) {
+    log('shortcut', 'blocked dictation notification failed', {
+      err: String(err),
+      reason: plan.reason,
+    })
+  }
+}
+
 let permissionPoll: ReturnType<typeof setInterval> | null = null
 let lastKeyboardRespawnMs = 0
 const KEYBOARD_RESPAWN_MIN_MS = 30_000
@@ -516,7 +571,11 @@ function startKeyboard() {
         log('history', 'save failed in pipeline', { err: String(err) })
       }
     },
-    async (result, durationMs) => {
+    // Stats record what ran, from the Dictation Plan. They used to re-read the selected
+    // Speech Model and Transcription Language from live config *after* the run, which the
+    // user can change mid-transcription - so a stats row could name a Speech Model that had
+    // never produced a word of it.
+    async (result, durationMs, plan) => {
       if (!UserAppConfig.getStatsEnabled()) return
       const rawWords = result.raw.trim().split(/\s+/)
       const outputWords = result.output.trim().split(/\s+/)
@@ -525,16 +584,17 @@ function startKeyboard() {
         rawWordCount: rawWords[0] === '' ? 0 : rawWords.length,
         outputWordCount: outputWords[0] === '' ? 0 : outputWords.length,
         durationMs,
-        engineId: UserAppConfig.getWhisperModelId(),
+        engineId: plan.speechModelId,
         formattingUsed: result.formattingUsed,
-        languageId: UserAppConfig.getTranscriptionLanguageId(),
+        languageId: plan.transcriptionLanguageId,
       })
       try {
         win.send.statsUpdated({})
       } catch {
         /* window may be closed */
       }
-    }
+    },
+    reportDictationPlan
   )
 }
 

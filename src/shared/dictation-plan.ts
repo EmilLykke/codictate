@@ -1,30 +1,39 @@
 /**
- * The run decision for a Dictation: which Speech Model a translate run actually loads, and
- * whether Translate to English or Live Transcription can run at all.
+ * The run decision for a Dictation, in both tenses.
+ *
+ * `buildDictationPlan` is the future tense: it turns `(settings, availability snapshot)`
+ * into a **Dictation Plan** - one value naming the Speech Model, Speech Engine, crispasr
+ * backend and Transcription Language that a press will actually run, or the closed reason
+ * it will run nothing. Batch Dictation and Live Transcription are one union.
+ * `getDictationReadiness` is the present tense: the same rule, per capability, as plain
+ * serialisable data shipped in the settings payload so the window can disable an option
+ * with a sentence before anyone presses anything.
  *
  * Pure functions over `(settings, availability)` only - no filesystem, no platform probe,
  * no `modelManager` - because both the main process and the webview import this module.
  * Availability arrives as an `isModelAvailable(id)` predicate so the caller owns the
  * question of what "installed" means on its side.
  *
- * This is where the Dictation Plan lands, and it is the only place that answers "can this
- * run right now". `getDictationReadiness` is that answer as a plain serialisable value:
- * the main process computes it once, ships it in the settings payload, and the webview
- * renders it. Nothing downstream re-derives it - not the heal pass, not a component.
+ * There is no substitution anywhere below, and no silent drop. A Dictation never adapts to
+ * an unrunnable state: the state is kept runnable by `settings-heal.ts`, and the one case
+ * that gets past it - weights deleted behind the app's back - produces a blocked plan that
+ * names its reason and starts nothing.
  *
- * See docs/adr/0005-no-runtime-fallbacks-for-dictation.md: the fallbacks still expressed
- * below are on their way out, and they stay only until the settings can no longer reach a
- * state that needs them.
+ * See docs/adr/0005-no-runtime-fallbacks-for-dictation.md.
  */
 
+import { HVISKE_CRISPASR_BACKEND, type CrispasrBackendId } from './asr-harness'
 import {
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
+  HVISKE_TRANSCRIPTION_LANGUAGE_ID,
   SPEECH_MODELS,
   getSpeechModel,
   isHviskeSpeechModelId,
   parakeetSupportsTranscriptionLanguageId,
   supportsStreamMode,
+  type SpeechEngineId,
 } from './speech-models'
+import { whisperCodeForTranscriptionId } from './transcription-languages'
 
 /**
  * Everything outside the settings object that decides whether a Dictation can run: which
@@ -36,8 +45,8 @@ import {
  * availability map it was shipped.
  *
  * This is the "availability snapshot" half of the `(settings, availability)` pair that
- * ADR-0005 names. The heal pass in settings-heal.ts takes it, and so will the Dictation
- * Plan builder. Note what is deliberately absent: Parakeet warmup is persisted settings
+ * ADR-0005 names. The Dictation Plan builder takes it, and so does the heal pass in
+ * settings-heal.ts. Note what is deliberately absent: Parakeet warmup is persisted settings
  * state, not availability, and it is no reason to call a configuration unrunnable.
  */
 export interface DictationAvailability {
@@ -60,58 +69,15 @@ export function isTranslateCapableModelId(id: string): boolean {
   return TRANSLATE_CAPABLE_MODEL_IDS.includes(id)
 }
 
-/** The first installed translate-capable Speech Model, in catalog order. */
-function firstAvailableTranslateCapableModelId(
-  isModelAvailable: (id: string) => boolean
-): string | null {
-  return TRANSLATE_CAPABLE_MODEL_IDS.find((id) => isModelAvailable(id)) ?? null
-}
-
-/**
- * The Speech Model a translate run should actually load, or `null` when translate is not
- * possible at all and the caller must transcribe verbatim instead.
- *
- * Usually that is the selected model itself, once it is both translate-capable and
- * installed. hviske is the one selection that resolves to a *different* model: its GGUF
- * weights are Danish-only, load under the crispasr `cohere` backend alone, and cannot
- * translate. Because hviske is user-selectable, "Translate to English" plus an hviske
- * Speech Model is an ordinary combination, and it has to swap the Speech Model rather than
- * fail mid-Dictation. (`large-v3-turbo` is the same shape of problem for a different
- * reason - a transcribe-only distillation - and is simply absent from
- * TRANSLATE_CAPABLE_MODEL_IDS.)
- *
- * A caller that gets back an id different from the one it passed must run it as its own
- * Speech Model and drop anything specific to the selection it replaced - hviske's pinned
- * `--backend cohere` and pinned Danish language above all.
- *
- * The hviske swap is a runtime fallback that ADR-0005 removes: once Translate to English
- * cannot be turned on under an hviske selection, this collapses to "is the selected Speech
- * Model translate-capable and installed".
- */
-export function resolveTranslateModelId(
-  selectedSpeechModelId: string,
-  isModelAvailable: (id: string) => boolean
-): string | null {
-  if (isHviskeSpeechModelId(selectedSpeechModelId)) {
-    return firstAvailableTranslateCapableModelId(isModelAvailable)
-  }
-  if (!isTranslateCapableModelId(selectedSpeechModelId)) {
-    return null
-  }
-  if (!isModelAvailable(selectedSpeechModelId)) {
-    return null
-  }
-  return selectedSpeechModelId
-}
-
 /**
  * Whether a translate run can load the Speech Model the user actually selected.
  *
- * This is what `resolveTranslateModelId` collapses to under ADR-0005 once the hviske swap
- * and the "first installed translate-capable model" search are gone: no substitution, so
- * the only question left is whether the selection itself can do the job. The heal pass
- * enforces this now, which is what makes the swap unreachable ahead of the change that
- * deletes it.
+ * The whole of translate resolution. There used to be a `resolveTranslateModelId` that
+ * returned a *different* Speech Model - an hviske selection resolved to the first installed
+ * translate-capable Whisper model, because "Translate to English plus hviske" was an
+ * offerable combination that had to be made to work somehow. ADR-0005 stops offering it, so
+ * there is nothing left to resolve: either the selection can translate and its weights are
+ * on disk, or translate does not run.
  */
 export function isTranslateRunnableForSelection(
   selectedSpeechModelId: string,
@@ -353,5 +319,262 @@ export function getDictationReadiness(
   return {
     translateToEnglish: translateReadiness(input, availability),
     liveTranscription: streamModeReadiness(input, availability),
+  }
+}
+
+// ── The Dictation Plan ──────────────────────────────────────────────────────────
+//
+// Everything above answers "is this option available". Everything below answers "what does
+// this press run", which is the same rule with the toggles applied. They share the
+// predicates deliberately: two functions expressing one rule is the shape that drifts, and
+// dictation-plan.test.ts pins them against each other.
+
+/**
+ * Batch Dictation records to a file and transcribes it once; Live Transcription streams
+ * into the Parakeet Native Helper, which captures and pastes for itself. One union rather
+ * than two, because the shortcut press has to pick between them and every surface that
+ * reports a Dictation has to report either.
+ */
+export type DictationMode = 'batch' | 'live'
+
+/**
+ * The settings a Dictation Plan is built from. Deliberately not the whole settings object:
+ * nothing else in `AppSettings` can change what runs.
+ *
+ * A `RunnableDictationSettings` (settings-heal.ts, one module up) satisfies this
+ * structurally, which is how `AppConfig` passes the object it already builds without this
+ * module importing the one that imports it.
+ */
+export interface DictationPlanInput {
+  speechModelId: string
+  transcriptionLanguageId: string
+  translateDefaultLanguageId: string
+  translateToEnglish: boolean
+  streamMode: boolean
+}
+
+/**
+ * Why a Dictation will not run. Closed union: a new failure mode cannot join a generic
+ * bucket, because `BLOCKED_MESSAGES` below is an exhaustive `Record` over it and `tsc`
+ * refuses to compile a member without a sentence.
+ *
+ * Seven of the eight share their names with `SettingsHealReason`, on purpose - a blocked
+ * plan and the heal that follows it are the same fact in two tenses ("this cannot run" and
+ * "this was switched off"), so they should not need a translation table between them.
+ */
+export type DictationBlockedReason =
+  /** The selected Speech Model's weights are not on disk, or the id is not in the catalog. */
+  | 'speech_model_not_installed'
+  /** Translate to English is on and the selection cannot translate: turbo, English-only, Parakeet or hviske. */
+  | 'model_cannot_translate'
+  /** Translate to English is on with automatic detection on both language settings. */
+  | 'no_translate_source_language'
+  /** No Parakeet plumbing on this platform yet. */
+  | 'live_transcription_unsupported_platform'
+  | 'parakeet_not_installed'
+  | 'model_cannot_stream'
+  | 'language_not_supported_by_parakeet'
+  /**
+   * The Parakeet Native Helper binary is missing from the installation. Only the pre-spawn
+   * check can see this - it is a packaging fault, not a settings state, so no availability
+   * snapshot reaches it.
+   */
+  | 'parakeet_helper_missing'
+
+/** A Dictation that will run, exactly as described. Nothing downstream re-derives a field. */
+export interface RunnableDictationPlan {
+  status: 'runnable'
+  mode: DictationMode
+  /** The Speech Model that loads. Always the user's selection: nothing substitutes. */
+  speechModelId: string
+  /** The Speech Engine that runs it. `whisperkit` is the id; the engine is FluidAudio. */
+  engineId: SpeechEngineId
+  /** crispasr `--backend` to pin, or `null` for the default backend. hviske needs `cohere`. */
+  crispasrBackend: CrispasrBackendId | null
+  /**
+   * The Transcription Language the run actually uses, which is what stats record. Not always
+   * the setting: an hviske run is pinned to Danish, and a translate run from automatic
+   * detection uses the translate default as its source language.
+   */
+  transcriptionLanguageId: string
+  /** The whisper.cpp language token, or `null` for automatic detection. */
+  languageCode: string | null
+  /** Whether the run passes `-tr`. Never true on a live plan. */
+  translateToEnglish: boolean
+}
+
+/**
+ * A Dictation that will not run, and the sentence to say so.
+ *
+ * Plain data with no functions, so it rides the settings payload across the Electrobun RPC
+ * bridge into the in-window banner, and the same `message` goes into the notification when
+ * no window is open.
+ */
+export interface BlockedDictationPlan {
+  status: 'blocked'
+  /** What the user asked for, so the report can name Live Transcription rather than "dictation". */
+  mode: DictationMode
+  reason: DictationBlockedReason
+  /** One finished sentence, shown to the user as written. */
+  message: string
+}
+
+export type DictationPlan = RunnableDictationPlan | BlockedDictationPlan
+
+/**
+ * One sentence per blocked reason, written here rather than at the four surfaces that show
+ * it (error sound aside: tray, notification, banner, log). Exhaustive by construction - add
+ * a reason to the union and this stops compiling until it has a sentence.
+ */
+const BLOCKED_MESSAGES: Record<
+  DictationBlockedReason,
+  (speechModelLabel: string) => string
+> = {
+  speech_model_not_installed: (label) =>
+    `Dictation stopped because the ${label} weights are no longer installed. The Speech Model selection has been reset, so the next press works.`,
+  model_cannot_translate: (label) =>
+    `Dictation stopped because Translate to English is on and ${label} cannot translate. Translate to English has been turned off, so the next press works.`,
+  no_translate_source_language: () =>
+    'Dictation stopped because Translate to English needs a source language rather than automatic detection. Choose one in Settings, or turn Translate to English off.',
+  live_transcription_unsupported_platform: () =>
+    'Live transcription cannot start because this platform cannot run it yet. It has been turned off, so the next press dictates normally.',
+  parakeet_not_installed: () =>
+    `Live transcription cannot start because the ${PARAKEET_LABEL} weights are no longer installed. Download them in Settings to use it again.`,
+  model_cannot_stream: (label) =>
+    `Live transcription cannot start because ${label} cannot run it. Switch to ${PARAKEET_LABEL}, or turn live transcription off.`,
+  language_not_supported_by_parakeet: () =>
+    `Live transcription cannot start because ${PARAKEET_LABEL} does not support the selected transcription language.`,
+  parakeet_helper_missing: () =>
+    `Live transcription cannot start because the ${PARAKEET_LABEL} helper is missing from this installation. Reinstalling Codictate restores it.`,
+}
+
+/**
+ * The one constructor for a blocked plan, so the sentence and the reason cannot be paired up
+ * differently in two places. Exported because the pre-spawn race check in
+ * `parakeet-stream-runner.ts` produces one too: it runs after the plan is built, in the gap
+ * where a race lands, and ADR-0005 keeps it for exactly that reason - but it reports in
+ * plan shape instead of throwing an `Error` that its caller discarded.
+ */
+export function blockedDictationPlan(
+  mode: DictationMode,
+  reason: DictationBlockedReason,
+  speechModelId: string
+): BlockedDictationPlan {
+  return {
+    status: 'blocked',
+    mode,
+    reason,
+    message: BLOCKED_MESSAGES[reason](modelLabel(speechModelId)),
+  }
+}
+
+/**
+ * The Transcription Language a batch run actually uses.
+ *
+ * whisper.cpp cannot translate from automatic detection, so a translate run falls back to
+ * the translate default when the Transcription Language is `auto`. This is a *language*
+ * choice the user made in Settings, not a Speech Model substitution - and the plan carries
+ * the answer so stats record the language that ran rather than the one selected afterwards.
+ */
+function runTranscriptionLanguageId(input: DictationPlanInput): string {
+  if (!input.translateToEnglish) return input.transcriptionLanguageId
+  return input.transcriptionLanguageId !== 'auto'
+    ? input.transcriptionLanguageId
+    : input.translateDefaultLanguageId
+}
+
+/**
+ * The whole run decision, as one value.
+ *
+ * Called on every press of the Dictation Shortcut (`AppConfig.getDictationPlan()`), and the
+ * only thing that decides what a Dictation does. The settings are already kept runnable by
+ * `healDictationSettings`, so a blocked plan means the world changed underneath them -
+ * weights deleted in Finder, a failed disk, a cloud-storage eviction. That is why a blocked
+ * plan is reported *and* triggers the heal pass rather than only being reported: the press
+ * is the app's first notice, and the next press has to work.
+ */
+export function buildDictationPlan(
+  input: DictationPlanInput,
+  availability: DictationAvailability
+): DictationPlan {
+  const selected = input.speechModelId
+  const mode: DictationMode = input.streamMode ? 'live' : 'batch'
+  const blocked = (reason: DictationBlockedReason) =>
+    blockedDictationPlan(mode, reason, selected)
+
+  if (mode === 'live') {
+    // Same order as `streamModeReadiness`: platform, then weights, then selection, then
+    // language. The platform question first because nothing below it can be true without it.
+    if (!availability.streamSupported) {
+      return blocked('live_transcription_unsupported_platform')
+    }
+    if (!availability.isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID)) {
+      return blocked('parakeet_not_installed')
+    }
+    if (!isStreamCapableModelId(selected)) {
+      return blocked('model_cannot_stream')
+    }
+    if (!availability.isModelAvailable(selected)) {
+      return blocked('speech_model_not_installed')
+    }
+    if (
+      !parakeetSupportsTranscriptionLanguageId(input.transcriptionLanguageId)
+    ) {
+      return blocked('language_not_supported_by_parakeet')
+    }
+    return {
+      status: 'runnable',
+      mode,
+      speechModelId: selected,
+      engineId: getSpeechModel(selected)?.engine ?? 'whisperkit',
+      crispasrBackend: null,
+      transcriptionLanguageId: input.transcriptionLanguageId,
+      // Parakeet detects the language itself and takes no language argument, and Translate
+      // to English is a whisper.cpp flag with no live equivalent.
+      languageCode: null,
+      translateToEnglish: false,
+    }
+  }
+
+  const model = getSpeechModel(selected)
+  if (model === undefined || !availability.isModelAvailable(selected)) {
+    return blocked('speech_model_not_installed')
+  }
+
+  if (input.translateToEnglish) {
+    if (
+      !isTranslateRunnableForSelection(selected, availability.isModelAvailable)
+    ) {
+      return blocked('model_cannot_translate')
+    }
+    if (
+      input.transcriptionLanguageId === 'auto' &&
+      input.translateDefaultLanguageId === 'auto'
+    ) {
+      return blocked('no_translate_source_language')
+    }
+  }
+
+  // hviske GGUF weights load under the crispasr `cohere` backend alone and are Danish only,
+  // so both are pinned to the Speech Model rather than taken from the user's Transcription
+  // Language. With the translate swap gone, the Speech Model that runs is always the one
+  // selected, so nothing can inherit a pin that belongs to a different Speech Model.
+  const isHviskeRun = isHviskeSpeechModelId(selected)
+  const transcriptionLanguageId = isHviskeRun
+    ? HVISKE_TRANSCRIPTION_LANGUAGE_ID
+    : runTranscriptionLanguageId(input)
+
+  return {
+    status: 'runnable',
+    mode,
+    speechModelId: selected,
+    engineId: model.engine,
+    crispasrBackend: isHviskeRun ? HVISKE_CRISPASR_BACKEND : null,
+    transcriptionLanguageId,
+    languageCode:
+      model.engine === 'whisperkit'
+        ? null
+        : whisperCodeForTranscriptionId(transcriptionLanguageId),
+    translateToEnglish: input.translateToEnglish,
   }
 }

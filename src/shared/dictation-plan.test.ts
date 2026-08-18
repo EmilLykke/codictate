@@ -1,28 +1,35 @@
 /**
- * Two halves.
+ * Two halves, one rule.
  *
- * `resolveTranslateModelId` is still pinned as characterisation, fallbacks included: the
- * hviske swap and the "first available translate-capable model" search are removed by
- * ADR-0005 and those tests are expected to be rewritten by that change, not preserved
- * through it.
+ * `buildDictationPlan` is the run decision: which Speech Model, Speech Engine, crispasr
+ * backend and Transcription Language a press of the Dictation Shortcut produces, or the
+ * closed reason it produces nothing. `getDictationReadiness` is the same rule in the
+ * present tense, shipped to the webview in the settings payload so an option can be
+ * disabled with a sentence before anyone presses anything.
  *
- * `getDictationReadiness` is the new half, and it is specification rather than
- * characterisation: it is the one answer to "can this run right now", shipped to the
- * webview in the settings payload. Every reason in both closed unions is exercised, and
- * every one has to carry its own sentence, because the sentence is the whole point of
- * computing this in the main process.
+ * Both are pure functions of `(settings, availability snapshot)`, which is the whole reason
+ * this file needs no subprocess, no filesystem and no platform. The last describe block
+ * pins the two against each other, because two functions expressing one rule is exactly the
+ * shape that drifts.
+ *
+ * The `resolveTranslateModelId` characterisation tests that used to live here are gone with
+ * the function: ADR-0005 deletes the hviske swap and the "first available translate-capable
+ * model" search, and the plan tests below assert the blocked outcome that replaced them.
  */
 
 import { describe, expect, test } from 'bun:test'
 import {
   DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID,
   TRANSLATE_CAPABLE_MODEL_IDS,
+  blockedDictationPlan,
+  buildDictationPlan,
   getDictationReadiness,
   hasAnyTranslateCapableModelAvailable,
   isStreamCapableModelId,
   isTranslateCapableModelId,
-  resolveTranslateModelId,
   type DictationAvailability,
+  type DictationBlockedReason,
+  type DictationPlanInput,
   type DictationReadinessInput,
   type StreamModeReadinessReason,
   type TranslateReadinessReason,
@@ -62,6 +69,17 @@ const input = (
   ...overrides,
 })
 
+const planInput = (
+  overrides: Partial<DictationPlanInput> = {}
+): DictationPlanInput => ({
+  speechModelId: TRANSCRIBE_ONLY,
+  transcriptionLanguageId: 'auto',
+  translateDefaultLanguageId: 'auto',
+  translateToEnglish: false,
+  streamMode: false,
+  ...overrides,
+})
+
 const translate = (i: DictationReadinessInput, a: DictationAvailability) =>
   getDictationReadiness(i, a).translateToEnglish
 
@@ -98,52 +116,6 @@ describe('isTranslateCapableModelId', () => {
     expect(isTranslateCapableModelId(HVISKE)).toBe(false)
     expect(isTranslateCapableModelId(PARAKEET)).toBe(false)
     expect(isTranslateCapableModelId('not-a-model')).toBe(false)
-  })
-})
-
-describe('resolveTranslateModelId', () => {
-  test('keeps the selection when it is translate-capable and installed', () => {
-    expect(
-      resolveTranslateModelId(TRANSLATE_CAPABLE, installed(TRANSLATE_CAPABLE))
-    ).toBe(TRANSLATE_CAPABLE)
-  })
-
-  test('is null when the translate-capable selection is not installed', () => {
-    expect(resolveTranslateModelId(TRANSLATE_CAPABLE, installed())).toBeNull()
-  })
-
-  test('is null for a transcribe-only selection even when it is installed', () => {
-    expect(
-      resolveTranslateModelId(TRANSCRIBE_ONLY, installed(TRANSCRIBE_ONLY))
-    ).toBeNull()
-  })
-
-  test('is null for an unknown model id', () => {
-    expect(resolveTranslateModelId('not-a-model', () => true)).toBeNull()
-  })
-
-  // Current fallback semantics, removed by ADR-0005 once the settings can no longer
-  // reach an hviske-plus-translate state.
-  test('swaps an hviske selection for the first installed translate-capable model', () => {
-    expect(
-      resolveTranslateModelId(
-        HVISKE,
-        installed(HVISKE, TRANSLATE_CAPABLE_LATER_IN_CATALOG)
-      )
-    ).toBe(TRANSLATE_CAPABLE_LATER_IN_CATALOG)
-  })
-
-  test('the hviske swap follows catalog order, not availability order', () => {
-    expect(
-      resolveTranslateModelId(
-        HVISKE,
-        installed(TRANSLATE_CAPABLE_LATER_IN_CATALOG, TRANSLATE_CAPABLE)
-      )
-    ).toBe(TRANSLATE_CAPABLE)
-  })
-
-  test('is null for an hviske selection with nothing to swap to', () => {
-    expect(resolveTranslateModelId(HVISKE, installed(HVISKE))).toBeNull()
   })
 })
 
@@ -199,10 +171,9 @@ describe('getDictationReadiness - Translate to English', () => {
   })
 
   /**
-   * The lie #47 exists to stop telling. `resolveTranslateModelId` still swaps hviske for
-   * an installed Whisper model and would call this runnable; readiness refuses to, so the
-   * toggle is disabled with a reason instead of appearing to work on weights the user
-   * never chose.
+   * The lie #47 stopped telling. Translate to English under an hviske selection used to
+   * appear to work by loading an installed Whisper model instead, so the toggle is disabled
+   * with a reason rather than producing a transcript from weights the user never chose.
    */
   test('is unavailable under an hviske selection even with a Whisper model installed', () => {
     const readiness = translate(
@@ -440,5 +411,397 @@ describe('getDictationReadiness - the copy', () => {
       available()
     )
     expect(JSON.parse(JSON.stringify(readiness))).toEqual(readiness)
+  })
+})
+
+/**
+ * The Dictation Plan: the whole run decision as one value.
+ *
+ * These are the tests ADR-0005 names as the reason the builder is a pure function - no
+ * subprocess, no filesystem, no `modelManager`, no platform probe. Everything the builder
+ * needs arrives in `(settings, availability)`, so a run that can only happen on a Mac with
+ * Parakeet installed is still an ordinary assertion here.
+ */
+describe('buildDictationPlan - batch Dictation', () => {
+  test('runs the selected Speech Model, with no substitution', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: TRANSLATE_CAPABLE }),
+      available(TRANSLATE_CAPABLE)
+    )
+    expect(plan.status).toBe('runnable')
+    if (plan.status !== 'runnable') return
+    expect(plan.mode).toBe('batch')
+    expect(plan.speechModelId).toBe(TRANSLATE_CAPABLE)
+    expect(plan.engineId).toBe('whisper_cpp')
+    expect(plan.crispasrBackend).toBeNull()
+    expect(plan.translateToEnglish).toBe(false)
+  })
+
+  test('carries the Transcription Language the run actually uses', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: TRANSLATE_CAPABLE,
+        transcriptionLanguageId: 'da',
+      }),
+      available(TRANSLATE_CAPABLE)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.transcriptionLanguageId).toBe('da')
+    expect(plan.languageCode).toBe('da')
+  })
+
+  test('automatic detection carries a null language code, not the string auto', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: TRANSCRIBE_ONLY }),
+      available(TRANSCRIBE_ONLY)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.transcriptionLanguageId).toBe('auto')
+    expect(plan.languageCode).toBeNull()
+  })
+
+  test('an hviske run pins the cohere backend and Danish', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: HVISKE, transcriptionLanguageId: 'auto' }),
+      available(HVISKE)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.engineId).toBe('hviske')
+    expect(plan.crispasrBackend).toBe('cohere')
+    expect(plan.transcriptionLanguageId).toBe('da')
+    expect(plan.languageCode).toBe('da')
+  })
+
+  test('a Parakeet batch run carries no language: the engine detects it', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: PARAKEET }),
+      available(PARAKEET)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.engineId).toBe('whisperkit')
+    expect(plan.languageCode).toBeNull()
+    expect(plan.crispasrBackend).toBeNull()
+  })
+})
+
+describe('buildDictationPlan - Translate to English', () => {
+  test('runs translate on a translate-capable, installed selection', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: TRANSLATE_CAPABLE,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      available(TRANSLATE_CAPABLE)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.translateToEnglish).toBe(true)
+    expect(plan.speechModelId).toBe(TRANSLATE_CAPABLE)
+    expect(plan.languageCode).toBe('da')
+  })
+
+  test('translate from auto uses the translate default as the source language', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: TRANSLATE_CAPABLE,
+        translateDefaultLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      available(TRANSLATE_CAPABLE)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.transcriptionLanguageId).toBe('da')
+    expect(plan.languageCode).toBe('da')
+  })
+
+  /**
+   * The deleted swap. An hviske selection used to resolve to whatever translate-capable
+   * Whisper Speech Model happened to be installed, which produced a transcript from weights
+   * the user never chose. It is blocked now, and the Speech Model never changes.
+   */
+  test('blocks rather than swapping the Speech Model under an hviske selection', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: HVISKE,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      available(HVISKE, TRANSLATE_CAPABLE)
+    )
+    expect(plan.status).toBe('blocked')
+    if (plan.status !== 'blocked') return
+    expect(plan.reason).toBe('model_cannot_translate')
+  })
+
+  /** The deleted silent drop: translate is never quietly turned into a verbatim run. */
+  test('blocks rather than dropping translate on a transcribe-only selection', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: TRANSCRIBE_ONLY,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      available(TRANSCRIBE_ONLY, TRANSLATE_CAPABLE)
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('model_cannot_translate')
+    expect(plan.mode).toBe('batch')
+  })
+
+  test('blocks when translate has no source language to work from', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: TRANSLATE_CAPABLE,
+        translateToEnglish: true,
+      }),
+      available(TRANSLATE_CAPABLE)
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('no_translate_source_language')
+  })
+})
+
+describe('buildDictationPlan - missing weights', () => {
+  /** The deleted hviske substitution: a missing selection is a blocked run, not another model. */
+  test('blocks an hviske selection whose weights are gone', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: HVISKE }),
+      available(TRANSLATE_CAPABLE)
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('speech_model_not_installed')
+    expect(plan.message).toContain('Hviske')
+  })
+
+  test('blocks any selection whose weights are gone', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: TRANSLATE_CAPABLE }),
+      available()
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('speech_model_not_installed')
+  })
+
+  test('blocks a Speech Model id the catalog has never heard of', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: 'not-a-model' }),
+      { isModelAvailable: () => true, streamSupported: true }
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('speech_model_not_installed')
+  })
+})
+
+describe('buildDictationPlan - Live Transcription', () => {
+  test('is the same union, distinguished by mode', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: PARAKEET, streamMode: true }),
+      available(PARAKEET)
+    )
+    expect(plan.status).toBe('runnable')
+    if (plan.status !== 'runnable') return
+    expect(plan.mode).toBe('live')
+    expect(plan.speechModelId).toBe(PARAKEET)
+    expect(plan.engineId).toBe('whisperkit')
+    expect(plan.translateToEnglish).toBe(false)
+  })
+
+  test('the platform question comes before everything else', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: PARAKEET, streamMode: true }),
+      { isModelAvailable: () => false, streamSupported: false }
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('live_transcription_unsupported_platform')
+    expect(plan.mode).toBe('live')
+  })
+
+  test('blocks when the Parakeet weights are missing', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: PARAKEET, streamMode: true }),
+      available()
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('parakeet_not_installed')
+  })
+
+  test('blocks when the selected Speech Model cannot stream', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: TRANSLATE_CAPABLE, streamMode: true }),
+      available(PARAKEET, TRANSLATE_CAPABLE)
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('model_cannot_stream')
+  })
+
+  test('blocks a transcription language Parakeet cannot handle', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: PARAKEET,
+        transcriptionLanguageId: 'ja',
+        streamMode: true,
+      }),
+      available(PARAKEET)
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('language_not_supported_by_parakeet')
+  })
+
+  /** Translate to English is a batch concern; a live plan never carries it. */
+  test('never carries translate, even with the toggle on', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: PARAKEET,
+        streamMode: true,
+        translateToEnglish: true,
+        transcriptionLanguageId: 'auto',
+        translateDefaultLanguageId: 'da',
+      }),
+      available(PARAKEET)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.translateToEnglish).toBe(false)
+  })
+})
+
+describe('buildDictationPlan - the blocked reasons', () => {
+  test('every reason carries its own sentence, and no two reasons share one', () => {
+    const cases: [DictationPlanInput, DictationAvailability][] = [
+      [planInput({ speechModelId: TRANSLATE_CAPABLE }), available()],
+      [
+        planInput({
+          speechModelId: TRANSCRIBE_ONLY,
+          transcriptionLanguageId: 'da',
+          translateToEnglish: true,
+        }),
+        available(TRANSCRIBE_ONLY),
+      ],
+      [
+        planInput({
+          speechModelId: TRANSLATE_CAPABLE,
+          translateToEnglish: true,
+        }),
+        available(TRANSLATE_CAPABLE),
+      ],
+      [
+        planInput({ speechModelId: PARAKEET, streamMode: true }),
+        { isModelAvailable: () => true, streamSupported: false },
+      ],
+      [planInput({ speechModelId: PARAKEET, streamMode: true }), available()],
+      [
+        planInput({ speechModelId: TRANSLATE_CAPABLE, streamMode: true }),
+        available(PARAKEET, TRANSLATE_CAPABLE),
+      ],
+      [
+        planInput({
+          speechModelId: PARAKEET,
+          transcriptionLanguageId: 'ja',
+          streamMode: true,
+        }),
+        available(PARAKEET),
+      ],
+    ]
+
+    const messages = new Map<DictationBlockedReason, string>()
+    for (const [i, a] of cases) {
+      const plan = buildDictationPlan(i, a)
+      if (plan.status !== 'blocked')
+        throw new Error('case is unexpectedly runnable')
+      messages.set(plan.reason, plan.message)
+    }
+    // The eighth reason is the pre-spawn race check, which no settings snapshot can reach.
+    messages.set(
+      'parakeet_helper_missing',
+      blockedDictationPlan('live', 'parakeet_helper_missing', PARAKEET).message
+    )
+
+    expect([...messages.keys()].sort()).toEqual([
+      'language_not_supported_by_parakeet',
+      'live_transcription_unsupported_platform',
+      'model_cannot_stream',
+      'model_cannot_translate',
+      'no_translate_source_language',
+      'parakeet_helper_missing',
+      'parakeet_not_installed',
+      'speech_model_not_installed',
+    ])
+    const all = [...messages.values()]
+    expect(new Set(all).size).toBe(all.length)
+    for (const message of all) {
+      expect(message.length).toBeGreaterThan(0)
+      expect(message).not.toContain('undefined')
+    }
+  })
+
+  test('a blocked plan carries no functions, so it survives the RPC bridge', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: TRANSLATE_CAPABLE }),
+      available()
+    )
+    expect(JSON.parse(JSON.stringify(plan))).toEqual(plan)
+  })
+})
+
+/**
+ * The plan and the shipped readiness are two tenses of one rule - "this run is blocked" and
+ * "this option is unavailable". They are computed by two functions in this module, so the
+ * only thing stopping them drifting is that they share the predicates and that this test
+ * fails when they do not.
+ */
+describe('buildDictationPlan agrees with getDictationReadiness', () => {
+  const selections = [
+    TRANSLATE_CAPABLE,
+    TRANSCRIBE_ONLY,
+    ENGLISH_ONLY,
+    HVISKE,
+    PARAKEET,
+  ]
+  const languages = ['auto', 'da', 'ja']
+  const snapshots: DictationAvailability[] = [
+    available(),
+    available(TRANSLATE_CAPABLE),
+    available(HVISKE, TRANSLATE_CAPABLE),
+    available(PARAKEET),
+    available(TRANSLATE_CAPABLE, HVISKE, PARAKEET, ENGLISH_ONLY),
+    { isModelAvailable: () => true, streamSupported: false },
+  ]
+
+  test('translate runs exactly when readiness says it can', () => {
+    for (const speechModelId of selections) {
+      for (const transcriptionLanguageId of languages) {
+        for (const availability of snapshots) {
+          if (!availability.isModelAvailable(speechModelId)) continue
+          const shared = { speechModelId, transcriptionLanguageId }
+          const plan = buildDictationPlan(
+            planInput({ ...shared, translateToEnglish: true }),
+            availability
+          )
+          const readiness = getDictationReadiness(
+            input({ ...shared, translateDefaultLanguageId: 'auto' }),
+            availability
+          ).translateToEnglish
+          expect(plan.status === 'runnable').toBe(readiness.ready)
+        }
+      }
+    }
+  })
+
+  test('live transcription runs exactly when readiness says it can', () => {
+    for (const speechModelId of selections) {
+      for (const transcriptionLanguageId of languages) {
+        for (const availability of snapshots) {
+          const shared = { speechModelId, transcriptionLanguageId }
+          const plan = buildDictationPlan(
+            planInput({ ...shared, streamMode: true }),
+            availability
+          )
+          const readiness = getDictationReadiness(
+            input({ ...shared, translateDefaultLanguageId: 'auto' }),
+            availability
+          ).liveTranscription
+          expect(plan.status === 'runnable').toBe(readiness.ready)
+        }
+      }
+    }
   })
 })

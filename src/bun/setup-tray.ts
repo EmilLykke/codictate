@@ -26,6 +26,11 @@ export type TrayHandlers = {
   setTrayRecording: () => void
   setTrayTranscribing: () => void
   setTrayStreaming: () => void
+  /**
+   * A Dictation refused to start. The tray is the one surface that is always visible with no
+   * window open, so it carries the error state until the next Dictation replaces it.
+   */
+  setTrayError: (message: string) => void
   refreshTrayShortcutTitle: () => void
   rebuildDeviceMenu: (selectedDevice: number) => void
   updateDeviceList: (
@@ -41,6 +46,9 @@ export type TrayHandlers = {
   syncFormattingModeState: () => void
   syncModelState: () => void
 }
+
+/** How long the blocked reason stays on the tray before it goes back to Ready. */
+const TRAY_ERROR_CLEAR_MS = 20_000
 
 const trayIconPath =
   getPlatformRuntime() === 'windows'
@@ -85,8 +93,20 @@ export const setupTray = (
 
   // Declared before buildMenu because the status row reads it on the very first
   // setMenu call.
-  type TrayVisualState = 'idle' | 'recording' | 'transcribing' | 'streaming'
+  type TrayVisualState =
+    'idle' | 'recording' | 'transcribing' | 'streaming' | 'error'
   let trayVisualState: TrayVisualState = 'idle'
+  /** The blocked reason, shown in the status row for as long as the error state lasts. */
+  let trayErrorMessage: string | null = null
+  let trayErrorTimer: ReturnType<typeof setTimeout> | null = null
+
+  const clearTrayError = () => {
+    if (trayErrorTimer !== null) {
+      clearTimeout(trayErrorTimer)
+      trayErrorTimer = null
+    }
+    trayErrorMessage = null
+  }
 
   const updateMenuItem = () => {
     if (updateState === 'ready')
@@ -128,6 +148,7 @@ export const setupTray = (
     recording: 'Recording',
     transcribing: 'Transcribing…',
     streaming: 'Live transcription',
+    error: 'Dictation blocked',
   }
 
   /**
@@ -136,7 +157,10 @@ export const setupTray = (
    */
   const statusMenuItem = () => ({
     type: 'normal' as const,
-    label: `● ${STATUS_LABELS[trayVisualState]} · ${shortcutSummary()}`,
+    label:
+      trayVisualState === 'error' && trayErrorMessage !== null
+        ? `⚠ ${STATUS_LABELS.error} · ${trayErrorMessage}`
+        : `● ${STATUS_LABELS[trayVisualState]} · ${shortcutSummary()}`,
     action: 'open',
   })
 
@@ -297,18 +321,43 @@ export const setupTray = (
       if (trayVisualState === 'idle') tray.setTitle('')
     },
     setTrayIdle: () => {
+      clearTrayError()
       trayVisualState = 'idle'
       tray.setTitle('')
     },
     setTrayRecording: () => {
+      clearTrayError()
       trayVisualState = 'recording'
       tray.setTitle(' Listening...')
     },
     setTrayTranscribing: () => {
+      clearTrayError()
       trayVisualState = 'transcribing'
       tray.setTitle(' …')
     },
+    /**
+     * The blocked reason on the tray: a warning glyph in the title, and the sentence itself
+     * in the status row so it is readable with no window open. Self-clearing, because a
+     * lingering warning after the user has moved on is its own kind of lie - and any of the
+     * four normal states clears it the moment a Dictation runs.
+     */
+    setTrayError: (message: string) => {
+      if (trayErrorTimer !== null) clearTimeout(trayErrorTimer)
+      trayVisualState = 'error'
+      trayErrorMessage = message
+      tray.setTitle(' ⚠')
+      tray.setMenu(buildMenu(resolveCurrentDevice()))
+      trayErrorTimer = setTimeout(() => {
+        trayErrorTimer = null
+        if (trayVisualState !== 'error') return
+        trayVisualState = 'idle'
+        trayErrorMessage = null
+        tray.setTitle('')
+        tray.setMenu(buildMenu(resolveCurrentDevice()))
+      }, TRAY_ERROR_CLEAR_MS)
+    },
     setTrayStreaming: () => {
+      clearTrayError()
       trayVisualState = 'streaming' as TrayVisualState
       tray.setTitle(' Live…')
     },

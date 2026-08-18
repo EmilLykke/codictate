@@ -5,6 +5,11 @@
 // Codictate; stderr lines tagged stream [live][debug] are forwarded below as parakeet stderr.
 
 import type { StreamTranscriptionMode } from '../../../shared/types'
+import {
+  blockedDictationPlan,
+  type BlockedDictationPlan,
+  type RunnableDictationPlan,
+} from '../../../shared/dictation-plan'
 import { getPlatform } from '../../platform'
 import { modelManager } from './model-manager'
 import { log } from '../logger'
@@ -32,25 +37,60 @@ export type ParakeetStreamStartOptions = {
   deviceRef?: string
 }
 
-const PARAKEET_MODEL_ID = 'parakeet-tdt-0.6b-v3'
+/**
+ * Either the stream started, or it did not and here is why in Dictation Plan shape.
+ *
+ * The blocked arm is what `assertParakeetStreamRuntimeReady` used to throw. ADR-0005 keeps
+ * the check - the gap between building a plan and spawning the helper is where a race lands,
+ * so the last check before the spawn stays - but a thrown `Error` was the worst of the three
+ * old failure modes: the caller caught it, discarded it, and the shortcut press did nothing
+ * at all. A blocked plan has to be carried, not raised.
+ */
+export type ParakeetStreamStartResult =
+  | { status: 'started'; session: StreamSession }
+  | { status: 'blocked'; plan: BlockedDictationPlan }
 
-export function assertParakeetStreamRuntimeReady(): void {
-  getPlatform().findParakeetHelperBinary()
-  if (!modelManager.isModelAvailable(PARAKEET_MODEL_ID)) {
-    throw new Error(
-      'Parakeet model is not installed. Download Parakeet TDT v3 in Settings to use live transcription.'
+/**
+ * The pre-spawn race check, in plan shape.
+ *
+ * Not a competing definition of readiness: it re-asks only the two questions that a race can
+ * change between the plan and the spawn - the Native Helper is still on disk, and so are the
+ * weights - and it answers with the same closed reason union the plan builder uses.
+ */
+function checkParakeetStreamRuntimeReady(
+  plan: RunnableDictationPlan
+): BlockedDictationPlan | null {
+  try {
+    getPlatform().findParakeetHelperBinary()
+  } catch {
+    return blockedDictationPlan(
+      'live',
+      'parakeet_helper_missing',
+      plan.speechModelId
     )
   }
+  if (!modelManager.isModelAvailable(plan.speechModelId)) {
+    return blockedDictationPlan(
+      'live',
+      'parakeet_not_installed',
+      plan.speechModelId
+    )
+  }
+  return null
 }
 
 export async function startParakeetStream(
+  /** The run to start. The Speech Model comes from here, not from a constant in this file. */
+  plan: RunnableDictationPlan,
   streamTranscriptionMode: StreamTranscriptionMode,
   handlers: StreamHandlers,
   options?: ParakeetStreamStartOptions
-): Promise<StreamSession> {
-  assertParakeetStreamRuntimeReady()
+): Promise<ParakeetStreamStartResult> {
+  const blocked = checkParakeetStreamRuntimeReady(plan)
+  if (blocked !== null) return { status: 'blocked', plan: blocked }
+
   const binary = getPlatform().findParakeetHelperBinary()
-  const modelDir = modelManager.getParakeetInstallDir(PARAKEET_MODEL_ID)
+  const modelDir = modelManager.getParakeetInstallDir(plan.speechModelId)
   const modeArg = streamTranscriptionMode === 'vad' ? 'vad' : 'live'
   const args = [binary, 'stream', modeArg, modelDir]
   if (options?.deviceRef) args.push(options.deviceRef)
@@ -67,6 +107,7 @@ export async function startParakeetStream(
     binary,
     streamArgs: args.slice(1),
     streamTranscriptionMode,
+    speechModelId: plan.speechModelId,
     modelDir,
     deviceRef: options?.deviceRef,
     streamDebugId,
@@ -128,7 +169,7 @@ export async function startParakeetStream(
     handlers.onStopped()
   })
 
-  return { proc, streamDebugId }
+  return { status: 'started', session: { proc, streamDebugId } }
 }
 
 export async function stopParakeetStream(

@@ -1,11 +1,4 @@
-import {
-  DEFAULT_MODEL_ID,
-  HVISKE_TRANSCRIPTION_LANGUAGE_ID,
-  getSpeechModel,
-  isHviskeSpeechModelId,
-} from '../../../shared/speech-models'
-import { HVISKE_CRISPASR_BACKEND } from '../../../shared/asr-harness'
-import { resolveTranslateModelId } from '../../../shared/dictation-plan'
+import type { RunnableDictationPlan } from '../../../shared/dictation-plan'
 import { modelManager } from './model-manager'
 import { pasteTranscript } from '../keyboard/keyboard-events'
 import { applyFormatting } from '../formatting/apply-formatting'
@@ -99,79 +92,29 @@ async function drainReadableStream(
 }
 
 /**
- * The Speech Model an hviske selection should actually run.
+ * One Dictation, exactly as the Dictation Plan describes it.
  *
- * hviske weights are a separate download and the selected Model ID outlives them in
- * AppConfig, so a selection can point at weights the user has since deleted. Falling back
- * to the default Speech Model keeps that a transcript in the wrong language rather than a
- * failed Dictation. Every other Speech Model is passed through untouched; the surfaces that
- * offer them already filter on availability.
+ * Every question this used to ask - is the selection installed, can it translate, which
+ * backend, which language - was answered when the plan was built, so nothing is re-derived
+ * here and there is nothing left to fall back to. The two fallbacks that used to live in
+ * this function are gone: an hviske selection with deleted weights no longer transcribes
+ * with the default Speech Model, and Translate to English is no longer dropped when the
+ * selection cannot do it. Both states are now unreachable (settings-heal.ts) or blocked
+ * before the spawn (buildDictationPlan). See ADR-0005.
  */
-function resolveInstalledHviskeModelId(modelId: string): string {
-  if (!isHviskeSpeechModelId(modelId)) return modelId
-  if (modelManager.isModelAvailable(modelId)) return modelId
-
-  log(
-    'whisper',
-    'hviske model selected but weights are not installed - falling back to the default model',
-    { modelId, fallbackModelId: DEFAULT_MODEL_ID }
-  )
-  return DEFAULT_MODEL_ID
-}
-
-export const transcribe = async (
-  whisperLanguageCode: string | null | undefined,
-  requestedModelId: string,
-  translateToEnglish: boolean
-) => {
-  const speech = getSpeechModel(requestedModelId)
-  if (speech?.engine === 'whisperkit') {
-    return transcribeParakeet(requestedModelId)
+export const transcribe = async (plan: RunnableDictationPlan) => {
+  if (plan.engineId === 'whisperkit') {
+    return transcribeParakeet(plan.speechModelId)
   }
 
-  const modelId = resolveInstalledHviskeModelId(requestedModelId)
-
-  // Resolved from the *selected* Model ID, not the hviske fallback above. The two rules are
-  // independent: "hviske weights are missing, transcribe with the default instead" and
-  // "this selection cannot translate, run a translate-capable model instead". Feeding the
-  // fallback in here conflated them - an hviske selection with deleted weights became
-  // large-v3-turbo, which is not translate-capable, so Translate to English was dropped
-  // even when a translate-capable Speech Model was installed. Whether translate works must
-  // not depend on a file belonging to a Speech Model that is not the one running.
-  const translateRunModelId = resolveTranslateModelId(requestedModelId, (id) =>
-    modelManager.isModelAvailable(id)
-  )
-  const useTranslate = translateToEnglish && translateRunModelId !== null
-  if (translateToEnglish && translateRunModelId === null) {
-    log(
-      'whisper',
-      'translate requested but no translate-capable model selected or available — transcribing without -tr',
-      { transcriptionModelId: modelId }
-    )
-  }
-
-  const effectiveModelId = useTranslate ? translateRunModelId : modelId
-  const model = modelManager.getModelPath(effectiveModelId)
-
-  // Backend and language follow the Speech Model that actually runs, not the one the user
-  // selected. hviske GGUF weights load under `--backend cohere` alone and are Danish only,
-  // so its language is pinned rather than taken from the user's Transcription Language
-  // (which may be auto, or another language entirely). A translate request on an hviske
-  // selection resolves away from hviske to a translate-capable Whisper Speech Model
-  // (resolveTranslateModelId), and that model must inherit neither the backend nor the
-  // pinned Danish.
-  const isHviskeRun = isHviskeSpeechModelId(effectiveModelId)
-  const crispasrBackend = isHviskeRun ? HVISKE_CRISPASR_BACKEND : undefined
-  const language = isHviskeRun
-    ? HVISKE_TRANSCRIPTION_LANGUAGE_ID
-    : whisperLanguageCode
+  const model = modelManager.getModelPath(plan.speechModelId)
 
   const command = await buildWhisperHarnessCommand({
-    crispasrBackend,
+    crispasrBackend: plan.crispasrBackend ?? undefined,
     modelPath: model,
-    language,
+    language: plan.languageCode,
     audioPath: RECORDING_PATH,
-    translateToEnglish: useTranslate,
+    translateToEnglish: plan.translateToEnglish,
   })
 
   log('whisper', 'spawning ASR harness', {
@@ -181,9 +124,9 @@ export const transcribe = async (
     model,
     whisperLanguageCode: command.languageArg,
     languageMode: command.languageArg === 'auto' ? 'auto-detect' : 'fixed',
-    modelId: effectiveModelId,
-    requestedModelId,
-    translateToEnglish: useTranslate,
+    modelId: plan.speechModelId,
+    transcriptionLanguageId: plan.transcriptionLanguageId,
+    translateToEnglish: plan.translateToEnglish,
   })
 
   const proc = Bun.spawn(command.argv, {
@@ -341,9 +284,7 @@ export interface Speech2TextResult {
 }
 
 export const speech2text = async (
-  whisperLanguageCode: string | null | undefined,
-  modelId: string,
-  translateToEnglish: boolean,
+  plan: RunnableDictationPlan,
   formattingSettings: FormattingRuntimeSettings,
   dictionaryEntries: DictionaryEntry[] = [],
   onBeforeTranscription?: () => Promise<void>,
@@ -351,11 +292,7 @@ export const speech2text = async (
 ): Promise<Speech2TextResult> => {
   if (onBeforeTranscription) await onBeforeTranscription()
 
-  let transcript = await transcribe(
-    whisperLanguageCode,
-    modelId,
-    translateToEnglish
-  )
+  let transcript = await transcribe(plan)
   if (dictionaryEntries.length > 0) {
     const result = applyDictionary(transcript, dictionaryEntries, {
       trackApplied: true,
