@@ -13,6 +13,8 @@ This is a review, not a decision record. Decisions that come out of it belong in
 28,662 lines of TS/TSX. 5 `*.test.ts` files. **No `test` script in `package.json`**, and no workflow in `.github/workflows/` runs `bun test`, `lint`, or `tsc`. Zero tests exist for `AppConfig.ts`, `setup-recording.ts`, `speech2text.ts`, `keyboard-events.ts`, `rpc.ts`. Every "tests would improve" claim below is a claim about a test surface that does not exist yet.
 
 > Updated after #44: a `test` script and `.github/workflows/ci.yml` now exist, so `bun test`, `lint` and `tsc` gate every push to `main` and every pull request, and the Rust helper checks run on a Windows runner. The line count of untested modules above is unchanged - only the runner landed.
+>
+> Updated after ADR-0005's sequence (#44 - #49, PR #50): **7 test files, 144 tests**, all of which run without a subprocess, a filesystem or a webview. The new coverage is the pure core of the run decision - `dictation-plan.test.ts`, `settings-heal.test.ts`, `parakeet-warmup.test.ts`, `speech-models.test.ts` - and it is the coverage ADR-0005 said its restructuring depended on. `AppConfig.ts`, `setup-recording.ts`, `speech2text.ts`, `keyboard-events.ts` and `rpc.ts` still have none, so the claim above still holds for the glue.
 
 ## Candidates
 
@@ -137,6 +139,8 @@ Two of the five existing test files do not test Codictate. `model-downloads.test
 
 **Landed (#49)**: `shouldStartParakeetWarmup` in `src/bun/utils/whisper/parakeet-warmup.test.ts` - the one decision inside the warmup lifecycle that is a pure function of plain values, split out from the glue so it can be pinned without a spawn.
 
+**Landed (PR #50)**: `src/shared/speech-models.test.ts` pins `fluidAudioModelFolderName`, the local folder name Parakeet's weights have to be installed under. It is a one-line function with a test file of its own because the cost of getting it wrong is not a wrong answer but a silent 461 MB redownload per attempt - see "Parakeet's install directory" below.
+
 **Landed (#44)**: the runner half is done. `bun run test` exists, `.github/workflows/ci.yml` runs test / lint / tsc on push and pull request plus `check:native:windows-helper` on a Windows runner, and the two suites that do not test Codictate moved out of the default run under a `.manual.ts` suffix (`model-download-reachability.manual.ts`, `results-archive.manual.ts`), invoked on purpose with `bun run test:manual`. What remains of this candidate is the coverage list above.
 
 ### F — Retire the whisper-models shim
@@ -175,6 +179,30 @@ Two of the five existing test files do not test Codictate. `model-downloads.test
 
 **Solution**: inline the menu building. Keep the Speech Model change rule as its own module and route the React path through it instead of its hand-written copy — that gives the seam its second adapter.
 
+## Parakeet's install directory
+
+*(bug - fixed in PR #50, `8c6b8de`. Recorded here because the invariant is invisible from our side of the boundary and will regress silently on a FluidAudio upgrade.)*
+
+**FluidAudio does not read the directory it is handed.** `AsrModels.load(from:)` takes that directory's *parent* and re-appends its own `Repo.folderName`, and for the v3 Parakeet repo `folderName` is the Hugging Face slug with every `-coreml` stripped (FluidAudio 0.13.6, `ModelNames.swift`, the `default:` arm). `DownloadUtils.loadModels` resolves the same path. We installed under the slug itself, so the loader concluded the weights were missing and downloaded its own copy into the name it expected - and since a failed load *deletes that directory and retries once*, a mismatch cost a fresh 461 MB fetch on every attempt.
+
+Three things kept it silent, and all three are now closed:
+
+- `runParakeetWarmup` spawned the helper with `stderr: 'ignore'`, discarding the one line that said preparation had started. It captures stderr and logs it on failure.
+- `parakeetInstallComplete` inspected the folder FluidAudio was ignoring, so the app reported Parakeet installed while no Dictation could use it. The check now runs against the folder the loader reads, and `isModelAvailable` migrates an install found under the old name rather than redownloading it.
+- The benchmark captured helper stderr into a variable it never read and never checked an exit code, so a helper that produced nothing scored as a 100% WER utterance. Non-zero exits are now reported once per distinct failure.
+
+**What to watch.** `fluidAudioModelFolderName` in `src/shared/speech-models.ts` is a copy of a rule that lives in someone else's Swift source. A FluidAudio version bump can change `folderName` without changing any signature we compile against, and the symptom is not a crash but a slow silent redownload. On any FluidAudio upgrade, re-read `ModelNames.swift`'s `folderName` before trusting the pinned tests. Windows is unaffected: its helper is ONNX and reads the directory it is given.
+
+## Open follow-ups
+
+Small, independent, none blocking. Left deliberately rather than scoped into PR #50.
+
+- **The blocked-Dictation error sound is `dictation-cancel.wav`.** No error asset ships. Isolated to one line in `src/bun/utils/sound/play-sound.ts`, so it is an asset decision, not a code one.
+- **The tray error state self-clears after 20 seconds.** An invented bound, not specified by ADR-0005. Any of the four normal tray states also clears it immediately.
+- **Four pure schema tests no longer gate anything.** #44 moved all of `results-archive.manual.ts` out of the default run because the ticket said to; four of its tests are harness-label round-trips that need no archive and could return to `bun run test` via a file split.
+- **The benchmark spawns a fresh Parakeet helper per utterance** - 213 process starts for a 200-utterance Benchmark Combination, each paying a full model load, where the app keeps one prepared helper. There is also no per-utterance timeout anywhere in `benchmarks/stt/runner.ts`, so a wedged helper still stalls a run indefinitely; it is now at least loud when it exits non-zero.
+- **Manual verification still owed on PR #50**: auto-warmup on selecting Parakeet, that a press mid-warmup waits rather than doing nothing, and the four blocked-plan surfaces (delete the Parakeet weights in Finder while the app runs). None of it is reachable from `bun test`.
+
 ## Suggested sequence
 
 1. **The four live bugs** (done 2026-08-17) — cheap, independent of any deepening, and they make A and B verifiable.
@@ -182,3 +210,5 @@ Two of the five existing test files do not test Codictate. `model-downloads.test
 3. ~~**A**, then **B** — the plan gives `runDictation(plan, audio)` something to accept. **F** folds into A.~~ **A is done (#48)**, and it landed the plan **B** wants to accept. What remains of B is the paste / history / stats orchestration moving out of `speech2text.ts` and the two Speech Engine invocations going behind one interface.
 4. **C** — touches no file the others touch, so it can go in any order.
 5. **D**, **G**, **H** — independent.
+
+**Where to pick up.** PR #50 carries #44 - #49 plus the Parakeet install fix; ADR-0005's sequence is closed. The next deepening with a plan to accept it is **B**, and **G** now has one more argument for it than this review recorded: the Parakeet bug was a binary-and-asset resolution rule written outside the module that owns resolution.
