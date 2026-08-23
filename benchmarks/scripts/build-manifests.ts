@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { LIBRISPEECH_SPLITS } from "../stt/datasets";
+import { estimateWavDurationSecFromBytes } from "../../src/shared/wav-duration";
 
 export interface ManifestEntry {
   id: string;
@@ -11,44 +12,8 @@ export interface ManifestEntry {
   audioDurationSec: number;
 }
 
-// -- WAV duration from header (same logic as start-rec.ts) --
-
-function readAscii(buf: Buffer, start: number, end: number): string {
-  return buf.subarray(start, end).toString("ascii");
-}
-
 function estimateWavDurationSec(filePath: string): number {
-  const buf = Buffer.from(readFileSync(filePath));
-  if (buf.length < 44) return 0;
-  if (readAscii(buf, 0, 4) !== "RIFF") return 0;
-  if (readAscii(buf, 8, 12) !== "WAVE") return 0;
-
-  let off = 12;
-  let sampleRate = 0;
-  let channels = 0;
-  let bitsPerSample = 0;
-  let dataSize = 0;
-
-  while (off + 8 <= buf.length) {
-    const chunkId = readAscii(buf, off, off + 4);
-    const chunkSize = buf.readUInt32LE(off + 4);
-    const dataStart = off + 8;
-    off += 8 + chunkSize + (chunkSize % 2);
-    if (chunkId === "fmt ") {
-      if (dataStart + 16 > buf.length) return 0;
-      channels = buf.readUInt16LE(dataStart + 2);
-      sampleRate = buf.readUInt32LE(dataStart + 4);
-      bitsPerSample = buf.readUInt16LE(dataStart + 14);
-    } else if (chunkId === "data") {
-      dataSize = chunkSize;
-      break;
-    }
-  }
-
-  if (!sampleRate || !channels || !bitsPerSample || !dataSize) return 0;
-  const bytesPerFrame = channels * (bitsPerSample / 8);
-  if (!bytesPerFrame || !Number.isInteger(bytesPerFrame)) return 0;
-  return dataSize / bytesPerFrame / sampleRate;
+  return estimateWavDurationSecFromBytes(readFileSync(filePath)) ?? 0;
 }
 
 // -- Deterministic seeded shuffle --

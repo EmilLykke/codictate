@@ -8,48 +8,12 @@ import { stat } from 'node:fs/promises'
 import { RECORDING_PATH } from '../../platform/runtime'
 import { getPlatformRuntime } from '../../platform/runtime'
 import type { RunnableDictationPlan } from '../../../shared/dictation-plan'
+import { estimateWavDurationMsFromBytes } from '../../../shared/wav-duration'
 
 /** Set `discard: true` before killing the recorder so onExit skips transcription and UI handoff. */
 export type RecordingSession = { discard: boolean; startedAtMs: number }
 
 const MIN_VALID_RECORDING_MS = 180
-
-function readAscii(buf: Buffer, start: number, end: number): string {
-  return buf.subarray(start, end).toString('ascii')
-}
-
-function estimateWavDurationMsFromBuffer(buf: Buffer): number | null {
-  if (buf.length < 44) return null
-  if (readAscii(buf, 0, 4) !== 'RIFF') return null
-  if (readAscii(buf, 8, 12) !== 'WAVE') return null
-
-  let off = 12
-  let sampleRate = 0
-  let channels = 0
-  let bitsPerSample = 0
-  let dataSize = 0
-
-  while (off + 8 <= buf.length) {
-    const chunkId = readAscii(buf, off, off + 4)
-    const chunkSize = buf.readUInt32LE(off + 4)
-    const dataStart = off + 8
-    off += 8 + chunkSize + (chunkSize % 2)
-    if (chunkId === 'fmt ') {
-      if (dataStart + 16 > buf.length) return null
-      channels = buf.readUInt16LE(dataStart + 2)
-      sampleRate = buf.readUInt32LE(dataStart + 4)
-      bitsPerSample = buf.readUInt16LE(dataStart + 14)
-    } else if (chunkId === 'data') {
-      dataSize = chunkSize
-      break
-    }
-  }
-
-  if (!sampleRate || !channels || !bitsPerSample || !dataSize) return null
-  const bytesPerFrame = channels * (bitsPerSample / 8)
-  if (!bytesPerFrame || !Number.isInteger(bytesPerFrame)) return null
-  return Math.floor((dataSize / bytesPerFrame / sampleRate) * 1000)
-}
 
 async function shouldSkipTranscriptionForShortCapture(
   session: RecordingSession
@@ -62,8 +26,8 @@ async function shouldSkipTranscriptionForShortCapture(
   try {
     const fileStats = await stat(RECORDING_PATH)
     const wavFile = Bun.file(RECORDING_PATH)
-    const durationMs = estimateWavDurationMsFromBuffer(
-      Buffer.from(await wavFile.arrayBuffer())
+    const durationMs = estimateWavDurationMsFromBytes(
+      new Uint8Array(await wavFile.arrayBuffer())
     )
     const durationForResult = durationMs ?? undefined
     const fileLooksFresh = fileStats.mtimeMs >= session.startedAtMs - 50
