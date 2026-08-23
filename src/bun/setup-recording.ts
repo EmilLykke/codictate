@@ -1,6 +1,7 @@
 import {
   startRecording,
   stopRecording,
+  type CaptureResult,
   type RecordingSession,
 } from './utils/audio/start-rec'
 import {
@@ -20,6 +21,7 @@ import {
   getShortcutDefinition,
   Key,
   KeyCode,
+  pasteTranscript,
   SHORTCUTS,
   startKeyboardListener,
   type KeyEvent,
@@ -27,6 +29,7 @@ import {
 } from './utils/keyboard/keyboard-events'
 import {
   playCancelSound,
+  playEndSound,
   playErrorSound,
   playStartSound,
 } from './utils/sound/play-sound'
@@ -35,7 +38,8 @@ import type { TrayHandlers } from './setup-tray'
 import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
 import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
-import type { Speech2TextSuccess } from './utils/whisper/speech2text'
+import { runDictation, type DictationOutcome } from './dictation/run-dictation'
+import type { FailedTranscription } from './utils/whisper/engines/transcription'
 import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { log } from './utils/logger'
@@ -99,17 +103,24 @@ export const setupRecording = (
   getAudioDevices?: () => AudioDeviceSnapshot,
   onAutoLearnedEntry?: () => void,
   onHistorySave?: (transcript: string) => Promise<void>,
-  onStatsSave?: (
-    result: Speech2TextSuccess,
-    durationMs: number,
-    plan: RunnableDictationPlan
-  ) => Promise<void>,
+  /**
+   * One argument, because the Dictation Outcome already carries what a stats row needs -
+   * including `engineId` and `languageId`, which come from the Dictation Plan rather than
+   * from a config read after the run. See ADR-0006.
+   */
+  onStatsSave?: (outcome: DictationOutcome) => Promise<void>,
   /**
    * Every Dictation Plan a shortcut press produces, runnable or blocked. The main process
    * owns the surfaces a blocked plan has to reach that this module cannot: the notification,
    * the in-window banner, and the heal pass that makes the next press work.
    */
-  onDictationPlan?: (plan: DictationPlan) => Promise<void>
+  onDictationPlan?: (plan: DictationPlan) => Promise<void>,
+  /**
+   * A Dictation that started and then produced nothing. The same two main-process surfaces a
+   * blocked plan gets - notification or banner - and deliberately not the third: no heal
+   * pass. See `reportFailedDictation` below.
+   */
+  onDictationFailed?: (failure: FailedTranscription) => Promise<void>
 ) => {
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null
   let recordingSession: RecordingSession | null = null
@@ -324,6 +335,127 @@ export const setupRecording = (
     await onDictationPlan?.(plan)
   }
 
+  /**
+   * A Dictation that ran and produced nothing, made impossible to miss.
+   *
+   * The same four surfaces as a blocked plan, and for the same reason: the app is usable with
+   * no window open, so an error chime and the tray error state are owned here while
+   * `onDictationFailed` carries the sentence out to the notification or the in-window banner.
+   *
+   * What it deliberately does not do is heal. A blocked plan means the configuration is
+   * unrunnable and healing is the correction; a crashed helper means the configuration was
+   * fine, and running the heal pass on every crash would let a flaky helper quietly rewrite
+   * settings the user chose. ADR-0006.
+   */
+  const reportFailedDictation = async (failure: FailedTranscription) => {
+    log('whisper', 'dictation failed', {
+      reason: failure.reason,
+      message: failure.message,
+    })
+    if (appConfig.getSoundEffectsEnabled()) playErrorSound()
+    setTrayError(failure.message)
+    await onDictationFailed?.(failure)
+  }
+
+  /**
+   * The Dictation pipeline is free again.
+   *
+   * Runs on every path out of a finished capture, the failure ones included: this is the only
+   * signal the shortcut router has, so an escaping throw used to leave
+   * `transcriptionPipelineActive` true for the rest of the process and every later press was
+   * refused until restart. A failed Dictation must cost one Dictation, not all of them.
+   */
+  const releaseDictationPipeline = () => {
+    transcriptionPipelineActive = false
+    recordingSession = null
+    setTrayIdle()
+    onStatusChange?.('ready')
+  }
+
+  /**
+   * The capture is over; everything after it happens here.
+   *
+   * The order is load-bearing and unchanged from when it lived inside the mic process's
+   * `onExit`: tray and indicator to transcribing, the end chime, the pipeline, and the paste
+   * on the statement after the pipeline returns. Nothing is awaited between the transcript
+   * and the paste. What changed is who does it - `setup-recording.ts` already owns every
+   * other post-Dictation surface, and the audio module should not be orchestrating the
+   * Formatting Backend. ADR-0006.
+   */
+  const handleCaptureFinished = async (
+    plan: RunnableDictationPlan,
+    capture: CaptureResult
+  ) => {
+    // Cancelled, or too short to be speech. Silence, not a failure: no chime, no notice, and
+    // the session ends where it stands.
+    if (capture.discarded || capture.skipReason !== null) {
+      releaseDictationPipeline()
+      return
+    }
+
+    recorderProc = null
+    transcriptionPipelineActive = true
+    activeRecordingMode = null
+    setTrayTranscribing()
+    onStatusChange?.('transcribing')
+
+    // Held rather than reported inline, because the tray error state has to outlive the
+    // release below - which puts the tray back to idle. Same order the blocked-stream path
+    // uses: idle first, then the error.
+    let failure: FailedTranscription | null = null
+
+    try {
+      if (appConfig.getSoundEffectsEnabled())
+        playEndSound(appConfig.getFunModeEnabled())
+
+      // The previous Dictation's Dictionary hits are promoted now, before this one records
+      // its own. Hoisted out of the pipeline because it is bookkeeping about the last run,
+      // not part of producing this transcript.
+      await appConfig.acceptPreviouslyAppliedEntries()
+
+      const outcome = await runDictation({
+        plan,
+        audioPath: capture.audioPath,
+        durationMs: capture.durationMs,
+        formattingSettings: appConfig.getFormattingRuntimeSettings(),
+        dictionaryEntries: appConfig.getDictionaryEntries(),
+        onAppliedEntries: (entries) => appConfig.notifyAppliedEntries(entries),
+      })
+
+      // An empty output is a Dictation the Speech Engine heard nothing in, and it writes
+      // nothing: no paste, no history entry, no stats row, no error chime. It used to paste
+      // an empty string over the cursor and count a zero-word stats row.
+      if (outcome.status === 'failed') {
+        failure = outcome
+      } else if (outcome.output !== '') {
+        await pasteTranscript(outcome.output)
+
+        if (onHistorySave) {
+          try {
+            await onHistorySave(outcome.output)
+          } catch (err) {
+            log('history', 'failed to save entry', { err: String(err) })
+          }
+        }
+        if (onStatsSave) {
+          try {
+            await onStatsSave(outcome)
+          } catch (err) {
+            log('stats', 'failed to save session', { err: String(err) })
+          }
+        }
+      }
+    } catch (err) {
+      log('whisper', 'transcription pipeline failed', {
+        err: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      releaseDictationPipeline()
+    }
+
+    if (failure !== null) await reportFailedDictation(failure)
+  }
+
   const routeShortcutAction = async (
     mode: 'hybrid' | 'holdOnly',
     keyEvent: KeyEvent,
@@ -517,23 +649,9 @@ export const setupRecording = (
       recorderProc = await startRecording(
         appConfig,
         plan,
-        () => {
-          recorderProc = null
-          transcriptionPipelineActive = true
-          activeRecordingMode = null
-          setTrayTranscribing()
-          onStatusChange?.('transcribing')
-        },
-        () => {
-          transcriptionPipelineActive = false
-          recordingSession = null
-          setTrayIdle()
-          onStatusChange?.('ready')
-        },
         recordingSession,
-        getAudioDevices,
-        onHistorySave,
-        onStatsSave
+        (capture) => handleCaptureFinished(plan, capture),
+        getAudioDevices
       )
 
       if (pendingHoldReleaseWhileStarting && recordingSession && recorderProc) {

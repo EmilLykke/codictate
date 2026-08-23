@@ -281,7 +281,9 @@ export function MainContainer({
         old
           ? notice === "heal"
             ? { ...old, healAnnouncements: [] }
-            : { ...old, blockedDictation: null }
+            : notice === "blocked"
+              ? { ...old, blockedDictation: null }
+              : { ...old, dictationFailure: null }
           : old,
       );
       const ok = await dismissDictationNotice(notice);
@@ -417,6 +419,7 @@ export function MainContainer({
           <HealNotices
             announcements={settings.healAnnouncements ?? []}
             blocked={settings.blockedDictation ?? null}
+            failed={settings.dictationFailure ?? null}
             onDismiss={handleDismissNotice}
           />
         }

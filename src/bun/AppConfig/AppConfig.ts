@@ -11,6 +11,7 @@ import type {
   AudioDeviceDetails,
   AudioDuckingSettings,
   AudioDuckingSettingsPatch,
+  DictationFailureNotice,
   DictionaryCandidate,
   DictionaryEntry,
   DictionarySettings,
@@ -260,6 +261,13 @@ export class AppConfig {
    * whole promise a blocked plan makes.
    */
   private blockedDictation: BlockedDictationPlan | null = null
+
+  /**
+   * The last Dictation that started and then produced nothing. Same slot in the settings
+   * payload, same in-memory lifetime - and deliberately not the same correction: a failed run
+   * does not trigger the heal pass, because the configuration was runnable. ADR-0006.
+   */
+  private dictationFailure: DictationFailureNotice | null = null
 
   /**
    * Wired once at boot. Everything derived from the `(settings, availability)` pair that
@@ -942,6 +950,7 @@ export class AppConfig {
       healAnnouncements: this.getHealAnnouncements(),
       dictationReadiness: this.getDictationReadiness(),
       blockedDictation: this.getBlockedDictation(),
+      dictationFailure: this.getDictationFailure(),
     }
   }
 
@@ -1096,6 +1105,26 @@ export class AppConfig {
 
   public getBlockedDictation(): BlockedDictationPlan | null {
     return this.blockedDictation === null ? null : { ...this.blockedDictation }
+  }
+
+  /**
+   * Remember a Dictation that ran and produced nothing, for the same banner slot. Not
+   * persisted, and no heal pass: the settings were runnable, so there is nothing to correct.
+   */
+  public recordFailedDictation(failure: DictationFailureNotice): void {
+    this.dictationFailure = { reason: failure.reason, message: failure.message }
+    log('config', 'dictation failed', { reason: failure.reason })
+  }
+
+  /** Retires the notice once a Dictation runs. Returns true when there was one to retire. */
+  public clearFailedDictation(): boolean {
+    if (this.dictationFailure === null) return false
+    this.dictationFailure = null
+    return true
+  }
+
+  public getDictationFailure(): DictationFailureNotice | null {
+    return this.dictationFailure === null ? null : { ...this.dictationFailure }
   }
 
   /**

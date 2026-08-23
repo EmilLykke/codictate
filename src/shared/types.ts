@@ -267,15 +267,42 @@ export interface AppSettings {
    * Cleared by the first press that runs.
    */
   blockedDictation: BlockedDictationPlan | null
+  /**
+   * The last Dictation that started and then produced nothing, or `null`. A crashed Speech
+   * Engine, weights that went away between the plan and the spawn, output that was not the
+   * UTF-8 it was asked for: the closed reason union lives with the Speech Engine Adapter.
+   *
+   * Separate from `blockedDictation` because the two are corrected differently - a blocked
+   * plan triggers the heal pass, a failed run must not (ADR-0006) - even though they reach
+   * the user through the same banner slot and the same notification channel.
+   *
+   * Cleared by the next press that runs.
+   */
+  dictationFailure: DictationFailureNotice | null
 }
 
 /**
- * Which of the two dictation notices a dismissal refers to: the heal announcements or the
- * blocked plan, the two fields above. Named once because the same pair travels through the
- * RPC schema, the window handler, the webview client and the banner, and four hand-written
- * copies of a two-member union are four chances to add a third member to three of them.
+ * A Dictation that failed mid-run, as the window needs it: the finished sentence, and the
+ * reason as an opaque key.
+ *
+ * Structural on purpose. `FailedTranscription`
+ * (src/bun/utils/whisper/engines/transcription.ts) satisfies it, so the main process passes
+ * the Result it already has and nothing under `src/shared` has to import a Speech Engine
+ * type to describe a banner.
  */
-export type DictationNoticeKind = 'heal' | 'blocked'
+export interface DictationFailureNotice {
+  reason: string
+  /** One finished sentence, shown to the user as written. */
+  message: string
+}
+
+/**
+ * Which of the three dictation notices a dismissal refers to: the heal announcements, the
+ * blocked plan or the failed run, the three fields above. Named once because the same set
+ * travels through the RPC schema, the window handler, the webview client and the banner, and
+ * four hand-written copies of a union are four chances to add a member to three of them.
+ */
+export type DictationNoticeKind = 'heal' | 'blocked' | 'failed'
 
 export interface PermissionState {
   inputMonitoring: boolean

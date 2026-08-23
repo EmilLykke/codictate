@@ -192,7 +192,9 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           const dismissed =
             notice === 'heal'
               ? deps.appConfig.dismissHealAnnouncements()
-              : deps.appConfig.clearBlockedDictation()
+              : notice === 'blocked'
+                ? deps.appConfig.clearBlockedDictation()
+                : deps.appConfig.clearFailedDictation()
           if (!dismissed) return false
           // Pushed back rather than left to the caller's own state, so every mount of the
           // banner slot agrees about what is dismissed.

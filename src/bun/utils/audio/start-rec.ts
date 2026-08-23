@@ -1,6 +1,5 @@
 import { AppConfig } from '../../AppConfig/AppConfig'
-import { speech2text, type Speech2TextSuccess } from '../whisper/speech2text'
-import { duckDelayAfterStartChimeMs, playEndSound } from '../sound/play-sound'
+import { duckDelayAfterStartChimeMs } from '../sound/play-sound'
 import { findMicRecorderBinary } from './find-mic-recorder'
 import { findDevices, type AudioDeviceSnapshot } from './devices'
 import { log } from '../logger'
@@ -10,71 +9,95 @@ import { getPlatformRuntime } from '../../platform/runtime'
 import type { RunnableDictationPlan } from '../../../shared/dictation-plan'
 import { estimateWavDurationMsFromBytes } from '../../../shared/wav-duration'
 
-/** Set `discard: true` before killing the recorder so onExit skips transcription and UI handoff. */
+/** Set `discard: true` before killing the recorder so onExit reports a cancelled capture. */
 export type RecordingSession = { discard: boolean; startedAtMs: number }
 
 const MIN_VALID_RECORDING_MS = 180
 
-async function shouldSkipTranscriptionForShortCapture(
-  session: RecordingSession
-): Promise<{
-  skip: boolean
-  reason?: 'missing-file' | 'stale-file' | 'too-short'
-  sizeBytes?: number
-  durationMs?: number
-}> {
-  try {
-    const fileStats = await stat(RECORDING_PATH)
-    const wavFile = Bun.file(RECORDING_PATH)
-    const durationMs = estimateWavDurationMsFromBytes(
-      new Uint8Array(await wavFile.arrayBuffer())
-    )
-    const durationForResult = durationMs ?? undefined
-    const fileLooksFresh = fileStats.mtimeMs >= session.startedAtMs - 50
+/** Why a capture is not worth transcribing. Never a user-facing failure: see `CaptureResult`. */
+export type CaptureSkipReason = 'missing-file' | 'stale-file' | 'too-short'
 
-    if (!fileLooksFresh) {
-      return {
-        skip: true,
-        reason: 'stale-file',
-        sizeBytes: fileStats.size,
-        durationMs: durationForResult,
-      }
-    }
-
-    if ((durationMs ?? 0) < MIN_VALID_RECORDING_MS) {
-      return {
-        skip: true,
-        reason: 'too-short',
-        sizeBytes: fileStats.size,
-        durationMs: durationForResult,
-      }
-    }
-
-    return {
-      skip: false,
-      sizeBytes: fileStats.size,
-      durationMs: durationForResult,
-    }
-  } catch {
-    return { skip: true, reason: 'missing-file' }
-  }
+/**
+ * What the recorder produced, handed to the caller the moment the mic process exits.
+ *
+ * The WAV inspection stays in this module because it reads WAV bytes; what moved out is the
+ * decision, which is the caller's - it owns the chime, the pipeline and the tray. A skipped
+ * capture is silence, not a failure: nothing is pasted, nothing is recorded, no error chime.
+ * See docs/adr/0006-dictation-returns-an-outcome.md.
+ */
+export interface CaptureResult {
+  /** The WAV the recorder wrote. A parameter from here on, never re-read from the global. */
+  audioPath: string
+  /** The capture's own length, or 0 when the WAV could not be measured. */
+  durationMs: number
+  /** The user cancelled, or the recorder was killed. There is no audio to look at. */
+  discarded: boolean
+  /** Why this capture is not worth transcribing, or `null` when it is. */
+  skipReason: CaptureSkipReason | null
 }
 
+async function inspectCapture(
+  session: RecordingSession
+): Promise<CaptureResult> {
+  const audioPath = RECORDING_PATH
+  let fileStats: Awaited<ReturnType<typeof stat>>
+  let durationMs: number
+  try {
+    fileStats = await stat(audioPath)
+    durationMs =
+      estimateWavDurationMsFromBytes(
+        new Uint8Array(await Bun.file(audioPath).arrayBuffer())
+      ) ?? 0
+  } catch {
+    log('mic', 'capture not worth transcribing', { reason: 'missing-file' })
+    return {
+      audioPath,
+      durationMs: 0,
+      discarded: false,
+      skipReason: 'missing-file',
+    }
+  }
+
+  const fileLooksFresh = fileStats.mtimeMs >= session.startedAtMs - 50
+  const skipReason: CaptureSkipReason | null = !fileLooksFresh
+    ? 'stale-file'
+    : durationMs < MIN_VALID_RECORDING_MS
+      ? 'too-short'
+      : null
+
+  if (skipReason !== null) {
+    log('mic', 'capture not worth transcribing', {
+      reason: skipReason,
+      sizeBytes: fileStats.size,
+      durationMs,
+      minDurationMs: MIN_VALID_RECORDING_MS,
+    })
+  }
+
+  return { audioPath, durationMs, discarded: false, skipReason }
+}
+
+/**
+ * Capture one Dictation's audio. A recorder and nothing else.
+ *
+ * It used to run the whole pipeline inside the mic process's `onExit` - transcription,
+ * formatting, paste, history and stats - which put every post-Dictation surface in the audio
+ * module. What is left is the capture and one honest report of what it produced. See
+ * docs/adr/0006-dictation-returns-an-outcome.md.
+ */
 export const startRecording = async (
   appConfig: AppConfig,
   /** The run this recording feeds, decided before the recorder was spawned. */
   plan: RunnableDictationPlan,
-  onComplete: () => void,
-  onDone: () => void,
   session: RecordingSession,
+  /**
+   * The capture is over. A callback rather than a resolved promise, and awaited inside
+   * `onExit` where it is called: `session.discard` can flip after the recorder is spawned and
+   * before the mic process exits, so the answer only exists at this moment.
+   */
+  onCaptureFinished: (capture: CaptureResult) => Promise<void>,
   /** Live snapshot from the main process (refreshed at startup + on an interval). Avoids spawning `MicRecorder --list-devices` on every shortcut press. */
-  getDeviceSnapshot?: () => AudioDeviceSnapshot,
-  onHistorySave?: (transcript: string) => Promise<void>,
-  onStatsSave?: (
-    result: Speech2TextSuccess,
-    durationMs: number,
-    plan: RunnableDictationPlan
-  ) => Promise<void>
+  getDeviceSnapshot?: () => AudioDeviceSnapshot
 ) => {
   if (plan.mode !== 'batch') {
     log(
@@ -155,75 +178,21 @@ export const startRecording = async (
           stderr: stderrText.slice(0, 500) || undefined,
         })
 
+        // A cancelled session is not inspected: the WAV is whatever the killed recorder left
+        // behind, and the answer is the same either way.
         const forceCancelled =
           exitCode === 255 || exitCode === 143 || exitCode === 137
-        const recordingCheck =
+        const capture: CaptureResult =
           session.discard || forceCancelled
-            ? { skip: false as const }
-            : await shouldSkipTranscriptionForShortCapture(session)
-        const skipPipeline =
-          session.discard || forceCancelled || recordingCheck.skip
-
-        if (recordingCheck.skip) {
-          log('mic', 'skipping transcription for invalid capture', {
-            reason: recordingCheck.reason,
-            sizeBytes: recordingCheck.sizeBytes,
-            durationMs: recordingCheck.durationMs,
-            minDurationMs: MIN_VALID_RECORDING_MS,
-          })
-        }
-
-        // onDone() releases the transcription pipeline. It has to run on the failure path
-        // too: the caller treats it as the only signal that the pipeline is free again, so
-        // an escaping throw here used to leave `transcriptionPipelineActive` true for the
-        // rest of the process and every later Dictation was refused until restart. A failed
-        // Dictation must cost one Dictation, not all of them.
-        try {
-          if (!skipPipeline) {
-            onComplete()
-            if (appConfig.getSoundEffectsEnabled())
-              playEndSound(appConfig.getFunModeEnabled())
-            const result = await speech2text(
-              plan,
-              appConfig.getFormattingRuntimeSettings(),
-              appConfig.getDictionaryEntries(),
-              () => appConfig.acceptPreviouslyAppliedEntries(),
-              (entries) => appConfig.notifyAppliedEntries(entries)
-            )
-            // A Speech Engine that produced nothing writes nothing. It used to write an
-            // empty transcript to history and a zero-word row to stats, because a non-zero
-            // exit came back indistinguishable from silence. The four user-facing surfaces
-            // a failed Dictation owes are ADR-0006's next step; the log line is what this
-            // module can honestly do on its own.
-            if (result.status === 'failed') {
-              log('whisper', 'transcription failed', {
-                reason: result.reason,
-                message: result.message,
-              })
-              return
-            }
-            if (onHistorySave) {
-              try {
-                await onHistorySave(result.output)
-              } catch (err) {
-                log('history', 'failed to save entry', { err: String(err) })
+            ? {
+                audioPath: RECORDING_PATH,
+                durationMs: 0,
+                discarded: true,
+                skipReason: null,
               }
-            }
-            if (onStatsSave) {
-              try {
-                await onStatsSave(result, recordingCheck.durationMs ?? 0, plan)
-              } catch (err) {
-                log('stats', 'failed to save session', { err: String(err) })
-              }
-            }
-          }
-        } catch (err) {
-          log('whisper', 'transcription pipeline failed', {
-            err: err instanceof Error ? err.message : String(err),
-          })
-        } finally {
-          onDone()
-        }
+            : await inspectCapture(session)
+
+        await onCaptureFinished(capture)
       },
     }
   )
