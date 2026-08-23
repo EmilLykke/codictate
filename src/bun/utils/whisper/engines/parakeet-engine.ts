@@ -22,6 +22,22 @@ import {
   type SpeechEngineAdapter,
 } from './transcription'
 
+/**
+ * The Parakeet Native Helper's batch argv.
+ *
+ * Exported because the benchmark measures peak RSS by running the same command under
+ * `/usr/bin/time` rather than through the adapter, and a second copy of the subcommand and
+ * its argument order is a copy that drifts. It is the only piece of this module a caller
+ * outside the adapter needs.
+ */
+export function parakeetTranscribeArgv(
+  helperBinary: string,
+  audioPath: string,
+  modelDir: string
+): string[] {
+  return [helperBinary, 'transcribe', audioPath, modelDir]
+}
+
 export const transcribeWithParakeet: SpeechEngineAdapter<
   ParakeetTranscriptionRequest
 > = async (request) => {
@@ -56,7 +72,7 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
   })
 
   const proc = Bun.spawn(
-    [helper, 'transcribe', request.audioPath, request.modelDir],
+    parakeetTranscribeArgv(helper, request.audioPath, request.modelDir),
     {
       stdout: 'pipe',
       stderr: 'pipe',

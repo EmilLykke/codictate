@@ -5,6 +5,7 @@ import {
   getSpeechModel,
   isHviskeSpeechModelId,
   HVISKE_TRANSCRIPTION_LANGUAGE_ID,
+  PARAKEET_ENGINE_ID,
 } from "../../src/shared/speech-models";
 import {
   DEFAULT_ASR_HARNESS,
@@ -14,7 +15,12 @@ import {
 } from "../../src/shared/asr-harness";
 import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-harness-command";
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
-import { parseParakeetFinalText } from "../../src/bun/utils/whisper/engines/parakeet-output";
+import { parakeetTranscribeArgv } from "../../src/bun/utils/whisper/engines/parakeet-engine";
+import { runTranscription } from "../../src/bun/utils/whisper/engines/run-transcription";
+import type {
+  FailedTranscription,
+  TranscriptionRequest,
+} from "../../src/bun/utils/whisper/engines/transcription";
 import { getPlatform } from "../../src/bun/platform";
 import { computeWer, computeCer, type WerResult } from "./wer";
 import { computeRtf } from "./rtf";
@@ -30,7 +36,7 @@ function resolveModelPath(modelId: string): string | null {
   const speech = getSpeechModel(modelId);
   if (!speech) return null;
 
-  if (speech.engine === "whisperkit") {
+  if (speech.engine === PARAKEET_ENGINE_ID) {
     // `isModelAvailable`, not `existsSync`: the directory existing is not the same as the
     // weights being loadable. A half-populated directory used to pass this check and then
     // spend the whole Benchmark Run re-downloading, once per utterance.
@@ -93,27 +99,6 @@ export interface PartialProgress {
 
 export type CheckpointCallback = (progress: PartialProgress) => void;
 
-async function drainStream(
-  stream: ReadableStream<Uint8Array> | undefined,
-): Promise<Uint8Array> {
-  if (!stream) return new Uint8Array(0);
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value?.length) chunks.push(value);
-  }
-  const len = chunks.reduce((a, b) => a + b.length, 0);
-  const out = new Uint8Array(len);
-  let o = 0;
-  for (const c of chunks) {
-    out.set(c, o);
-    o += c.length;
-  }
-  return out;
-}
-
 /**
  * How to invoke one Speech Model: which Harness, which crispasr backend, which
  * language.
@@ -124,8 +109,9 @@ async function drainStream(
  * same forced Harness, so what the report says produced a number is what produced it.
  *
  * Language is pinned for the same reason. hviske is Danish-only and the app always
- * sends `--language da` (see `speech2text.ts`), so a benchmark that passed the
- * dataset's own language would be measuring an invocation no user can produce.
+ * sends `--language da` (`buildDictationPlan` in `src/shared/dictation-plan.ts` decides
+ * it once, per ADR-0005), so a benchmark that passed the dataset's own language would be
+ * measuring an invocation no user can produce.
  */
 function harnessInvocationFor(
   modelId: string,
@@ -147,84 +133,80 @@ function harnessInvocationFor(
 }
 
 /**
- * Say so when a Harness process fails, once per distinct failure.
+ * One Speech Model invocation, as a Transcription Request.
  *
- * A non-zero exit used to be indistinguishable from silence: the transcript came back empty,
- * the empty string scored as a 100% WER utterance, and the Benchmark Run finished with
- * plausible-looking numbers produced by a Harness that never transcribed anything. The
- * process stderr was already being captured and then dropped on the floor.
+ * Built by hand, deliberately. AGENTS.md keeps the benchmark away from the Dictation Plan, a
+ * settings read and the heal pass, so `transcriptionRequestFromPlan` is the app's door into
+ * the Speech Engine Adapter and this is the benchmark's. Everything here comes from the
+ * Benchmark Combination: the Speech Model, its resolved weights, and the Sample's own
+ * language.
  *
- * Deduplicated because a broken Harness fails identically on all 200 utterances, and 200
- * copies of one stack trace buries the run's actual progress.
+ * The Request carries no ASR Harness because there is one (ADR-0002) and the adapter resolves
+ * it. `harnessInvocationFor` is still asked, for the two things that do vary per Speech Model
+ * - hviske's forced language and its forced crispasr backend - and if a second Harness is ever
+ * added, the Harness belongs in the Request rather than back in a second argv builder here.
  */
-const reportedHelperFailures = new Set<string>();
-
-function reportHelperFailure(
-  label: string,
-  exitCode: number | null,
-  stderrText: string,
-): void {
-  if (exitCode === 0) return;
-  const tail = stderrText.split("\n").slice(-3).join(" | ").slice(-400);
-  const key = `${label}:${exitCode}:${tail}`;
-  if (reportedHelperFailures.has(key)) return;
-  reportedHelperFailures.add(key);
-  console.error(
-    `    [!] ${label} exited ${exitCode}${tail === "" ? "" : `: ${tail}`}`,
-  );
-}
-
-async function transcribeWhisper(
-  modelPath: string,
-  audioPath: string,
-  language: string,
-  harness: AsrHarnessId,
+function transcriptionRequestFor(
   modelId: string,
-): Promise<string> {
-  const { argv } = await buildWhisperHarnessCommand({
-    ...harnessInvocationFor(modelId, harness, language),
-    modelPath,
-    audioPath,
-  });
-
-  const proc = Bun.spawn(argv, {
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, LC_ALL: "en_US.UTF-8", LANG: "en_US.UTF-8" },
-  });
-
-  const stderrPromise = drainStream(proc.stderr);
-  const stdoutPromise = drainStream(proc.stdout);
-  await proc.exited;
-  const stderrText = new TextDecoder("utf-8")
-    .decode(await stderrPromise)
-    .trim();
-  reportHelperFailure(harness, proc.exitCode, stderrText);
-  const stdoutBytes = await stdoutPromise;
-  return new TextDecoder("utf-8").decode(stdoutBytes).trim();
-}
-
-async function transcribeParakeet(
   modelPath: string,
   audioPath: string,
-): Promise<string> {
-  const helper = getPlatform().findParakeetHelperBinary();
-  const proc = Bun.spawn([helper, "transcribe", audioPath, modelPath], {
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, LC_ALL: "en_US.UTF-8", LANG: "en_US.UTF-8" },
-  });
+  harness: AsrHarnessId,
+  language: string | null,
+): TranscriptionRequest {
+  const speech = getSpeechModel(modelId)!;
 
-  const stderrPromise = drainStream(proc.stderr);
-  const stdoutPromise = drainStream(proc.stdout);
-  await proc.exited;
-  const stderrText = new TextDecoder("utf-8")
-    .decode(await stderrPromise)
-    .trim();
-  reportHelperFailure("parakeet", proc.exitCode, stderrText);
-  const out = new TextDecoder("utf-8").decode(await stdoutPromise);
+  if (speech.engine === PARAKEET_ENGINE_ID) {
+    return {
+      engineId: PARAKEET_ENGINE_ID,
+      speechModelId: modelId,
+      audioPath,
+      modelDir: modelPath,
+    };
+  }
 
-  return (parseParakeetFinalText(out) ?? "").trim();
+  const invocation = harnessInvocationFor(modelId, harness, language);
+  return {
+    engineId: speech.engine,
+    speechModelId: modelId,
+    audioPath,
+    modelPath,
+    languageCode: invocation.language,
+    // No Benchmark Combination translates. WER is scored against a reference transcript in
+    // the Sample's own language, so `-tr` would score English against Danish.
+    translateToEnglish: false,
+    crispasrBackend: invocation.crispasrBackend ?? null,
+  };
+}
+
+/**
+ * Say so when a Speech Engine fails, once per distinct failure.
+ *
+ * A failure used to be indistinguishable from silence: a non-zero exit returned stdout
+ * anyway, the empty string scored as a 100% WER utterance, and the Benchmark Run finished
+ * with plausible-looking numbers produced by an engine that never transcribed anything. The
+ * Adapter now classifies that as a `failed` Result (ADR-0006), so this no longer reads exit
+ * codes - but the utterance is still scored as an empty hypothesis, so the run still needs
+ * somebody to say out loud that a number is not a measurement.
+ *
+ * The reason is printed rather than the Result's `message`: that sentence is written for the
+ * four Dictation surfaces and talks about pasting, which no Benchmark Run does. The engine's
+ * own stderr goes to the debug log from inside the adapter.
+ *
+ * Deduplicated because a broken engine fails identically on all 200 utterances, and 200
+ * copies of one line buries the run's actual progress.
+ */
+const reportedTranscriptionFailures = new Set<string>();
+
+function reportTranscriptionFailure(
+  modelId: string,
+  failure: FailedTranscription,
+): void {
+  const key = `${modelId}:${failure.reason}`;
+  if (reportedTranscriptionFailures.has(key)) return;
+  reportedTranscriptionFailures.add(key);
+  console.error(
+    `    [!] ${modelId}: ${failure.reason} - scored as an empty hypothesis`,
+  );
 }
 
 async function runUtterance(
@@ -236,20 +218,22 @@ async function runUtterance(
   // The Sample is read where it already lives. It used to be copied over RECORDING_PATH,
   // the app's own recording buffer, roughly 200 times per Benchmark Combination - so a
   // Benchmark Run alongside a running Codictate clobbered whatever the user had just
-  // dictated. Nothing on this path needs that path; the Harness command takes an audioPath.
-  const speech = getSpeechModel(modelId)!;
+  // dictated. Nothing on this path needs that path; a Transcription Request takes an
+  // audioPath.
+  const request = transcriptionRequestFor(
+    modelId,
+    modelPath,
+    entry.audioPath,
+    harness,
+    entry.language,
+  );
+
   const start = performance.now();
-  const hypothesis =
-    speech.engine === "whisperkit"
-      ? await transcribeParakeet(modelPath, entry.audioPath)
-      : await transcribeWhisper(
-          modelPath,
-          entry.audioPath,
-          entry.language,
-          harness,
-          modelId,
-        );
+  const result = await runTranscription(request);
   const wallClockMs = performance.now() - start;
+
+  if (result.status === "failed") reportTranscriptionFailure(modelId, result);
+  const hypothesis = result.status === "ok" ? result.rawTranscript : "";
 
   const wer = computeWer(entry.transcript, hypothesis);
   return { id: entry.id, wallClockMs, wer, hypothesis };
@@ -266,9 +250,14 @@ async function measureModelMemory(
 
   let command: string[];
 
-  if (speech.engine === "whisperkit") {
-    const helper = getPlatform().findParakeetHelperBinary();
-    command = [helper, "transcribe", sampleEntry.audioPath, modelPath];
+  if (speech.engine === PARAKEET_ENGINE_ID) {
+    // The adapter's argv, not a second copy of it: peak RSS has to be measured on the
+    // command the Benchmark Run actually transcribed with.
+    command = parakeetTranscribeArgv(
+      getPlatform().findParakeetHelperBinary(),
+      sampleEntry.audioPath,
+      modelPath,
+    );
   } else {
     command = (
       await buildWhisperHarnessCommand({
