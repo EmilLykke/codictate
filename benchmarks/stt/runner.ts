@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MODELS_DIR } from "../../src/bun/platform/runtime";
-import { fixBrandMishearings } from "../../src/bun/utils/whisper/speech2text";
 import {
   getSpeechModel,
   isHviskeSpeechModelId,
@@ -202,8 +201,7 @@ async function transcribeWhisper(
     .trim();
   reportHelperFailure(harness, proc.exitCode, stderrText);
   const stdoutBytes = await stdoutPromise;
-  const raw = new TextDecoder("utf-8").decode(stdoutBytes).trim();
-  return fixBrandMishearings(raw);
+  return new TextDecoder("utf-8").decode(stdoutBytes).trim();
 }
 
 async function transcribeParakeet(
@@ -226,8 +224,7 @@ async function transcribeParakeet(
   reportHelperFailure("parakeet", proc.exitCode, stderrText);
   const out = new TextDecoder("utf-8").decode(await stdoutPromise);
 
-  const text = parseParakeetFinalText(out) ?? "";
-  return fixBrandMishearings(text.trim());
+  return (parseParakeetFinalText(out) ?? "").trim();
 }
 
 async function runUtterance(
