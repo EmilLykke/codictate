@@ -8,6 +8,8 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Dictation Plan** - the fully resolved description of what a single Dictation will do: which Speech Engine and Speech Model run it, in which Transcription Language, whether Translate to English applies, and whether it is a Live Transcription. A Dictation Plan is either runnable or blocked. Codictate never adapts a Dictation to an unrunnable state - it keeps the state runnable instead - so a blocked plan means something changed outside the app, and it names the reason rather than starting a Dictation that cannot do what was asked.
 
+**Dictation Outcome** - what a finished Batch Dictation produced: the Raw Transcript, the text after the Dictionary and the Formatting Mode were applied, and a record of which Speech Engine and Transcription Language actually ran it. A Dictation Outcome is a value handed back to whatever started the Dictation; placing the text at the cursor is that caller's job, not the run's. Live Transcription produces no Dictation Outcome, because its Native Helper pastes the text itself and Codictate never sees it. See `docs/adr/0006-dictation-returns-an-outcome.md`.
+
 **Dictation Shortcut** - the key combination that starts and ends a Dictation. Codictate has two independent slots: the primary shortcut (supports both Hold and Tap) and an optional second shortcut (Hold only).
 
 **Preset** - one of the fixed, named key combinations Codictate offers in the shortcut picker. Codictate does not let a user invent arbitrary combinations; the offered set is curated. See `docs/adr/0003-shortcut-presets-over-capture.md`.
@@ -29,6 +31,12 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 **hviske** - the Danish-only Speech Engine, running the mirrored `syvai/hviske-v5-tiny` weights. A Speech Engine in its own right rather than a Whisper Speech Model, because its weights, its backend and its language support all differ. See `docs/adr/0004-hviske-danish-ungated.md`.
 
 **ASR Harness** - the specific binary and CLI contract used to execute a Speech Engine. There is one Harness, `crispasr`, and it executes both Whisper and hviske. Harness is an internal concept and is never exposed to end users. See `docs/adr/0002-asr-harness-abstraction.md`.
+
+**Speech Engine Adapter** - the uniform way Codictate asks any Speech Engine for a transcription, so that a caller does not need to know whether the answer comes from an ASR Harness or from a Native Helper. Covers Batch Dictation only: Live Transcription is a session rather than a question, so it is not asked through an Adapter.
+
+**Transcription Request** - one question put to a Speech Engine Adapter: transcribe this audio, with these weights, in this language, translating or not. Deliberately narrower than a Dictation Plan, because the speech benchmark asks the same question without any of a Dictation's settings behind it.
+
+**Transcription Result** - the answer to a Transcription Request: either a Raw Transcript, or a named reason the Speech Engine produced none. A Speech Engine that exits without transcribing is a failure with a reason, never an empty transcript treated as speech.
 
 **Speech Model** - the weights a Speech Engine loads, identified by a Model ID (`large-v3-turbo-q5_0`). Distinct from the Speech Engine that runs it and the Harness that executes it. In code and in the persisted config the selection is `speechModelId`; `whisperModelId` was its name until it held hviske and Parakeet ids too, and survives only as a key an old config file is still read from.
 

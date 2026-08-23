@@ -30,6 +30,7 @@ import type {
   BlockedDictationPlan,
   DictationPlan,
 } from '../shared/dictation-plan'
+import type { FailedTranscription } from './utils/whisper/engines/transcription'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -423,8 +424,10 @@ trayHandlers = setupTray(
  */
 const reportDictationPlan = async (plan: DictationPlan): Promise<void> => {
   if (plan.status !== 'blocked') {
-    // A Dictation ran, so the last blocked notice is stale.
-    if (UserAppConfig.clearBlockedDictation()) pushSettingsToWebview()
+    // A Dictation is starting, so the last notice - blocked or failed - is stale.
+    const cleared = UserAppConfig.clearBlockedDictation()
+    const clearedFailure = UserAppConfig.clearFailedDictation()
+    if (cleared || clearedFailure) pushSettingsToWebview()
     return
   }
 
@@ -435,6 +438,24 @@ const reportDictationPlan = async (plan: DictationPlan): Promise<void> => {
   trayHandlers.syncTranslateState()
   trayHandlers.syncStreamModeState()
   if (!windowOpen) notifyBlockedDictation(plan)
+}
+
+/**
+ * A Dictation that started and then produced nothing, on the same two surfaces.
+ *
+ * The error chime and the tray error state are `setupRecording`'s, exactly as for a blocked
+ * plan. What differs is the third thing `reportDictationPlan` does and this does not: there
+ * is no heal pass. The configuration was runnable - it ran - so a crashed helper is not a
+ * settings problem, and healing on every crash would let a flaky helper rewrite settings the
+ * user chose. ADR-0006.
+ */
+const reportFailedDictation = async (
+  failure: FailedTranscription
+): Promise<void> => {
+  UserAppConfig.recordFailedDictation(failure)
+  const windowOpen = win.hasWindow()
+  pushSettingsToWebview()
+  if (!windowOpen) notifyFailedDictation(failure)
 }
 
 /**
@@ -455,6 +476,21 @@ function notifyBlockedDictation(plan: BlockedDictationPlan): void {
     log('shortcut', 'blocked dictation notification failed', {
       err: String(err),
       reason: plan.reason,
+    })
+  }
+}
+
+/** The same, for a Dictation that failed after it started. */
+function notifyFailedDictation(failure: FailedTranscription): void {
+  try {
+    Utils.showNotification({
+      title: 'Dictation failed',
+      body: failure.message,
+    })
+  } catch (err) {
+    log('whisper', 'failed dictation notification failed', {
+      err: String(err),
+      reason: failure.reason,
     })
   }
 }
@@ -593,22 +629,22 @@ function startKeyboard() {
         log('history', 'save failed in pipeline', { err: String(err) })
       }
     },
-    // Stats record what ran, from the Dictation Plan. They used to re-read the selected
-    // Speech Model and Transcription Language from live config *after* the run, which the
-    // user can change mid-transcription - so a stats row could name a Speech Model that had
-    // never produced a word of it.
-    async (result, durationMs, plan) => {
+    // Stats record what ran, and the Dictation Outcome is where that lives now: `engineId`
+    // and `languageId` were copied off the Dictation Plan before the run. They used to be
+    // re-read from live config *after* it, which the user can change mid-transcription - so a
+    // stats row could name a Speech Model that had never produced a word of it.
+    async (outcome) => {
       if (!UserAppConfig.getStatsEnabled()) return
-      const rawWords = result.raw.trim().split(/\s+/)
-      const outputWords = result.output.trim().split(/\s+/)
+      const rawWords = outcome.raw.trim().split(/\s+/)
+      const outputWords = outcome.output.trim().split(/\s+/)
       await statsManager.saveSession({
         timestamp: Date.now(),
         rawWordCount: rawWords[0] === '' ? 0 : rawWords.length,
         outputWordCount: outputWords[0] === '' ? 0 : outputWords.length,
-        durationMs,
-        engineId: plan.speechModelId,
-        formattingUsed: result.formattingUsed,
-        languageId: plan.transcriptionLanguageId,
+        durationMs: outcome.durationMs,
+        engineId: outcome.engineId,
+        formattingUsed: outcome.formattingUsed,
+        languageId: outcome.languageId,
       })
       try {
         win.send.statsUpdated({})
@@ -616,7 +652,8 @@ function startKeyboard() {
         /* window may be closed */
       }
     },
-    reportDictationPlan
+    reportDictationPlan,
+    reportFailedDictation
   )
 }
 

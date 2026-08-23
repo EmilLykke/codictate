@@ -21,7 +21,7 @@ This is a review, not a decision record. Decisions that come out of it belong in
 | | Candidate | Strength |
 | --- | --- | --- |
 | A | Resolve the Dictation once, into a plan | Implemented (PR #50) |
-| B | Make the Dictation run return a result instead of pasting one | Strong |
+| B | Make the Dictation run return a result instead of pasting one | Implemented (#52 - #57) |
 | C | Give a Preset one exhaustive definition | Strong |
 | D | Shrink AppConfig's interface to the eight members that carry it | Strong |
 | E | Make the interface the test surface | Strong |
@@ -58,6 +58,16 @@ What the scatter costs:
 **Wins**: locality (one place decides the run) · leverage (plan replaces six re-derivations) · the plan is a value, testable with no spawn · readiness reasons survive to the UI · stats can name the effective Speech Model · benchmark enters at link one, not four.
 
 ### B — Make the Dictation run return a result instead of pasting one
+
+**Decided 2026-08-23: `docs/adr/0006-dictation-returns-an-outcome.md`.** The decision splits the candidate in two rather than taking it whole: a **Speech Engine Adapter** answering a **Transcription Request** with a **Transcription Result**, and a Dictation pipeline above it returning a **Dictation Outcome**. One seam would have forced the benchmark to construct formatting settings to get a transcript, which is the coupling this candidate is about. Read the ADR, not this section, for what was agreed.
+
+**Implemented on `feat/dictation-outcome` as six commits closing #52 - #57.** `speech2text.ts` is gone. The engine invocations live under `src/bun/utils/whisper/engines/` as two adapters behind one interface, with two real callers - the Dictation and the benchmark - and audio arrives as a parameter, so nothing under `engines/` imports `RECORDING_PATH`. The pipeline is `src/bun/dictation/run-dictation.ts` and it does not paste: `setup-recording.ts` owns the end chime, paste, history and stats, and `startRecording` is a recorder again, emitting `onCaptureFinished({audioPath, durationMs, discarded, skipReason})`. `onStatsSave(outcome)` takes one argument, with `engineId`, `languageId` and `durationMs` carried on the Outcome from the plan.
+
+Three of the five costs below were already fixed on 2026-08-17 or in PR #50 and are marked as such. The two that were still live are closed here. A non-zero exit is now a `failed` Transcription Result rather than stdout: four engine-only reasons in a closed union with an exhaustive message `Record`, reaching the same four surfaces as a blocked plan and deliberately **not** triggering the heal pass, because a crashed helper is not a settings problem. A zero-exit empty transcript stays a success with empty output - no paste, no history, no stats, no chime. The duplication is gone: the WAV duration walk is `src/shared/wav-duration.ts`, the Parakeet NDJSON parse and the pipe drain live once under `engines/`, and the benchmark builds a Request by hand and calls the adapter, so the Parakeet argv exists in one place. `stt.json` is byte-identical and the pinned archive suite still passes.
+
+Two things the candidate did not anticipate. **Live Transcription is outside the interface**: its Native Helper pastes and nothing is read from its stdout, so it is a session, not a request-and-result call, and B is scoped to Batch Dictation. And the **brand mishearing table moved above the seam**, so the benchmark scores what the Speech Engine said - it rewrites Danish-shaped strings into the product name while hviske is scored on FLEURS `da_dk`, though the four archived Benchmark Runs are clean.
+
+The items below are the problems this candidate was written against. They are kept for the record.
 
 **Files**: `src/bun/utils/whisper/speech2text.ts` (373 lines) · `parakeet-stream-runner.ts` · `src/bun/utils/audio/start-rec.ts:175-242` · `src/bun/setup-recording.ts:441-452` · `src/bun/platform/runtime.ts:75` · `benchmarks/stt/runner.ts:85-242`
 
@@ -201,14 +211,14 @@ Small, independent, none blocking. Left deliberately rather than scoped into PR 
 - **The tray error state self-clears after 20 seconds.** An invented bound, not specified by ADR-0005. Any of the four normal tray states also clears it immediately.
 - **Four pure schema tests no longer gate anything.** #44 moved all of `results-archive.manual.ts` out of the default run because the ticket said to; four of its tests are harness-label round-trips that need no archive and could return to `bun run test` via a file split.
 - **The benchmark spawns a fresh Parakeet helper per utterance** - 213 process starts for a 200-utterance Benchmark Combination, each paying a full model load, where the app keeps one prepared helper. There is also no per-utterance timeout anywhere in `benchmarks/stt/runner.ts`, so a wedged helper still stalls a run indefinitely; it is now at least loud when it exits non-zero.
-- **Manual verification still owed on PR #50**: auto-warmup on selecting Parakeet, that a press mid-warmup waits rather than doing nothing, and the four blocked-plan surfaces (delete the Parakeet weights in Finder while the app runs). None of it is reachable from `bun test`.
+- **Manual verification still owed on PR #50**: auto-warmup on selecting Parakeet, that a press mid-warmup waits rather than doing nothing, and the four blocked-plan surfaces (delete the Parakeet weights in Finder while the app runs). None of it is reachable from `bun test`. Folded into B's verification pass, which rewrites the same path.
 
 ## Suggested sequence
 
 1. **The four live bugs** (done 2026-08-17) — cheap, independent of any deepening, and they make A and B verifiable.
 2. **E** — costs a `test` script and a CI job; without it nothing below can be verified.
-3. ~~**A**, then **B** — the plan gives `runDictation(plan, audio)` something to accept. **F** folds into A.~~ **A is done (#48)**, and it landed the plan **B** wants to accept. What remains of B is the paste / history / stats orchestration moving out of `speech2text.ts` and the two Speech Engine invocations going behind one interface.
+3. ~~**A**, then **B** — the plan gives `runDictation(plan, audio)` something to accept. **F** folds into A. **A is done (#48)**, and it landed the plan **B** wants to accept.~~ **Both are done**: A in #48, B in #52 - #57.
 4. **C** — touches no file the others touch, so it can go in any order.
 5. **D**, **G**, **H** — independent.
 
-**Where to pick up.** PR #50 carries #44 - #49 plus the Parakeet install fix; ADR-0005's sequence is closed. The next deepening with a plan to accept it is **B**, and **G** now has one more argument for it than this review recorded: the Parakeet bug was a binary-and-asset resolution rule written outside the module that owns resolution.
+**Where to pick up.** ~~PR #50 carries #44 - #49 plus the Parakeet install fix; ADR-0005's sequence is closed. The next deepening with a plan to accept it is **B**~~. **B is done (#52 - #57)**, and it took the paste out of the run path. What is left is **C**, which touches no file the others touch, then **D**, **G** and **H**, which are independent of each other. **G** has one more argument for it than this review recorded: the Parakeet bug was a binary-and-asset resolution rule written outside the module that owns resolution, and B's engine adapters now resolve a Native Helper and a Vendor Binary in two more places.
