@@ -14,6 +14,7 @@ import { applyDictionary } from '../dictionary/apply-dictionary'
 import { RECORDING_PATH } from '../../platform/runtime'
 import { buildWhisperHarnessCommand } from './whisper-harness-command'
 import { awaitParakeetWarmup } from './parakeet-warmup'
+import { parseParakeetFinalText } from './engines/parakeet-output'
 
 /**
  * Whisper often splits or mishears the product name — normalize before paste.
@@ -192,21 +193,8 @@ async function transcribeParakeet(modelId: string): Promise<string> {
   const stdoutBytes = await stdoutPromise
   const stderrText = new TextDecoder('utf-8').decode(stderrBytes)
 
-  const out = new TextDecoder('utf-8').decode(stdoutBytes).trim()
-  let text = ''
-  for (const line of out.split('\n')) {
-    const t = line.trim()
-    if (!t) continue
-    try {
-      const obj = JSON.parse(t) as { kind?: string; text?: string }
-      if (obj.kind === 'final' && typeof obj.text === 'string') {
-        text = obj.text
-        break
-      }
-    } catch {
-      // ignore non-JSON
-    }
-  }
+  const out = new TextDecoder('utf-8').decode(stdoutBytes)
+  const text = parseParakeetFinalText(out) ?? ''
 
   const transcript = fixBrandMishearings(text.trim())
 

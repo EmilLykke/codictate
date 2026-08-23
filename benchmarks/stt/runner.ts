@@ -15,6 +15,7 @@ import {
 } from "../../src/shared/asr-harness";
 import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-harness-command";
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
+import { parseParakeetFinalText } from "../../src/bun/utils/whisper/engines/parakeet-output";
 import { getPlatform } from "../../src/bun/platform";
 import { computeWer, computeCer, type WerResult } from "./wer";
 import { computeRtf } from "./rtf";
@@ -223,22 +224,9 @@ async function transcribeParakeet(
     .decode(await stderrPromise)
     .trim();
   reportHelperFailure("parakeet", proc.exitCode, stderrText);
-  const out = new TextDecoder("utf-8").decode(await stdoutPromise).trim();
+  const out = new TextDecoder("utf-8").decode(await stdoutPromise);
 
-  let text = "";
-  for (const line of out.split("\n")) {
-    const t = line.trim();
-    if (!t) continue;
-    try {
-      const obj = JSON.parse(t) as { kind?: string; text?: string };
-      if (obj.kind === "final" && typeof obj.text === "string") {
-        text = obj.text;
-        break;
-      }
-    } catch {
-      // ignore non-JSON
-    }
-  }
+  const text = parseParakeetFinalText(out) ?? "";
   return fixBrandMishearings(text.trim());
 }
 
