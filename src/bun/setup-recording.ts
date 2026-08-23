@@ -35,7 +35,7 @@ import type { TrayHandlers } from './setup-tray'
 import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
 import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
-import type { Speech2TextResult } from './utils/whisper/speech2text'
+import type { Speech2TextSuccess } from './utils/whisper/speech2text'
 import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { log } from './utils/logger'
@@ -100,7 +100,7 @@ export const setupRecording = (
   onAutoLearnedEntry?: () => void,
   onHistorySave?: (transcript: string) => Promise<void>,
   onStatsSave?: (
-    result: Speech2TextResult,
+    result: Speech2TextSuccess,
     durationMs: number,
     plan: RunnableDictationPlan
   ) => Promise<void>,

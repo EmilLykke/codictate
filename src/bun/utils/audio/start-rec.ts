@@ -1,5 +1,5 @@
 import { AppConfig } from '../../AppConfig/AppConfig'
-import { speech2text, type Speech2TextResult } from '../whisper/speech2text'
+import { speech2text, type Speech2TextSuccess } from '../whisper/speech2text'
 import { duckDelayAfterStartChimeMs, playEndSound } from '../sound/play-sound'
 import { findMicRecorderBinary } from './find-mic-recorder'
 import { findDevices, type AudioDeviceSnapshot } from './devices'
@@ -71,7 +71,7 @@ export const startRecording = async (
   getDeviceSnapshot?: () => AudioDeviceSnapshot,
   onHistorySave?: (transcript: string) => Promise<void>,
   onStatsSave?: (
-    result: Speech2TextResult,
+    result: Speech2TextSuccess,
     durationMs: number,
     plan: RunnableDictationPlan
   ) => Promise<void>
@@ -190,6 +190,18 @@ export const startRecording = async (
               () => appConfig.acceptPreviouslyAppliedEntries(),
               (entries) => appConfig.notifyAppliedEntries(entries)
             )
+            // A Speech Engine that produced nothing writes nothing. It used to write an
+            // empty transcript to history and a zero-word row to stats, because a non-zero
+            // exit came back indistinguishable from silence. The four user-facing surfaces
+            // a failed Dictation owes are ADR-0006's next step; the log line is what this
+            // module can honestly do on its own.
+            if (result.status === 'failed') {
+              log('whisper', 'transcription failed', {
+                reason: result.reason,
+                message: result.message,
+              })
+              return
+            }
             if (onHistorySave) {
               try {
                 await onHistorySave(result.output)

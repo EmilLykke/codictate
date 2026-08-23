@@ -627,8 +627,12 @@ export const DEFAULT_STREAM_CAPABLE_MODEL_ID = 'parakeet-tdt-0.6b-v3'
  * The Parakeet engine id. A misnomer kept for config compatibility - the engine is
  * FluidAudio, not WhisperKit (see SpeechEngineId). Named once so the run path, the warmup
  * routine and the benchmark compare against one constant instead of re-typing the literal.
+ *
+ * `satisfies` rather than a type annotation, so the constant keeps its literal type: a
+ * comparison against it narrows a `SpeechEngineId`, which is what lets the Transcription
+ * Request discriminate its two arms on `engineId` without re-typing `'whisperkit'`.
  */
-export const PARAKEET_ENGINE_ID: SpeechEngineId = 'whisperkit'
+export const PARAKEET_ENGINE_ID = 'whisperkit' satisfies SpeechEngineId
 
 export const SPEECH_MODEL_IDS = SPEECH_MODELS.map((m) => m.id)
 
