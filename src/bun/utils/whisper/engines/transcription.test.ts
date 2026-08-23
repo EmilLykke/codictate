@@ -153,4 +153,32 @@ describe('failedTranscription', () => {
     )
     expect(new Set(messages).size).toBe(reasons.length)
   })
+
+  it('carries a diagnostic when the engine gave one', () => {
+    const failed = failedTranscription(
+      'engine_exited_nonzero',
+      'large-v3-q5_0',
+      'exit 1: could not load model'
+    )
+    expect(failed.diagnostic).toBe('exit 1: could not load model')
+  })
+
+  it('omits the diagnostic rather than carrying an empty one', () => {
+    expect(
+      failedTranscription('engine_exited_nonzero', 'large-v3-q5_0').diagnostic
+    ).toBeUndefined()
+    expect(
+      failedTranscription('engine_exited_nonzero', 'large-v3-q5_0', '   \n')
+        .diagnostic
+    ).toBeUndefined()
+  })
+
+  it('keeps the diagnostic out of the sentence the user reads', () => {
+    const failed = failedTranscription(
+      'engine_exited_nonzero',
+      'large-v3-q5_0',
+      'ggml_backend_metal_device_init: error'
+    )
+    expect(failed.message).not.toContain('ggml')
+  })
 })

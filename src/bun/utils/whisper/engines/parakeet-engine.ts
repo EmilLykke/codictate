@@ -14,6 +14,7 @@ import {
   decodeEngineStderr,
   decodeEngineStdout,
   drainReadableStream,
+  stderrTail,
 } from './drain-stream'
 import { parseParakeetFinalText } from './parakeet-output'
 import {
@@ -53,17 +54,24 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
   try {
     helper = getPlatform().findParakeetHelperBinary()
   } catch (err) {
-    log('parakeet', 'helper binary missing at spawn time', {
-      err: err instanceof Error ? err.message : String(err),
-    })
-    return failedTranscription('engine_runtime_missing', request.speechModelId)
+    const detail = err instanceof Error ? err.message : String(err)
+    log('parakeet', 'helper binary missing at spawn time', { err: detail })
+    return failedTranscription(
+      'engine_runtime_missing',
+      request.speechModelId,
+      detail
+    )
   }
   if (!existsSync(request.modelDir)) {
     log('parakeet', 'weights missing at spawn time', {
       modelId: request.speechModelId,
       modelDir: request.modelDir,
     })
-    return failedTranscription('engine_runtime_missing', request.speechModelId)
+    return failedTranscription(
+      'engine_runtime_missing',
+      request.speechModelId,
+      `weights not on disk: ${request.modelDir}`
+    )
   }
 
   log('parakeet', 'spawning CodictateParakeetHelper transcribe', {
@@ -96,7 +104,11 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
 
   if (proc.exitCode !== 0) {
     log('parakeet', 'helper exited non-zero', { exitCode: proc.exitCode })
-    return failedTranscription('engine_exited_nonzero', request.speechModelId)
+    return failedTranscription(
+      'engine_exited_nonzero',
+      request.speechModelId,
+      `exit ${proc.exitCode}: ${stderrTail(stderrText)}`
+    )
   }
 
   const stdoutText = decodeEngineStdout(stdoutBytes)
@@ -106,7 +118,8 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     })
     return failedTranscription(
       'engine_output_unreadable',
-      request.speechModelId
+      request.speechModelId,
+      `${stdoutBytes.length} bytes of stdout were not UTF-8`
     )
   }
 
@@ -117,7 +130,12 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     log('parakeet', 'helper emitted no final line', {
       stdoutLength: stdoutText.length,
     })
-    return failedTranscription('parakeet_no_final_line', request.speechModelId)
+    return failedTranscription(
+      'parakeet_no_final_line',
+      request.speechModelId,
+      stderrTail(stderrText) ||
+        `${stdoutText.length} chars of stdout, no final line`
+    )
   }
 
   const rawTranscript = text.trim()

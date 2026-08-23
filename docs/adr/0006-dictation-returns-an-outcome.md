@@ -27,7 +27,9 @@ Rather than give the interface a third method that one of two adapters implement
 
 A non-zero engine exit currently is not treated as an error. `speech2text.ts` logged the exit code and returned stdout anyway, so an empty transcript was pasted over the user's cursor, written to history and counted in stats.
 
-A Transcription Result is `{status:'ok', rawTranscript}` or `{status:'failed', reason}`, with four reasons, all of them about the engine: the engine exited non-zero, the binary or the weights vanished between the plan and the spawn, the Parakeet helper emitted no `final` line, or its output could not be parsed. The union is closed with an exhaustive message `Record`, the same device ADR-0005 used, so a fifth failure mode does not compile until it has a sentence.
+A Transcription Result is `{status:'ok', rawTranscript}` or `{status:'failed', reason, message}`, with four reasons, all of them about the engine: the engine exited non-zero, the binary or the weights vanished between the plan and the spawn, the Parakeet helper emitted no `final` line, or its output could not be parsed. The union is closed with an exhaustive message `Record`, the same device ADR-0005 used, so a fifth failure mode does not compile until it has a sentence.
+
+The failed arm also carries an optional `diagnostic` - a stderr tail, a thrown message, a byte count - which is the engine's own words rather than the user's sentence. It exists for the log and for the benchmark console, and it never reaches a banner or a notification: what is stored for the UI is the reason and the message only.
 
 A failed run reaches the same four surfaces as a blocked plan - the error chime, the tray error state, and a native notification or an in-window banner - but it does **not** trigger the heal pass. A blocked plan means the configuration is unrunnable and healing is the correction. A crashed helper means the configuration was fine, and running the heal pass on every crash would let a flaky helper quietly rewrite settings the user chose.
 

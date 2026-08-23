@@ -207,6 +207,9 @@ function reportTranscriptionFailure(
   console.error(
     `    [!] ${modelId}: ${failure.reason} - scored as an empty hypothesis`,
   );
+  // The engine's own words. A Benchmark Run prints to a console with no debug logging on,
+  // so without this the reason is all you get and a wedged Harness looks like a bad model.
+  if (failure.diagnostic) console.error(`        ${failure.diagnostic}`);
 }
 
 async function runUtterance(

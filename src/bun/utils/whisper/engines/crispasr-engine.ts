@@ -14,6 +14,7 @@ import {
   decodeEngineStderr,
   decodeEngineStdout,
   drainReadableStream,
+  stderrTail,
 } from './drain-stream'
 import {
   failedTranscription,
@@ -32,7 +33,11 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
       modelId: request.speechModelId,
       modelPath: request.modelPath,
     })
-    return failedTranscription('engine_runtime_missing', request.speechModelId)
+    return failedTranscription(
+      'engine_runtime_missing',
+      request.speechModelId,
+      `weights not on disk: ${request.modelPath}`
+    )
   }
 
   let command
@@ -49,11 +54,16 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
       translateToEnglish: request.translateToEnglish,
     })
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
     log('whisper', 'ASR harness command unavailable', {
       modelId: request.speechModelId,
-      err: err instanceof Error ? err.message : String(err),
+      err: detail,
     })
-    return failedTranscription('engine_runtime_missing', request.speechModelId)
+    return failedTranscription(
+      'engine_runtime_missing',
+      request.speechModelId,
+      detail
+    )
   }
 
   log('whisper', 'spawning ASR harness', {
@@ -90,7 +100,11 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
       exitCode: proc.exitCode,
       stderr: stderrText.slice(0, 500) || undefined,
     })
-    return failedTranscription('engine_exited_nonzero', request.speechModelId)
+    return failedTranscription(
+      'engine_exited_nonzero',
+      request.speechModelId,
+      `exit ${proc.exitCode}: ${stderrTail(stderrText)}`
+    )
   }
 
   const stdoutText = decodeEngineStdout(stdoutBytes)
@@ -101,7 +115,8 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     })
     return failedTranscription(
       'engine_output_unreadable',
-      request.speechModelId
+      request.speechModelId,
+      `${stdoutBytes.length} bytes of stdout were not UTF-8`
     )
   }
 

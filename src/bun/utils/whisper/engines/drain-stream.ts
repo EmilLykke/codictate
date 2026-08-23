@@ -50,3 +50,16 @@ export function decodeEngineStdout(bytes: Uint8Array): string | null {
 export function decodeEngineStderr(bytes: Uint8Array): string {
   return new TextDecoder('utf-8').decode(bytes)
 }
+
+/**
+ * The last few lines of engine stderr, for a failure's `diagnostic`.
+ *
+ * The tail rather than the head: crispasr and the Parakeet Native Helper both print progress
+ * before they print what went wrong, so the first 500 bytes are model-load chatter and the
+ * last few lines are the reason.
+ */
+export function stderrTail(stderrText: string, maxChars = 600): string {
+  const trimmed = stderrText.trim()
+  if (trimmed.length <= maxChars) return trimmed
+  return `...${trimmed.slice(-maxChars)}`
+}

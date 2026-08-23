@@ -116,6 +116,16 @@ export interface FailedTranscription {
   reason: TranscriptionFailureReason
   /** One finished sentence, shown to the user as written. */
   message: string
+  /**
+   * Why it failed, in the engine's own words: a stderr tail, a thrown message, a byte count.
+   *
+   * Never shown to the user - `message` is the sentence for that, and `recordFailedDictation`
+   * keeps only the reason and the message, so this does not cross the RPC bridge. It exists
+   * because a Benchmark Run prints failures to a console with no debug logging on, and
+   * "exited without transcribing" is not something you can act on without the tail that
+   * came with it.
+   */
+  diagnostic?: string
 }
 
 /**
@@ -157,13 +167,16 @@ const TRANSCRIPTION_FAILURE_MESSAGES: Record<
  */
 export function failedTranscription(
   reason: TranscriptionFailureReason,
-  speechModelId: string
+  speechModelId: string,
+  diagnostic?: string
 ): FailedTranscription {
-  return {
+  const failure: FailedTranscription = {
     status: 'failed',
     reason,
     message: TRANSCRIPTION_FAILURE_MESSAGES[reason](modelLabel(speechModelId)),
   }
+  const trimmed = diagnostic?.trim()
+  return trimmed ? { ...failure, diagnostic: trimmed } : failure
 }
 
 /**
