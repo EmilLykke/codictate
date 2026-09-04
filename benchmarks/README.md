@@ -293,7 +293,7 @@ Two repositories measure the same clips against the same ordered manifests: the 
 
 Both spellings of the note flag are accepted in both repositories, so neither has to be retyped. Two differences are real and stay:
 
-- **`codictate` requires the note, `dictation-product-benchmark` does not.** `codictate` writes it to `description` in `stt.json`, and the website renders that string as the run page's `<title>`, its meta and OpenGraph description, and the page lede. A blank one would publish a page titled ` - Codictate benchmarks`, so it stays required rather than defaulted. `--plan-only` needs neither `--name` nor `--description`.
+- **`codictate` requires the note, `dictation-product-benchmark` does not.** `codictate` writes it to `description` in `stt.json`, and the website renders that string as the run page's `<title>`, its meta and OpenGraph description, and the page lede. A blank one would publish a run page whose `<title>` opens on the separator with nothing in front of it, and an empty meta description, so it stays required rather than defaulted. `--plan-only` needs neither `--name` nor `--description`.
 - **`codictate` has an interactive picker, `dictation-product-benchmark` has nothing to pick.** A multi-model harness offers a model list when `--models` is absent; a single-product harness has one subject. `--from` is refused on the picker path in `codictate`, because the picker only offers a delta from each cursor and would overwrite a typed depth.
 
 ### Re-measure the same 400 clips I already measured
