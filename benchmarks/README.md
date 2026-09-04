@@ -90,6 +90,9 @@ bun run bench:stt -- --report-only
 | `--skip-existing`  | false              | Load latest stt.json and skip model/dataset combos already benchmarked                                          |
 | `--offload-models` | false              | Delete downloaded models from disk after all benchmarks complete                                                |
 | `--report-only`    | false              | Regenerate markdown from existing stt.json                                                                      |
+| `--aggregate`      | false              | Merge every run's stt.json into `results/stt.json` and write the combined report at the results root            |
+
+`--aggregate` walks the run directories in chronological order, but **depth wins over recency**: a Benchmark Combination already merged at 200 utterances is kept when a later, shallower run only measured it at 20, so the aggregate never publishes the noisier number. A rejected result prints a `[WARN]` line naming the dataset, Harness, Model ID and both utterance counts, and the total number of rejections is printed at the end of the merge. Equal depth goes to the newer run.
 
 ## Output
 

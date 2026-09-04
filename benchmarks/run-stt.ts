@@ -330,6 +330,10 @@ async function main() {
     }
     console.log("--- Aggregating all runs ---");
 
+    // Counted across every run so the operator sees at a glance that the merge
+    // dropped something, rather than only the per-Combination warnings scrolling by.
+    let rejectedShallower = 0;
+
     const merged: BenchmarkResults = {
       description: "Aggregated results from all benchmark runs",
       hardware: getHardwareInfo(),
@@ -358,20 +362,44 @@ async function main() {
             // that justified retiring it.
             if (!isBenchmarkHarnessLabel(harness) || !byModel) continue;
             for (const [modelId, result] of Object.entries(byModel)) {
-              if (result.utteranceCount > 0) {
-                setCombinationResult(
-                  merged[field],
-                  datasetKey,
-                  harness,
-                  modelId,
-                  result,
+              if (result.utteranceCount <= 0) continue;
+              // Depth wins, not recency. A newer run at 20 utterances is a shallower
+              // measurement of the same Combination, not a correction of a 200-utterance
+              // one, and letting it overwrite publishes the noisier number under a
+              // sampleSize the row never had. Ties go to the newer run, which the
+              // chronological `runs` order already gives us.
+              const existing = getCombinationResult(
+                merged[field],
+                datasetKey,
+                harness,
+                modelId,
+              );
+              if (
+                existing !== undefined &&
+                result.utteranceCount < existing.utteranceCount
+              ) {
+                console.log(
+                  `  [WARN] ${datasetKey}/${harness}/${modelId}: keeping ${existing.utteranceCount} utterances from an earlier run, rejecting newer shallower result (${result.utteranceCount} utterances)`,
                 );
+                rejectedShallower++;
+                continue;
               }
+              setCombinationResult(
+                merged[field],
+                datasetKey,
+                harness,
+                modelId,
+                result,
+              );
             }
           }
         }
       }
     }
+
+    console.log(
+      `\n  ${rejectedShallower} shallower result${rejectedShallower === 1 ? "" : "s"} rejected in favour of a deeper earlier run`,
+    );
 
     const jsonPath = join(RESULTS_BASE_DIR, "stt.json");
     await Bun.write(jsonPath, JSON.stringify(merged, null, 2));
