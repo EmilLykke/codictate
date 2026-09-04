@@ -25,6 +25,10 @@ export default defineConfig(
       "artifacts/**",
       "vendors/**",
       "scripts/**",
+      // Gitignored scratch space. `eslint .` walks it anyway, so a throwaway probe left
+      // in here turns the lint gate red for whoever runs it next - which is exactly what
+      // it did.
+      ".tmp/**",
       "postcss.config.js",
     ],
   },

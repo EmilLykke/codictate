@@ -1,0 +1,44 @@
+{
+  "version": "benchmark-v2",
+  "note": "Golden parity fixtures for schema.ts::fingerprintV2. Computed in codictate and copied verbatim to dictation-product-benchmark/tests/fixtures/fingerprint-v2.json. The external harness asserts against these values and must never recompute or overwrite them: a disagreement is a real parity bug, and a fixture that regenerates itself cannot detect one. The payload is FINGERPRINT_VERSION followed by the unique-in-order clipIds, joined by \\n, no trailing newline, sha256, first 16 lowercase hex characters.",
+  "realFleursDaFirst5Derivation": "benchmarks/datasets/fleurs/da_dk/test.tsv, column index 1 (file_name) of the first 5 data rows in the file's natural on-disk order, prefixed with fleurs/da_dk/audio/test/. Natural order rather than the seeded shuffle in benchmarks/scripts/build-manifests.ts, so the external repo can reproduce these five clipIds with head -5 and cut -f2 instead of re-implementing seededShuffle(entries, 42) - which is a Codictate implementation detail and not part of this contract. da_dk/test.tsv has no header row (930 data rows), so row 1 is the first data row.",
+  "cases": [
+    { "name": "empty", "clipIds": [], "fingerprint": "223d0698c3a11acc" },
+    {
+      "name": "single",
+      "clipIds": ["fleurs/da_dk/audio/test/a.wav"],
+      "fingerprint": "598545a60238693a"
+    },
+    {
+      "name": "order-matters-a",
+      "clipIds": ["b.wav", "a.wav"],
+      "fingerprint": "6a4aee3d67640368"
+    },
+    {
+      "name": "order-matters-b",
+      "clipIds": ["a.wav", "b.wav"],
+      "fingerprint": "fe6e1a10333a02a4"
+    },
+    {
+      "name": "dedup",
+      "clipIds": ["a.wav", "a.wav", "b.wav"],
+      "fingerprint": "fe6e1a10333a02a4"
+    },
+    {
+      "name": "unicode",
+      "clipIds": ["fleurs/da_dk/audio/test/æøå.wav"],
+      "fingerprint": "6d715bef704237f2"
+    },
+    {
+      "name": "real-fleurs-da-first-5",
+      "clipIds": [
+        "fleurs/da_dk/audio/test/12149430079508542992.wav",
+        "fleurs/da_dk/audio/test/1892314626509120692.wav",
+        "fleurs/da_dk/audio/test/11657230937236500261.wav",
+        "fleurs/da_dk/audio/test/10016401698104160032.wav",
+        "fleurs/da_dk/audio/test/15945042231538223000.wav"
+      ],
+      "fingerprint": "d28f996584b02f28"
+    }
+  ]
+}

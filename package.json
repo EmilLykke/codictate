@@ -13,7 +13,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "test:manual": "bun test ./src/bun/utils/whisper/model-download-reachability.manual.ts ./benchmarks/stt/results-archive.manual.ts",
+    "test:manual": "bun test ./src/bun/utils/whisper/model-download-reachability.manual.ts ./benchmarks/stt/results-archive.manual.ts ./benchmarks/contract/fleurs-identity.manual.ts",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "tsc": "tsc -p tsconfig.bun.json --noEmit && tsc -p tsconfig.vite.json --noEmit",
@@ -37,6 +37,7 @@
     "start:windows": "bun run build:native:windows-helper && vite build && CODICTATE_CHANNEL=dev electrobun dev",
     "postbuild": "chmod +x build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/KeyListener build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/MicRecorder",
     "bench:stt": "bun run benchmarks/run-stt.ts",
+    "bench:charts:check": "python3 benchmarks/stt/charts.py --self-check",
     "benchmark": "bun run benchmarks/run-stt.ts"
   },
   "dependencies": {

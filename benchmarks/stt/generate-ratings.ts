@@ -26,6 +26,9 @@ import {
   type DatasetResults,
 } from "./results-schema";
 import { getSpeechModel } from "../../src/shared/speech-models";
+import { accuracyLeafOf, pooledSpeedForConditions } from "./report";
+import type { ModelDatasetResult } from "./runner";
+import { pooledWer } from "../contract";
 
 const ROOT = join(import.meta.dir, "../..");
 const args = Bun.argv.slice(2);
@@ -51,12 +54,15 @@ const STT_JSON_PATH = positional
   : join(ROOT, "benchmarks/results/stt.json");
 const OUTPUT_PATH = join(ROOT, "src/shared/model-ratings.ts");
 
-interface DatasetResult {
-  wer: number;
-  meanRTF: number;
-  totalAudioSec: number;
-  totalWallSec: number;
-}
+/**
+ * A result leaf as this script reads it.
+ *
+ * The real `ModelDatasetResult`, not a four-field local copy of it. The copy was how the
+ * ratings came to be an unweighted mean: it did not carry `referenceWords`, so there was
+ * no denominator in scope to pool with and averaging the rates was the only thing the
+ * type allowed.
+ */
+type DatasetResult = ModelDatasetResult;
 
 const raw = await Bun.file(STT_JSON_PATH).text();
 const data = JSON.parse(raw);
@@ -173,29 +179,56 @@ if (RATING_HARNESS !== DEFAULT_HARNESS_LABEL) {
   );
 }
 
+/**
+ * Pooled speed per Speech Model, through the report's own function.
+ *
+ * One code path rather than a third pooling loop: this script used to sum
+ * `totalWallSec` / `totalAudioSec` with a `meanRTF > 0` gate, `report.ts` used the same
+ * sums with the same gate, and `charts.py` used a slightly different one - three
+ * implementations of one quotient, which is how they come to disagree. The v2 number is
+ * preferred and a legacy one is used only where no leaf carries a `speedV2`, which is
+ * every archived run.
+ */
 const rtfs = modelIds.map((id) => {
-  let totalAudio = 0;
-  let totalWall = 0;
-  for (const cond of allConditions) {
-    const r = cond[id];
-    if (r && r.meanRTF > 0) {
-      totalAudio += r.totalAudioSec;
-      totalWall += r.totalWallSec;
-    }
-  }
-  return totalAudio > 0 ? totalWall / totalAudio : 0;
+  const speed = pooledSpeedForConditions(
+    id,
+    allConditions.map((models, index) => ({
+      key: `condition-${index}`,
+      label: `condition-${index}`,
+      models,
+    })),
+  );
+  const msPerAudioSec = speed.v2MsPerAudioSec ?? speed.legacyMsPerAudioSec;
+  return msPerAudioSec === null ? 0 : msPerAudioSec / 1000;
 });
 
-function avgAccuracy(id: string, conditions: ConditionModels[]): number {
-  const wers = conditions
-    .map((c) => c[id]?.wer)
-    .filter((w): w is number => w !== undefined && w >= 0);
-  if (wers.length === 0) return 0;
-  return 1 - wers.reduce((sum, w) => sum + w, 0) / wers.length;
+/**
+ * Pooled word accuracy across conditions: `1 - sum(errors) / sum(referenceWords)`.
+ *
+ * The ratings drive the accuracy bars in the model picker, so this is the number a user
+ * sees. It used to be an unweighted mean of per-dataset WERs, which weights a 47-clip
+ * archived condition exactly like a 397-clip one - a different number from the accuracy of
+ * the combined sample, and one no leaf on disk supports.
+ *
+ * Leaves with no denominator are **skipped**, so a Speech Model whose only measurements
+ * predate `referenceWords` rates 0 rather than rating from a numerator nobody has. That is
+ * the honest failure: `benchmarks/scripts/backfill-reference-words.ts` fills those in.
+ */
+function pooledAccuracy(id: string, conditions: ConditionModels[]): number {
+  const pooled = pooledWer(
+    conditions
+      .map((c) => c[id])
+      .filter((leaf): leaf is DatasetResult => leaf !== undefined)
+      .map(accuracyLeafOf),
+  );
+  return pooled.rate === null ? 0 : 1 - pooled.rate;
 }
 
 const accuracies = modelIds.map((id) =>
-  avgAccuracy(id, isEnglishOnlyModel(id) ? englishConditions : allConditions),
+  pooledAccuracy(
+    id,
+    isEnglishOnlyModel(id) ? englishConditions : allConditions,
+  ),
 );
 
 const languageCounts = modelIds.map((id) => modelSupportedLanguages(id));

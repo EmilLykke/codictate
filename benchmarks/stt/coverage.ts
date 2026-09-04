@@ -31,8 +31,20 @@ import { dirname, join } from "node:path";
 import {
   isBenchmarkHarnessLabel,
   normalizeDatasetResults,
+  parseRunRecordV2,
+  V2_RECORDS_DIRNAME,
   type BenchmarkHarnessLabel,
 } from "./results-schema";
+import {
+  contiguousCursor,
+  isCompletedRunRecordV2,
+  isRunPlan,
+  maxMeasuredEnd,
+  pooledSampleCount,
+  type RunPlan,
+  type RunRecordV2,
+  type SampleMeasurementV2,
+} from "../contract";
 import {
   deepestCursorForDataset,
   emptyCursorIndex,
@@ -395,4 +407,182 @@ export function formatModelCoverage(
     ),
   );
   return `✓ measured ${covered.minSamples}, cursor ${minCursor}${suffix}`;
+}
+
+// -- The v2 scan: per-Sample records, and the cursor derived from them --
+
+/**
+ * File names inside a run's `_v2/` directory.
+ *
+ * Two files per Benchmark Combination and not one, because they have opposite
+ * lifecycles. The plan is written once, before the first clip, and never touched again -
+ * that immutability is the whole resume story, and a resumed process re-reads it rather
+ * than rebuilding one from the current flags. The record is rewritten after **every**
+ * scored clip. Keeping them in one file would mean rewriting the plan 400 times and
+ * giving a crash 400 chances to corrupt it.
+ */
+export const V2_PLAN_SUFFIX = ".plan.json";
+export const V2_RECORD_SUFFIX = ".run.json";
+
+/** One Benchmark Combination's v2 files, as found on disk. */
+export interface V2Stage {
+  /** The run directory's name, which is also the Benchmark Run's identity. */
+  runName: string;
+  /** The Combination's id within the run: `<datasetKey>__<harnessBucket>__<modelId>`. */
+  stageId: string;
+  planPath: string;
+  recordPath: string;
+  /** `null` when the plan file is absent or unreadable. */
+  plan: RunPlan | null;
+  /** `null` when the record file is absent, unreadable, or not a v2 record. */
+  record: RunRecordV2 | null;
+}
+
+function readJson(path: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Plans are validated by the contract's `isRunPlan`, not by a guard written here.
+ *
+ * There used to be a local `isRunPlanOnDisk` in this file, on the grounds that the
+ * contract "never reads a file". That was the wrong grounds: the external harness reads
+ * the same plans, so a local validator would have been the second of two hand-rolled
+ * guards over one on-disk shape - which is the drift that produced defect 10. The
+ * canonical one is also strictly stronger than the local one was, and every extra thing
+ * it rejects is a plan that was unsafe to resume: a `fingerprintV2` that does not match
+ * its own `orderedClipIds`, `toIndex - fromIndex` disagreeing with the clip count, a
+ * duplicate clipId, a v1-shaped fingerprint, and a clip that is both warmed and scored.
+ *
+ * `isRunPlan` here, because a scan has to survive one bad file and report the rest.
+ * `assertRunPlanOnDisk` on the resume path in `run-stt.ts`, where the plan is then
+ * trusted completely and every complaint should be printed at once.
+ */
+
+/**
+ * Every v2 stage under `benchmarks/results/`, complete and incomplete alike.
+ *
+ * Unfiltered on purpose: the two callers want opposite halves. Aggregation, coverage and
+ * the production cursor want the **completed** records only - an incomplete run has not
+ * been checked against its plan and its last checkpoint may predate its last clip - while
+ * the overlap check that blocks a new run wants exactly the **incomplete** ones, by run
+ * id, so it can name the run to resume or discard. Filtering here would have to guess
+ * which caller it was serving.
+ *
+ * Not cached, unlike the v1 scan. The v1 cache is keyed by `stt.json`'s size and mtime,
+ * which works because a completed run's file never changes again; a v2 record is rewritten
+ * after every scored clip, so a cache would be stale for the whole duration of the run
+ * that most needs to be read.
+ */
+export function loadV2Stages(resultsBaseDir: string): V2Stage[] {
+  if (!existsSync(resultsBaseDir)) return [];
+
+  const stages: V2Stage[] = [];
+  for (const runName of readdirSync(resultsBaseDir).sort()) {
+    if (!RUN_DIR_PATTERN.test(runName)) continue;
+    const v2Dir = join(resultsBaseDir, runName, V2_RECORDS_DIRNAME);
+    if (!existsSync(v2Dir)) continue;
+
+    for (const fileName of readdirSync(v2Dir).sort()) {
+      if (!fileName.endsWith(V2_RECORD_SUFFIX)) continue;
+      const stageId = fileName.slice(0, -V2_RECORD_SUFFIX.length);
+      const recordPath = join(v2Dir, fileName);
+      const planPath = join(v2Dir, `${stageId}${V2_PLAN_SUFFIX}`);
+      const planRaw = existsSync(planPath) ? readJson(planPath) : null;
+      stages.push({
+        runName,
+        stageId,
+        planPath,
+        recordPath,
+        plan: isRunPlan(planRaw) ? planRaw : null,
+        record: parseRunRecordV2(readJson(recordPath)),
+      });
+    }
+  }
+  return stages;
+}
+
+/** The completed v2 records: the only ones that feed a cursor, a pool or a report. */
+export function completedV2Records(stages: readonly V2Stage[]): RunRecordV2[] {
+  return stages
+    .map((stage) => stage.record)
+    .filter((record): record is RunRecordV2 => isCompletedRunRecordV2(record));
+}
+
+/** An unfinished v2 stage, with everything the overlap refusal needs to name it. */
+export interface IncompleteV2Stage extends V2Stage {
+  plan: RunPlan;
+  record: RunRecordV2;
+}
+
+/**
+ * The unfinished v2 stages, i.e. the runs a new overlapping run must be blocked by.
+ *
+ * A stage counts as unfinished only when **both** its plan and its record parsed and the
+ * record says `incomplete`. A stage whose plan is unreadable cannot be resumed and cannot
+ * be described, so blocking a new run on it would leave the operator with an error and no
+ * way out; it is reported separately by `unresumableV2Stages` instead.
+ */
+export function incompleteV2Stages(
+  stages: readonly V2Stage[],
+): IncompleteV2Stage[] {
+  return stages.filter(
+    (stage): stage is IncompleteV2Stage =>
+      stage.plan !== null &&
+      stage.record !== null &&
+      stage.record.status === "incomplete",
+  );
+}
+
+/** Stages on disk that can be neither resumed nor pooled, for a warning line. */
+export function unresumableV2Stages(stages: readonly V2Stage[]): V2Stage[] {
+  return stages.filter((stage) => stage.plan === null || stage.record === null);
+}
+
+/**
+ * The three numbers a dataset's v2 coverage is described by, and which is which.
+ *
+ * Computed over the dataset's whole ordered consumable list rather than over one plan, so
+ * it answers "how deep is this Combination" rather than "how far did that run get".
+ */
+export interface V2DatasetCoverage {
+  /**
+   * The **contiguous** measured prefix. The production cursor: the only number a
+   * continuation starts from and the only one that may be published as a depth.
+   */
+  cursor: number;
+  /**
+   * One past the deepest measured clip, holes included. **Non-contiguous, not a cursor**,
+   * and never a published depth. Exists because `cursor 397, maxMeasuredEnd 600` is the
+   * signal that 103 clips are missing out of the middle.
+   */
+  maxMeasuredEnd: number;
+  /** Pooled unique scored clips. Never a sum of slice sizes. */
+  sampleCount: number;
+}
+
+/**
+ * Where a Combination has got to in a dataset, from its pooled v2 Samples.
+ *
+ * The clip-set twin of `cursorFor` in `sample-cursor.ts`, which computes the same two
+ * numbers from recorded `[start, end)` ranges. Both exist because both kinds of record
+ * exist - v1 leaves carry offsets, v2 records carry clip ids - and they are asserted to
+ * agree so neither can publish a depth the other cannot back up.
+ */
+export function v2DatasetCoverage(
+  orderedConsumableClipIds: readonly string[],
+  samples: readonly SampleMeasurementV2[],
+): V2DatasetCoverage {
+  const measured = new Set(
+    samples.filter((sample) => !sample.isWarmup).map((sample) => sample.clipId),
+  );
+  return {
+    cursor: contiguousCursor(orderedConsumableClipIds, measured),
+    maxMeasuredEnd: maxMeasuredEnd(orderedConsumableClipIds, measured),
+    sampleCount: pooledSampleCount(samples),
+  };
 }

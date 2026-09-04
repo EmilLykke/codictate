@@ -1,0 +1,59 @@
+{
+  "version": "benchmark-v2",
+  "note": "The golden v2-on-v1 leaf. Both harnesses write this shape into the v1 results tree and every consumer reads it. Computed in codictate and copied verbatim to dictation-product-benchmark/tests/fixtures/v2-on-v1-leaf.json. Assert against it; do not regenerate it. The field name for the pooled v2 speed summary is speedV2 - a summary written as `speed` is invisible to charts.py, which then falls back to meanRTF and plots a differently-defined, unfiltered RTF (observed at up to 28x the contract value on external rows).",
+  "rules": {
+    "required": [
+      "wer",
+      "referenceWords",
+      "wordErrors",
+      "meanRTF",
+      "totalWallSec",
+      "totalAudioSec",
+      "utteranceCount",
+      "failures",
+      "speedV2"
+    ],
+    "optionalAsASet": ["cer", "referenceChars", "charErrors"],
+    "optional": ["failuresByStatus", "sampleRange"],
+    "forbidden": ["speed"],
+    "sampleRange": "Absent on a leaf pooling more than one run: one range cannot describe several.",
+    "failuresByStatus": "When present, timeout + failed === failures. failures is the total INCLUDING timeouts.",
+    "legacyUnfiltered": "meanRTF, totalWallSec and totalAudioSec keep their v1 meaning: session wall clock over audio, over ALL scored samples, NOT filtered by speedCompatible. All provenance-filtered v2 speed lives only under speedV2.",
+    "noFallback": "A missing speedV2.wallRtf means 'no publishable v2 speed'. No consumer may fall back to meanRTF; they are different definitions.",
+    "poolableSums": "speedV2.responseMs and speedV2.audioDurationSec are the FILTERED numerator and denominator behind responseMsPerAudioSec, and are required. A consumer pooling several leaves sums these two and divides once; averaging responseMsPerAudioSec or wallRtf across leaves is a mean of means. A leaf lacking them may only display its own per-condition wallRtf, must not contribute to a cross-condition pooled figure, and must be counted and captioned rather than weighted by something else. Note responseMs/audioDurationSec (12000 ms over 80 s, the 6 poolable Samples) differ from totalWallSec/totalAudioSec (18.5 s over 100 s, all 10 scored Samples) on purpose."
+  },
+  "leaf": {
+    "wer": 0.1,
+    "referenceWords": 1000,
+    "wordErrors": 100,
+    "cer": 0.04,
+    "referenceChars": 5000,
+    "charErrors": 200,
+    "meanRTF": 0.185,
+    "totalWallSec": 18.5,
+    "totalAudioSec": 100,
+    "utteranceCount": 10,
+    "failures": 2,
+    "failuresByStatus": { "timeout": 1, "failed": 1 },
+    "speedV2": {
+      "responseMsPerAudioSec": 150,
+      "responseMs": 12000,
+      "audioDurationSec": 80,
+      "wallRtf": 0.15,
+      "medianResponseMs": 1400,
+      "p90ResponseMs": 2600,
+      "attemptedCount": 10,
+      "respondedCount": 8,
+      "speedExcludedCount": 1,
+      "missingDurationCount": 1,
+      "failureCount": 2,
+      "timeoutCount": 1,
+      "sampleCount": 10,
+      "inferenceRtf": null,
+      "inferenceMs": 0,
+      "inferenceAudioSec": 0,
+      "inferenceSampleCount": 0,
+      "inferenceSkippedCount": 10
+    }
+  }
+}

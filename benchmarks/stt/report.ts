@@ -17,6 +17,15 @@ import {
   DEFAULT_HARNESS_LABEL,
   type DatasetResults,
 } from "./results-schema";
+import {
+  INSTRUMENTATION_ASYMMETRY_LABEL,
+  poolableSpeedTotals,
+  publishableWallRtf,
+  pooledCer,
+  pooledWer,
+  type AccuracyLeafV2,
+  type PooledAccuracy,
+} from "../contract";
 
 export interface BenchmarkResults {
   description: string;
@@ -36,6 +45,21 @@ export interface BenchmarkResults {
      * the depth its leaves sit at, which is what makes two runs comparable.
      */
     sampleSize: number;
+    /**
+     * Where `sampleSize` came from, because the two possible answers are different
+     * claims and only one of them may be labelled "pooled".
+     *
+     * `"pooled-v2"` means the number is a count of **pooled unique scored clips**, with a
+     * Sample on disk behind every one of them. Anything else - including absence - means
+     * the number is the v1 *claimed range width*, which every archived run carries and
+     * which sits exactly `warmupCount` above its deepest `utteranceCount` (400 against
+     * 397, 200 against 197, 50 against 47). Printing that under the pooled wording would
+     * claim 400 measured clips where 397 exist and no v2 Sample does - defect 2's own
+     * error class, on the aggregate path.
+     *
+     * Absent on every archived run, which is why absence reads as v1.
+     */
+    sampleSizeBasis?: "pooled-v2" | "v1-claimed-range";
     warmupCount: number;
     normalization: string;
     /**
@@ -114,6 +138,37 @@ function fmtSpeed(rtf: number): string {
   return `${ms} ms`;
 }
 
+/**
+ * One leaf's speed, read from `speedV2.wallRtf` - the field the contract publishes -
+ * and never substituted with `meanRTF`.
+ *
+ * The substitution is the bug this replaces. `wallRtf: null` means "no publishable v2
+ * speed", and `meanRTF` on the same leaf is a *different measurement*: session wall clock
+ * over audio, over all scored Samples. For a Wispr Flow leaf whose clips all predate the
+ * keydown-edge instrumentation, `wallRtf` is correctly `null` and `meanRTF` is ~15x the
+ * v2 ratio, so a fallback plots the wrong product's number as though it were comparable.
+ * A legacy figure is shown here, tagged, because the archive has nothing else - never in
+ * place of a v2 one.
+ */
+function leafSpeedCell(result: ModelDatasetResult | undefined): string {
+  if (!result) return "-";
+  const speed = result.speedV2;
+  if (speed) {
+    // Through the contract's accessor rather than reading the field here, so the
+    // no-fallback precedence is defined in one place for both repositories: it returns
+    // `null` for an absent or non-finite `wallRtf` and never looks at `meanRTF`.
+    const wallRtf = publishableWallRtf(result);
+    const cell = wallRtf === null ? "N/A" : `${Math.round(wallRtf * 1000)} ms`;
+    const excluded =
+      speed.speedExcludedCount > 0
+        ? ` (${speed.speedExcludedCount} of ${speed.respondedCount} responded excluded: no timing provenance)`
+        : "";
+    return `${cell}${excluded}`;
+  }
+  const legacy = fmtSpeed(result.meanRTF);
+  return legacy === "N/A" ? legacy : `${legacy} (legacy)`;
+}
+
 function fmtSize(mb: number): string {
   if (mb >= 1000) return `${(mb / 1000).toFixed(1)} GB`;
   return `${mb} MB`;
@@ -171,15 +226,102 @@ function harnessLegend(results: BenchmarkResults): string | null {
   return `- **ASR Harnesses:** ${described.join(", ")}`;
 }
 
-function avgAccuracyForConditions(
+/**
+ * One result leaf as the two counts an accuracy pool needs, or nothing.
+ *
+ * The whole of defect 9 lives in this conversion. A leaf carries a *rate* and a
+ * denominator, and pooling needs a numerator: `wordErrors` is on every v2 leaf, and for
+ * an archived one it is `wer * referenceWords`, which the README has always said is a
+ * whole number. A leaf with **no denominator** yields no counts at all and is therefore
+ * **skipped** - never folded in as zero errors over zero words, which is a perfect score
+ * for a clip nobody scored. The runs written before `referenceWords` existed have no
+ * denominator on disk and can never be re-measured, so skipping them is the only honest
+ * option and `PooledAccuracy.skippedCount` is how a caller sees how many.
+ *
+ * A `wer` below zero is the sentinel a leaf carries when the Speech Model was not on
+ * disk when the run happened. It measured nothing, so it contributes nothing.
+ */
+export function accuracyLeafOf(result: ModelDatasetResult): AccuracyLeafV2 {
+  if (result.wer < 0) return {};
+  const referenceWords = result.referenceWords;
+  const wordErrors =
+    result.wordErrors ??
+    (referenceWords === undefined ? undefined : result.wer * referenceWords);
+
+  const referenceChars = result.referenceChars;
+  const charErrors =
+    result.charErrors ??
+    (result.cer === undefined || result.cer < 0 || referenceChars === undefined
+      ? undefined
+      : result.cer * referenceChars);
+
+  return { wordErrors, referenceWords, charErrors, referenceChars };
+}
+
+/**
+ * The **pooled** WER across a set of conditions for one row, `sum(errors) / sum(refs)`.
+ *
+ * Never a mean of per-dataset rates. An unweighted mean weights a 908-clip Spanish pool
+ * the same as a 5-clip smoke slice, so it is a different number from the one it looks
+ * like and it is not the accuracy of the combined sample. `benchmarks/README.md` has said
+ * so since `referenceWords` was added, and this is the code catching up with it.
+ */
+export function pooledWerForConditions(
+  modelId: string,
+  conditions: ConditionData[],
+): PooledAccuracy {
+  return pooledWer(
+    conditions
+      .map((condition) => condition.models[modelId])
+      .filter((result): result is ModelDatasetResult => result !== undefined)
+      .map(accuracyLeafOf),
+  );
+}
+
+/** The pooled CER across a set of conditions for one row. Same rule, same skips. */
+export function pooledCerForConditions(
+  modelId: string,
+  conditions: ConditionData[],
+): PooledAccuracy {
+  return pooledCer(
+    conditions
+      .map((condition) => condition.models[modelId])
+      .filter((result): result is ModelDatasetResult => result !== undefined)
+      .map(accuracyLeafOf),
+  );
+}
+
+/** Pooled word accuracy as a fraction, or `-Infinity` when no leaf could be pooled. */
+function pooledAccuracyForConditions(
   modelId: string,
   conditions: ConditionData[],
 ): number {
-  const accs = conditions
-    .map((c) => c.models[modelId]?.wer)
-    .filter((w): w is number => w !== undefined);
-  if (accs.length === 0) return -Infinity;
-  return 1 - accs.reduce((s, w) => s + w, 0) / accs.length;
+  const pooled = pooledWerForConditions(modelId, conditions);
+  return pooled.rate === null ? -Infinity : 1 - pooled.rate;
+}
+
+/**
+ * Transcription failures across a set of conditions, and the leaves that never counted.
+ *
+ * Two numbers because "absent" and "zero" are different claims, and only one of them can
+ * be published as a zero. Nothing on disk records *which* utterances failed, so `failures`
+ * is the one field a migration could never backfill: an archived leaf without it means
+ * "nobody counted", and reporting that as zero would say an engine that produced nothing
+ * transcribed perfectly.
+ */
+export function pooledFailures(
+  modelId: string,
+  conditions: ConditionData[],
+): { counted: number; uncountedLeaves: number } {
+  let counted = 0;
+  let uncountedLeaves = 0;
+  for (const condition of conditions) {
+    const result = condition.models[modelId];
+    if (!result || result.wer < 0) continue;
+    if (typeof result.failures === "number") counted += result.failures;
+    else uncountedLeaves++;
+  }
+  return { counted, uncountedLeaves };
 }
 
 function splitConditions(conditions: ConditionData[]): {
@@ -221,18 +363,165 @@ function aggregateRss(
   };
 }
 
-function avgRtf(modelId: string, conditions: ConditionData[]): number {
-  let totalAudio = 0;
-  let totalWall = 0;
-  for (const c of conditions) {
-    const r = c.models[modelId];
-    if (r && r.meanRTF > 0) {
-      totalAudio += r.totalAudioSec;
-      totalWall += r.totalWallSec;
+/**
+ * The **pooled** wall-clock RTF across a set of conditions: total time over total audio.
+ *
+ * Pooled sums, not a mean of per-dataset RTFs, for the same reason accuracy is pooled: a
+ * mean weights a 5-clip condition like a 900-clip one. Equal to
+ * `responseMsPerAudioSec / 1000` over the same Samples, which is the field
+ * `speedV2.wallRtf` carries per leaf - and `benchmarks/stt/charts.py` computes this same
+ * quotient from the same two sums, so the chart and the report cannot disagree.
+ *
+ * Only successful, speed-compatible Samples are in either sum; `runner.ts` filters both
+ * accumulators together, so a Combination that refused its longest clip does not look
+ * faster for it.
+ */
+export interface PooledSpeed {
+  /**
+   * Milliseconds of response per second of audio, pooled from the **v2** sums
+   * (`speedV2.responseMs / speedV2.audioDurationSec`). `null` when no leaf carries a v2
+   * summary, or when every v2 Sample was excluded for want of timing provenance.
+   *
+   * The only number that may be published as a speed.
+   */
+  v2MsPerAudioSec: number | null;
+  /** Conditions that contributed a v2 summary. */
+  v2Conditions: number;
+  /**
+   * The **legacy** v1 quotient, `totalWallSec / totalAudioSec` in ms per audio second,
+   * over the leaves that carry no v2 summary.
+   *
+   * A different measurement, kept separate and never substituted for the one above. The
+   * v1 sums are session wall clock over audio across **all** scored Samples - failures
+   * and provenance-less Samples included - so folding them into the v2 ratio would pool
+   * two definitions under one number. `dictation-product-benchmark` keeps the same v1
+   * definition, and its legacy Flow leaves read ~15x its v2 ratio, so the substitution is
+   * not a rounding difference: it is the wrong product's number.
+   */
+  legacyMsPerAudioSec: number | null;
+  /** Conditions that could only be read the legacy way. */
+  legacyConditions: number;
+  /** Scored Samples in the v2 leaves, whatever their status. */
+  attemptedSamples: number;
+  /** Successful ones: `status: "ok"` with a numeric `responseMs`. */
+  respondedSamples: number;
+  /**
+   * Conditions with a v2 summary that cannot join the pooled figure: no sums, or a zero
+   * denominator.
+   *
+   * Counted rather than weighted by `totalAudioSec`. That substitution would weight a
+   * provenance-filtered numerator by an unfiltered denominator - two different sets of
+   * Samples - and produce a number that looks like a pooled speed and is not one.
+   */
+  unpoolableV2Conditions: number;
+  /**
+   * Responded Samples withheld from the ratio for want of timing provenance.
+   *
+   * Reported because the whole point of the field is that a bucket cannot lose its speed
+   * data in silence: `respondedCount: 400, speedExcludedCount: 400` renders as "N/A", and
+   * without this number nothing says that 400 measurements were withheld rather than
+   * never taken.
+   */
+  excludedSamples: number;
+}
+
+/**
+ * Pooled speed across a set of conditions, with the v2 and legacy answers kept apart.
+ *
+ * Pooled sums, not a mean of per-dataset RTFs, for the same reason accuracy is pooled: a
+ * mean weights a 5-clip condition like a 900-clip one. The v2 numerator and denominator
+ * are the same two sums `speedV2.responseMsPerAudioSec` and `speedV2.wallRtf` are derived
+ * from, and `benchmarks/stt/charts.py::pooled_ms_per_audio_sec` pools the identical pair
+ * with the identical inclusion rule - a leaf contributes iff its
+ * `speedV2.audioDurationSec` is above zero - which is what makes acceptance gate 11 hold
+ * by construction rather than by inspection.
+ */
+export function pooledSpeedForConditions(
+  modelId: string,
+  conditions: ConditionData[],
+): PooledSpeed {
+  let v2ResponseMs = 0;
+  let v2AudioSec = 0;
+  let v2Conditions = 0;
+  let legacyWallSec = 0;
+  let legacyAudioSec = 0;
+  let legacyConditions = 0;
+  let attemptedSamples = 0;
+  let respondedSamples = 0;
+  let excludedSamples = 0;
+  let unpoolableV2Conditions = 0;
+
+  for (const condition of conditions) {
+    const result = condition.models[modelId];
+    if (!result) continue;
+    const speed = result.speedV2;
+    if (speed) {
+      attemptedSamples += speed.attemptedCount;
+      respondedSamples += speed.respondedCount;
+      excludedSamples += speed.speedExcludedCount;
+      // The contract's accessor decides whether this leaf may join a pooled figure, and
+      // `null` is exactly the cannot-pool case: no sums, or a zero denominator. It is the
+      // counterpart to `publishableWallRtf` - one says whether a leaf may be *shown*, the
+      // other whether it may be *added* - and going through it keeps the no-fallback rule
+      // in one place rather than re-deriving "is this poolable" from a field test here.
+      const totals = poolableSpeedTotals(result);
+      // `null` is the contract's answer for "the sums are absent or not finite". A
+      // present-but-zero denominator adds nothing to either sum, so it is added anyway
+      // and simply does not count as a contributing condition - the arithmetic is on the
+      // contract's own output rather than a second field test beside it.
+      if (totals) {
+        v2ResponseMs += totals.responseMs;
+        v2AudioSec += totals.audioDurationSec;
+      }
+      if (totals && totals.audioDurationSec > 0) v2Conditions++;
+      else unpoolableV2Conditions++;
+      continue;
+    }
+    // No v2 summary: an archived leaf. Read the legacy way, counted separately.
+    if (result.totalAudioSec > 0) {
+      legacyWallSec += result.totalWallSec;
+      legacyAudioSec += result.totalAudioSec;
+      legacyConditions++;
     }
   }
-  if (totalAudio === 0 || totalWall === 0) return 0;
-  return totalWall / totalAudio;
+
+  return {
+    v2MsPerAudioSec: v2AudioSec > 0 ? v2ResponseMs / v2AudioSec : null,
+    v2Conditions,
+    legacyMsPerAudioSec:
+      legacyAudioSec > 0 ? (legacyWallSec / legacyAudioSec) * 1000 : null,
+    legacyConditions,
+    attemptedSamples,
+    respondedSamples,
+    excludedSamples,
+    unpoolableV2Conditions,
+  };
+}
+
+/**
+ * The speed cell for a row: the v2 number when there is one, the legacy number tagged as
+ * legacy when there is not, and never one standing in for the other.
+ */
+function fmtPooledSpeed(speed: PooledSpeed): string {
+  if (speed.v2MsPerAudioSec !== null) {
+    const cell = `${Math.round(speed.v2MsPerAudioSec)} ms`;
+    return speed.excludedSamples > 0
+      ? `${cell} (${speed.excludedSamples} excl.)`
+      : cell;
+  }
+  if (speed.excludedSamples > 0) {
+    // The case the field exists for: measurements were taken and withheld.
+    return `N/A (${speed.excludedSamples} of ${speed.respondedSamples} responded excluded: no timing provenance)`;
+  }
+  if (speed.legacyMsPerAudioSec !== null) {
+    return `${Math.round(speed.legacyMsPerAudioSec)} ms (legacy)`;
+  }
+  return "N/A";
+}
+
+/** The number a row is ranked by. Legacy rows never win the speed column. */
+function rankableSpeed(speed: PooledSpeed): number {
+  return speed.v2MsPerAudioSec ?? Infinity;
 }
 
 interface ModelRatings {
@@ -250,14 +539,14 @@ function computeRatings(
   const { english } = splitConditions(conditions);
 
   for (const id of modelIds) {
-    const rtf = avgRtf(id, conditions);
-    const allWers = conditions
-      .map((c) => c.models[id]?.wer)
-      .filter((w): w is number => w !== undefined && w >= 0);
-    const overallAccuracy =
-      allWers.length > 0
-        ? 1 - allWers.reduce((sum, w) => sum + w, 0) / allWers.length
-        : 0;
+    // Ratings describe what a user gets, so they rate from the published v2 speed when
+    // there is one. An archive-only Speech Model has none, and rating it from a legacy
+    // wall-clock figure is the honest option there - it is what those measurements are.
+    const speed = pooledSpeedForConditions(id, conditions);
+    const msPerAudioSec = speed.v2MsPerAudioSec ?? speed.legacyMsPerAudioSec;
+    const rtf = msPerAudioSec === null ? 0 : msPerAudioSec / 1000;
+    const pooled = pooledWerForConditions(id, conditions);
+    const overallAccuracy = pooled.rate === null ? 0 : 1 - pooled.rate;
     const langCount = modelSupportedLanguages(variantModelId(id));
 
     const entry: ModelRatings = {
@@ -267,14 +556,10 @@ function computeRatings(
     };
 
     if (isEnglishOnlyModel(variantModelId(id))) {
-      const enWers = english
-        .map((c) => c.models[id]?.wer)
-        .filter((w): w is number => w !== undefined && w >= 0);
-      const enAccuracy =
-        enWers.length > 0
-          ? 1 - enWers.reduce((sum, w) => sum + w, 0) / enWers.length
-          : 0;
-      entry.accuracyEnglish = rateAccuracy(enAccuracy);
+      const pooledEnglish = pooledWerForConditions(id, english);
+      entry.accuracyEnglish = rateAccuracy(
+        pooledEnglish.rate === null ? 0 : 1 - pooledEnglish.rate,
+      );
     }
 
     ratings[id] = entry;
@@ -302,7 +587,14 @@ export function generateMarkdownReport(
   lines.push(
     `- **Hardware:** ${results.hardware.chip} / ${results.hardware.ram} / ${results.hardware.os} ${results.hardware.osVersion}`,
   );
-  lines.push(`- **Samples per dataset:** ${results.config.sampleSize}`);
+  // The v1 wording for a v1 number. `sampleSize` is only a count of measured clips when
+  // a v2 pool produced it; otherwise it is the claimed width of a range, three above the
+  // deepest `utteranceCount` on every archived run.
+  lines.push(
+    results.config.sampleSizeBasis === "pooled-v2"
+      ? `- **Pooled unique scored clips per dataset:** ${results.config.sampleSize}`
+      : `- **Samples per dataset:** ${results.config.sampleSize}`,
+  );
   if (results.config.sampleSelection) {
     const { mode, requested } = results.config.sampleSelection;
     lines.push(
@@ -316,6 +608,46 @@ export function generateMarkdownReport(
   if (legend) lines.push(legend);
   lines.push(`- **Combinations tested:** ${modelIds.length}`);
   lines.push("");
+  // Printed on every report, verbatim from one constant. Any surface that shows both
+  // products has to state the asymmetry, and three paraphrases in three surfaces is how a
+  // reader ends up believing the two numbers are the same measurement. The report shows
+  // Codictate only today and still prints it, because a reader comparing this report to a
+  // published head-to-head needs the same sentence in front of them.
+  lines.push(`> ${INSTRUMENTATION_ASYMMETRY_LABEL}`);
+  lines.push("");
+  lines.push(
+    "Accuracy and speed are **pooled**: `sum(errors) / sum(references)` and `sum(response time) / sum(audio)`. An unweighted mean of per-dataset rates is a different number and is never published. Leaves with no denominator are skipped, never counted as zero.",
+  );
+  lines.push("");
+  lines.push(
+    "Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf that has none is shown as `(legacy)`, from `meanRTF`. The two are different measurements (`meanRTF` is session wall clock over audio, over every scored Sample) and neither ever stands in for the other.",
+  );
+  lines.push("");
+
+  // Printed before any table when a bucket withheld measurements it did take. The
+  // failure this exists to prevent is a silent one: `respondedCount: 400,
+  // speedExcludedCount: 400` renders as "N/A", which reads as "never measured".
+  const withheld = modelIds
+    .map((modelId) => ({
+      modelId,
+      speed: pooledSpeedForConditions(modelId, conditions),
+    }))
+    .filter((row) => row.speed.excludedSamples > 0);
+  if (withheld.length > 0) {
+    const total = withheld.reduce(
+      (sum, row) => sum + row.speed.excludedSamples,
+      0,
+    );
+    lines.push(
+      `- **Samples withheld from pooled speed:** ${total} across ${withheld.length} row${withheld.length === 1 ? "" : "s"}, for want of timing provenance (\`overhead.timingRegime\`, and for a UI-observed Sample \`hotkeyEdge\`/\`timingClock\`). They responded, they count in \`attemptedCount\` and their words count in the pooled WER; only the speed ratio drops them.`,
+    );
+    for (const row of withheld) {
+      lines.push(
+        `  - ${modelName(row.modelId)}: ${row.speed.excludedSamples} of ${row.speed.respondedSamples} responded`,
+      );
+    }
+    lines.push("");
+  }
 
   // Summary table
   lines.push("## Summary");
@@ -335,39 +667,38 @@ export function generateMarkdownReport(
     "Avg Peak RSS",
     "Max Peak RSS",
     "Transcribe Time / sec Audio",
-    "Avg Overall",
-    "Avg English",
-    "Avg Multilingual",
+    "Pooled Overall",
+    "Pooled English",
+    "Pooled Multilingual",
     ...conditions.map((c) => c.label),
-    ...(hasCerData ? ["Avg Char Accuracy"] : []),
+    ...(hasCerData ? ["Pooled Char Accuracy"] : []),
+    "Failures",
   ];
   lines.push(`| ${summaryHeader.join(" | ")} |`);
   lines.push(`| ${summaryHeader.map(() => "---").join(" | ")} |`);
 
   const modelData = modelIds.map((modelId) => {
-    const avgEn = avgAccuracyForConditions(modelId, english);
-    const avgMulti = avgAccuracyForConditions(modelId, multilingual);
-    const avgAll = avgAccuracyForConditions(modelId, conditions);
-    const rtf = avgRtf(modelId, conditions);
+    const avgEn = pooledAccuracyForConditions(modelId, english);
+    const avgMulti = pooledAccuracyForConditions(modelId, multilingual);
+    const avgAll = pooledAccuracyForConditions(modelId, conditions);
+    const speed = pooledSpeedForConditions(modelId, conditions);
     const diskMB = modelDiskMB(modelId);
     const rss = aggregateRss(modelId, conditions);
     const condAccs = conditions.map((c) => {
       const r = c.models[modelId];
       return r ? 1 - r.wer : -Infinity;
     });
-    const cerValues = fleursConditions
-      .map((c) => c.models[modelId]?.cer)
-      .filter((c): c is number => c !== undefined && c >= 0);
+    const pooledCharRate = pooledCerForConditions(modelId, fleursConditions);
     const avgCer =
-      cerValues.length > 0
-        ? 1 - cerValues.reduce((s, c) => s + c, 0) / cerValues.length
-        : undefined;
+      pooledCharRate.rate === null ? undefined : 1 - pooledCharRate.rate;
+    const failures = pooledFailures(modelId, conditions);
     return {
+      failures,
       modelId,
       avgAll,
       avgEn,
       avgMulti,
-      rtf,
+      speed,
       diskMB,
       rss,
       condAccs,
@@ -376,7 +707,9 @@ export function generateMarkdownReport(
   });
 
   const pos = (v: number) => v > 0;
-  const bestSpeed = Math.min(...modelData.map((d) => d.rtf).filter(pos));
+  const bestSpeed = Math.min(
+    ...modelData.map((d) => rankableSpeed(d.speed)).filter(pos),
+  );
   const bestDisk = Math.min(
     ...modelData.map((d) => d.diskMB ?? Infinity).filter(pos),
   );
@@ -406,7 +739,7 @@ export function generateMarkdownReport(
     const rssMinStr = fmtRss(d.rss?.min ?? null);
     const rssAvgStr = fmtRss(d.rss?.avg ?? null);
     const rssMaxStr = fmtRss(d.rss?.max ?? null);
-    const speedStr = fmtSpeed(d.rtf);
+    const speedStr = fmtPooledSpeed(d.speed);
     const avgAllStr =
       d.avgAll > -Infinity ? `${(d.avgAll * 100).toFixed(1)}%` : "-";
     const avgEnStr =
@@ -420,7 +753,9 @@ export function generateMarkdownReport(
       d.rss?.min && d.rss.min === bestRssMin ? bold(rssMinStr) : rssMinStr,
       d.rss?.avg && d.rss.avg === bestRssAvg ? bold(rssAvgStr) : rssAvgStr,
       d.rss?.max && d.rss.max === bestRssMax ? bold(rssMaxStr) : rssMaxStr,
-      d.rtf > 0 && d.rtf === bestSpeed ? bold(speedStr) : speedStr,
+      rankableSpeed(d.speed) === bestSpeed && Number.isFinite(bestSpeed)
+        ? bold(speedStr)
+        : speedStr,
       d.avgAll === bestAvgAll && d.avgAll > -Infinity
         ? bold(avgAllStr)
         : avgAllStr,
@@ -444,6 +779,14 @@ export function generateMarkdownReport(
           : avgCerStr,
       );
     }
+    // "not counted" rather than 0 wherever a leaf has no `failures` field. The two are
+    // different claims and only one of them is a measurement; nothing on disk records
+    // which utterances failed, so an absent count can never be filled in later.
+    row.push(
+      d.failures.uncountedLeaves > 0
+        ? `${d.failures.counted} (+${d.failures.uncountedLeaves} leaf${d.failures.uncountedLeaves === 1 ? "" : "s"} not counted)`
+        : `${d.failures.counted}`,
+    );
     lines.push(`| ${row.join(" | ")} |`);
   }
   lines.push("");
@@ -549,9 +892,7 @@ export function generateMarkdownReport(
     lines.push("| --- | --- |");
     for (const modelId of modelIds) {
       const r = condition.models[modelId];
-      lines.push(
-        `| ${modelName(modelId)} | ${r ? fmtSpeed(r.meanRTF) : "-"} |`,
-      );
+      lines.push(`| ${modelName(modelId)} | ${leafSpeedCell(r)} |`);
     }
     lines.push("");
   }

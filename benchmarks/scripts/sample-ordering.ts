@@ -184,6 +184,42 @@ export interface Denominators {
 const denominatorCache = new Map<string, Denominators | null>();
 
 /**
+ * Reference counts for one already-selected slice of a manifest.
+ *
+ * The pure half of {@link denominatorsFor}: no disk, no cache, no ordering question.
+ * Extracted so the recount that decides whether an archived leaf reconciles can be
+ * tested without the git-ignored `benchmarks/datasets/` tree.
+ *
+ * The slice is taken **positionally**, and identity plays no part in it: a migration
+ * recounts the clips a *depth* covers, and two recordings of one FLEURS sentence are two
+ * clips with two transcripts whatever their sentence id says. `assertUniqueClipIds` in
+ * `build-manifests.ts` is what guarantees the list this slices is one clip per position;
+ * nothing here may de-duplicate, because dropping the second reading of a sentence would
+ * silently shorten the denominator and make every leaf reconcile against a count nobody
+ * scored.
+ */
+export function denominatorsForEntries(
+  entries: readonly ManifestEntry[],
+): Denominators {
+  let referenceWords = 0;
+  let referenceChars = 0;
+  let cerScorable = 0;
+  for (const entry of entries) {
+    referenceWords += tokenizeForWer(entry.transcript).length;
+    // CER is scored against the raw transcript, and only where the manifest has one - the
+    // same condition `runner.ts` applies when accumulating `totalRefChars`.
+    if (entry.rawTranscript) {
+      referenceChars += tokenizeForCer(entry.rawTranscript).length;
+      cerScorable++;
+    }
+  }
+  return {
+    referenceWords,
+    referenceChars: cerScorable > 0 ? referenceChars : null,
+  };
+}
+
+/**
  * Reference counts for the scored slice of a dataset at a given depth and ordering.
  *
  * Depends only on (dataset, ordering, warmup, depth) - never on the model - so every model
@@ -205,23 +241,9 @@ export function denominatorsFor(
     return null;
   }
 
-  let referenceWords = 0;
-  let referenceChars = 0;
-  let cerScorable = 0;
-  for (const entry of manifest.slice(warmupCount, warmupCount + depth)) {
-    referenceWords += tokenizeForWer(entry.transcript).length;
-    // CER is scored against the raw transcript, and only where the manifest has one - the
-    // same condition `runner.ts` applies when accumulating `totalRefChars`.
-    if (entry.rawTranscript) {
-      referenceChars += tokenizeForCer(entry.rawTranscript).length;
-      cerScorable++;
-    }
-  }
-
-  const result: Denominators = {
-    referenceWords,
-    referenceChars: cerScorable > 0 ? referenceChars : null,
-  };
+  const result = denominatorsForEntries(
+    manifest.slice(warmupCount, warmupCount + depth),
+  );
   denominatorCache.set(cacheKey, result);
   return result;
 }

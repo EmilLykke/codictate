@@ -12,8 +12,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   consumableEntries,
+  contiguousEnd,
   cursorFor,
+  deepestCursorForDataset,
   foldRecordedRanges,
+  maxMeasuredEndFor,
+  measuredEnd,
   formatPlanLine,
   fromIndexError,
   fromResumeRefusal,
@@ -27,6 +31,7 @@ import {
   type SampleRange,
 } from "./sample-cursor";
 import { recordedRangesFromRun } from "./coverage";
+import { contiguousCursor, maxMeasuredEnd } from "../contract";
 
 /** An ordered manifest of `count` distinguishable clip ids. */
 function orderedIds(count: number): string[] {
@@ -242,9 +247,15 @@ describe("--from N is an explicit start index", () => {
     const plan = planRange(397, 902, { mode: "delta", count: 100 }, 500);
     expect(plan.rewind).toBe(false);
     expect(plan.gap).toBe(true);
+    // The line used to end "cursor ends at 600", and the derived cursor agreed with it.
+    // Both were wrong in the same way: clips 398-500 were never transcribed, so 600 is a
+    // claimed depth over 103 clips nobody has heard. The cursor stays at 397 and the
+    // gap-inclusive end is reported separately, labelled as what it is.
     expect(formatPlanLine("large-v3-q5_0", "hu_hu", plan)).toBe(
-      "[large-v3-q5_0] hu_hu: GAP --from 500 starts past cursor 397 (clips 501-600 of 902 consumable, leaving clips 398-500 unmeasured; cursor ends at 600)",
+      "[large-v3-q5_0] hu_hu: GAP --from 500 starts past cursor 397 (clips 501-600 of 902 consumable, leaving clips 398-500 unmeasured; cursor stays 397 because the prefix has a hole, deepest measured end 600)",
     );
+    expect(plan.cursorAfter).toBe(397);
+    expect(plan.maxMeasuredEndAfter).toBe(600);
   });
 
   test("a forward run prints exactly the line it always printed", () => {
@@ -535,10 +546,38 @@ describe("the cursor derived from the results tree", () => {
     },
   };
 
+  /**
+   * The session `recentRun`'s hu_hu leaf continues from.
+   *
+   * Present because a cursor is the *contiguous* measured prefix: a leaf recording
+   * `[397, 597)` under a Harness bucket with nothing before it is a Combination with 397
+   * clips missing out of the front, not one measured 597 deep. The archive has no such
+   * leaf - every recorded crispasr range starts at 0 or continues one that does - and the
+   * fixture has to be honest about that or it asserts the hole-jumping cursor this
+   * replaced.
+   */
+  const earlierCrispasrRun = {
+    fleurs: {
+      hu_hu: {
+        crispasr: {
+          "large-v3-q5_0": leaf(397, {
+            startIndex: 0,
+            endIndex: 397,
+            manifestFingerprint: FINGERPRINT,
+          }),
+        },
+      },
+    },
+  };
+
   const index = foldRecordedRanges([
     ...recordedRangesFromRun(
       "2026-05-09_10-12-34_tiny-base-triage",
       preHarnessRun,
+    ),
+    ...recordedRangesFromRun(
+      "2026-08-18_08-17-28_hviske-vs-main-models",
+      earlierCrispasrRun,
     ),
     ...recordedRangesFromRun(
       "2026-09-04_08-28-52_curated-400-wispr-comparison",
@@ -589,6 +628,97 @@ describe("the cursor derived from the results tree", () => {
     expect(
       cursorFor(index, "whisper-cli", "large-v3-q5_0", "hu_hu", FINGERPRINT),
     ).toBe(47);
+  });
+
+  test("disjoint continuations join into one contiguous cursor", () => {
+    // `[0, 397)` from one session and `[397, 597)` from the next are 597 contiguous
+    // clips, and the cursor says so. This is the case the deepest-endIndex cursor also
+    // got right, and it is here so the contiguity fix cannot break it.
+    expect(
+      cursorFor(index, "crispasr", "large-v3-q5_0", "hu_hu", FINGERPRINT),
+    ).toBe(597);
+    expect(
+      maxMeasuredEndFor(
+        index,
+        "crispasr",
+        "large-v3-q5_0",
+        "hu_hu",
+        FINGERPRINT,
+      ),
+    ).toBe(597);
+  });
+
+  test("a gap does not advance the cursor, and is visible as a gap", () => {
+    // Defect 12. `--from 500` over a cursor of 397 records `[500, 600)`, and the deepest
+    // recorded endIndex is then 600 - so the old cursor read 600 and the next session
+    // started at 600, leaving clips 398-500 measured by nobody and inside a published
+    // depth. Nothing crashes and no number looks wrong.
+    const withHole = foldRecordedRanges([
+      {
+        runName: "2026-09-04_08-28-52_first-397",
+        harness: "crispasr",
+        modelId: "large-v3-q5_0",
+        datasetKey: "hu_hu",
+        utteranceCount: 397,
+        range: {
+          startIndex: 0,
+          endIndex: 397,
+          manifestFingerprint: FINGERPRINT,
+        },
+      },
+      {
+        runName: "2026-09-05_08-00-00_from-500",
+        harness: "crispasr",
+        modelId: "large-v3-q5_0",
+        datasetKey: "hu_hu",
+        utteranceCount: 100,
+        range: {
+          startIndex: 500,
+          endIndex: 600,
+          manifestFingerprint: FINGERPRINT,
+        },
+      },
+    ]);
+
+    expect(
+      cursorFor(withHole, "crispasr", "large-v3-q5_0", "hu_hu", FINGERPRINT),
+    ).toBe(397);
+    // Reported separately, and labelled non-contiguous everywhere it is printed.
+    expect(
+      maxMeasuredEndFor(
+        withHole,
+        "crispasr",
+        "large-v3-q5_0",
+        "hu_hu",
+        FINGERPRINT,
+      ),
+    ).toBe(600);
+    // The coverage badge reads the same contiguous number.
+    expect(
+      deepestCursorForDataset(withHole, "crispasr", "large-v3-q5_0", "hu_hu"),
+    ).toBe(397);
+  });
+
+  test("the index-space cursor agrees with the contract's clip-set cursor", () => {
+    // Two cursors exist: this one over recorded `[start, end)` ranges, and
+    // `contiguousCursor` in `benchmarks/contract/selection.ts` over measured clipId sets.
+    // They are the same number by two routes, and a disagreement would mean one of them
+    // is publishing a depth the other cannot back up - so it is asserted rather than
+    // assumed.
+    const ordered = orderedIds(700);
+    const intervals: [number, number][] = [
+      [0, 397],
+      [500, 600],
+    ];
+    const measured = new Set<string>();
+    for (const [start, end] of intervals) {
+      for (let i = start; i < end; i++) measured.add(ordered[i]);
+    }
+
+    expect(contiguousEnd(intervals)).toBe(contiguousCursor(ordered, measured));
+    expect(measuredEnd(intervals)).toBe(maxMeasuredEnd(ordered, measured));
+    expect(contiguousEnd(intervals)).toBe(397);
+    expect(measuredEnd(intervals)).toBe(600);
   });
 
   test("a range that contradicts its own utteranceCount is reported", () => {

@@ -117,7 +117,20 @@ bun run bench:stt -- --name hu-to-800 --description "Hungarian, both models to 8
   --models small-q5_1,large-v3-q5_0 --splits none --languages hu_hu --to 800
 ```
 
-An interrupted session leaves a `checkpoint.json` and no `stt.json`. Re-running **the same `--name`** resumes it: an unfinished run of that name is not a name collision, and the resume finishes the range the checkpoint recorded rather than re-slicing from the cursor - which could not see the unfinished run anyway. A completed run's name is still refused.
+An interrupted session leaves a `checkpoint.json`, the Run Plans under `_v2/`, and no `stt.json`. Finish it by **naming its run id**:
+
+```bash
+bun run bench:stt -- --resume 2026-09-04_08-17-28_hu-session-1
+```
+
+An orchestrator driving this as a batch stage finds that run id from the `batchId` its Run
+Plan records (`--batch`), rather than re-issuing `--name`.
+
+The run id is the directory name under `benchmarks/results/`, not the `--name` slug. Re-running the same `--name` no longer resumes - it is refused as a collision, with the `--resume` command to paste - because a name is not a run identity: two runs can share one, the interrupted one is not necessarily the newest, and the previous behaviour ("pick up the latest unfinished run") resumed whichever run it found regardless of which one the operator meant.
+
+A resume **re-reads the Run Plan** each Combination was started with and rebuilds nothing from flags, so every selection-changing flag is refused by name: `--from --to --samples --limit --clips-per-dataset --dataset --datasets --languages --splits --model --models --seed --smoke`. (`--batch` and `--out` are deliberately allowed: they name the batch and the report location, not the clips.) It replays each Combination's reserved warmups - a resumed process is a fresh cold process - and re-transcribes **no** completed scored clip, including one recorded as `failed`: a recorded failure is a measurement, and re-running it would either double-count it or overwrite a real observation with a luckier one. Re-measuring on purpose is a new run with `--from`.
+
+A completed run's name is still refused, and a completed run cannot be resumed.
 
 ### Re-measuring clips already measured: `--from`
 
@@ -139,7 +152,7 @@ It is refused in four cases, each a separate message:
 | --- | --- |
 | a negative index | `--from` is an index, not a count; `0` is legal and `-1` is not |
 | an index at or past a dataset's consumable count | Clamping is what makes it dangerous: `--from 5000` on the 902-clip `hu_hu` pool would measure nothing and record depth 902. The message names the dataset and its count |
-| combined with a resume | An unfinished run directory recorded the range it was measuring and carries the clips it already transcribed from that range. Rewinding it would file a partial numerator against clips it never saw. Refused for `--plan-only` too, because with a checkpoint on disk the preview would not predict the run |
+| combined with `--resume` | A resume re-reads the Run Plan its run was started with, and `--from` would select different clips than that plan - and than the fingerprint recorded beside the Samples. Refused by name, along with the other twelve selection-changing flags |
 | combined with the interactive picker | The picker only offers a delta from each cursor and overwrites the depth, so a typed `--from` would rewind a range nobody selected on screen. Pass `--models` (or `--no-tui`) to use `--from` |
 
 **The plan preview makes a rewind impossible to miss.** It is not the ordinary line with different numbers: the arrow runs backwards, the flag is named beside the cursor it overrode, and the clips about to be spent a second time are counted out.
@@ -165,8 +178,10 @@ Compare the same command without `--from`, which is the shape every other run pr
 **A rewind never lowers a cursor.** The cursor is the deepest `endIndex` across every run, so a rewound run is recorded exactly like any other and the maximum does the rest. Re-measuring `[0, 400)` over a cursor of 397 leaves it at **400**; re-measuring `[0, 200)` leaves it at **397**, untouched. The earlier run is not rewritten and nothing subtracts. `--from` starting *past* a cursor is not a rewind but is flagged too, as a `GAP`, because it would record a depth over clips nobody transcribed:
 
 ```
-  [large-v3-q5_0] hu_hu: GAP --from 500 starts past cursor 397 (clips 501-600 of 902 consumable, leaving clips 398-500 unmeasured; cursor ends at 600)
+  [large-v3-q5_0] hu_hu: GAP --from 500 starts past cursor 397 (clips 501-600 of 902 consumable, leaving clips 398-500 unmeasured; cursor stays 397 because the prefix has a hole, deepest measured end 600)
 ```
+
+**A gap does not advance the cursor.** The cursor is the length of the **contiguous** measured prefix, so `[0, 397)` plus `[500, 600)` is a cursor of 397 and a *deepest measured end* of 600 - two numbers, reported separately, because "measured 600 deep" over a list where 103 clips were never transcribed is a published claim about clips nobody has heard. The deepest measured end is a diagnostic: it never feeds continuation, aggregation, coverage or a published depth.
 
 #### Worked example: verifying a fix by re-measuring the same range
 
@@ -338,6 +353,31 @@ Add `--plan-only` (here) or `--dry-run` (`dictation-product-benchmark`) to see t
 | `--offload-models` | false              | Delete downloaded models from disk after all benchmarks complete                                                |
 | `--report-only`    | false              | Regenerate markdown from existing stt.json                                                                      |
 | `--aggregate`      | false              | Merge every run's stt.json into `results/stt.json` and write the combined report at the results root            |
+| `--resume`         | -                  | **A run id**, i.e. the directory name under `benchmarks/results/`. Finishes that run from the Run Plans it was started with. Refuses every selection-changing flag by name. See [the resume section](#running-a-corpus-in-sessions) |
+| `--batch`          | -                  | The publication batch this run is a stage of. Recorded on each Run Plan and run record as `batchId`, which is how an orchestrator finds the run id it has to resume. Allowed on a resume |
+| `--out`            | -                  | **An absolute directory.** An isolated results tree for this whole invocation - run directory, plans, records, checkpoint, report, charts, *and* the cursor scan and coverage it reads. Allowed on a resume |
+
+An unknown flag now **stops the run** instead of being ignored: `--form 5` used to run with
+every default in place, and the typo was invisible until the plan preview.
+
+### `--out`: an isolated results tree
+
+`--out /abs/path` relocates everything this invocation reads and writes. Both halves
+matter: a run that wrote elsewhere but still read the production cursor would consume
+production clips, which is the harm. So a run under `--out` starts from cursor 0 inside its
+own tree, and is invisible to the production cursor, `--aggregate`, coverage and the
+website unless something is pointed at it.
+
+That is what makes SPEC §8's smoke exclusion enforceable here. Before it, five rehearsal
+clips per dataset landed in `benchmarks/results/` as ordinary **completed** v2 records, fed
+`pooledV2Leaves` and `poolSamples`, and advanced the very cursor the production batch would
+then measure from.
+
+A relative `--out` is refused rather than resolved: it would mean two different directories
+depending on which shell typed it, and one of them is the production tree.
+
+`--report-only` and `--aggregate` read whichever tree they are pointed at, defaulting to
+`benchmarks/results/`.
 
 `--skip-existing` **has been removed.** It skipped a whole (Harness, Speech Model, dataset) Combination that already had results at the requested depth, which was the closest thing to a cursor this benchmark had. The cursor replaces it exactly: nothing is ever re-run, so there is nothing to skip. Passing it now fails with that explanation rather than being silently ignored.
 
@@ -347,7 +387,9 @@ Add `--plan-only` (here) or `--dry-run` (`dictation-product-benchmark`) to see t
 
 ## Output
 
-- `benchmarks/results/<timestamp>_<name>/stt.json` - machine-readable results with hardware metadata. `config.sampleSize` is the deepest cursor the run reached, not the number of clips it transcribed; `config.sampleSelection` records the flag that was given, and each leaf carries its own `sampleRange`
+- `benchmarks/results/<timestamp>_<name>/stt.json` - machine-readable results with hardware metadata. `config.sampleSize` is the **pooled unique scored clips** behind the run, not a claimed range width: a depth is only a depth if a Sample stands behind every clip of it. `config.sampleSelection` records the flag that was given, and each leaf carries its own `sampleRange`, its `wordErrors` and a pooled `speedV2` summary
+- `benchmarks/results/<timestamp>_<name>/_v2/<dataset>__<harness>__<model>.plan.json` - the immutable **Run Plan**: the ordered clipIds this Combination selected, its reserved warmups, and the v2 fingerprint over the selection. Written once, before the first clip, and re-read by `--resume`
+- `benchmarks/results/<timestamp>_<name>/_v2/<dataset>__<harness>__<model>.run.json` - the v2 **run record**: one `SampleMeasurementV2` per clip (`clipId`, `responseMs`, `wordErrors`, `referenceWords`, `isWarmup`, `overhead.timingRegime`), plus an explicit `status` of `completed` or `incomplete`. Rewritten atomically after **every scored clip**, so a killed run loses nothing. **Only completed records** feed the cursor, aggregation, coverage or publication - an incomplete one contributes nothing, not even the clips it finished
 - `benchmarks/results/<timestamp>_<name>/report.md` - markdown report with charts
 - `benchmarks/results/<timestamp>_<name>/*.png` - chart images
 - Markdown table printed to stdout
@@ -358,11 +400,42 @@ Each result leaf carries `referenceWords` - the denominator its `wer` was divide
 and `referenceChars` alongside any `cer`. Combine datasets by pooling:
 
 ```
-pooled WER = sum(wer * referenceWords) / sum(referenceWords)
+pooled WER = sum(wordErrors) / sum(referenceWords)
 ```
 
 An unweighted mean of per-dataset WERs is a different number and is not the accuracy of
-the combined sample, so never publish one. `wer * referenceWords` is the error count and
+the combined sample, so never publish one. The report, the ratings and `stt/charts.py` all
+pool now - `benchmarks/stt/report.test.ts` pins a deliberately unbalanced two-dataset
+fixture where the pooled answer is 11.5% and the averaged one 30.0%, and
+`python3 benchmarks/stt/charts.py --self-check` (also `bun run bench:charts:check`) asserts
+the same arithmetic on the Python side.
+
+### Two speed numbers per leaf, and only one of them is publishable
+
+Every v2 leaf carries both, they mean different things, and neither is ever substituted
+for the other:
+
+| field | meaning | published? |
+| --- | --- | --- |
+| `speedV2.wallRtf` | `responseMsPerAudioSec / 1000` over the **successful, speed-compatible** Samples - the provenance-filtered v2 measurement | yes, and only this |
+| `meanRTF`, `totalWallSec`, `totalAudioSec` | **legacy v1**: session wall clock over audio, over **all** scored Samples, unfiltered | no, and shown tagged `(legacy)` where nothing else exists |
+
+The legacy fields keep their v1 definition exactly, because every leaf in
+`benchmarks/results/` carries them that way and can never be re-measured - redefining them
+in place would make the archive incomparable to every new run, silently, since the field
+name does not change. `dictation-product-benchmark` keeps the same v1 definition.
+
+`speedV2.wallRtf` is read directly wherever one leaf's speed is shown (`report.ts` and
+`charts.py` both go through the contract's no-fallback accessor, `publishableWallRtf`), and
+the cross-condition figure pools `speedV2.responseMs / speedV2.audioDurationSec` - the same
+pair, with the same inclusion rule, in both surfaces. An absent `wallRtf` means **"no
+publishable v2 speed"**; it never means "use `meanRTF`". A row with none is drawn empty, or
+labelled `(legacy)` from an explicitly legacy code path.
+
+Samples withheld from the v2 ratio for want of timing provenance are counted in
+`speedV2.speedExcludedCount` and **reported out loud** in the report header, the summary
+cell and the chart caption - a bucket whose every Sample was withheld renders as `N/A`,
+and without the count that reads as "never measured" rather than "measured and withheld". `wer * referenceWords` is the error count and
 is always a whole number, which also makes any leaf checkable.
 
 The denominators are optional on read, because the archived runs were written before the

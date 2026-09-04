@@ -21,6 +21,15 @@
  * 3. **The cursor is derived from the run directories, never hand-maintained.** The results
  *    tree is the source of truth; anything cached is a cache. See `loadCoverage` in
  *    `coverage.ts`, which does the scan.
+ * 4. **The cursor is the contiguous measured prefix, not the deepest end.** `--from`
+ *    can start a range *past* the cursor, and the recorded ranges then have a hole in
+ *    them: `[0, 397)` and `[500, 600)` measured is a cursor of **397**, not 600, because
+ *    "measured 600 deep" over a list where 103 clips were never transcribed is a
+ *    published claim about clips nobody has heard. `maxMeasuredEndFor` reports the
+ *    gap-inclusive end separately and is labelled non-contiguous everywhere it appears.
+ *    This mirrors `contiguousCursor` / `maxMeasuredEnd` in `benchmarks/contract/`, which
+ *    computes the same two numbers over clipId sets rather than over index ranges;
+ *    `sample-cursor.test.ts` asserts the two agree.
  */
 
 import { createHash } from "node:crypto";
@@ -71,6 +80,22 @@ export interface SampleRange {
  * `dictation-product-benchmark` computes the same fingerprint over the same ids (its
  * `buildManifest` produces identical ids in identical order), so a range recorded there
  * and a range recorded here index into the same list and can be compared.
+ *
+ * **This is the v1 ordering token and it is frozen legacy.** Two things about it are
+ * wrong by v2's standards and neither may be fixed:
+ *
+ * - It is computed over `ManifestEntry.id`, which for FLEURS is the *sentence* id and
+ *   repeats - 930 Danish rows share 350 ids. So the token is not a function of the clip
+ *   set, only of the ordering of a list of labels. That is enough for its one job
+ *   ("do my stored integer offsets still index into this list") and unusable as identity.
+ * - It covers the whole pool *including* the reserved warmups, which is the opposite of
+ *   `fingerprintV2`'s convention - that one covers a plan's selected **scored** clips.
+ *
+ * Recomputing this over `clipId` would change the token for every dataset, and every
+ * archived leaf's `sampleRange` would then read as a pointer into a list that no longer
+ * exists: `manifestFingerprintConflicts` would refuse every run. The two fingerprints
+ * are never compared, live under differently named fields, and neither is migrated into
+ * the other. See `benchmarks/contract/schema.ts::fingerprintV2`.
  */
 export function manifestFingerprint(orderedIds: readonly string[]): string {
   const digest = createHash("sha256")
@@ -157,13 +182,29 @@ export interface RangePlan {
    */
   gap: boolean;
   /**
-   * The cursor this plan leaves behind, `max(cursor, endIndex)`.
+   * The **contiguous** cursor this plan leaves behind.
    *
-   * The cursor is the deepest recorded `endIndex` per Combination (see
-   * `foldRecordedRanges`), so a rewind can only raise it or leave it alone. Computed
-   * here so the preview can promise that on the line that announces the rewind.
+   * `max(cursor, endIndex)` for every plan whose range touches the measured prefix, and
+   * `cursor` unchanged for a `gap` plan. A rewind can only raise the cursor or leave it
+   * alone, which is what the preview promises on the line that announces the rewind; a
+   * gap cannot raise it at all, because the clips between the cursor and the gap's start
+   * were never transcribed and a cursor that jumped over them would claim a depth over
+   * clips nobody has heard.
+   *
+   * Before this was contiguous it was `Math.max(cursor, endIndex)` unconditionally, and
+   * `--from 500` over a cursor of 397 promised - and the derived cursor delivered - a
+   * cursor of 600. See `maxMeasuredEndAfter` for the number that *is* 600.
    */
   cursorAfter: number;
+  /**
+   * One past the deepest measured index after this plan, gaps included. **Not a cursor.**
+   *
+   * Kept beside `cursorAfter` because the two disagreeing is the useful signal: `cursor
+   * 397, maxMeasuredEnd 600` says a range was measured past a hole. It is a diagnostic
+   * for the preview and the coverage badge, and it never feeds continuation, aggregation
+   * or a published depth.
+   */
+  maxMeasuredEndAfter: number;
 }
 
 /**
@@ -198,6 +239,7 @@ export function planRange(
   const endIndex = Math.max(startIndex, Math.min(wanted, consumableTotal));
   const requested = Math.max(0, wanted - startIndex);
   const count = endIndex - startIndex;
+  const gap = fromIndex !== undefined && startIndex > cursor;
 
   return {
     mode: demand.mode,
@@ -212,8 +254,11 @@ export function planRange(
     remainingAfter: consumableTotal - endIndex,
     truncated: count < requested,
     rewind: fromIndex !== undefined && startIndex < cursor,
-    gap: fromIndex !== undefined && startIndex > cursor,
-    cursorAfter: Math.max(cursor, endIndex),
+    gap,
+    // A gap leaves the contiguous prefix exactly where it was. Every other plan starts
+    // at or before the cursor, so its range and the prefix join up.
+    cursorAfter: gap ? cursor : Math.max(cursor, endIndex),
+    maxMeasuredEndAfter: Math.max(cursor, endIndex),
   };
 }
 
@@ -263,8 +308,18 @@ export function rangeOf(plan: RangePlan, fingerprint: string): SampleRange {
  * The refusal for a `--from` given while an unfinished run is on disk, or `null` when
  * there is nothing to refuse.
  *
- * A resume is implicit in this harness - the next invocation picks up an unfinished run
- * directory - so the two intents can collide without the operator naming both. They are
+ * **Superseded, and kept as the record of what it was for.** A resume is no longer
+ * implicit: `run-stt.ts` takes `--resume <runId>`, and the contract's `assertResumeFlags`
+ * refuses all thirteen selection-changing flags by name on the argv tokens - `--from`
+ * among them - rather than this one flag against a directory guess. The guess is the part
+ * that had to go: "the latest unfinished run" is not a run identity, and picking the
+ * wrong one files a partial numerator against clips it never saw.
+ *
+ * The sentence below is still the clearest statement of *why* the two intents cannot be
+ * combined, which is why the function and its tests stay.
+ *
+ * A resume was implicit in this harness - the next invocation picked up an unfinished run
+ * directory - so the two intents could collide without the operator naming both. They are
  * incoherent together: a resume replays the range its checkpoint recorded and carries the
  * clips it already transcribed from that range, while `--from` names a different start, so
  * honouring both would file a partial numerator against clips it never saw.
@@ -334,10 +389,14 @@ export function formatPlanLine(
   }
 
   if (plan.gap) {
+    // The cursor does not move, and the line says so twice: once as the number, once as
+    // the reason. A gap plan measures clips past a hole, and a cursor that jumped over
+    // the hole would be a published depth over clips nobody transcribed.
     return (
       `${prefix}: GAP --from ${plan.fromIndex} starts past cursor ${plan.cursor}` +
       ` (${clips}${short}, leaving clips ${plan.cursor + 1}-${plan.startIndex} unmeasured;` +
-      ` cursor ends at ${plan.cursorAfter})`
+      ` cursor stays ${plan.cursorAfter} because the prefix has a hole, deepest measured` +
+      ` end ${plan.maxMeasuredEndAfter})`
     );
   }
 
@@ -346,20 +405,56 @@ export function formatPlanLine(
 
 // -- The cursor index, derived from the results tree --
 
+/** A half-open `[startIndex, endIndex)` range of consumable indices, as recorded. */
+export type MeasuredInterval = readonly [start: number, end: number];
+
 /**
- * Deepest `endIndex` recorded per Benchmark Combination per ordering, plus enough
- * provenance to explain a fingerprint conflict by run name.
+ * How far the contiguous measured prefix of these intervals reaches.
+ *
+ * The index-space twin of `contiguousCursor` in `benchmarks/contract/selection.ts`,
+ * which computes the same number over clipId sets. Ranges rather than clip ids here
+ * because that is what a v1 leaf records, and the two are asserted to agree in
+ * `sample-cursor.test.ts` - if they ever disagree, one of the two cursors is publishing
+ * a depth the other cannot back up.
+ *
+ * A hole stops it. `[0, 397)` and `[500, 600)` reach 397: the 103 clips in between were
+ * never transcribed, so no session may start after them.
+ */
+export function contiguousEnd(intervals: readonly MeasuredInterval[]): number {
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
+  let end = 0;
+  for (const [start, stop] of sorted) {
+    if (start > end) break;
+    if (stop > end) end = stop;
+  }
+  return end;
+}
+
+/** One past the deepest recorded index, holes included. **Not a cursor.** */
+export function measuredEnd(intervals: readonly MeasuredInterval[]): number {
+  return intervals.reduce((deepest, [, end]) => Math.max(deepest, end), 0);
+}
+
+/**
+ * Every recorded range per Benchmark Combination per ordering, plus enough provenance to
+ * explain a fingerprint conflict by run name.
  *
  * Keyed by fingerprint rather than collapsed to one number, because a range recorded
  * against a different ordering is not a shallower measurement of the same thing - it is a
  * measurement of a different set of clips, and the only safe thing to do with it is refuse
  * to run. Collapsing it here would hide exactly that.
+ *
+ * The ranges are kept rather than folded into a maximum, which is the fix for the cursor
+ * that could jump a hole. `Math.max(endIndex)` cannot tell `[0, 600)` from `[0, 397)`
+ * plus `[500, 600)`, and those are a Combination measured 600 clips deep and a
+ * Combination with 103 clips missing out of the middle. The list can tell them apart;
+ * `contiguousEnd` is the cursor and `measuredEnd` is the diagnostic.
  */
 export interface CursorIndex {
-  /** harness -> modelId -> datasetKey -> manifestFingerprint -> deepest endIndex. */
+  /** harness -> modelId -> datasetKey -> manifestFingerprint -> recorded ranges. */
   byCombination: Record<
     string,
-    Record<string, Record<string, Record<string, number>>>
+    Record<string, Record<string, Record<string, MeasuredInterval[]>>>
   >;
   /** datasetKey -> manifestFingerprint -> run names that recorded a range under it. */
   fingerprints: Record<string, Record<string, string[]>>;
@@ -418,17 +513,21 @@ export function foldRecordedRanges(
     const perOrdering = (((into.byCombination[recorded.harness] ??= {})[
       recorded.modelId
     ] ??= {})[datasetKey] ??= {});
-    perOrdering[range.manifestFingerprint] = Math.max(
-      perOrdering[range.manifestFingerprint] ?? 0,
+    (perOrdering[range.manifestFingerprint] ??= []).push([
+      range.startIndex,
       range.endIndex,
-    );
+    ]);
   }
   return into;
 }
 
 /**
- * Consumable entries this Combination has already been measured on, under the ordering the
- * manifest currently yields.
+ * Consumable entries this Combination has already been measured on **contiguously**,
+ * under the ordering the manifest currently yields.
+ *
+ * The production cursor: the only number a continuation starts from and the only one that
+ * may be published as a depth. A hole does not advance it, so a `--from` run past the
+ * cursor buys coverage without buying a claim.
  *
  * Zero when nothing matches, which is the honest answer for a Combination whose only
  * recorded ranges belong to a different ordering - and that case never reaches here,
@@ -441,12 +540,31 @@ export function cursorFor(
   datasetKey: string,
   fingerprint: string,
 ): number {
-  return (
-    index.byCombination[harness]?.[modelId]?.[datasetKey]?.[fingerprint] ?? 0
+  return contiguousEnd(
+    index.byCombination[harness]?.[modelId]?.[datasetKey]?.[fingerprint] ?? [],
   );
 }
 
-/** The deepest cursor this Combination has under any ordering, for coverage badges. */
+/**
+ * One past the deepest index this Combination has a measurement at, holes included.
+ * **Not a cursor**, and never a published depth.
+ *
+ * Exists so the coverage badge and the plan preview can say `cursor 397, deepest
+ * measured end 600` rather than pick one of the two and be wrong about the other.
+ */
+export function maxMeasuredEndFor(
+  index: CursorIndex,
+  harness: string,
+  modelId: string,
+  datasetKey: string,
+  fingerprint: string,
+): number {
+  return measuredEnd(
+    index.byCombination[harness]?.[modelId]?.[datasetKey]?.[fingerprint] ?? [],
+  );
+}
+
+/** The deepest contiguous cursor this Combination has under any ordering, for badges. */
 export function deepestCursorForDataset(
   index: CursorIndex,
   harness: string,
@@ -455,7 +573,7 @@ export function deepestCursorForDataset(
 ): number {
   const perOrdering = index.byCombination[harness]?.[modelId]?.[datasetKey];
   if (!perOrdering) return 0;
-  return Math.max(0, ...Object.values(perOrdering));
+  return Math.max(0, ...Object.values(perOrdering).map(contiguousEnd));
 }
 
 export interface FingerprintConflict {

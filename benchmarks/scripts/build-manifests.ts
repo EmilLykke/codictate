@@ -2,9 +2,47 @@ import { existsSync, readdirSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { LIBRISPEECH_SPLITS } from "../stt/datasets";
 import { estimateWavDurationSecFromBytes } from "../../src/shared/wav-duration";
+import {
+  assertUniqueClipIds,
+  fleursClipId,
+  librispeechClipId,
+} from "../contract";
 
 export interface ManifestEntry {
+  /**
+   * The legacy manifest id, and **not** the identity of the clip.
+   *
+   * FLEURS spells it `<locale>_<TSV column 0>`, and column 0 is a *sentence* id that
+   * several recordings share: `da_dk/test.tsv` has 930 rows and 350 distinct column-0
+   * values (measured, `benchmarks/contract/fleurs-identity.manual.ts`). So this string
+   * repeats, and anything that treats it as identity collapses 930 Danish clips to 350.
+   *
+   * It survives for exactly one reason: `manifestFingerprint` in
+   * `benchmarks/stt/sample-cursor.ts` is computed over it, and that v1 ordering token is
+   * recorded in every archived leaf's `sampleRange`. Recomputing it over `clipId` would
+   * change the token for every dataset, and every archived offset would then read as a
+   * pointer into a list that no longer exists - `manifestFingerprintConflicts` would
+   * refuse every run. The v1 token is frozen legacy; identity is `clipId`.
+   */
   id: string;
+  /**
+   * Canonical clip identity: the audio file's corpus-relative POSIX path.
+   *
+   * The one string a measurement is keyed by, in this repository and in
+   * `dictation-product-benchmark`. Derived through `benchmarks/contract/clip-identity.ts`
+   * rather than assembled here, so the two repositories cannot spell it differently.
+   * Unique by construction - `buildFleursManifest` and `buildLibriSpeechManifest` assert
+   * it before they return.
+   */
+  clipId: string;
+  /**
+   * FLEURS TSV column 0. Metadata, never identity.
+   *
+   * Kept because it is the right key for "did the model get this *sentence* right across
+   * speakers", and absent for LibriSpeech, which has no sentence level. Never a dedup
+   * key and never a fingerprint input; see `clipId`.
+   */
+  sentenceId?: string;
   audioPath: string;
   transcript: string;
   rawTranscript?: string;
@@ -12,8 +50,33 @@ export interface ManifestEntry {
   audioDurationSec: number;
 }
 
+/**
+ * A clip's duration in seconds, or a refusal.
+ *
+ * Throws rather than returning `0`, which is what the `?? 0` here used to do. A zero
+ * duration is the denominator of every speed metric, and the contract's own review found
+ * the hole worse than a division by zero: a zero-duration Sample was treated as a silent
+ * zero denominator, and the failure was in the **flattering** direction - it discounted a
+ * pooled ratio rather than inflating it. There is no honest number to substitute for "the
+ * WAV header would not parse", so the run stops on the clip it cannot measure and names
+ * it, which is recoverable (`--resume <runId>` re-reads the plan and re-measures nothing
+ * already done) in a way a published discount is not.
+ *
+ * The contract guards a zero from any source as well, counting it under
+ * `missingDurationCount` rather than `speedExcludedCount` - a bad WAV and a mistimed
+ * hotkey want different fixes. This is the upstream half.
+ */
 function estimateWavDurationSec(filePath: string): number {
-  return estimateWavDurationSecFromBytes(readFileSync(filePath)) ?? 0;
+  const seconds = estimateWavDurationSecFromBytes(readFileSync(filePath));
+  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(
+      `Cannot read the audio duration of ${filePath} (parsed ${seconds ?? "nothing"}). ` +
+        `A duration is the denominator of every speed metric, so a clip without one cannot ` +
+        `be measured - and a zero there discounts the pooled ratio instead of failing. ` +
+        `Re-download or re-convert that clip, then resume the run.`,
+    );
+  }
+  return seconds;
 }
 
 /**
@@ -127,6 +190,7 @@ export function buildLibriSpeechManifest(
 
       entries.push({
         id,
+        clipId: librispeechClipId(split, id),
         audioPath: wavPath,
         transcript,
         language: "en",
@@ -137,6 +201,15 @@ export function buildLibriSpeechManifest(
 
   const ordered =
     (options?.withShuffle ?? true) ? seededShuffle(entries, 42) : entries;
+  // Cheap here and unfixable later: a duplicate clipId means one audio file would be
+  // measured twice under one identity, so a pool would keep one of the two measurements
+  // and a resume would skip the other. LibriSpeech utterance ids are unique across the
+  // corpus, so this only ever fires on a broken checkout - which is exactly when a
+  // Benchmark Run must not start.
+  assertUniqueClipIds(
+    ordered.map((entry) => entry.clipId),
+    `LibriSpeech ${split} manifest`,
+  );
   console.log(`[manifest] LibriSpeech ${split}: ${ordered.length} utterances`);
   return ordered;
 }
@@ -173,6 +246,88 @@ const FLEURS_TO_CODICTATE_LANG: Record<string, string> = {
 };
 
 /**
+ * One locale's FLEURS entries, parsed out of `test.tsv` in the file's own row order.
+ *
+ * The pure half of `buildFleursManifest`: no shuffle, no durations, and the only
+ * filesystem question - "is this clip's wav on disk" - is a callback. Extracted so the
+ * identity rule can be asserted on every machine. `benchmarks/datasets/` is git-ignored
+ * (the corpora are gigabytes), so a test that reads the real TSV has to be a `.manual.ts`
+ * or `bun test` goes red on a fresh checkout; this seam lets the CI-safe test assert the
+ * same rule against a synthetic mirror of the same shape.
+ *
+ * `audioDurationSec` is left at 0. The caller measures the clips it is about to
+ * transcribe, through `hydrateDurations`.
+ */
+export function fleursEntriesFromTsv(
+  fleursLang: string,
+  tsvText: string,
+  options?: {
+    /** Absolute directory the wavs live in. Only used to build `audioPath`. */
+    audioDir?: string;
+    /** Default: every row is kept. `buildFleursManifest` passes `existsSync`. */
+    hasAudio?: (audioPath: string) => boolean;
+  },
+): ManifestEntry[] {
+  const codLang =
+    FLEURS_TO_CODICTATE_LANG[fleursLang] ?? fleursLang.split("_")[0];
+  const audioDir = options?.audioDir ?? "";
+  const hasAudio = options?.hasAudio ?? (() => true);
+
+  const lines = tsvText.split("\n").filter((l) => l.trim());
+
+  // TSV columns: id, file_name, raw_transcription, transcription, num_samples, gender, ...
+  //
+  // Column 0 is the *sentence* id and repeats - FLEURS reads several speakers per
+  // sentence - so identity is column 1, `file_name`. See `ManifestEntry.clipId` and
+  // `benchmarks/contract/clip-identity.ts::fleursClipId`.
+  //
+  // First line might be a header. The three downloaded locales have none, so this is a
+  // guard against a differently-exported TSV rather than the normal case.
+  const firstLine = lines[0];
+  const hasHeader =
+    firstLine?.includes("file_name") || firstLine?.includes("transcription");
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  const entries: ManifestEntry[] = [];
+  for (const line of dataLines) {
+    const cols = line.split("\t");
+    if (cols.length < 4) continue;
+
+    const sentenceId = cols[0];
+    const fileName = cols[1];
+    const rawTranscript = cols[2];
+    const transcript = cols[3]; // normalized transcription
+
+    // FLEURS audio is in audio/test/<filename>
+    const audioPath = join(audioDir, fileName);
+    if (!hasAudio(audioPath)) continue;
+
+    entries.push({
+      // Legacy, non-unique, and kept only so the v1 `manifestFingerprint` token does not
+      // move under every archived `sampleRange`. See `ManifestEntry.id`.
+      id: `${fleursLang}_${sentenceId}`,
+      clipId: fleursClipId(fleursLang, fileName),
+      sentenceId,
+      audioPath,
+      transcript,
+      rawTranscript,
+      language: codLang,
+      audioDurationSec: 0,
+    });
+  }
+
+  // The assertion that would have caught the whole class of bug: with identity taken
+  // from column 0 this list holds 930 Danish entries under 350 distinct ids, and every
+  // consumer downstream - resume, pooling, coverage - would have treated 580 of them as
+  // repeats of clips already done. Asserted on `clipId` (column 1), which is unique.
+  assertUniqueClipIds(
+    entries.map((entry) => entry.clipId),
+    `FLEURS ${fleursLang} manifest`,
+  );
+  return entries;
+}
+
+/**
  * FLEURS entries for one locale, in seeded order.
  *
  * `sampleSize` truncates the ordered list, which a Benchmark Run must not do any more: the
@@ -197,42 +352,18 @@ export function buildFleursManifest(
     return [];
   }
 
-  const codLang =
-    FLEURS_TO_CODICTATE_LANG[fleursLang] ?? fleursLang.split("_")[0];
-  const content = readFileSync(tsvPath, "utf-8");
-  const lines = content.split("\n").filter((l) => l.trim());
-
-  // TSV columns: id, file_name, raw_transcription, transcription, num_samples, gender, ...
-  // First line might be a header
-  const firstLine = lines[0];
-  const hasHeader =
-    firstLine?.includes("file_name") || firstLine?.includes("transcription");
-  const dataLines = hasHeader ? lines.slice(1) : lines;
-
-  const rawEntries: ManifestEntry[] = [];
-
-  for (const line of dataLines) {
-    const cols = line.split("\t");
-    if (cols.length < 4) continue;
-
-    const id = cols[0];
-    const fileName = cols[1];
-    const rawTranscript = cols[2];
-    const transcript = cols[3]; // normalized transcription
-
-    // FLEURS audio is in audio/test/<filename>
-    const audioPath = join(langDir, "audio", "test", fileName);
-    if (!existsSync(audioPath)) continue;
-
-    rawEntries.push({
-      id: `${fleursLang}_${id}`,
-      audioPath,
-      transcript,
-      rawTranscript,
-      language: codLang,
-      audioDurationSec: withDurations ? estimateWavDurationSec(audioPath) : 0,
-    });
-  }
+  const rawEntries = fleursEntriesFromTsv(
+    fleursLang,
+    readFileSync(tsvPath, "utf-8"),
+    {
+      audioDir: join(langDir, "audio", "test"),
+      hasAudio: existsSync,
+    },
+  ).map((entry) =>
+    withDurations
+      ? { ...entry, audioDurationSec: estimateWavDurationSec(entry.audioPath) }
+      : entry,
+  );
 
   // Subsample with deterministic seed
   const shuffled = seededShuffle(rawEntries, 42);
