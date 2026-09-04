@@ -20,6 +20,7 @@ import { runTranscription } from "../../src/bun/utils/whisper/engines/run-transc
 import type {
   FailedTranscription,
   TranscriptionRequest,
+  TranscriptionResult,
 } from "../../src/bun/utils/whisper/engines/transcription";
 import { getPlatform } from "../../src/bun/platform";
 import { computeWer, computeCer, type WerResult } from "./wer";
@@ -67,9 +68,45 @@ function resolveModelPath(modelId: string): string | null {
 
 export interface UtteranceResult {
   id: string;
+  /**
+   * Whether this utterance was a warmup, i.e. transcribed only so the model is warm and
+   * excluded from every published number.
+   *
+   * Carried on the result rather than left implicit in which loop produced it, so that
+   * the one place which decides what a warmup is excluded from - `countTranscriptionFailures`
+   * - is a function over data instead of a property of control flow.
+   */
+  warmup: boolean;
+  /**
+   * How the transcription ended.
+   *
+   * Kept rather than dropped because a `failed` utterance is still scored, as an empty
+   * hypothesis, and is therefore indistinguishable from a badly transcribed one once only
+   * the rate survives. `benchmarkModel` counts these into the leaf's `failures`; without
+   * the status here that count could not be taken at all.
+   */
+  status: TranscriptionResult["status"];
   wallClockMs: number;
   wer: WerResult;
   hypothesis: string;
+}
+
+/**
+ * Scored utterances the Speech Engine returned nothing usable for.
+ *
+ * Warmups are filtered here for the same reason they are excluded from WER: they are
+ * transcribed to warm the model and are not part of the sample being reported on. A
+ * warmup that fails is a fact about the first three clips, not about the measurement.
+ *
+ * Not derivable downstream from anything else the leaf publishes: a failed utterance is
+ * scored as an empty hypothesis, so it is still inside `utteranceCount` and still inside
+ * the WER numerator. Emitting the count is the only way a consumer can disclose it.
+ */
+export function countTranscriptionFailures(
+  results: readonly UtteranceResult[],
+): number {
+  return results.filter((result) => !result.warmup && result.status !== "ok")
+    .length;
 }
 
 export interface PeakRSSStats {
@@ -99,6 +136,27 @@ export interface ModelDatasetResult {
   meanRTF: number;
   peakRSS_MB: PeakRSSStats | null;
   utteranceCount: number;
+  /**
+   * Scored utterances whose transcription failed, and which were therefore scored as an
+   * empty hypothesis rather than dropped.
+   *
+   * Published because it cannot be reconstructed: a failure is counted in
+   * `utteranceCount` and folded into `wer` exactly like a real 100%-error utterance, so a
+   * leaf that omits this number reports an engine that produced nothing as an engine that
+   * transcribed badly. `dictation-product-benchmark` emits the same field under the same
+   * name on its external-product leaf, so a head-to-head table can print both columns.
+   *
+   * No `failuresByStatus` breakdown alongside it, unlike that repo. A
+   * `TranscriptionResult` here is `ok` or `failed` and nothing else (ADR-0006), so a
+   * breakdown could only ever be `{ timeout: 0, failed: n }` - a zero that states a fact
+   * about this union rather than about the run, and which reads as "we never timed out"
+   * when the truth is that this harness has no timeout to report.
+   *
+   * Optional for the same reason `referenceWords` is: this is a read type as well as a
+   * write type, and the runs archived before the count existed have no number on disk and
+   * must still load. Every new run sets it - see `CompletedModelDatasetResult`.
+   */
+  failures?: number;
   totalAudioSec: number;
   totalWallSec: number;
 }
@@ -106,12 +164,15 @@ export interface ModelDatasetResult {
 /**
  * A result this build produces, as opposed to one it may read off disk.
  *
- * `referenceWords` is optional on the read type because the archive predates it, and
- * required here so that a new emit path which forgets the denominator fails `bun run
- * tsc` rather than quietly writing another unpoolable leaf.
+ * `referenceWords` and `failures` are optional on the read type because the archive
+ * predates them, and required here so that a new emit path which forgets the denominator
+ * or the failure count fails `bun run tsc` rather than quietly writing another unpoolable
+ * or undisclosed leaf. A clean run therefore emits `failures: 0`, which is a different
+ * claim from omitting the field: one says nothing failed, the other says nobody counted.
  */
 export type CompletedModelDatasetResult = ModelDatasetResult & {
   referenceWords: number;
+  failures: number;
 };
 
 /**
@@ -128,6 +189,18 @@ export interface PartialProgress {
   totalRefWords: number;
   totalCer?: number;
   totalRefChars?: number;
+  /**
+   * Failed utterances so far, emitted as `failures`. A resumed run adds to this instead
+   * of restarting the count at the utterance it resumed from.
+   *
+   * Optional, and read as `?? 0`. `dictation-product-benchmark` mirrors this interface in
+   * `src/codictate-compat.ts` and writes a Codictate-shaped `checkpoint.json` from it;
+   * making the field required here would declare a property that checkpoint does not
+   * carry, and `loadCheckpoint` casts `inProgress` without validating it, so the claim
+   * would be unsound at runtime rather than caught. Checkpoints written before the count
+   * existed are missing it for the same reason.
+   */
+  failures?: number;
   totalAudioSec: number;
   totalWallSec: number;
 }
@@ -252,6 +325,7 @@ async function runUtterance(
   modelId: string,
   modelPath: string,
   harness: AsrHarnessId,
+  warmup: boolean,
 ): Promise<UtteranceResult> {
   // The Sample is read where it already lives. It used to be copied over RECORDING_PATH,
   // the app's own recording buffer, roughly 200 times per Benchmark Combination - so a
@@ -274,7 +348,14 @@ async function runUtterance(
   const hypothesis = result.status === "ok" ? result.rawTranscript : "";
 
   const wer = computeWer(entry.transcript, hypothesis);
-  return { id: entry.id, wallClockMs, wer, hypothesis };
+  return {
+    id: entry.id,
+    warmup,
+    status: result.status,
+    wallClockMs,
+    wer,
+    hypothesis,
+  };
 }
 
 async function measureModelMemory(
@@ -343,6 +424,7 @@ export async function benchmarkModel(
       meanRTF: -1,
       peakRSS_MB: null,
       utteranceCount: 0,
+      failures: 0,
       totalAudioSec: 0,
       totalWallSec: 0,
     };
@@ -364,18 +446,25 @@ export async function benchmarkModel(
     );
   }
 
+  // Every utterance this call transcribes, warmups included and flagged as such, so the
+  // failure count is taken by `countTranscriptionFailures` over the data rather than by
+  // whichever loop happened to run. Resuming skips the warmups, hence `priorFailures`.
+  const results: UtteranceResult[] = [];
+  const priorFailures = partial?.failures ?? 0;
+
   // Warmup (skip if resuming)
   if (startOffset === 0) {
     const warmupEntries = entries.slice(0, WARMUP_COUNT);
     for (let i = 0; i < warmupEntries.length; i++) {
-      await runUtterance(warmupEntries[i], modelId, modelPath, harness);
+      results.push(
+        await runUtterance(warmupEntries[i], modelId, modelPath, harness, true),
+      );
       process.stdout.write(`    warmup ${i + 1}/${WARMUP_COUNT}\r`);
     }
   }
 
   // Benchmark
   const shouldComputeCer = options?.computeCer ?? false;
-  const results: UtteranceResult[] = [];
   let totalWer = partial?.totalWer ?? 0;
   let totalRefWords = partial?.totalRefWords ?? 0;
   let totalCerErrors = partial?.totalCer ?? 0;
@@ -385,7 +474,13 @@ export async function benchmarkModel(
 
   for (let i = startOffset; i < benchEntries.length; i++) {
     const entry = benchEntries[i];
-    const result = await runUtterance(entry, modelId, modelPath, harness);
+    const result = await runUtterance(
+      entry,
+      modelId,
+      modelPath,
+      harness,
+      false,
+    );
     results.push(result);
 
     totalWer +=
@@ -416,6 +511,7 @@ export async function benchmarkModel(
         totalRefWords,
         totalCer: shouldComputeCer ? totalCerErrors : undefined,
         totalRefChars: shouldComputeCer ? totalRefChars : undefined,
+        failures: priorFailures + countTranscriptionFailures(results),
         totalAudioSec,
         totalWallSec,
       });
@@ -450,10 +546,18 @@ export async function benchmarkModel(
       : undefined;
   const meanRTF = computeRtf(totalWallSec, totalAudioSec);
 
+  const failures = priorFailures + countTranscriptionFailures(results);
+
   const cerStr =
     aggCer !== undefined ? ` | CER: ${(aggCer * 100).toFixed(2)}%` : "";
   console.log(
     `    done | WER: ${(aggWer * 100).toFixed(2)}%${cerStr} | RTF: ${meanRTF.toFixed(3)} | RSS: ${peakRSS_MB ? `${peakRSS_MB.min}/${peakRSS_MB.avg}/${peakRSS_MB.max}` : "N/A"} MB (min/avg/max)`,
+  );
+  // Printed unconditionally, including as a zero. `reportTranscriptionFailure` speaks once
+  // per distinct reason and never says how many, so a log that only mentioned failures
+  // when there were some could not tell "nothing failed" from "nothing counted them".
+  console.log(
+    `    failures: ${failures}/${benchEntries.length} utterances scored as an empty hypothesis`,
   );
 
   const result: CompletedModelDatasetResult = {
@@ -462,6 +566,7 @@ export async function benchmarkModel(
     meanRTF,
     peakRSS_MB,
     utteranceCount: benchEntries.length,
+    failures,
     totalAudioSec,
     totalWallSec,
   };

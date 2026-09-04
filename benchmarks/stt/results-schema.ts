@@ -83,13 +83,18 @@ export const PRE_HARNESS_ARCHIVE_LABEL: BenchmarkHarnessLabel = "whisper-cli";
 /**
  * Results for one dataset: model results grouped by the Harness that produced them.
  *
- * Leaves are `ModelDatasetResult`, whose `referenceWords` is optional on purpose. The
- * runs written before that field existed have no denominator on disk, and reading is
- * append-only for the same reason Harness labels are: those measurements can never be
- * taken again, so a missing denominator has to load rather than throw. A consumer that
- * pools accuracy must skip - or backfill, see
- * `benchmarks/scripts/backfill-reference-words.ts` - the leaves that lack it, not
- * assume every leaf has one.
+ * Leaves are `ModelDatasetResult`, whose `referenceWords` and `failures` are optional on
+ * purpose. The runs written before either field existed have no denominator and no
+ * failure count on disk, and reading is append-only for the same reason Harness labels
+ * are: those measurements can never be taken again, so a missing field has to load
+ * rather than throw. A consumer that pools accuracy must skip - or backfill, see
+ * `benchmarks/scripts/backfill-reference-words.ts` - the leaves that lack a denominator,
+ * not assume every leaf has one.
+ *
+ * `failures` is the one field that cannot be backfilled. A denominator can be recounted
+ * from the reference transcripts, but nothing on disk records which utterances failed, so
+ * an archived leaf without the field means "not counted" and must be reported that way
+ * rather than as zero.
  */
 export type HarnessModelResults = Partial<
   Record<BenchmarkHarnessLabel, Record<string, ModelDatasetResult>>
