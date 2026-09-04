@@ -28,9 +28,25 @@ export interface BenchmarkResults {
   };
   runDate: string;
   config: {
+    /**
+     * Deepest sample depth this run's leaves reached, i.e. the largest cursor `endIndex`.
+     *
+     * Not the number of clips the run transcribed. Since `--samples` became a delta, a run
+     * can take a Combination from 400 to 800 by transcribing 400 clips, and this says 800 -
+     * the depth its leaves sit at, which is what makes two runs comparable.
+     */
     sampleSize: number;
     warmupCount: number;
     normalization: string;
+    /**
+     * The depth flag this run was given. Absent on every run written before `--samples`
+     * became a delta, which is why it is optional: those runs measured `[0, sampleSize)`
+     * and had no other mode to be in.
+     */
+    sampleSelection?: {
+      mode: "delta" | "target";
+      requested: number;
+    };
   };
   librispeech: DatasetResults;
   fleurs: DatasetResults;
@@ -287,6 +303,14 @@ export function generateMarkdownReport(
     `- **Hardware:** ${results.hardware.chip} / ${results.hardware.ram} / ${results.hardware.os} ${results.hardware.osVersion}`,
   );
   lines.push(`- **Samples per dataset:** ${results.config.sampleSize}`);
+  if (results.config.sampleSelection) {
+    const { mode, requested } = results.config.sampleSelection;
+    lines.push(
+      mode === "delta"
+        ? `- **Sample selection:** \`--samples ${requested}\` (${requested} clips per dataset not previously measured)`
+        : `- **Sample selection:** \`--to ${requested}\` (topped every dataset up to depth ${requested})`,
+    );
+  }
   lines.push(`- **Warmup utterances:** ${results.config.warmupCount}`);
   const legend = harnessLegend(results);
   if (legend) lines.push(legend);

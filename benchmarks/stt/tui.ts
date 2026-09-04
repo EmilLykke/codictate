@@ -41,6 +41,12 @@ export interface BenchmarkPlan {
   models: string[];
   splits: string[];
   languages: string[];
+  /**
+   * Clips per dataset to measure that this Speech Model has not been measured on before,
+   * i.e. a delta from each Combination's cursor - never an absolute depth. `run-stt.ts`
+   * turns it into `{ mode: "delta" }`; a target depth is a scripted intent and lives on
+   * `--to`.
+   */
   samples: number;
   name: string;
   description: string;
@@ -93,6 +99,9 @@ export async function promptBenchmarkPlan(
   const harnesses: AsrHarnessId[] = [...ASR_HARNESS_IDS];
   clackLog.info(`ASR Harness: ${harnesses.join(", ")}`);
 
+  // Each row's badge carries two numbers: how deep the deepest run scored this
+  // Combination, and where its cursor sits. They disagree wherever a measurement cannot be
+  // located in today's ordering - see `formatModelCoverage`.
   const modelOptions = SPEECH_MODEL_IDS.map((id) => ({
     value: id,
     label: modelLabel(id),
@@ -145,7 +154,8 @@ export async function promptBenchmarkPlan(
 
   const samplesChoice = exitIfCancelled(
     await select({
-      message: "Samples per dataset",
+      message:
+        "New clips per dataset (added to what each model has already measured)",
       initialValue: "200",
       options: [
         ...SAMPLE_PRESETS.map((n) => ({ value: String(n), label: String(n) })),
@@ -158,7 +168,8 @@ export async function promptBenchmarkPlan(
   if (samplesChoice === "custom") {
     const custom = exitIfCancelled(
       await text({
-        message: "Samples per dataset",
+        message:
+          "New clips per dataset (added to what each model has already measured)",
         placeholder: "200",
         validate: (value) => {
           const n = Number(value);
@@ -205,7 +216,7 @@ export async function promptBenchmarkPlan(
       `Models:     ${models.length} (${models.join(", ")})`,
       `LibriSpeech: ${splits.length > 0 ? splits.join(", ") : "none"}`,
       `FLEURS:     ${languages.length > 0 ? languages.join(", ") : "none"}`,
-      `Samples:    ${samples}`,
+      `New clips:  ${samples} per dataset, per model, from each cursor`,
       `Name:       ${name}`,
     ].join("\n"),
     "Planned run",

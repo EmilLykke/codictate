@@ -19,7 +19,8 @@
  * an error count, so it must land on a whole number; a recount that does not is not the
  * denominator WER was actually divided by, and the leaf is reported and left alone
  * rather than written with a plausible-looking wrong number. That check is what caught
- * the LibriSpeech ordering change described on `SAMPLE_ORDERINGS` below.
+ * the LibriSpeech ordering change described in `sample-ordering.ts`, which now owns the
+ * ordering detection this script needs and `backfill-sample-ranges.ts` needs too.
  *
  * Dry run by default. `--write` is required to touch a file.
  *
@@ -30,223 +31,22 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  buildFleursManifest,
-  buildLibriSpeechManifest,
-  type ManifestEntry,
-} from "./build-manifests";
-import { tokenizeForCer, tokenizeForWer } from "../stt/wer";
+  deviation,
+  detectSampleOrdering,
+  locateLeaves,
+  CURRENT_SAMPLE_ORDERING,
+  EXACT_EPSILON,
+  FALLBACK_WARMUP_COUNT,
+  RECONCILE_TOLERANCE,
+  type Denominators,
+  type LocatedLeaf,
+  type SampleOrdering,
+} from "./sample-ordering";
 
 const RESULTS_BASE_DIR = join(import.meta.dir, "../results");
-const DATASETS_DIR = join(import.meta.dir, "../datasets");
 
 /** Same run-directory rule the rest of the benchmark reads by (see `coverage.ts`). */
 const RUN_DIR_PATTERN = /^\d{4}-\d{2}-\d{2}/;
-
-/**
- * Warmup count for a run whose `stt.json` does not record one. Every run so far writes
- * `config.warmupCount`, and that recorded value wins: it is what the run actually did,
- * where this constant is only what the current build would do.
- */
-const FALLBACK_WARMUP_COUNT = 3;
-
-/**
- * How far `wer * referenceWords` may sit from a whole number before the leaf is refused.
- * The caller-facing bar, deliberately loose.
- */
-const RECONCILE_TOLERANCE = 0.5;
-
-/**
- * How close a recount has to land before it is treated as *the* denominator rather than
- * a near miss. An exact recount reconciles to floating-point noise, so this is the
- * threshold that actually discriminates - `RECONCILE_TOLERANCE` alone would have
- * accepted every wrongly-ordered LibriSpeech recount below.
- */
-const EXACT_EPSILON = 1e-6;
-
-/**
- * The orderings a dataset's sample may have been drawn in.
- *
- * More than one exists because the sampling changed: LibriSpeech was taken in
- * filesystem-traversal order until d8b91ee ("use seeded shuffle for both",
- * 2026-05-09), and the three May runs in the archive predate it. Those runs scored a
- * different set of utterances than today's manifest yields at the same depth, so
- * recounting under the current ordering produces a denominator that is not theirs - it
- * is close enough to look right and reconciles to nothing.
- *
- * Orderings are tried in this order and the first that reconciles wins, so current runs
- * cost one attempt and the archival ordering is only reached by a run that needs it.
- * Nothing here guesses: an ordering is accepted because the recorded WER divides by its
- * count into whole errors, and reported by name when it is not the current one.
- */
-const SAMPLE_ORDERINGS = ["seeded shuffle", "pre-shuffle traversal"] as const;
-
-type SampleOrdering = (typeof SAMPLE_ORDERINGS)[number];
-
-/** A `ModelDatasetResult` as it sits in a file, before any migration. */
-interface RawLeaf {
-  wer: number;
-  cer?: number;
-  referenceWords?: number;
-  referenceChars?: number;
-  utteranceCount: number;
-  [key: string]: unknown;
-}
-
-function isRawLeaf(value: unknown): value is RawLeaf {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.wer === "number" &&
-    typeof candidate.utteranceCount === "number"
-  );
-}
-
-/** One leaf located in a file, with enough context to name it in a report. */
-interface LocatedLeaf {
-  datasetKey: string;
-  /** Model id, suffixed with the harness bucket when the file has that level. */
-  modelLabel: string;
-  leaf: RawLeaf;
-}
-
-/**
- * Walk a `librispeech` or `fleurs` block, tolerating both on-disk shapes.
- *
- * Files written before ASR Harness became a dimension are `[dataset][model]`; newer
- * ones are `[dataset][harness][model]`. This deliberately does not go through
- * `normalizeDatasetResults`: that migrates the old shape into the new one, and writing
- * the migrated object back would restructure archive files that are only supposed to
- * gain a field.
- */
-function locateLeaves(block: unknown): LocatedLeaf[] {
-  if (!block || typeof block !== "object") return [];
-  const found: LocatedLeaf[] = [];
-
-  for (const [datasetKey, byKey] of Object.entries(
-    block as Record<string, unknown>,
-  )) {
-    if (!byKey || typeof byKey !== "object") continue;
-    for (const [key, value] of Object.entries(
-      byKey as Record<string, unknown>,
-    )) {
-      if (isRawLeaf(value)) {
-        // Pre-harness shape: `key` is the model id.
-        found.push({ datasetKey, modelLabel: key, leaf: value });
-        continue;
-      }
-      if (!value || typeof value !== "object") continue;
-      for (const [modelId, leaf] of Object.entries(
-        value as Record<string, unknown>,
-      )) {
-        if (!isRawLeaf(leaf)) continue;
-        found.push({ datasetKey, modelLabel: `${modelId}@${key}`, leaf });
-      }
-    }
-  }
-  return found;
-}
-
-const manifestCache = new Map<string, ManifestEntry[] | null>();
-
-/**
- * A dataset's full manifest in one ordering, unsliced. `null` when the dataset is not
- * on disk, or when the ordering does not apply to it.
- *
- * Durations are skipped: this only needs transcripts, and measuring a duration means
- * reading the whole wav, which would compete for disk with any Benchmark Run in flight.
- * Ordering and selection do not depend on them.
- */
-function manifestFor(
-  datasetKey: string,
-  ordering: SampleOrdering,
-): ManifestEntry[] | null {
-  const cacheKey = `${datasetKey}:${ordering}`;
-  const cached = manifestCache.get(cacheKey);
-  if (cached !== undefined) return cached;
-
-  // Dataset keys are LibriSpeech split names (`test-clean`, `test-other`) or FLEURS
-  // locale codes; the report tells them apart by the same prefix.
-  const isLibriSpeech = datasetKey.startsWith("test-");
-
-  let entries: ManifestEntry[] = [];
-  if (isLibriSpeech) {
-    entries = buildLibriSpeechManifest(DATASETS_DIR, datasetKey, {
-      withDurations: false,
-      withShuffle: ordering === "seeded shuffle",
-    });
-  } else if (ordering === "seeded shuffle") {
-    // FLEURS has only ever been seeded, so there is no second ordering to try.
-    // Unsliced: the depth a leaf was scored at comes from the leaf, not from a sample
-    // size chosen here.
-    entries = buildFleursManifest(
-      DATASETS_DIR,
-      datasetKey,
-      Number.MAX_SAFE_INTEGER,
-      { withDurations: false },
-    );
-  }
-
-  const result = entries.length > 0 ? entries : null;
-  manifestCache.set(cacheKey, result);
-  return result;
-}
-
-interface Denominators {
-  referenceWords: number;
-  /** Null when no entry in the slice carries a raw transcript to score CER against. */
-  referenceChars: number | null;
-}
-
-const denominatorCache = new Map<string, Denominators | null>();
-
-/**
- * Reference counts for the scored slice of a dataset at a given depth and ordering.
- *
- * Depends only on (dataset, ordering, warmup, depth) - never on the model - so every
- * model that ran the same dataset at the same depth shares one computation.
- */
-function denominatorsFor(
-  datasetKey: string,
-  ordering: SampleOrdering,
-  warmupCount: number,
-  depth: number,
-): Denominators | null {
-  const cacheKey = `${datasetKey}:${ordering}:${warmupCount}:${depth}`;
-  const cached = denominatorCache.get(cacheKey);
-  if (cached !== undefined) return cached;
-
-  const manifest = manifestFor(datasetKey, ordering);
-  if (!manifest || manifest.length < warmupCount + depth) {
-    denominatorCache.set(cacheKey, null);
-    return null;
-  }
-
-  let referenceWords = 0;
-  let referenceChars = 0;
-  let cerScorable = 0;
-  for (const entry of manifest.slice(warmupCount, warmupCount + depth)) {
-    referenceWords += tokenizeForWer(entry.transcript).length;
-    // CER is scored against the raw transcript, and only where the manifest has one -
-    // the same condition `runner.ts` applies when accumulating `totalRefChars`.
-    if (entry.rawTranscript) {
-      referenceChars += tokenizeForCer(entry.rawTranscript).length;
-      cerScorable++;
-    }
-  }
-
-  const result: Denominators = {
-    referenceWords,
-    referenceChars: cerScorable > 0 ? referenceChars : null,
-  };
-  denominatorCache.set(cacheKey, result);
-  return result;
-}
-
-/** How far `rate * count` sits from a whole number of errors. */
-function deviation(rate: number, count: number): number {
-  const errors = rate * count;
-  return Math.abs(errors - Math.round(errors));
-}
 
 interface Failure {
   runName: string;
@@ -340,24 +140,10 @@ function main(): void {
 
       // Pick the ordering history actually used, by asking which one divides the
       // recorded WER into whole errors.
-      let best: { ordering: SampleOrdering; counts: Denominators } | null =
-        null;
-      let bestDeviation = Number.POSITIVE_INFINITY;
-      for (const ordering of SAMPLE_ORDERINGS) {
-        const counts = denominatorsFor(
-          item.datasetKey,
-          ordering,
-          warmupCount,
-          leaf.utteranceCount,
-        );
-        if (!counts) continue;
-        const dev = deviation(leaf.wer, counts.referenceWords);
-        if (dev < bestDeviation) {
-          bestDeviation = dev;
-          best = { ordering, counts };
-        }
-        if (dev <= EXACT_EPSILON) break;
-      }
+      const verdict = detectSampleOrdering(item.datasetKey, warmupCount, leaf);
+      const best: { ordering: SampleOrdering; counts: Denominators } | null =
+        verdict;
+      const bestDeviation = verdict?.deviation ?? Number.POSITIVE_INFINITY;
 
       if (!best) {
         failures.push({
@@ -440,7 +226,7 @@ function main(): void {
       // The ordering is named only when it is not the current one, so a line without a
       // note means the sample reproduces exactly as a run today would draw it.
       const note =
-        ordering === SAMPLE_ORDERINGS[0] ? "" : `  [${ordering} ordering]`;
+        ordering === CURRENT_SAMPLE_ORDERING ? "" : `  [${ordering} ordering]`;
       console.log(`  ${item.datasetKey}/${item.modelLabel}: ${detail}${note}`);
       fieldsFilled += fills.length;
       if (write) for (const fill of fills) item.leaf[fill.field] = fill.value;

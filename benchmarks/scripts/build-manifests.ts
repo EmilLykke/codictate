@@ -17,6 +17,25 @@ function estimateWavDurationSec(filePath: string): number {
 }
 
 /**
+ * Fill in `audioDurationSec` for the entries a Benchmark Run is about to transcribe.
+ *
+ * The companion to `withDurations: false`. A run now builds each dataset's *whole* ordered
+ * manifest - it has to, because the sample cursor indexes into that list and its
+ * fingerprint is taken over it - and reading the duration of every clip in every pool means
+ * reading roughly a gigabyte off disk to transcribe a few hundred of them. Durations are
+ * the denominator of RTF, so they are still measured, just only where they are used.
+ */
+export function hydrateDurations(
+  entries: readonly ManifestEntry[],
+): ManifestEntry[] {
+  return entries.map((entry) =>
+    entry.audioDurationSec > 0
+      ? entry
+      : { ...entry, audioDurationSec: estimateWavDurationSec(entry.audioPath) },
+  );
+}
+
+/**
  * Options for building a manifest.
  *
  * `withDurations` exists because measuring a duration means reading the whole wav, so
@@ -153,6 +172,16 @@ const FLEURS_TO_CODICTATE_LANG: Record<string, string> = {
   ca_es: "ca",
 };
 
+/**
+ * FLEURS entries for one locale, in seeded order.
+ *
+ * `sampleSize` truncates the ordered list, which a Benchmark Run must not do any more: the
+ * sample cursor indexes into the full ordered pool and its fingerprint is taken over the
+ * whole thing, so a truncated list would fingerprint differently at every depth. Pass
+ * `Number.MAX_SAFE_INTEGER` for the full pool. The parameter survives for the standalone
+ * `manifests.json` dump at the bottom of this file, which is a sample preview and not a
+ * cursor.
+ */
 export function buildFleursManifest(
   datasetsDir: string,
   fleursLang: string,
@@ -209,16 +238,27 @@ export function buildFleursManifest(
   const shuffled = seededShuffle(rawEntries, 42);
   const sampled = shuffled.slice(0, sampleSize);
 
+  const truncated = sampled.length < rawEntries.length;
   console.log(
-    `[manifest] FLEURS ${fleursLang}: ${sampled.length}/${rawEntries.length} utterances (sample ${sampleSize})`,
+    `[manifest] FLEURS ${fleursLang}: ${sampled.length}/${rawEntries.length} utterances${truncated ? ` (sample ${sampleSize})` : ""}`,
   );
   return sampled;
 }
 
+/**
+ * Every selected dataset's *complete* ordered manifest, without durations.
+ *
+ * Complete and unsliced because the sample cursor is an offset into this list: a run that
+ * built a 400-entry prefix could neither fingerprint the ordering nor tell how many clips
+ * are left. Depth is chosen afterwards, per (Speech Model, dataset), by
+ * `planRange` in `stt/sample-cursor.ts`.
+ *
+ * Without durations because building every pool in full would otherwise read every wav in
+ * the datasets directory. `hydrateDurations` measures the selected clips instead.
+ */
 export function buildAllManifests(
   datasetsDir: string,
   fleursLanguages: string[],
-  sampleSize: number,
   librispeechSplits: readonly string[] = LIBRISPEECH_SPLITS,
 ): {
   librispeech: Record<string, ManifestEntry[]>;
@@ -226,13 +266,20 @@ export function buildAllManifests(
 } {
   const librispeech: Record<string, ManifestEntry[]> = {};
   for (const split of librispeechSplits) {
-    const entries = buildLibriSpeechManifest(datasetsDir, split);
+    const entries = buildLibriSpeechManifest(datasetsDir, split, {
+      withDurations: false,
+    });
     if (entries.length > 0) librispeech[split] = entries;
   }
 
   const fleurs: Record<string, ManifestEntry[]> = {};
   for (const lang of fleursLanguages) {
-    const entries = buildFleursManifest(datasetsDir, lang, sampleSize);
+    const entries = buildFleursManifest(
+      datasetsDir,
+      lang,
+      Number.MAX_SAFE_INTEGER,
+      { withDurations: false },
+    );
     if (entries.length > 0) fleurs[lang] = entries;
   }
 
@@ -241,11 +288,7 @@ export function buildAllManifests(
 
 if (import.meta.main) {
   const datasetsDir = join(import.meta.dir, "../datasets");
-  const result = buildAllManifests(
-    datasetsDir,
-    ["es_419", "da_dk", "hu_hu"],
-    200,
-  );
+  const result = buildAllManifests(datasetsDir, ["es_419", "da_dk", "hu_hu"]);
   const outputDir = join(import.meta.dir, "../results");
   mkdirSync(outputDir, { recursive: true });
   Bun.write(join(outputDir, "manifests.json"), JSON.stringify(result, null, 2));

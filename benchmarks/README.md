@@ -20,9 +20,127 @@ Those whisper-cli numbers can never be re-measured, so **two separate concepts**
 - **Runnable Harness** - `ASR_HARNESS_IDS` in `src/shared/asr-harness.ts`. What a new run may execute. Used for `--harness` validation and for building a run plan.
 - **Archived Harness label** - `BENCHMARK_HARNESS_LABELS` in `stt/results-schema.ts`. What a Harness key in a result file may legitimately say. Append-only, and still contains `whisper-cli`. **Every read path must validate against this one**: parsing, migration, flattening, coverage, reporting, checkpoint resume, and `stt/charts.py`.
 
-`stt/results-archive.manual.ts` reads the four real run directories and fails if any archived whisper-cli bucket stops parsing. It is pinned to those four runs, so it sits outside the default `bun test` run (hence the `.manual.ts` suffix) and CI never touches it. Run it with `bun test ./benchmarks/stt/results-archive.manual.ts`, and update its pinned run list and counts whenever a Benchmark Run is archived.
+`stt/results-archive.manual.ts` reads the real run directories and fails if any archived whisper-cli bucket stops parsing, or if the sample cursors derived from them move. It is pinned to the seven runs that exist today, so it sits outside the default `bun test` run (hence the `.manual.ts` suffix) and CI never touches it. Run it with `bun test ./benchmarks/stt/results-archive.manual.ts`, and update its pinned run list and counts whenever a Benchmark Run is archived.
 
 In reports and charts, rows from the shipping Harness carry a bare Model ID and every other archived Harness is tagged, so archived rows read as `Large V3 q5_0 [whisper-cli]`. A run spanning more than one Harness also gets an **ASR Harnesses** line in the report header naming which Harness the untagged rows came from. Parakeet and hviske ignore the selected Harness (their own helper, and crispasr's pinned `cohere` backend) and are always recorded under the Harness that actually produced them.
+
+## Sample selection: the cursor
+
+`--samples N` means **N clips this Speech Model has not been measured on before**, accumulated across runs. It is a delta, not a slice. Three runs of `--samples 400` measure clips 1-400, then 401-800, then 801-1200, so a long benchmark can be done in sessions and never repeats work.
+
+Everything below follows from one fact: each dataset's manifest is a **deterministic ordered list**. `seededShuffle(..., 42)` in `scripts/build-manifests.ts` fixes the order, so "which clips has this Combination seen" is fully described by an integer offset into that list. No per-clip identity is stored, because none is needed - and the harness never kept any.
+
+### The warmup reservation
+
+The first **3 entries of every dataset's ordered manifest are reserved permanently**. They are replayed at the start of every (Speech Model, dataset) session so the model is warm, they are never scored, and they never advance the cursor. Warmups still run for every model in a multi-model run - that is what they are for - and for a checkpoint resume too, which is a fresh cold process.
+
+Before the cursor existed, warmups came off the head of the requested slice, so every session would have burned three fresh clips warming up and scored the rest. That is what the reservation stops.
+
+Consumable indices therefore start at manifest entry 3: cursor 0 is `manifest[3]`. The pools are 2617 and 2936 consumable clips for LibriSpeech `test-clean` / `test-other`, and 905 / 927 / 902 for FLEURS `es_419` / `da_dk` / `hu_hu`.
+
+### Where the cursor comes from
+
+It is **derived, never hand-maintained**. Every leaf in every run's `stt.json` records the range it measured:
+
+```json
+"sampleRange": {
+  "startIndex": 397,
+  "endIndex": 797,
+  "manifestFingerprint": "905:c3fd7a9081e6bef6"
+}
+```
+
+`[startIndex, endIndex)` is a half-open range of *consumable* indices, so `endIndex - startIndex` equals the leaf's `utteranceCount`. The cursor for one (Harness bucket, Speech Model, dataset) is the **deepest `endIndex` across every run whose fingerprint matches the manifest on disk**. `loadCoverage` in `stt/coverage.ts` does the scan and caches it to `benchmarks/.cache/results-scan.json`, keyed by each `stt.json`'s size and mtime; the run directories stay the source of truth and deleting the cache only costs a rescan.
+
+The root aggregate `benchmarks/results/stt.json` is deliberately **not** read, exactly as coverage already ignored it. It is a merge of leaves that are already counted, so reading it would double-count them.
+
+The cursor is per Speech Model, never global. Every model walks the same ordered list from the start, so a model at 800 and a model at 400 are compared on the same first 400 clips rather than on disjoint slices.
+
+### The manifest fingerprint, and why a mismatch is fatal
+
+The fingerprint is `<count>:<first 16 hex of sha256>` over the ordered clip ids joined by newlines, taken over the **whole** list including the reserved warmups. The count is in the token because it is the part a human can check by eye, and a pool that gained or lost clips is the likeliest cause of a mismatch.
+
+If a stored fingerprint for a selected dataset is not the fingerprint on disk, **the run refuses to start**:
+
+```
+Error: the ordered clip list for "hu_hu" has changed since it was last measured.
+  recorded ordering: 905:c3fd7a9081e6bef6  (2026-09-04_08-28-52_curated-400-wispr-comparison)
+  ordering on disk:  902:1f0c4b7a9d2e5831
+```
+
+An offset into a list that has changed is not a shallower measurement of the same sample - it points at clips nobody chose. Restarting the cursor from zero would silently re-measure some clips and claim a depth over others, which is why this is fatal rather than a warning. Fix the dataset so the ordering matches, or archive those runs and re-derive the cursors deliberately.
+
+### The plan preview
+
+Every run prints its whole plan before transcribing anything, per model and dataset, because a delta is destructive by default:
+
+```
+--- Plan: 400 new clips per dataset (--samples, a delta from each cursor) ---
+  [large-v3-q5_0] hu_hu: cursor 397 -> 797 (clips 398-797 of 902 consumable, 105 remaining after)
+
+  400 clips to transcribe across 1 combination
+```
+
+`--plan-only` prints exactly that and exits, downloading nothing and writing nothing, so it is safe to run while another benchmark is in flight.
+
+### Exhaustion
+
+A dataset with fewer clips left than asked for runs what remains, records the true depth, and **continues to the next dataset**. Nothing throws and nothing wraps around:
+
+```
+  [large-v3-q5_0] hu_hu: cursor 850 -> 902 (clips 851-902 of 902 consumable, 52 of 400 requested - dataset exhausted, 0 remaining after)
+  [large-v3-q5_0] hu_hu: cursor 902 -> 902 (nothing left: all 902 consumable clips measured)
+```
+
+### Running a corpus in sessions
+
+Suppose you want `small-q5_1` and `large-v3-q5_0` measured on 1200 FLEURS Hungarian clips, an evening at a time.
+
+```bash
+# Session 1. Both models start wherever the archive left them - large-v3-q5_0 at 397 from
+# the September run, small-q5_1 at 0 under crispasr - so check before committing an evening:
+bun run bench:stt -- --plan-only --models small-q5_1,large-v3-q5_0 --splits none --languages hu_hu --samples 400
+#   [small-q5_1]    hu_hu: cursor 0   -> 400 (clips 1-400   of 902 consumable, 502 remaining after)
+#   [large-v3-q5_0] hu_hu: cursor 397 -> 797 (clips 398-797 of 902 consumable, 105 remaining after)
+
+bun run bench:stt -- --name hu-session-1 --description "Hungarian, first 400 each" \
+  --models small-q5_1,large-v3-q5_0 --splits none --languages hu_hu --samples 400
+
+# Session 2. Same command, new name. Each model continues from its own cursor; neither
+# re-transcribes a clip from session 1.
+bun run bench:stt -- --name hu-session-2 --description "Hungarian, next 400 each" \
+  --models small-q5_1,large-v3-q5_0 --splits none --languages hu_hu --samples 400
+
+# Levelling up instead of adding on: bring both to exactly 800, whatever they are at now.
+# Idempotent, so if the session dies at 03:00 you paste the same line again.
+bun run bench:stt -- --name hu-to-800 --description "Hungarian, both models to 800" \
+  --models small-q5_1,large-v3-q5_0 --splits none --languages hu_hu --to 800
+```
+
+An interrupted session leaves a `checkpoint.json` and no `stt.json`. Re-running **the same `--name`** resumes it: an unfinished run of that name is not a name collision, and the resume finishes the range the checkpoint recorded rather than re-slicing from the cursor - which could not see the unfinished run anyway. A completed run's name is still refused.
+
+### Migrating the archive, and one deliberate hole
+
+`sampleRange` was backfilled onto the seven archived runs by:
+
+```bash
+bun run benchmarks/scripts/backfill-sample-ranges.ts          # dry run
+bun run benchmarks/scripts/backfill-sample-ranges.ts --write
+```
+
+The arithmetic: old sampling was `entries.slice(0, samples)` with the first `config.warmupCount` entries transcribed but not scored, and those are the same entries the cursor now reserves - so a leaf recording `utteranceCount: N` consumed consumable entries `[0, N)`. It is verified per leaf, not trusted: the recount for the ordering the run used must divide the recorded `wer` into a whole number of errors, and must equal the `referenceWords` already on the leaf. 196 of 296 leaves were filled that way, every one reconciling exactly.
+
+**The other 100 leaves got no range on purpose.** LibriSpeech was drawn in filesystem-traversal order until d8b91ee ("use seeded shuffle for both", 2026-05-09), and three runs predate it:
+
+- `2026-05-08_07-56-46_main-model-comparison`
+- `2026-05-09_10-12-34_tiny-base-triage`
+- `2026-05-09_15-40-49_full-run-except-tiny-base`
+
+For those runs' `test-clean` and `test-other` leaves, `utteranceCount` maps to no offset in the seeded ordering - the clips they scored are scattered through today's list. Writing a range would claim those Combinations had measured clips they have never seen, which is unfixable; leaving the cursor at 0 only costs re-measurement. So **those (Speech Model, LibriSpeech split) cursors stay at 0 and will re-measure some clips they have already been scored on once.** The pools are 2620 and 2939 clips, so the waste is bounded and correctness is unaffected. FLEURS in those same three runs backfilled normally, and so did everything in the August and September runs - including the whisper-cli bucket of `2026-08-17_15-15-49_crispasr-vs-whisper`, which ran *after* d8b91ee and therefore does carry LibriSpeech cursors at 17.
+
+A leaf with no `sampleRange` contributes nothing to any cursor. That is the rule the migration relies on, so never infer a depth from `utteranceCount`.
+
+The coverage badge in the TUI shows both numbers, because they can legitimately disagree: `✓ measured 47, cursor 0` is a Combination that was measured 47 clips deep in an ordering nobody can index.
 
 ## Prerequisites
 
@@ -62,17 +180,20 @@ bun run bench:stt -- --name hviske-danish --description "hviske on Danish only" 
 # Quick test run with fewer samples
 bun run bench:stt -- --name smoke --description "Quick smoke test" --samples 10
 
-# Continue a previous run - only benchmark models not yet in stt.json
-bun run bench:stt -- --name small-medium --description "Add small and medium models" --models small,small-q5_1,medium,medium-q5_1 --skip-existing
+# See exactly which clips a run would measure, and run nothing
+bun run bench:stt -- --plan-only --models large-v3-q5_0 --splits none --languages hu_hu --samples 400
+
+# Add 400 more clips per dataset to whatever each model has already been measured on
+bun run bench:stt -- --name deeper --description "Another 400 clips per dataset" --models small,small-q5_1 --samples 400
+
+# Top every selected model up to depth 800, no matter where it started. Safe to re-run
+bun run bench:stt -- --name to-800 --description "Every curated model to 800 clips" --models small-q5_1,large-v3-q5_0 --to 800
 
 # Benchmark all models, free disk space as each model finishes
 bun run bench:stt -- --name full-run --description "All models, cleanup after" --offload-models
 
-# Combine both: skip already-benchmarked models and offload when done
-bun run bench:stt -- --name full-run --description "Continue full run, free disk" --skip-existing --offload-models
-
 # Benchmark new models without re-downloading datasets
-bun run bench:stt -- --name new-models --description "Test new quantizations" --models large-v3-q8_0,medium-q8_0 --skip-download --skip-convert --skip-existing
+bun run bench:stt -- --name new-models --description "Test new quantizations" --models large-v3-q8_0,medium-q8_0 --skip-download --skip-convert
 
 # Regenerate reports + charts for all runs
 bun run bench:stt -- --report-only
@@ -86,15 +207,18 @@ bun run bench:stt -- --report-only
 | `--name`           | **required**       | Slug appended to results directory, used as URL path on website                                                 |
 | `--description`    | **required**       | Goal/context for this benchmark run (stored in stt.json, shown in report)                                       |
 | `--models`         | all                | Comma-separated model IDs (all 34 models if omitted)                                                            |
-| `--samples`        | 200                | Max utterances per dataset/language                                                                             |
+| `--samples`        | 200                | **A delta.** Clips per dataset this model has *not* been measured on yet. Mutually exclusive with `--to`         |
+| `--to`             | -                  | **A target depth.** Run whatever is needed to reach depth N per dataset; a no-op where it is already reached     |
+| `--plan-only`      | false              | Print the plan preview and exit. Downloads nothing, converts nothing, writes nothing                            |
 | `--splits`         | all                | LibriSpeech splits (`test-clean,test-other`). `none` selects no LibriSpeech at all                              |
 | `--languages`      | es_419,da_dk,hu_hu | FLEURS language codes. `none` selects no FLEURS at all                                                          |
 | `--skip-download`  | false              | Skip dataset and model download step                                                                            |
 | `--skip-convert`   | false              | Skip audio conversion step                                                                                      |
-| `--skip-existing`  | false              | Load latest stt.json and skip model/dataset combos already benchmarked                                          |
 | `--offload-models` | false              | Delete downloaded models from disk after all benchmarks complete                                                |
 | `--report-only`    | false              | Regenerate markdown from existing stt.json                                                                      |
 | `--aggregate`      | false              | Merge every run's stt.json into `results/stt.json` and write the combined report at the results root            |
+
+`--skip-existing` **has been removed.** It skipped a whole (Harness, Speech Model, dataset) Combination that already had results at the requested depth, which was the closest thing to a cursor this benchmark had. The cursor replaces it exactly: nothing is ever re-run, so there is nothing to skip. Passing it now fails with that explanation rather than being silently ignored.
 
 `--splits none` and `--languages none` are how a language-pinned Speech Model gets benchmarked on only the language it can decode: `hviske-v5-tiny-q5_0` transcribes as Danish whatever it is handed, so an English LibriSpeech split measures Danish decoding of English speech rather than the model. Run it with `--splits none --languages da_dk`, which writes a legal empty `librispeech: {}` into `stt.json`. Passing `none` to both is rejected - there would be nothing to benchmark.
 
@@ -102,7 +226,7 @@ bun run bench:stt -- --report-only
 
 ## Output
 
-- `benchmarks/results/<timestamp>_<name>/stt.json` - machine-readable results with hardware metadata
+- `benchmarks/results/<timestamp>_<name>/stt.json` - machine-readable results with hardware metadata. `config.sampleSize` is the deepest cursor the run reached, not the number of clips it transcribed; `config.sampleSelection` records the flag that was given, and each leaf carries its own `sampleRange`
 - `benchmarks/results/<timestamp>_<name>/report.md` - markdown report with charts
 - `benchmarks/results/<timestamp>_<name>/*.png` - chart images
 - Markdown table printed to stdout
@@ -132,7 +256,9 @@ It recounts the scored slice of each dataset at each depth and refuses to write 
 that does not divide the recorded rate into whole errors. Two sample orderings are tried,
 because LibriSpeech was drawn in filesystem-traversal order until d8b91ee (2026-05-09) and
 the three May runs predate the seeded shuffle; the ordering used is named in the output
-whenever it is not the current one.
+whenever it is not the current one. That detection lives in `scripts/sample-ordering.ts`,
+shared with `scripts/backfill-sample-ranges.ts` so the two migrations cannot disagree about
+which ordering a run used.
 
 ## Adding Languages
 

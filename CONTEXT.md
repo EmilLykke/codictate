@@ -71,3 +71,9 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 **Benchmark Combination** - one (Harness, Speech Model, dataset, language) tuple. "Already benchmarked" is a property of a Combination, not of a Speech Model.
 
 **Sample** - one utterance from a dataset. Sample count is recorded per Combination, so the same Combination can exist at different depths across Benchmark Runs.
+
+**Sample Cursor** - how many of a dataset's ordered clips one Benchmark Combination has already been measured on, as an integer offset. Derived from the `sampleRange` each result leaf records, never hand-maintained. `--samples N` is a delta from it, so sessions accumulate and no clip is ever measured twice.
+
+**Warmup Reservation** - the first three entries of every dataset's ordered manifest, replayed at the start of every (Speech Model, dataset) session to warm the model. Never scored, and never consumed by the Sample Cursor.
+
+**Manifest Fingerprint** - a stable hash of a dataset's ordered clip-ID list, stored beside every recorded range. A Sample Cursor offset is meaningful only against the ordering it was recorded under, so a mismatch stops the Benchmark Run.

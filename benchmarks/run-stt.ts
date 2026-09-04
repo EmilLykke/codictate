@@ -13,7 +13,11 @@ import {
   DEFAULT_FLEURS_LANGUAGES,
 } from "./scripts/download-fleurs";
 import { convertLibriSpeech } from "./scripts/convert-audio";
-import { buildAllManifests } from "./scripts/build-manifests";
+import {
+  buildAllManifests,
+  hydrateDurations,
+  type ManifestEntry,
+} from "./scripts/build-manifests";
 import { benchmarkModel, type PartialProgress } from "./stt/runner";
 import {
   generateMarkdownReport,
@@ -30,7 +34,22 @@ import {
   type DatasetResults,
 } from "./stt/results-schema";
 import { LIBRISPEECH_SPLITS, isLibriSpeechSplit } from "./stt/datasets";
-import { loadCoverage, isCombinationCovered } from "./stt/coverage";
+import { loadCoverage } from "./stt/coverage";
+import {
+  consumableEntries,
+  cursorFor,
+  formatFingerprintConflict,
+  formatPlanLine,
+  manifestFingerprint,
+  manifestFingerprintConflicts,
+  planRange,
+  rangeOf,
+  reservedWarmups,
+  WARMUP_RESERVATION,
+  type RangePlan,
+  type SampleDemand,
+  type SampleRange,
+} from "./stt/sample-cursor";
 import { promptBenchmarkPlan } from "./stt/tui";
 import {
   DEFAULT_ASR_HARNESS,
@@ -63,6 +82,17 @@ interface CheckpointData {
     datasetKey: string;
     datasetType: "librispeech" | "fleurs";
     partial: PartialProgress;
+    /**
+     * The consumable range this Combination was measuring when it was interrupted.
+     *
+     * Optional on purpose. `dictation-product-benchmark` mirrors this object in
+     * `src/codictate-compat.ts` and writes a Codictate-shaped `checkpoint.json` from it,
+     * and `loadCheckpoint` casts `inProgress` straight through without validating it - so a
+     * required field here would be a claim about disk data nobody checks, unsound at
+     * runtime rather than caught by the compiler. A checkpoint without it resumes against
+     * the range the plan computes, which is the same range unless the flags changed.
+     */
+    range?: SampleRange;
   };
 }
 
@@ -106,24 +136,6 @@ function findIncompleteRun(): string | null {
       !existsSync(join(dir, "stt.json"))
     ) {
       return dir;
-    }
-  }
-  return null;
-}
-
-function loadLatestResults(): BenchmarkResults | null {
-  if (!existsSync(RESULTS_BASE_DIR)) return null;
-  const runs = readdirSync(RESULTS_BASE_DIR)
-    .filter((d) => /^\d{4}-\d{2}-\d{2}/.test(d))
-    .sort();
-  for (let i = runs.length - 1; i >= 0; i--) {
-    const jsonPath = join(RESULTS_BASE_DIR, runs[i], "stt.json");
-    if (existsSync(jsonPath)) {
-      try {
-        return readResultsFile(jsonPath);
-      } catch {
-        continue;
-      }
     }
   }
   return null;
@@ -185,6 +197,21 @@ function parseDatasetSelection(raw: string): string[] {
   return trimmed.split(",");
 }
 
+/** Clips per dataset a run measures when neither `--samples` nor `--to` is given. */
+const DEFAULT_SAMPLE_DELTA = 200;
+
+/** A flag value that has to be a positive whole number of clips, or the run stops. */
+function parsePositiveInt(raw: string | undefined, flag: string): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    console.error(
+      `Error: ${flag} needs a positive whole number of clips, got "${raw ?? ""}".`,
+    );
+    process.exit(1);
+  }
+  return value;
+}
+
 /**
  * Flags stay the complete interface for CI. The TUI is offered only when
  * `--models` is absent, which is also how a scripted run opts out of it.
@@ -197,16 +224,37 @@ function parseArgs() {
     modelsExplicit: false,
     splits: [...LIBRISPEECH_SPLITS] as string[],
     languages: DEFAULT_FLEURS_LANGUAGES as string[],
-    samples: 200,
+    /**
+     * How much to measure, relative to what each Combination has already been measured
+     * on. Never an absolute slice of the manifest: see `stt/sample-cursor.ts`.
+     */
+    demand: {
+      mode: "delta",
+      count: DEFAULT_SAMPLE_DELTA,
+    } as SampleDemand,
     skipDownload: false,
     skipConvert: false,
-    skipExisting: false,
+    planOnly: false,
     offloadModels: false,
     reportOnly: false,
     aggregate: false,
     noTui: false,
     name: undefined as string | undefined,
     description: undefined as string | undefined,
+  };
+
+  // `--samples` and `--to` answer the same question two ways, so taking both would mean
+  // silently honouring one of them.
+  let demandFlag: string | null = null;
+  const setDemand = (flag: string, demand: SampleDemand) => {
+    if (demandFlag !== null && demandFlag !== flag) {
+      console.error(
+        `Error: ${demandFlag} and ${flag} both set the depth. --samples N runs N more clips than already measured; --to N runs whatever is needed to reach depth N. Pick one.`,
+      );
+      process.exit(1);
+    }
+    demandFlag = flag;
+    flags.demand = demand;
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -252,7 +300,16 @@ function parseArgs() {
         flags.languages = parseDatasetSelection(args[++i]);
         break;
       case "--samples":
-        flags.samples = parseInt(args[++i], 10);
+        setDemand("--samples", {
+          mode: "delta",
+          count: parsePositiveInt(args[++i], "--samples"),
+        });
+        break;
+      case "--to":
+        setDemand("--to", {
+          mode: "target",
+          depth: parsePositiveInt(args[++i], "--to"),
+        });
         break;
       case "--skip-download":
         flags.skipDownload = true;
@@ -261,7 +318,17 @@ function parseArgs() {
         flags.skipConvert = true;
         break;
       case "--skip-existing":
-        flags.skipExisting = true;
+        // Removed rather than ignored. It skipped a whole (Harness, Speech Model, dataset)
+        // Combination that already had results at this depth, which was the closest thing
+        // to a cursor this benchmark had. The cursor replaces it exactly: nothing is ever
+        // re-run, because `--samples` now means "clips not yet measured".
+        console.error(
+          "Error: --skip-existing has been removed. --samples N now means N clips this Speech Model has not been measured on before, so a Combination is never re-run and there is nothing to skip. Use --to N to top a Combination up to a fixed depth.",
+        );
+        process.exit(1);
+        break;
+      case "--plan-only":
+        flags.planOnly = true;
         break;
       case "--offload-models":
         flags.offloadModels = true;
@@ -284,6 +351,36 @@ function parseArgs() {
     }
   }
   return flags;
+}
+
+/** One dataset's ordered manifest, split into what warms and what counts. */
+interface DatasetPool {
+  datasetType: "librispeech" | "fleurs";
+  datasetKey: string;
+  /** Human label used in logs and in the result report. */
+  label: string;
+  /** The permanent warmup reservation: replayed every session, never scored. */
+  warmups: ManifestEntry[];
+  /** Everything a cursor indexes, in order. Index 0 is manifest entry 3. */
+  consumable: ManifestEntry[];
+  fingerprint: string;
+}
+
+/** One (Harness, Speech Model, dataset) tuple and the range it will measure. */
+interface PlannedCombination {
+  harness: AsrHarnessId;
+  /** The Harness label the result is filed under, which is what the cursor is keyed by. */
+  bucket: BenchmarkHarnessLabel;
+  modelId: string;
+  pool: DatasetPool;
+  plan: RangePlan;
+}
+
+/** The demand in one phrase, for the header and the plan heading. */
+function describeDemand(demand: SampleDemand): string {
+  return demand.mode === "delta"
+    ? `${demand.count} new clip${demand.count === 1 ? "" : "s"} per dataset (--samples, a delta from each cursor)`
+    : `depth ${demand.depth} per dataset (--to, a target; already-measured clips are not re-run)`;
 }
 
 function getHardwareInfo(): BenchmarkResults["hardware"] {
@@ -438,7 +535,9 @@ async function main() {
     flags.models = plan.models;
     flags.splits = plan.splits;
     flags.languages = plan.languages;
-    flags.samples = plan.samples;
+    // The TUI only ever offers a delta: it exists to add coverage, and a target depth is a
+    // scripted, re-runnable intent that belongs on the command line.
+    flags.demand = { mode: "delta", count: plan.samples };
     flags.name = plan.name;
     flags.description = plan.description;
   }
@@ -449,8 +548,9 @@ async function main() {
   console.log(`Models: ${flags.models.join(", ")}`);
   console.log(`LibriSpeech splits: ${flags.splits.join(", ") || "none"}`);
   console.log(`FLEURS languages: ${flags.languages.join(", ") || "none"}`);
-  console.log(`Samples: ${flags.samples}`);
-  if (flags.skipExisting) console.log("Skip existing: ON");
+  console.log(`Depth: ${describeDemand(flags.demand)}`);
+  if (flags.planOnly)
+    console.log("Plan only: ON (nothing will be transcribed)");
   if (flags.offloadModels) console.log("Offload models: ON");
   console.log("");
 
@@ -464,7 +564,15 @@ async function main() {
     process.exit(1);
   }
 
-  if (!flags.name) {
+  // A plan preview writes nothing and creates no run directory, so it needs no identity.
+  // It also reads only what is already on disk - hence no download and no convert - which
+  // is what makes it safe to run while something else is benchmarking.
+  if (flags.planOnly) {
+    flags.skipDownload = true;
+    flags.skipConvert = true;
+  }
+
+  if (!flags.name && !flags.planOnly) {
     console.error(
       "Error: --name is required. Used as URL slug for the benchmark page.",
     );
@@ -474,7 +582,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(flags.name)) {
+  if (flags.name && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(flags.name)) {
     console.error(`Error: invalid name "${flags.name}".`);
     console.error(
       "  Must be lowercase, alphanumeric, separated by hyphens (e.g. tiny-base-triage)",
@@ -485,45 +593,38 @@ async function main() {
     process.exit(1);
   }
 
-  if (existsSync(RESULTS_BASE_DIR)) {
-    const existing = readdirSync(RESULTS_BASE_DIR).find((d) =>
+  if (flags.name && existsSync(RESULTS_BASE_DIR)) {
+    const sameName = readdirSync(RESULTS_BASE_DIR).filter((d) =>
       d.endsWith(`_${flags.name}`),
     );
-    if (existing) {
+    const finished = sameName.filter((d) =>
+      existsSync(join(RESULTS_BASE_DIR, d, "stt.json")),
+    );
+    if (finished.length > 0) {
       console.error(
-        `Error: name "${flags.name}" already used in ${existing}. Choose a unique name.`,
+        `Error: name "${flags.name}" already used in ${finished[0]}. Choose a unique name.`,
       );
       process.exit(1);
     }
+    // An unfinished run of this name is not a collision, it is this run. `--to N` is meant
+    // to be safe to paste again after an interrupted overnight session, and refusing the
+    // name it was interrupted under would make that impossible without renaming.
+    if (sameName.length > 0) {
+      console.log(
+        `--- "${flags.name}" has an unfinished run (${sameName[0]}); this invocation will resume it ---\n`,
+      );
+    }
   }
 
-  if (!flags.description) {
+  if (!flags.description && !flags.planOnly) {
     console.error(
       "Error: --description is required. Describe the goal of this benchmark run.",
     );
     process.exit(1);
   }
 
-  // Step 1: Load previous results for --skip-existing
-  const previousResults = flags.skipExisting ? loadLatestResults() : null;
-  if (flags.skipExisting) {
-    if (previousResults) {
-      console.log("--- Loaded previous results for --skip-existing ---");
-    } else {
-      console.log(
-        "--- No previous results found, --skip-existing has no effect ---",
-      );
-    }
-    console.log("");
-  }
-
-  // A model is only skipped for download when every Combination it would run in
-  // this harness is already covered at this depth.
-  const coverage = loadCoverage(RESULTS_BASE_DIR);
-  const plannedDatasetKeys = [...flags.splits, ...flags.languages];
-  const skippedModels = new Set<string>();
-
-  // Step 2: Download datasets
+  // Step 1: Datasets on disk. The plan needs every selected dataset's complete ordered
+  // manifest, so downloading and converting come first.
   if (!flags.skipDownload) {
     console.log("--- Downloading datasets ---");
     if (flags.splits.length > 0) await downloadLibriSpeech();
@@ -531,14 +632,165 @@ async function main() {
     console.log("");
   }
 
-  // Step 3: Convert audio
   if (!flags.skipConvert && flags.splits.length > 0) {
     console.log("--- Converting audio ---");
     await convertLibriSpeech(DATASETS_DIR);
     console.log("");
   }
 
-  // Step 4: Download models (skip fully-covered Combinations when --skip-existing)
+  // Step 2: Build the ordered manifests, complete and unsliced.
+  console.log("--- Building manifests ---");
+  const manifests = buildAllManifests(
+    DATASETS_DIR,
+    flags.languages,
+    flags.splits,
+  );
+  console.log("");
+
+  const pools: DatasetPool[] = [];
+  for (const [datasetType, byKey] of [
+    ["librispeech" as const, manifests.librispeech],
+    ["fleurs" as const, manifests.fleurs],
+  ] as const) {
+    for (const [datasetKey, entries] of Object.entries(byKey)) {
+      pools.push({
+        datasetType,
+        datasetKey,
+        label:
+          datasetType === "librispeech"
+            ? `LibriSpeech ${datasetKey}`
+            : `FLEURS ${datasetKey}`,
+        warmups: reservedWarmups(entries),
+        consumable: consumableEntries(entries),
+        fingerprint: manifestFingerprint(entries.map((entry) => entry.id)),
+      });
+    }
+  }
+
+  if (pools.length === 0) {
+    console.error(
+      "Error: none of the selected datasets are on disk. Nothing can be planned, let alone benchmarked.",
+    );
+    console.error(
+      "  Drop --skip-download, or check benchmarks/datasets/ for the splits and locales you asked for.",
+    );
+    process.exit(1);
+  }
+
+  console.log("--- Sample pools ---");
+  for (const pool of pools) {
+    console.log(
+      `  ${pool.datasetKey}: ${WARMUP_RESERVATION} reserved warmup + ${pool.consumable.length} consumable  [ordering ${pool.fingerprint}]`,
+    );
+  }
+  console.log("");
+
+  // Step 3: Where every Combination has got to. Derived from the run directories, which
+  // are the source of truth; the root aggregate is deliberately not read.
+  const coverage = loadCoverage(RESULTS_BASE_DIR);
+  const currentFingerprints = Object.fromEntries(
+    pools.map((pool) => [pool.datasetKey, pool.fingerprint]),
+  );
+
+  // An offset into a list that has changed is not a shallower measurement of the same
+  // sample, it is a pointer into something that no longer exists. Refuse, loudly, rather
+  // than restart the cursor from zero and silently re-measure or skip clips.
+  const conflicts = manifestFingerprintConflicts(
+    coverage.cursors,
+    currentFingerprints,
+  );
+  if (conflicts.length > 0) {
+    for (const conflict of conflicts) {
+      for (const line of formatFingerprintConflict(conflict)) {
+        console.error(line);
+      }
+    }
+    process.exit(1);
+  }
+
+  for (const line of coverage.cursors.inconsistencies) {
+    console.warn(`Warning: ${line}`);
+  }
+
+  // Step 4: Plan every Combination before a single clip runs.
+  const plans: PlannedCombination[] = [];
+  const plannedKeys = new Map<string, PlannedCombination>();
+  for (const harness of flags.harnesses) {
+    for (const modelId of flags.models) {
+      const bucket = harnessBucketForModel(modelId, harness);
+      for (const pool of pools) {
+        // Keyed by the bucket the results are filed under, not by the selected Harness,
+        // because that is the key the cursor is stored under. Parakeet and hviske ignore
+        // the selected Harness, so a two-Harness run must not plan them twice and consume
+        // two ranges for one measurement.
+        const key = `${bucket}|${modelId}|${pool.datasetKey}`;
+        const already = plannedKeys.get(key);
+        if (already) {
+          console.log(
+            `  [${modelId}] ${pool.datasetKey}: planned once under "${bucket}" (harness ${already.harness}); it does not run per selected Harness`,
+          );
+          continue;
+        }
+        const cursor = cursorFor(
+          coverage.cursors,
+          bucket,
+          modelId,
+          pool.datasetKey,
+          pool.fingerprint,
+        );
+        const planned: PlannedCombination = {
+          harness,
+          bucket,
+          modelId,
+          pool,
+          plan: planRange(cursor, pool.consumable.length, flags.demand),
+        };
+        plans.push(planned);
+        plannedKeys.set(key, planned);
+      }
+    }
+  }
+
+  console.log(`--- Plan: ${describeDemand(flags.demand)} ---`);
+  let plannedHarness: string | null = null;
+  for (const planned of plans) {
+    if (flags.harnesses.length > 1 && planned.harness !== plannedHarness) {
+      console.log(`  === Harness: ${planned.harness} ===`);
+      plannedHarness = planned.harness;
+    }
+    console.log(
+      `  ${formatPlanLine(planned.modelId, planned.pool.datasetKey, planned.plan)}`,
+    );
+  }
+
+  const clipsToRun = plans.reduce((total, p) => total + p.plan.count, 0);
+  const combinationsToRun = plans.filter((p) => p.plan.count > 0).length;
+  console.log(
+    `\n  ${clipsToRun} clip${clipsToRun === 1 ? "" : "s"} to transcribe across ${combinationsToRun} combination${combinationsToRun === 1 ? "" : "s"}`,
+  );
+  const exhausted = plans.filter((p) => p.plan.truncated);
+  if (exhausted.length > 0) {
+    console.log(
+      `  ${exhausted.length} combination${exhausted.length === 1 ? "" : "s"} will run short of what was asked for because the dataset is exhausted; the true depth is what gets recorded`,
+    );
+  }
+  console.log("");
+
+  if (flags.planOnly) {
+    console.log(
+      "--plan-only: nothing was transcribed and nothing was written.",
+    );
+    return;
+  }
+
+  if (clipsToRun === 0) {
+    console.log(
+      "Nothing to run: every selected Combination is already measured at this depth. Raise --samples, or --to a deeper target.",
+    );
+    return;
+  }
+
+  // Step 5: Download the models that actually have clips to run.
   if (!flags.skipDownload) {
     console.log("--- Downloading models ---");
     for (const modelId of flags.models) {
@@ -555,28 +807,12 @@ async function main() {
         );
         continue;
       }
-      const buckets = [
-        ...new Set(
-          flags.harnesses.map((h) => harnessBucketForModel(modelId, h)),
-        ),
-      ];
-      if (
-        flags.skipExisting &&
-        plannedDatasetKeys.length > 0 &&
-        buckets.every((bucket) =>
-          plannedDatasetKeys.every((datasetKey) =>
-            isCombinationCovered(
-              coverage,
-              bucket,
-              modelId,
-              datasetKey,
-              flags.samples,
-            ),
-          ),
-        )
-      ) {
-        console.log(`  [${modelId}] skipped (already benchmarked)`);
-        skippedModels.add(modelId);
+      // The cursor makes this exact rather than heuristic: a model with no clips left to
+      // run in any selected dataset has nothing to download weights for.
+      if (!plans.some((p) => p.modelId === modelId && p.plan.count > 0)) {
+        console.log(
+          `  [${modelId}] skipped (nothing left to measure in the selected datasets)`,
+        );
         continue;
       }
       if (modelManager.isModelAvailable(modelId)) {
@@ -600,16 +836,6 @@ async function main() {
     }
     console.log("");
   }
-
-  // Step 5: Build manifests
-  console.log("--- Building manifests ---");
-  const manifests = buildAllManifests(
-    DATASETS_DIR,
-    flags.languages,
-    flags.samples,
-    flags.splits,
-  );
-  console.log("");
 
   // Step 6: Set up run directory + checkpoint
   const existingRunDir = findIncompleteRun();
@@ -650,55 +876,21 @@ async function main() {
   const librispeechResults: DatasetResults = checkpoint?.librispeech ?? {};
   const fleursResults: DatasetResults = checkpoint?.fleurs ?? {};
 
-  // Pre-fill results from previous run
-  if (previousResults) {
-    let prefilledCount = 0;
-    for (const [field, store] of [
-      ["librispeech", librispeechResults],
-      ["fleurs", fleursResults],
-    ] as const) {
-      for (const [datasetKey, byHarness] of Object.entries(
-        previousResults[field],
-      )) {
-        for (const [harness, byModel] of Object.entries(byHarness)) {
-          // Archived labels: a previous run's whisper-cli results are still results,
-          // and pre-filling from them is the whole point of --skip-existing.
-          if (!isBenchmarkHarnessLabel(harness) || !byModel) continue;
-          for (const [modelId, result] of Object.entries(byModel)) {
-            if (
-              flags.models.includes(modelId) &&
-              result.utteranceCount > 0 &&
-              getCombinationResult(store, datasetKey, harness, modelId) ===
-                undefined
-            ) {
-              setCombinationResult(store, datasetKey, harness, modelId, result);
-              prefilledCount++;
-            }
-          }
-        }
-      }
-    }
-    console.log(`  ${prefilledCount} benchmark combinations pre-filled`);
-  }
-
   // Step 7: Run benchmarks
   console.log("--- Running benchmarks ---");
 
-  function getPartial(
-    harness: AsrHarnessId,
-    type: "librispeech" | "fleurs",
-    key: string,
-    modelId: string,
-  ): PartialProgress | undefined {
+  function inProgressFor(
+    planned: PlannedCombination,
+  ): NonNullable<CheckpointData["inProgress"]> | undefined {
     const ip = checkpoint?.inProgress;
     if (
       ip &&
-      ip.harness === harness &&
-      ip.modelId === modelId &&
-      ip.datasetType === type &&
-      ip.datasetKey === key
+      ip.harness === planned.harness &&
+      ip.modelId === planned.modelId &&
+      ip.datasetType === planned.pool.datasetType &&
+      ip.datasetKey === planned.pool.datasetKey
     ) {
-      return ip.partial;
+      return ip;
     }
     return undefined;
   }
@@ -714,22 +906,33 @@ async function main() {
     };
   }
 
-  // Harness is the outer loop so every selected Harness transcribes the same sample
-  // files, which is what makes their WER and RTF comparable.
+  // One pass over the plan printed above, in the order it was printed. Harness is the
+  // outermost dimension of that order so every selected Harness transcribes the same
+  // clips, which is what makes their WER and RTF comparable.
   //
-  // One runnable Harness makes this a one-element loop today, and it stays a loop on
-  // purpose. Harness is a domain dimension rather than a property of the current
-  // binary (CONTEXT.md, docs/adr/0002), the result files and every read path are
+  // One runnable Harness makes that a one-element dimension today, and it stays a
+  // dimension on purpose. Harness is a domain dimension rather than a property of the
+  // current binary (CONTEXT.md, docs/adr/0002), the result files and every read path are
   // permanently multi-Harness because the archive is, and the last Harness swap was
-  // decided by exactly this loop running two of them over identical samples. Keeping
-  // the plan single-valued while the reads stay multi-valued would mean maintaining
-  // two mental models of the same dimension.
-  for (const harness of flags.harnesses) {
-    if (flags.harnesses.length > 1) {
-      console.log(`\n=== Harness: ${harness} ===`);
+  // decided by exactly this loop running two of them over identical samples. Keeping the
+  // plan single-valued while the reads stay multi-valued would mean maintaining two
+  // mental models of the same dimension.
+  let runningHarness: string | null = null;
+  let runningModel: string | null = null;
+
+  for (const planned of plans) {
+    const { harness, bucket, modelId, pool, plan } = planned;
+
+    if (harness !== runningHarness) {
+      if (flags.harnesses.length > 1) {
+        console.log(`\n=== Harness: ${harness} ===`);
+      }
+      runningHarness = harness;
+      runningModel = null;
     }
 
-    for (const modelId of flags.models) {
+    if (modelId !== runningModel) {
+      runningModel = modelId;
       // The header names what actually transcribes, not the Harness that was selected.
       // Parakeet ignores the selected Harness entirely, so printing one next to it read as
       // a claim that crispasr produced the numbers.
@@ -738,82 +941,96 @@ async function main() {
       console.log(
         `\n[${modelId} / ${runsOwnHelper ? "parakeet helper" : harness}]`,
       );
-      const bucket = harnessBucketForModel(modelId, harness);
       if (runsOwnHelper || bucket !== harness) {
         console.log(
           `  [${modelId}] recorded under "${bucket}": Parakeet runs through its own helper, so harness does not apply`,
         );
       }
+    }
 
-      for (const [datasetType, datasetManifests, store, computeCer] of [
-        [
-          "librispeech" as const,
-          manifests.librispeech,
-          librispeechResults,
-          false,
-        ],
-        ["fleurs" as const, manifests.fleurs, fleursResults, true],
-      ] as const) {
-        for (const [datasetKey, entries] of Object.entries(datasetManifests)) {
-          const label =
-            datasetType === "librispeech"
-              ? `LibriSpeech ${datasetKey}`
-              : `FLEURS ${datasetKey}`;
+    const store =
+      pool.datasetType === "librispeech" ? librispeechResults : fleursResults;
+    // CER is scored for FLEURS only: LibriSpeech's reference transcripts are already
+    // normalised upper-case ASCII, so a character rate over them measures nothing.
+    const computeCer = pool.datasetType === "fleurs";
 
-          if (
-            getCombinationResult(store, datasetKey, bucket, modelId) !==
-            undefined
-          ) {
-            console.log(`  [${modelId}] ${label}: skipped (already done)`);
-            continue;
-          }
+    if (
+      getCombinationResult(store, pool.datasetKey, bucket, modelId) !==
+      undefined
+    ) {
+      console.log(`  [${modelId}] ${pool.label}: skipped (already done)`);
+      continue;
+    }
 
-          // Combination-level skipping, opt-in via --skip-existing. Coverage spans every
-          // previous run, so this skips a Combination already recorded at least this deep
-          // even if it came from an older run. Interactive runs never set this: the models
-          // were hand-picked, so they run.
-          if (
-            flags.skipExisting &&
-            isCombinationCovered(
-              coverage,
-              bucket,
-              modelId,
-              datasetKey,
-              flags.samples,
-            )
-          ) {
-            console.log(
-              `  [${modelId}] ${label}: skipped (already benchmarked at >= ${flags.samples} samples)`,
-            );
-            continue;
-          }
+    // Exhaustion and "already at that depth" are the same case here: nothing to
+    // transcribe, so say which one it was and move on to the next dataset rather than
+    // throwing and abandoning the models further down the plan.
+    if (plan.count === 0) {
+      console.log(
+        `  ${formatPlanLine(modelId, pool.datasetKey, plan)} - skipped`,
+      );
+      continue;
+    }
 
-          const capped = entries.slice(0, flags.samples);
-          const partial = getPartial(harness, datasetType, datasetKey, modelId);
-
-          const result = await benchmarkModel(modelId, capped, label, {
-            harness,
-            partial,
-            computeCer,
-            onCheckpoint: (progress) => {
-              void saveCheckpoint(
-                runDir,
-                checkpointData({
-                  harness,
-                  modelId,
-                  datasetKey,
-                  datasetType,
-                  partial: progress,
-                }),
-              );
-            },
-          });
-
-          setCombinationResult(store, datasetKey, bucket, modelId, result);
-          void saveCheckpoint(runDir, checkpointData());
-        }
+    const inProgress = inProgressFor(planned);
+    let range = rangeOf(plan, pool.fingerprint);
+    const recorded = inProgress?.range;
+    if (recorded) {
+      // A resume finishes the range that was interrupted. Recomputing one from the cursor
+      // would be right only by luck: the cursor cannot see this unfinished run, so a
+      // resume with different flags would silently re-slice and file the partial numerator
+      // it carries against clips it never transcribed.
+      if (recorded.manifestFingerprint !== pool.fingerprint) {
+        console.error(
+          `Error: the checkpoint in ${runDir} was measuring ${pool.datasetKey} under ordering ${recorded.manifestFingerprint}, but the manifest on disk is ${pool.fingerprint}.`,
+        );
+        console.error(
+          "  Its partial progress counts clips from a list that no longer exists. Delete that run directory to start fresh; nothing in it was ever written to stt.json.",
+        );
+        process.exit(1);
+      }
+      if (
+        recorded.startIndex !== range.startIndex ||
+        recorded.endIndex !== range.endIndex
+      ) {
+        console.log(
+          `  [${modelId}] ${pool.label}: resuming the checkpoint's range ${recorded.startIndex}-${recorded.endIndex} rather than the planned ${range.startIndex}-${range.endIndex}`,
+        );
+        range = recorded;
       }
     }
+
+    // Reserved warmups first, then the planned range. The warmups are replayed every
+    // session and never scored, so they are prepended rather than taken off the head of
+    // the range - taking them from the range is what used to burn three fresh clips per
+    // session. Durations are measured only for the clips this call transcribes.
+    const clips: ManifestEntry[] = hydrateDurations([
+      ...pool.warmups,
+      ...pool.consumable.slice(range.startIndex, range.endIndex),
+    ]);
+
+    const result = await benchmarkModel(modelId, clips, pool.label, {
+      harness,
+      range,
+      partial: inProgress?.partial,
+      computeCer,
+      onCheckpoint: (progress) => {
+        void saveCheckpoint(
+          runDir,
+          checkpointData({
+            harness,
+            modelId,
+            datasetKey: pool.datasetKey,
+            datasetType: pool.datasetType,
+            partial: progress,
+            range,
+          }),
+        );
+      },
+    });
+
+    setCombinationResult(store, pool.datasetKey, bucket, modelId, result);
+    void saveCheckpoint(runDir, checkpointData());
   }
 
   // Step 8: Offload models from disk
@@ -830,14 +1047,23 @@ async function main() {
   }
 
   // Step 9: Write final results
+  //
+  // `sampleSize` is the deepest cursor this run reached, not what any flag asked for.
+  // With a delta it is the depth the leaves now sit at, which is what the report's
+  // "samples per dataset" line has always meant; the flag itself is recorded beside it,
+  // because a delta and a target can produce the same depth from different intents.
   const results: BenchmarkResults = {
-    description: flags.description,
+    description: flags.description ?? "",
     hardware: getHardwareInfo(),
     runDate: new Date().toISOString(),
     config: {
-      sampleSize: flags.samples,
-      warmupCount: 3,
+      sampleSize: Math.max(0, ...plans.map((planned) => planned.plan.endIndex)),
+      warmupCount: WARMUP_RESERVATION,
       normalization: "whisper-basic",
+      sampleSelection:
+        flags.demand.mode === "delta"
+          ? { mode: "delta", requested: flags.demand.count }
+          : { mode: "target", requested: flags.demand.depth },
     },
     librispeech: librispeechResults,
     fleurs: fleursResults,

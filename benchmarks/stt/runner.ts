@@ -27,9 +27,18 @@ import { computeWer, computeCer, type WerResult } from "./wer";
 import { computeRtf } from "./rtf";
 import { measurePeakRss } from "./memory";
 import type { ManifestEntry } from "../scripts/build-manifests";
+import { WARMUP_RESERVATION, type SampleRange } from "./sample-cursor";
 
-/** Leading manifest entries transcribed but not scored, so the model is warm. */
-const WARMUP_COUNT = 3;
+/**
+ * Leading entries of the array handed to `benchmarkModel` that are transcribed but not
+ * scored, so the model is warm.
+ *
+ * The same constant the cursor reserves at the head of every dataset's ordered manifest,
+ * because they are the same three clips: the caller prepends the reserved warmups to the
+ * range it planned, so "the first three entries of this array" and "the permanently
+ * reserved warmup pool" must not be able to drift apart.
+ */
+const WARMUP_COUNT = WARMUP_RESERVATION;
 const MEMORY_SAMPLE_COUNT = 10;
 
 const VENDORS_WHISPER_DIR = join(import.meta.dir, "../../vendors/whisper");
@@ -137,6 +146,22 @@ export interface ModelDatasetResult {
   peakRSS_MB: PeakRSSStats | null;
   utteranceCount: number;
   /**
+   * Which consumable entries of the dataset's ordered manifest this leaf measured, and the
+   * ordering those offsets index into.
+   *
+   * The whole point of recording it: `--samples N` means "N clips this Speech Model has not
+   * been measured on before", and the cursor that makes that possible is derived by taking
+   * the deepest `endIndex` across every run whose `manifestFingerprint` matches the manifest
+   * on disk. A leaf without this field contributes nothing to any cursor.
+   *
+   * Optional because it is a read type as well as a write type. The archive predates it, and
+   * `scripts/backfill-sample-ranges.ts` deliberately refuses to fill it in for the three
+   * pre-d8b91ee runs' LibriSpeech leaves - those were scored in filesystem-traversal order,
+   * so their `utteranceCount` maps to no offset in the seeded ordering. Absent has to keep
+   * meaning "position unknown"; every new run sets it, see `CompletedModelDatasetResult`.
+   */
+  sampleRange?: SampleRange;
+  /**
    * Scored utterances whose transcription failed, and which were therefore scored as an
    * empty hypothesis rather than dropped.
    *
@@ -164,15 +189,19 @@ export interface ModelDatasetResult {
 /**
  * A result this build produces, as opposed to one it may read off disk.
  *
- * `referenceWords` and `failures` are optional on the read type because the archive
- * predates them, and required here so that a new emit path which forgets the denominator
- * or the failure count fails `bun run tsc` rather than quietly writing another unpoolable
- * or undisclosed leaf. A clean run therefore emits `failures: 0`, which is a different
- * claim from omitting the field: one says nothing failed, the other says nobody counted.
+ * `referenceWords`, `failures` and `sampleRange` are optional on the read type because the
+ * archive predates them, and required here so that a new emit path which forgets the
+ * denominator, the failure count or the sample range fails `bun run tsc` rather than
+ * quietly writing another unpoolable, undisclosed or unlocatable leaf. A clean run
+ * therefore emits `failures: 0`, which is a different claim from omitting the field: one
+ * says nothing failed, the other says nobody counted. A leaf without a `sampleRange`
+ * contributes nothing to any cursor, so a forgotten range makes a Benchmark Run that
+ * measured 400 clips look like a Combination nobody has ever touched.
  */
 export type CompletedModelDatasetResult = ModelDatasetResult & {
   referenceWords: number;
   failures: number;
+  sampleRange: SampleRange;
 };
 
 /**
@@ -394,20 +423,30 @@ async function measureModelMemory(
   return null;
 }
 
+export interface BenchmarkModelOptions {
+  /**
+   * Which consumable entries of the dataset `entries` covers, recorded onto the leaf.
+   *
+   * Required, and passed in rather than inferred: this function is handed an array that
+   * already has the reserved warmups prepended to a planned range, so it cannot know where
+   * in the dataset that range sits. The caller planned it, so the caller says.
+   */
+  range: SampleRange;
+  partial?: PartialProgress;
+  onCheckpoint?: CheckpointCallback;
+  computeCer?: boolean;
+  /**
+   * ASR Harness to run Whisper models under. Ignored for Parakeet, which has
+   * only its own helper.
+   */
+  harness?: AsrHarnessId;
+}
+
 export async function benchmarkModel(
   modelId: string,
   entries: ManifestEntry[],
   datasetLabel: string,
-  options?: {
-    partial?: PartialProgress;
-    onCheckpoint?: CheckpointCallback;
-    computeCer?: boolean;
-    /**
-     * ASR Harness to run Whisper models under. Ignored for Parakeet, which has
-     * only its own helper.
-     */
-    harness?: AsrHarnessId;
-  },
+  options: BenchmarkModelOptions,
 ): Promise<CompletedModelDatasetResult> {
   const harness = options?.harness ?? DEFAULT_ASR_HARNESS;
   const speech = getSpeechModel(modelId);
@@ -425,6 +464,14 @@ export async function benchmarkModel(
       peakRSS_MB: null,
       utteranceCount: 0,
       failures: 0,
+      // Zero-width at the cursor it was planned from: nothing was measured, so nothing was
+      // consumed and the cursor must not move. Omitting the range would type-check as an
+      // incomplete leaf; claiming the planned width would burn clips this never transcribed.
+      sampleRange: {
+        startIndex: options.range.startIndex,
+        endIndex: options.range.startIndex,
+        manifestFingerprint: options.range.manifestFingerprint,
+      },
       totalAudioSec: 0,
       totalWallSec: 0,
     };
@@ -438,29 +485,31 @@ export async function benchmarkModel(
 
   if (startOffset > 0) {
     console.log(
-      `  [${modelId}] ${datasetLabel}: resuming from utterance ${startOffset}/${benchEntries.length}`,
+      `  [${modelId}] ${datasetLabel}: resuming clips ${options.range.startIndex + 1}-${options.range.endIndex} from utterance ${startOffset}/${benchEntries.length}`,
     );
   } else {
     console.log(
-      `  [${modelId}] ${datasetLabel}: ${entries.length} utterances (${WARMUP_COUNT} warmup)`,
+      `  [${modelId}] ${datasetLabel}: clips ${options.range.startIndex + 1}-${options.range.endIndex} (${benchEntries.length} scored, ${WARMUP_COUNT} reserved warmup)`,
     );
   }
 
   // Every utterance this call transcribes, warmups included and flagged as such, so the
   // failure count is taken by `countTranscriptionFailures` over the data rather than by
-  // whichever loop happened to run. Resuming skips the warmups, hence `priorFailures`.
+  // whichever loop happened to run. A resume carries the earlier call's count in
+  // `priorFailures` rather than recounting utterances this call never saw.
   const results: UtteranceResult[] = [];
   const priorFailures = partial?.failures ?? 0;
 
-  // Warmup (skip if resuming)
-  if (startOffset === 0) {
-    const warmupEntries = entries.slice(0, WARMUP_COUNT);
-    for (let i = 0; i < warmupEntries.length; i++) {
-      results.push(
-        await runUtterance(warmupEntries[i], modelId, modelPath, harness, true),
-      );
-      process.stdout.write(`    warmup ${i + 1}/${WARMUP_COUNT}\r`);
-    }
+  // Warmup, on every call including a resume. A resumed Benchmark Run is a fresh cold
+  // process, so it needs warming exactly as much as the first one did; the reservation
+  // exists so that replaying it costs three clips of wall time and changes no published
+  // number, since a warmup is never scored and never advances the cursor.
+  const warmupEntries = entries.slice(0, WARMUP_COUNT);
+  for (let i = 0; i < warmupEntries.length; i++) {
+    results.push(
+      await runUtterance(warmupEntries[i], modelId, modelPath, harness, true),
+    );
+    process.stdout.write(`    warmup ${i + 1}/${WARMUP_COUNT}\r`);
   }
 
   // Benchmark
@@ -567,6 +616,7 @@ export async function benchmarkModel(
     peakRSS_MB,
     utteranceCount: benchEntries.length,
     failures,
+    sampleRange: options.range,
     totalAudioSec,
     totalWallSec,
   };

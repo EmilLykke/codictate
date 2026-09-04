@@ -16,6 +16,14 @@ import {
   type CompletedModelDatasetResult,
   type UtteranceResult,
 } from "./runner";
+import type { SampleRange } from "./sample-cursor";
+
+/** The range a leaf in these fixtures claims to have measured. */
+const RANGE: SampleRange = {
+  startIndex: 0,
+  endIndex: 200,
+  manifestFingerprint: "203:0123456789abcdef",
+};
 
 /** A scored utterance the engine transcribed. Overrides make it a warmup or a failure. */
 function utterance(overrides: Partial<UtteranceResult> = {}): UtteranceResult {
@@ -91,11 +99,30 @@ describe("CompletedModelDatasetResult", () => {
       peakRSS_MB: null,
       utteranceCount: 200,
       failures: countTranscriptionFailures([utterance(), utterance()]),
+      sampleRange: RANGE,
       totalAudioSec: 1_200,
       totalWallSec: 144,
     };
     expect(clean.failures).toBe(0);
     expect(Object.keys(clean)).toContain("failures");
+  });
+
+  test("an emit path that forgets the sample range does not type-check", () => {
+    // Without the range the leaf is invisible to the cursor: a Combination that just
+    // measured 200 clips would read as one nobody has ever run, and the next session would
+    // measure the same 200 again.
+    // @ts-expect-error - `sampleRange` is required on a completed leaf
+    const unlocatable: CompletedModelDatasetResult = {
+      wer: 0.0412,
+      referenceWords: 3_100,
+      meanRTF: 0.12,
+      peakRSS_MB: null,
+      utteranceCount: 200,
+      failures: 0,
+      totalAudioSec: 1_200,
+      totalWallSec: 144,
+    };
+    expect(unlocatable.sampleRange).toBeUndefined();
   });
 
   test("an emit path that forgets the count does not type-check", () => {
@@ -109,6 +136,7 @@ describe("CompletedModelDatasetResult", () => {
       meanRTF: 0.12,
       peakRSS_MB: null,
       utteranceCount: 200,
+      sampleRange: RANGE,
       totalAudioSec: 1_200,
       totalWallSec: 144,
     };

@@ -41,7 +41,7 @@ Two suites are deliberately outside that run and carry a `.manual.ts` suffix so 
 | Suite | Why it is opt-in |
 |-------|------------------|
 | `src/bun/utils/whisper/model-download-reachability.manual.ts` | Live `fetch` against Hugging Face and the hviske Mirror. Flakes offline or behind a proxy, and it imports no Codictate download code. Run it after changing a download URL or the Speech Model list. |
-| `benchmarks/stt/results-archive.manual.ts` | Pinned to the four committed Benchmark Runs, including an exact `runCount`. A fifth archived run turns it red with nothing broken. Run it when the archive or the results read path moves, and update the pinned numbers in the same change. |
+| `benchmarks/stt/results-archive.manual.ts` | Pinned to the seven committed Benchmark Runs, including an exact `runCount` and the Sample Cursors derived from them. An eighth archived run turns it red with nothing broken. Run it when the archive or the results read path moves, and update the pinned numbers in the same change. |
 
 Run both with `bun run test:manual`, or one with `bun test ./benchmarks/stt/results-archive.manual.ts`. The leading `./` is required: without it `bun test` reads the argument as a name filter, matches nothing, and runs nothing.
 
