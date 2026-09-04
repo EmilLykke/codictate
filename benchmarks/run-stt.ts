@@ -170,6 +170,22 @@ function existingRunNames(): string[] {
 // -- CLI arg parsing --
 
 /**
+ * A comma-separated dataset selection, where `none` selects nothing at all.
+ *
+ * Selecting no datasets on one side is how a language-pinned Speech Model gets
+ * benchmarked honestly: hviske decodes as Danish whatever it is handed, so running it
+ * over English LibriSpeech audio measures Danish decoding of English speech rather than
+ * the model. `--splits none --languages da_dk` is that run. An empty value reads as
+ * `none` too, because `--splits ""` is the same intent typed differently and splitting
+ * it would otherwise yield one empty split name and fail validation.
+ */
+function parseDatasetSelection(raw: string): string[] {
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed === "none") return [];
+  return trimmed.split(",");
+}
+
+/**
  * Flags stay the complete interface for CI. The TUI is offered only when
  * `--models` is absent, which is also how a scripted run opts out of it.
  */
@@ -221,11 +237,11 @@ function parseArgs() {
         flags.modelsExplicit = true;
         break;
       case "--splits": {
-        const values = args[++i].split(",");
+        const values = parseDatasetSelection(args[++i]);
         const unknown = values.filter((v) => !isLibriSpeechSplit(v));
         if (unknown.length > 0) {
           console.error(
-            `Error: unknown --splits ${unknown.join(", ")}. Known: ${LIBRISPEECH_SPLITS.join(", ")}`,
+            `Error: unknown --splits ${unknown.join(", ")}. Known: ${LIBRISPEECH_SPLITS.join(", ")}, none`,
           );
           process.exit(1);
         }
@@ -233,7 +249,7 @@ function parseArgs() {
         break;
       }
       case "--languages":
-        flags.languages = args[++i].split(",");
+        flags.languages = parseDatasetSelection(args[++i]);
         break;
       case "--samples":
         flags.samples = parseInt(args[++i], 10);
@@ -437,6 +453,16 @@ async function main() {
   if (flags.skipExisting) console.log("Skip existing: ON");
   if (flags.offloadModels) console.log("Offload models: ON");
   console.log("");
+
+  if (flags.splits.length === 0 && flags.languages.length === 0) {
+    console.error(
+      "Error: no datasets selected. --splits none and --languages none together leave nothing to benchmark.",
+    );
+    console.error(
+      "  Keep one side: --splits none --languages da_dk benchmarks FLEURS Danish only.",
+    );
+    process.exit(1);
+  }
 
   if (!flags.name) {
     console.error(

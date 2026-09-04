@@ -56,6 +56,9 @@ bun run bench:stt -- --name turbo-only --description "Test turbo model" --models
 # Subset of models + specific FLEURS languages (es, da, hu)
 bun run bench:stt -- --name multilingual --description "Multilingual comparison" --models small-q5_1,large-v3-turbo-q5_0 --languages es_419,da_dk,hu_hu
 
+# FLEURS only, no LibriSpeech - the only honest way to run a Danish-pinned model
+bun run bench:stt -- --name hviske-danish --description "hviske on Danish only" --models hviske-v5-tiny-q5_0 --splits none --languages da_dk
+
 # Quick test run with fewer samples
 bun run bench:stt -- --name smoke --description "Quick smoke test" --samples 10
 
@@ -84,13 +87,16 @@ bun run bench:stt -- --report-only
 | `--description`    | **required**       | Goal/context for this benchmark run (stored in stt.json, shown in report)                                       |
 | `--models`         | all                | Comma-separated model IDs (all 34 models if omitted)                                                            |
 | `--samples`        | 200                | Max utterances per dataset/language                                                                             |
-| `--languages`      | es_419,da_dk,hu_hu | FLEURS language codes                                                                                           |
+| `--splits`         | all                | LibriSpeech splits (`test-clean,test-other`). `none` selects no LibriSpeech at all                              |
+| `--languages`      | es_419,da_dk,hu_hu | FLEURS language codes. `none` selects no FLEURS at all                                                          |
 | `--skip-download`  | false              | Skip dataset and model download step                                                                            |
 | `--skip-convert`   | false              | Skip audio conversion step                                                                                      |
 | `--skip-existing`  | false              | Load latest stt.json and skip model/dataset combos already benchmarked                                          |
 | `--offload-models` | false              | Delete downloaded models from disk after all benchmarks complete                                                |
 | `--report-only`    | false              | Regenerate markdown from existing stt.json                                                                      |
 | `--aggregate`      | false              | Merge every run's stt.json into `results/stt.json` and write the combined report at the results root            |
+
+`--splits none` and `--languages none` are how a language-pinned Speech Model gets benchmarked on only the language it can decode: `hviske-v5-tiny-q5_0` transcribes as Danish whatever it is handed, so an English LibriSpeech split measures Danish decoding of English speech rather than the model. Run it with `--splits none --languages da_dk`, which writes a legal empty `librispeech: {}` into `stt.json`. Passing `none` to both is rejected - there would be nothing to benchmark.
 
 `--aggregate` walks the run directories in chronological order, but **depth wins over recency**: a Benchmark Combination already merged at 200 utterances is kept when a later, shallower run only measured it at 20, so the aggregate never publishes the noisier number. A rejected result prints a `[WARN]` line naming the dataset, Harness, Model ID and both utterance counts, and the total number of rejections is printed at the end of the merge. Equal depth goes to the newer run.
 
