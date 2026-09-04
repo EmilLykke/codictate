@@ -1,0 +1,38 @@
+{
+  "description": "hviske-v5-tiny-q5_0 on FLEURS Danish at 400 samples to match the Wispr Flow 1.6.765 depth for the published comparison",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.6.2"
+  },
+  "runDate": "2026-09-04T09:43:22.717Z",
+  "config": {
+    "sampleSize": 400,
+    "warmupCount": 3,
+    "normalization": "whisper-basic"
+  },
+  "librispeech": {},
+  "fleurs": {
+    "da_dk": {
+      "crispasr": {
+        "hviske-v5-tiny-q5_0": {
+          "wer": 0.11124344926155312,
+          "referenceWords": 8396,
+          "meanRTF": 0.018415575981617874,
+          "peakRSS_MB": {
+            "min": 300,
+            "avg": 305,
+            "max": 308
+          },
+          "utteranceCount": 397,
+          "failures": 0,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 81.30771445100002,
+          "cer": 0.06553020236151715,
+          "referenceChars": 52678
+        }
+      }
+    }
+  }
+}

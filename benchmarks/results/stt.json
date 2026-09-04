@@ -4,2130 +4,2591 @@
     "chip": "Apple M4 Max",
     "ram": "36 GB",
     "os": "macOS",
-    "osVersion": "26.4.1"
+    "osVersion": "26.6.2"
   },
-  "runDate": "2026-05-09T18:43:45.817Z",
+  "runDate": "2026-09-04T09:44:33.459Z",
   "config": {
-    "sampleSize": 200,
+    "sampleSize": 400,
     "warmupCount": 3,
     "normalization": "whisper-basic"
   },
   "librispeech": {
     "test-clean": {
-      "small-q5_1": {
-        "wer": 0.05459770114942529,
-        "meanRTF": 0.12039751447943489,
-        "peakRSS_MB": {
-          "min": 473,
-          "avg": 475,
-          "max": 477
+      "whisper-cli": {
+        "small-q5_1": {
+          "wer": 0.05124011992368493,
+          "meanRTF": 0.09236716291196422,
+          "peakRSS_MB": {
+            "min": 473,
+            "avg": 476,
+            "max": 478
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 1212.684875,
+          "totalWallSec": 112.01226140999995,
+          "referenceWords": 3669
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.72463628900016
+        "large-v3-turbo-q5_0": {
+          "wer": 0.03788498228400109,
+          "meanRTF": 0.16544595966202677,
+          "peakRSS_MB": {
+            "min": 798,
+            "avg": 801,
+            "max": 805
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 1212.684875,
+          "totalWallSec": 200.63381291199997,
+          "referenceWords": 3669
+        },
+        "large-v3-q5_0": {
+          "wer": 0.035431997819569364,
+          "meanRTF": 0.19895047682523623,
+          "peakRSS_MB": {
+            "min": 1983,
+            "avg": 1986,
+            "max": 1988
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 1212.684875,
+          "totalWallSec": 241.264234120002,
+          "referenceWords": 3669
+        },
+        "tiny": {
+          "wer": 0.1235632183908046,
+          "meanRTF": 0.11981210297337484,
+          "peakRSS_MB": {
+            "min": 218,
+            "avg": 220,
+            "max": 223
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.59469249700001,
+          "referenceWords": 696
+        },
+        "tiny-q5_1": {
+          "wer": 0.12931034482758622,
+          "meanRTF": 0.11985405290354603,
+          "peakRSS_MB": {
+            "min": 151,
+            "avg": 153,
+            "max": 158
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.60400412300011,
+          "referenceWords": 696
+        },
+        "tiny-q8_0": {
+          "wer": 0.1278735632183908,
+          "meanRTF": 0.11972857406406318,
+          "peakRSS_MB": {
+            "min": 168,
+            "avg": 170,
+            "max": 174
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.5761515850001,
+          "referenceWords": 696
+        },
+        "tiny.en": {
+          "wer": 0.11063218390804598,
+          "meanRTF": 0.1200165859350355,
+          "peakRSS_MB": {
+            "min": 218,
+            "avg": 222,
+            "max": 227
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.640081579999826,
+          "referenceWords": 696
+        },
+        "tiny.en-q5_1": {
+          "wer": 0.11206896551724138,
+          "meanRTF": 0.11965441857458264,
+          "peakRSS_MB": {
+            "min": 152,
+            "avg": 156,
+            "max": 162
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.559691291000107,
+          "referenceWords": 696
+        },
+        "tiny.en-q8_0": {
+          "wer": 0.10919540229885058,
+          "meanRTF": 0.11926371093841397,
+          "peakRSS_MB": {
+            "min": 168,
+            "avg": 171,
+            "max": 176
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.472965916999744,
+          "referenceWords": 696
+        },
+        "base": {
+          "wer": 0.08189655172413793,
+          "meanRTF": 0.1197358868000189,
+          "peakRSS_MB": {
+            "min": 330,
+            "avg": 332,
+            "max": 334
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.57777479300019,
+          "referenceWords": 696
+        },
+        "base-q5_1": {
+          "wer": 0.09195402298850575,
+          "meanRTF": 0.11987473700950702,
+          "peakRSS_MB": {
+            "min": 214,
+            "avg": 217,
+            "max": 220
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.60859537400027,
+          "referenceWords": 696
+        },
+        "base-q8_0": {
+          "wer": 0.07614942528735633,
+          "meanRTF": 0.11948397775375239,
+          "peakRSS_MB": {
+            "min": 243,
+            "avg": 246,
+            "max": 251
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.521858542000412,
+          "referenceWords": 696
+        },
+        "base.en": {
+          "wer": 0.06896551724137931,
+          "meanRTF": 0.11985710268955073,
+          "peakRSS_MB": {
+            "min": 330,
+            "avg": 333,
+            "max": 336
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.604681083999573,
+          "referenceWords": 696
+        },
+        "base.en-q5_1": {
+          "wer": 0.07327586206896551,
+          "meanRTF": 0.11921805610667782,
+          "peakRSS_MB": {
+            "min": 215,
+            "avg": 216,
+            "max": 220
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.462831913999274,
+          "referenceWords": 696
+        },
+        "base.en-q8_0": {
+          "wer": 0.07614942528735633,
+          "meanRTF": 0.12003686778844008,
+          "peakRSS_MB": {
+            "min": 243,
+            "avg": 246,
+            "max": 250
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.644583543000042,
+          "referenceWords": 696
+        },
+        "small": {
+          "wer": 0.05747126436781609,
+          "meanRTF": 0.12007537823129495,
+          "peakRSS_MB": {
+            "min": 804,
+            "avg": 806,
+            "max": 808
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.653131706000536,
+          "referenceWords": 696
+        },
+        "small-q8_0": {
+          "wer": 0.05890804597701149,
+          "meanRTF": 0.11991307610487416,
+          "peakRSS_MB": {
+            "min": 555,
+            "avg": 557,
+            "max": 560
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.617105502998914,
+          "referenceWords": 696
+        },
+        "small.en": {
+          "wer": 0.04741379310344827,
+          "meanRTF": 0.12084996415281474,
+          "peakRSS_MB": {
+            "min": 804,
+            "avg": 806,
+            "max": 808
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.825066543000283,
+          "referenceWords": 696
+        },
+        "small.en-q5_1": {
+          "wer": 0.04597701149425287,
+          "meanRTF": 0.12017360755056261,
+          "peakRSS_MB": {
+            "min": 472,
+            "avg": 475,
+            "max": 476
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.67493566799838,
+          "referenceWords": 696
+        },
+        "small.en-q8_0": {
+          "wer": 0.04741379310344827,
+          "meanRTF": 0.12079931334864705,
+          "peakRSS_MB": {
+            "min": 555,
+            "avg": 558,
+            "max": 561
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 26.81382358399918,
+          "referenceWords": 696
+        },
+        "medium": {
+          "wer": 0.05172413793103448,
+          "meanRTF": 0.226570581587609,
+          "peakRSS_MB": {
+            "min": 2131,
+            "avg": 2134,
+            "max": 2137
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 50.291871995001564,
+          "referenceWords": 696
+        },
+        "medium-q5_0": {
+          "wer": 0.04741379310344827,
+          "meanRTF": 0.15809281397487218,
+          "peakRSS_MB": {
+            "min": 1117,
+            "avg": 1120,
+            "max": 1126
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 35.09186191800237,
+          "referenceWords": 696
+        },
+        "medium-q8_0": {
+          "wer": 0.05028735632183908,
+          "meanRTF": 0.2017004240347867,
+          "peakRSS_MB": {
+            "min": 1407,
+            "avg": 1410,
+            "max": 1413
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 44.771443123001596,
+          "referenceWords": 696
+        },
+        "medium.en": {
+          "wer": 0.04310344827586207,
+          "meanRTF": 0.2280925369238998,
+          "peakRSS_MB": {
+            "min": 2131,
+            "avg": 2134,
+            "max": 2139
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 50.629700420998034,
+          "referenceWords": 696
+        },
+        "medium.en-q5_0": {
+          "wer": 0.04310344827586207,
+          "meanRTF": 0.1557502303284318,
+          "peakRSS_MB": {
+            "min": 1117,
+            "avg": 1120,
+            "max": 1124
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 34.571878626002004,
+          "referenceWords": 696
+        },
+        "medium.en-q8_0": {
+          "wer": 0.04310344827586207,
+          "meanRTF": 0.2069256391449284,
+          "peakRSS_MB": {
+            "min": 1407,
+            "avg": 1410,
+            "max": 1413
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 45.93128412099975,
+          "referenceWords": 696
+        },
+        "large-v1": {
+          "wer": 0.05316091954022988,
+          "meanRTF": 0.33800322603953425,
+          "peakRSS_MB": {
+            "min": 3972,
+            "avg": 3974,
+            "max": 3979
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 75.02657608399541,
+          "referenceWords": 696
+        },
+        "large-v2": {
+          "wer": 0.05028735632183908,
+          "meanRTF": 0.3407708573681374,
+          "peakRSS_MB": {
+            "min": 3972,
+            "avg": 3974,
+            "max": 3978
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 75.64090721000545,
+          "referenceWords": 696
+        },
+        "large-v2-q5_0": {
+          "wer": 0.04741379310344827,
+          "meanRTF": 0.2416499924854595,
+          "peakRSS_MB": {
+            "min": 1969,
+            "avg": 1971,
+            "max": 1974
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 53.63904883199744,
+          "referenceWords": 696
+        },
+        "large-v2-q8_0": {
+          "wer": 0.05028735632183908,
+          "meanRTF": 0.26251002275082663,
+          "peakRSS_MB": {
+            "min": 2542,
+            "avg": 2543,
+            "max": 2548
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 58.269349750000984,
+          "referenceWords": 696
+        },
+        "large-v3": {
+          "wer": 0.03735632183908046,
+          "meanRTF": 0.3404174713835445,
+          "peakRSS_MB": {
+            "min": 3980,
+            "avg": 3982,
+            "max": 3987
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 75.56246612300536,
+          "referenceWords": 696
+        },
+        "large-v3-turbo": {
+          "wer": 0.04597701149425287,
+          "meanRTF": 0.22777260776232247,
+          "peakRSS_MB": {
+            "min": 1876,
+            "avg": 1877,
+            "max": 1879
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 50.55868574500271,
+          "referenceWords": 696
+        },
+        "large-v3-turbo-q8_0": {
+          "wer": 0.04454022988505747,
+          "meanRTF": 0.22759100122987508,
+          "peakRSS_MB": {
+            "min": 1102,
+            "avg": 1105,
+            "max": 1110
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 221.96999999999997,
+          "totalWallSec": 50.51837454299537,
+          "referenceWords": 696
+        }
       },
-      "large-v3-turbo-q5_0": {
-        "wer": 0.04885057471264368,
-        "meanRTF": 0.18054176277425057,
-        "peakRSS_MB": {
-          "min": 797,
-          "avg": 799,
-          "max": 803
+      "crispasr": {
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.03918868160761237,
+          "meanRTF": 0.025332362735926168,
+          "peakRSS_MB": {
+            "min": 78,
+            "avg": 79,
+            "max": 83
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 74.3898764539976,
+          "referenceWords": 7987
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 40.074855083000394
-      },
-      "large-v3-q5_0": {
-        "wer": 0.03735632183908046,
-        "meanRTF": 0.24156649753119785,
-        "peakRSS_MB": {
-          "min": 1983,
-          "avg": 1985,
-          "max": 1987
+        "large-v3-turbo-q5_0": {
+          "wer": 0.03418054338299737,
+          "meanRTF": 0.07828247662073425,
+          "peakRSS_MB": {
+            "min": 756,
+            "avg": 757,
+            "max": 758
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 229.88079813300004,
+          "referenceWords": 7987
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 53.62051545699998
-      },
-      "parakeet-tdt-0.6b-v3": {
-        "wer": 0.04310344827586207,
-        "meanRTF": 0.035702221029871785,
-        "peakRSS_MB": {
-          "min": 78,
-          "avg": 79,
-          "max": 80
+        "medium.en-q5_0": {
+          "wer": 0.04960835509138381,
+          "meanRTF": 0.0629038004494543,
+          "peakRSS_MB": {
+            "min": 830,
+            "avg": 832,
+            "max": 834
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 142.39499999999998,
+          "totalWallSec": 8.957186665000044,
+          "referenceWords": 383
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 7.924822002000639
-      },
-      "tiny": {
-        "wer": 0.1235632183908046,
-        "meanRTF": 0.11981210297337484,
-        "peakRSS_MB": {
-          "min": 218,
-          "avg": 220,
-          "max": 223
+        "large-v3-q5_0": {
+          "wer": 0.032177288093151374,
+          "meanRTF": 0.12337931412454278,
+          "peakRSS_MB": {
+            "min": 1524,
+            "avg": 1525,
+            "max": 1526
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 362.3101417889964,
+          "referenceWords": 7987
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.59469249700001
-      },
-      "tiny-q5_1": {
-        "wer": 0.12931034482758622,
-        "meanRTF": 0.11985405290354603,
-        "peakRSS_MB": {
-          "min": 151,
-          "avg": 153,
-          "max": 158
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.60400412300011
-      },
-      "tiny-q8_0": {
-        "wer": 0.1278735632183908,
-        "meanRTF": 0.11972857406406318,
-        "peakRSS_MB": {
-          "min": 168,
-          "avg": 170,
-          "max": 174
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.5761515850001
-      },
-      "tiny.en": {
-        "wer": 0.11063218390804598,
-        "meanRTF": 0.1200165859350355,
-        "peakRSS_MB": {
-          "min": 218,
-          "avg": 222,
-          "max": 227
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.640081579999826
-      },
-      "tiny.en-q5_1": {
-        "wer": 0.11206896551724138,
-        "meanRTF": 0.11965441857458264,
-        "peakRSS_MB": {
-          "min": 152,
-          "avg": 156,
-          "max": 162
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.559691291000107
-      },
-      "tiny.en-q8_0": {
-        "wer": 0.10919540229885058,
-        "meanRTF": 0.11926371093841397,
-        "peakRSS_MB": {
-          "min": 168,
-          "avg": 171,
-          "max": 176
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.472965916999744
-      },
-      "base": {
-        "wer": 0.08189655172413793,
-        "meanRTF": 0.1197358868000189,
-        "peakRSS_MB": {
-          "min": 330,
-          "avg": 332,
-          "max": 334
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.57777479300019
-      },
-      "base-q5_1": {
-        "wer": 0.09195402298850575,
-        "meanRTF": 0.11987473700950702,
-        "peakRSS_MB": {
-          "min": 214,
-          "avg": 217,
-          "max": 220
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.60859537400027
-      },
-      "base-q8_0": {
-        "wer": 0.07614942528735633,
-        "meanRTF": 0.11948397775375239,
-        "peakRSS_MB": {
-          "min": 243,
-          "avg": 246,
-          "max": 251
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.521858542000412
-      },
-      "base.en": {
-        "wer": 0.06896551724137931,
-        "meanRTF": 0.11985710268955073,
-        "peakRSS_MB": {
-          "min": 330,
-          "avg": 333,
-          "max": 336
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.604681083999573
-      },
-      "base.en-q5_1": {
-        "wer": 0.07327586206896551,
-        "meanRTF": 0.11921805610667782,
-        "peakRSS_MB": {
-          "min": 215,
-          "avg": 216,
-          "max": 220
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.462831913999274
-      },
-      "base.en-q8_0": {
-        "wer": 0.07614942528735633,
-        "meanRTF": 0.12003686778844008,
-        "peakRSS_MB": {
-          "min": 243,
-          "avg": 246,
-          "max": 250
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.644583543000042
-      },
-      "small": {
-        "wer": 0.05747126436781609,
-        "meanRTF": 0.12007537823129495,
-        "peakRSS_MB": {
-          "min": 804,
-          "avg": 806,
-          "max": 808
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.653131706000536
-      },
-      "small-q8_0": {
-        "wer": 0.05890804597701149,
-        "meanRTF": 0.11991307610487416,
-        "peakRSS_MB": {
-          "min": 555,
-          "avg": 557,
-          "max": 560
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.617105502998914
-      },
-      "small.en": {
-        "wer": 0.04741379310344827,
-        "meanRTF": 0.12084996415281474,
-        "peakRSS_MB": {
-          "min": 804,
-          "avg": 806,
-          "max": 808
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.825066543000283
-      },
-      "small.en-q5_1": {
-        "wer": 0.04597701149425287,
-        "meanRTF": 0.12017360755056261,
-        "peakRSS_MB": {
-          "min": 472,
-          "avg": 475,
-          "max": 476
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.67493566799838
-      },
-      "small.en-q8_0": {
-        "wer": 0.04741379310344827,
-        "meanRTF": 0.12079931334864705,
-        "peakRSS_MB": {
-          "min": 555,
-          "avg": 558,
-          "max": 561
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 26.81382358399918
-      },
-      "medium": {
-        "wer": 0.05172413793103448,
-        "meanRTF": 0.226570581587609,
-        "peakRSS_MB": {
-          "min": 2131,
-          "avg": 2134,
-          "max": 2137
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 50.291871995001564
-      },
-      "medium-q5_0": {
-        "wer": 0.04741379310344827,
-        "meanRTF": 0.15809281397487218,
-        "peakRSS_MB": {
-          "min": 1117,
-          "avg": 1120,
-          "max": 1126
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 35.09186191800237
-      },
-      "medium-q8_0": {
-        "wer": 0.05028735632183908,
-        "meanRTF": 0.2017004240347867,
-        "peakRSS_MB": {
-          "min": 1407,
-          "avg": 1410,
-          "max": 1413
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 44.771443123001596
-      },
-      "medium.en": {
-        "wer": 0.04310344827586207,
-        "meanRTF": 0.2280925369238998,
-        "peakRSS_MB": {
-          "min": 2131,
-          "avg": 2134,
-          "max": 2139
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 50.629700420998034
-      },
-      "medium.en-q5_0": {
-        "wer": 0.04310344827586207,
-        "meanRTF": 0.1557502303284318,
-        "peakRSS_MB": {
-          "min": 1117,
-          "avg": 1120,
-          "max": 1124
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 34.571878626002004
-      },
-      "medium.en-q8_0": {
-        "wer": 0.04310344827586207,
-        "meanRTF": 0.2069256391449284,
-        "peakRSS_MB": {
-          "min": 1407,
-          "avg": 1410,
-          "max": 1413
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 45.93128412099975
-      },
-      "large-v1": {
-        "wer": 0.05316091954022988,
-        "meanRTF": 0.33800322603953425,
-        "peakRSS_MB": {
-          "min": 3972,
-          "avg": 3974,
-          "max": 3979
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 75.02657608399541
-      },
-      "large-v2": {
-        "wer": 0.05028735632183908,
-        "meanRTF": 0.3407708573681374,
-        "peakRSS_MB": {
-          "min": 3972,
-          "avg": 3974,
-          "max": 3978
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 75.64090721000545
-      },
-      "large-v2-q5_0": {
-        "wer": 0.04741379310344827,
-        "meanRTF": 0.2416499924854595,
-        "peakRSS_MB": {
-          "min": 1969,
-          "avg": 1971,
-          "max": 1974
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 53.63904883199744
-      },
-      "large-v2-q8_0": {
-        "wer": 0.05028735632183908,
-        "meanRTF": 0.26251002275082663,
-        "peakRSS_MB": {
-          "min": 2542,
-          "avg": 2543,
-          "max": 2548
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 58.269349750000984
-      },
-      "large-v3": {
-        "wer": 0.03735632183908046,
-        "meanRTF": 0.3404174713835445,
-        "peakRSS_MB": {
-          "min": 3980,
-          "avg": 3982,
-          "max": 3987
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 75.56246612300536
-      },
-      "large-v3-turbo": {
-        "wer": 0.04597701149425287,
-        "meanRTF": 0.22777260776232247,
-        "peakRSS_MB": {
-          "min": 1876,
-          "avg": 1877,
-          "max": 1879
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 50.55868574500271
-      },
-      "large-v3-turbo-q8_0": {
-        "wer": 0.04454022988505747,
-        "meanRTF": 0.22759100122987508,
-        "peakRSS_MB": {
-          "min": 1102,
-          "avg": 1105,
-          "max": 1110
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 221.96999999999997,
-        "totalWallSec": 50.51837454299537
+        "small-q5_1": {
+          "wer": 0.046074871666457996,
+          "meanRTF": 0.03587874291984999,
+          "peakRSS_MB": {
+            "min": 382,
+            "avg": 383,
+            "max": 385
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 105.35990191500001,
+          "referenceWords": 7987
+        }
       }
     },
     "test-other": {
-      "small-q5_1": {
-        "wer": 0.07568590350047304,
-        "meanRTF": 0.06477393171555992,
-        "peakRSS_MB": {
-          "min": 473,
-          "avg": 475,
-          "max": 480
+      "whisper-cli": {
+        "small-q5_1": {
+          "wer": 0.08859698155394075,
+          "meanRTF": 0.07665943668194454,
+          "peakRSS_MB": {
+            "min": 473,
+            "avg": 476,
+            "max": 479
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 1463.9899999999993,
+          "totalWallSec": 112.22864870799994,
+          "referenceWords": 3578
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 27.25168450299964
+        "large-v3-turbo-q5_0": {
+          "wer": 0.061766349916154276,
+          "meanRTF": 0.12879517130308227,
+          "peakRSS_MB": {
+            "min": 798,
+            "avg": 801,
+            "max": 805
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 1463.9899999999993,
+          "totalWallSec": 188.55484283599932,
+          "referenceWords": 3578
+        },
+        "large-v3-q5_0": {
+          "wer": 0.05980994969256568,
+          "meanRTF": 0.16292389346512032,
+          "peakRSS_MB": {
+            "min": 1984,
+            "avg": 1986,
+            "max": 1991
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 1463.9899999999993,
+          "totalWallSec": 238.51895079400137,
+          "referenceWords": 3578
+        },
+        "tiny": {
+          "wer": 0.13623462630085148,
+          "meanRTF": 0.06314176141699963,
+          "peakRSS_MB": {
+            "min": 218,
+            "avg": 222,
+            "max": 227
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.564997917,
+          "referenceWords": 1057
+        },
+        "tiny-q5_1": {
+          "wer": 0.1400189214758751,
+          "meanRTF": 0.0632305659319987,
+          "peakRSS_MB": {
+            "min": 151,
+            "avg": 156,
+            "max": 165
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.602359747000122,
+          "referenceWords": 1057
+        },
+        "tiny-q8_0": {
+          "wer": 0.13245033112582782,
+          "meanRTF": 0.0633297611787181,
+          "peakRSS_MB": {
+            "min": 168,
+            "avg": 172,
+            "max": 177
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.644093165000204,
+          "referenceWords": 1057
+        },
+        "tiny.en": {
+          "wer": 0.12204351939451277,
+          "meanRTF": 0.06304799626473559,
+          "peakRSS_MB": {
+            "min": 220,
+            "avg": 224,
+            "max": 228
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.52554904799979,
+          "referenceWords": 1057
+        },
+        "tiny.en-q5_1": {
+          "wer": 0.12488174077578051,
+          "meanRTF": 0.06283728204347323,
+          "peakRSS_MB": {
+            "min": 151,
+            "avg": 156,
+            "max": 160
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.436897373999933,
+          "referenceWords": 1057
+        },
+        "tiny.en-q8_0": {
+          "wer": 0.11920529801324503,
+          "meanRTF": 0.06319181025738826,
+          "peakRSS_MB": {
+            "min": 168,
+            "avg": 173,
+            "max": 178
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.586054462000252,
+          "referenceWords": 1057
+        },
+        "base": {
+          "wer": 0.09366130558183539,
+          "meanRTF": 0.06320300356813989,
+          "peakRSS_MB": {
+            "min": 330,
+            "avg": 334,
+            "max": 341
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.590763711000093,
+          "referenceWords": 1057
+        },
+        "base-q5_1": {
+          "wer": 0.10122989593188268,
+          "meanRTF": 0.06329004257375097,
+          "peakRSS_MB": {
+            "min": 214,
+            "avg": 218,
+            "max": 225
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.627382756000845,
+          "referenceWords": 1057
+        },
+        "base-q8_0": {
+          "wer": 0.09933774834437085,
+          "meanRTF": 0.06321104592529506,
+          "peakRSS_MB": {
+            "min": 243,
+            "avg": 248,
+            "max": 254
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.594147290999768,
+          "referenceWords": 1057
+        },
+        "base.en": {
+          "wer": 0.08230842005676443,
+          "meanRTF": 0.06280960558233313,
+          "peakRSS_MB": {
+            "min": 330,
+            "avg": 333,
+            "max": 339
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.42525333499885,
+          "referenceWords": 1057
+        },
+        "base.en-q5_1": {
+          "wer": 0.07947019867549669,
+          "meanRTF": 0.06303587704350291,
+          "peakRSS_MB": {
+            "min": 215,
+            "avg": 218,
+            "max": 225
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.520450250000234,
+          "referenceWords": 1057
+        },
+        "base.en-q8_0": {
+          "wer": 0.08230842005676443,
+          "meanRTF": 0.06278714883104425,
+          "peakRSS_MB": {
+            "min": 243,
+            "avg": 248,
+            "max": 259
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.415805332000133,
+          "referenceWords": 1057
+        },
+        "small": {
+          "wer": 0.0804162724692526,
+          "meanRTF": 0.06443281256191725,
+          "peakRSS_MB": {
+            "min": 805,
+            "avg": 806,
+            "max": 809
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 27.10816887399904,
+          "referenceWords": 1057
+        },
+        "small-q8_0": {
+          "wer": 0.07852412488174078,
+          "meanRTF": 0.0648519933477111,
+          "peakRSS_MB": {
+            "min": 555,
+            "avg": 558,
+            "max": 562
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 27.284526587999434,
+          "referenceWords": 1057
+        },
+        "small.en": {
+          "wer": 0.07190160832544938,
+          "meanRTF": 0.0649910468409911,
+          "peakRSS_MB": {
+            "min": 804,
+            "avg": 807,
+            "max": 814
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 27.343029165001354,
+          "referenceWords": 1057
+        },
+        "small.en-q5_1": {
+          "wer": 0.07000946073793755,
+          "meanRTF": 0.06477668849482457,
+          "peakRSS_MB": {
+            "min": 472,
+            "avg": 475,
+            "max": 482
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 27.252844334999562,
+          "referenceWords": 1057
+        },
+        "small.en-q8_0": {
+          "wer": 0.0728476821192053,
+          "meanRTF": 0.06406151350029592,
+          "peakRSS_MB": {
+            "min": 555,
+            "avg": 558,
+            "max": 564
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 26.951955955999903,
+          "referenceWords": 1057
+        },
+        "medium": {
+          "wer": 0.06622516556291391,
+          "meanRTF": 0.12458589540220895,
+          "peakRSS_MB": {
+            "min": 2131,
+            "avg": 2136,
+            "max": 2139
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 52.415770126998886,
+          "referenceWords": 1057
+        },
+        "medium-q5_0": {
+          "wer": 0.06717123935666983,
+          "meanRTF": 0.09723234422899231,
+          "peakRSS_MB": {
+            "min": 1117,
+            "avg": 1122,
+            "max": 1131
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 40.90758578700013,
+          "referenceWords": 1057
+        },
+        "medium-q8_0": {
+          "wer": 0.06622516556291391,
+          "meanRTF": 0.10787299429802095,
+          "peakRSS_MB": {
+            "min": 1407,
+            "avg": 1411,
+            "max": 1414
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 45.38431941900124,
+          "referenceWords": 1057
+        },
+        "medium.en": {
+          "wer": 0.065279091769158,
+          "meanRTF": 0.1237581663217512,
+          "peakRSS_MB": {
+            "min": 2132,
+            "avg": 2135,
+            "max": 2138
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 52.06752800000177,
+          "referenceWords": 1057
+        },
+        "medium.en-q5_0": {
+          "wer": 0.06906338694418164,
+          "meanRTF": 0.09792234650871909,
+          "peakRSS_MB": {
+            "min": 1117,
+            "avg": 1121,
+            "max": 1124
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 41.19788350300164,
+          "referenceWords": 1057
+        },
+        "medium.en-q8_0": {
+          "wer": 0.07000946073793755,
+          "meanRTF": 0.10758808573458974,
+          "peakRSS_MB": {
+            "min": 1407,
+            "avg": 1412,
+            "max": 1420
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 45.26445270600124,
+          "referenceWords": 1057
+        },
+        "large-v1": {
+          "wer": 0.06338694418164617,
+          "meanRTF": 0.19024414509472692,
+          "peakRSS_MB": {
+            "min": 3972,
+            "avg": 3977,
+            "max": 3985
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 80.03950483399444,
+          "referenceWords": 1057
+        },
+        "large-v2": {
+          "wer": 0.052980132450331126,
+          "meanRTF": 0.1905005719107361,
+          "peakRSS_MB": {
+            "min": 3972,
+            "avg": 3977,
+            "max": 3988
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 80.14738870799916,
+          "referenceWords": 1057
+        },
+        "large-v2-q5_0": {
+          "wer": 0.05392620624408704,
+          "meanRTF": 0.14913749759244693,
+          "peakRSS_MB": {
+            "min": 1969,
+            "avg": 1973,
+            "max": 1978
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 62.74511866600067,
+          "referenceWords": 1057
+        },
+        "large-v2-q8_0": {
+          "wer": 0.0510879848628193,
+          "meanRTF": 0.15658127345582204,
+          "peakRSS_MB": {
+            "min": 2542,
+            "avg": 2545,
+            "max": 2551
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 65.87686358200386,
+          "referenceWords": 1057
+        },
+        "large-v3": {
+          "wer": 0.06244087038789026,
+          "meanRTF": 0.19067636164734536,
+          "peakRSS_MB": {
+            "min": 3980,
+            "avg": 3983,
+            "max": 3993
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 80.22134695499854,
+          "referenceWords": 1057
+        },
+        "large-v3-turbo": {
+          "wer": 0.052980132450331126,
+          "meanRTF": 0.12139135846872356,
+          "peakRSS_MB": {
+            "min": 1876,
+            "avg": 1879,
+            "max": 1887
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 51.07176474800148,
+          "referenceWords": 1057
+        },
+        "large-v3-turbo-q8_0": {
+          "wer": 0.05203405865657521,
+          "meanRTF": 0.11993961313278448,
+          "peakRSS_MB": {
+            "min": 1102,
+            "avg": 1107,
+            "max": 1111
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 420.7199375,
+          "totalWallSec": 50.460986540999265,
+          "referenceWords": 1057
+        }
       },
-      "large-v3-turbo-q5_0": {
-        "wer": 0.05392620624408704,
-        "meanRTF": 0.1052629680355958,
-        "peakRSS_MB": {
-          "min": 797,
-          "avg": 799,
-          "max": 804
+      "crispasr": {
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.05624161073825503,
+          "meanRTF": 0.027844700362415535,
+          "peakRSS_MB": {
+            "min": 78,
+            "avg": 80,
+            "max": 81
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 76.2702558439971,
+          "referenceWords": 7450
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 44.286229333000364
-      },
-      "large-v3-q5_0": {
-        "wer": 0.06433301797540208,
-        "meanRTF": 0.14198264323757995,
-        "peakRSS_MB": {
-          "min": 1983,
-          "avg": 1985,
-          "max": 1989
+        "large-v3-turbo-q5_0": {
+          "wer": 0.052080536912751677,
+          "meanRTF": 0.0814254886142336,
+          "peakRSS_MB": {
+            "min": 756,
+            "avg": 757,
+            "max": 757
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 223.03500371699894,
+          "referenceWords": 7450
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 59.73492878899944
-      },
-      "parakeet-tdt-0.6b-v3": {
-        "wer": 0.0728476821192053,
-        "meanRTF": 0.020766023633000667,
-        "peakRSS_MB": {
-          "min": 78,
-          "avg": 80,
-          "max": 83
+        "medium.en-q5_0": {
+          "wer": 0.06354515050167224,
+          "meanRTF": 0.08189536047938836,
+          "peakRSS_MB": {
+            "min": 832,
+            "avg": 832,
+            "max": 833
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 106.26006250000002,
+          "totalWallSec": 8.702206122999838,
+          "referenceWords": 299
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 8.736680164999564
-      },
-      "tiny": {
-        "wer": 0.13623462630085148,
-        "meanRTF": 0.06314176141699963,
-        "peakRSS_MB": {
-          "min": 218,
-          "avg": 222,
-          "max": 227
+        "large-v3-q5_0": {
+          "wer": 0.04832214765100671,
+          "meanRTF": 0.12938114658219196,
+          "peakRSS_MB": {
+            "min": 1523,
+            "avg": 1525,
+            "max": 1526
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 354.39178812400144,
+          "referenceWords": 7450
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.564997917
-      },
-      "tiny-q5_1": {
-        "wer": 0.1400189214758751,
-        "meanRTF": 0.0632305659319987,
-        "peakRSS_MB": {
-          "min": 151,
-          "avg": 156,
-          "max": 165
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.602359747000122
-      },
-      "tiny-q8_0": {
-        "wer": 0.13245033112582782,
-        "meanRTF": 0.0633297611787181,
-        "peakRSS_MB": {
-          "min": 168,
-          "avg": 172,
-          "max": 177
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.644093165000204
-      },
-      "tiny.en": {
-        "wer": 0.12204351939451277,
-        "meanRTF": 0.06304799626473559,
-        "peakRSS_MB": {
-          "min": 220,
-          "avg": 224,
-          "max": 228
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.52554904799979
-      },
-      "tiny.en-q5_1": {
-        "wer": 0.12488174077578051,
-        "meanRTF": 0.06283728204347323,
-        "peakRSS_MB": {
-          "min": 151,
-          "avg": 156,
-          "max": 160
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.436897373999933
-      },
-      "tiny.en-q8_0": {
-        "wer": 0.11920529801324503,
-        "meanRTF": 0.06319181025738826,
-        "peakRSS_MB": {
-          "min": 168,
-          "avg": 173,
-          "max": 178
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.586054462000252
-      },
-      "base": {
-        "wer": 0.09366130558183539,
-        "meanRTF": 0.06320300356813989,
-        "peakRSS_MB": {
-          "min": 330,
-          "avg": 334,
-          "max": 341
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.590763711000093
-      },
-      "base-q5_1": {
-        "wer": 0.10122989593188268,
-        "meanRTF": 0.06329004257375097,
-        "peakRSS_MB": {
-          "min": 214,
-          "avg": 218,
-          "max": 225
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.627382756000845
-      },
-      "base-q8_0": {
-        "wer": 0.09933774834437085,
-        "meanRTF": 0.06321104592529506,
-        "peakRSS_MB": {
-          "min": 243,
-          "avg": 248,
-          "max": 254
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.594147290999768
-      },
-      "base.en": {
-        "wer": 0.08230842005676443,
-        "meanRTF": 0.06280960558233313,
-        "peakRSS_MB": {
-          "min": 330,
-          "avg": 333,
-          "max": 339
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.42525333499885
-      },
-      "base.en-q5_1": {
-        "wer": 0.07947019867549669,
-        "meanRTF": 0.06303587704350291,
-        "peakRSS_MB": {
-          "min": 215,
-          "avg": 218,
-          "max": 225
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.520450250000234
-      },
-      "base.en-q8_0": {
-        "wer": 0.08230842005676443,
-        "meanRTF": 0.06278714883104425,
-        "peakRSS_MB": {
-          "min": 243,
-          "avg": 248,
-          "max": 259
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.415805332000133
-      },
-      "small": {
-        "wer": 0.0804162724692526,
-        "meanRTF": 0.06443281256191725,
-        "peakRSS_MB": {
-          "min": 805,
-          "avg": 806,
-          "max": 809
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 27.10816887399904
-      },
-      "small-q8_0": {
-        "wer": 0.07852412488174078,
-        "meanRTF": 0.0648519933477111,
-        "peakRSS_MB": {
-          "min": 555,
-          "avg": 558,
-          "max": 562
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 27.284526587999434
-      },
-      "small.en": {
-        "wer": 0.07190160832544938,
-        "meanRTF": 0.0649910468409911,
-        "peakRSS_MB": {
-          "min": 804,
-          "avg": 807,
-          "max": 814
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 27.343029165001354
-      },
-      "small.en-q5_1": {
-        "wer": 0.07000946073793755,
-        "meanRTF": 0.06477668849482457,
-        "peakRSS_MB": {
-          "min": 472,
-          "avg": 475,
-          "max": 482
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 27.252844334999562
-      },
-      "small.en-q8_0": {
-        "wer": 0.0728476821192053,
-        "meanRTF": 0.06406151350029592,
-        "peakRSS_MB": {
-          "min": 555,
-          "avg": 558,
-          "max": 564
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 26.951955955999903
-      },
-      "medium": {
-        "wer": 0.06622516556291391,
-        "meanRTF": 0.12458589540220895,
-        "peakRSS_MB": {
-          "min": 2131,
-          "avg": 2136,
-          "max": 2139
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 52.415770126998886
-      },
-      "medium-q5_0": {
-        "wer": 0.06717123935666983,
-        "meanRTF": 0.09723234422899231,
-        "peakRSS_MB": {
-          "min": 1117,
-          "avg": 1122,
-          "max": 1131
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 40.90758578700013
-      },
-      "medium-q8_0": {
-        "wer": 0.06622516556291391,
-        "meanRTF": 0.10787299429802095,
-        "peakRSS_MB": {
-          "min": 1407,
-          "avg": 1411,
-          "max": 1414
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 45.38431941900124
-      },
-      "medium.en": {
-        "wer": 0.065279091769158,
-        "meanRTF": 0.1237581663217512,
-        "peakRSS_MB": {
-          "min": 2132,
-          "avg": 2135,
-          "max": 2138
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 52.06752800000177
-      },
-      "medium.en-q5_0": {
-        "wer": 0.06906338694418164,
-        "meanRTF": 0.09792234650871909,
-        "peakRSS_MB": {
-          "min": 1117,
-          "avg": 1121,
-          "max": 1124
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 41.19788350300164
-      },
-      "medium.en-q8_0": {
-        "wer": 0.07000946073793755,
-        "meanRTF": 0.10758808573458974,
-        "peakRSS_MB": {
-          "min": 1407,
-          "avg": 1412,
-          "max": 1420
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 45.26445270600124
-      },
-      "large-v1": {
-        "wer": 0.06338694418164617,
-        "meanRTF": 0.19024414509472692,
-        "peakRSS_MB": {
-          "min": 3972,
-          "avg": 3977,
-          "max": 3985
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 80.03950483399444
-      },
-      "large-v2": {
-        "wer": 0.052980132450331126,
-        "meanRTF": 0.1905005719107361,
-        "peakRSS_MB": {
-          "min": 3972,
-          "avg": 3977,
-          "max": 3988
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 80.14738870799916
-      },
-      "large-v2-q5_0": {
-        "wer": 0.05392620624408704,
-        "meanRTF": 0.14913749759244693,
-        "peakRSS_MB": {
-          "min": 1969,
-          "avg": 1973,
-          "max": 1978
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 62.74511866600067
-      },
-      "large-v2-q8_0": {
-        "wer": 0.0510879848628193,
-        "meanRTF": 0.15658127345582204,
-        "peakRSS_MB": {
-          "min": 2542,
-          "avg": 2545,
-          "max": 2551
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 65.87686358200386
-      },
-      "large-v3": {
-        "wer": 0.06244087038789026,
-        "meanRTF": 0.19067636164734536,
-        "peakRSS_MB": {
-          "min": 3980,
-          "avg": 3983,
-          "max": 3993
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 80.22134695499854
-      },
-      "large-v3-turbo": {
-        "wer": 0.052980132450331126,
-        "meanRTF": 0.12139135846872356,
-        "peakRSS_MB": {
-          "min": 1876,
-          "avg": 1879,
-          "max": 1887
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 51.07176474800148
-      },
-      "large-v3-turbo-q8_0": {
-        "wer": 0.05203405865657521,
-        "meanRTF": 0.11993961313278448,
-        "peakRSS_MB": {
-          "min": 1102,
-          "avg": 1107,
-          "max": 1111
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 420.7199375,
-        "totalWallSec": 50.460986540999265
+        "small-q5_1": {
+          "wer": 0.08912751677852349,
+          "meanRTF": 0.03731926681155909,
+          "peakRSS_MB": {
+            "min": 382,
+            "avg": 382,
+            "max": 384
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 102.22232563400011,
+          "referenceWords": 7450
+        }
       }
     }
   },
   "fleurs": {
     "es_419": {
-      "small-q5_1": {
-        "wer": 0.06153846153846154,
-        "meanRTF": 0.044941417959370886,
-        "peakRSS_MB": {
-          "min": 473,
-          "avg": 476,
-          "max": 481
+      "whisper-cli": {
+        "small-q5_1": {
+          "wer": 0.05930348258706468,
+          "meanRTF": 0.047034299852529486,
+          "peakRSS_MB": {
+            "min": 475,
+            "avg": 477,
+            "max": 482
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2386.919999999999,
+          "totalWallSec": 112.26711100399964,
+          "referenceWords": 5025
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 27.25607116399926
+        "large-v3-turbo-q5_0": {
+          "wer": 0.032039800995024875,
+          "meanRTF": 0.0880822282531458,
+          "peakRSS_MB": {
+            "min": 800,
+            "avg": 801,
+            "max": 805
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2386.919999999999,
+          "totalWallSec": 210.2452322619987,
+          "referenceWords": 5025
+        },
+        "large-v3-q5_0": {
+          "wer": 0.030248756218905472,
+          "meanRTF": 0.12311214486870176,
+          "peakRSS_MB": {
+            "min": 1985,
+            "avg": 1987,
+            "max": 1991
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2386.919999999999,
+          "totalWallSec": 293.8588408300015,
+          "referenceWords": 5025
+        },
+        "tiny": {
+          "wer": 0.15,
+          "meanRTF": 0.04383064872213423,
+          "peakRSS_MB": {
+            "min": 223,
+            "avg": 225,
+            "max": 231
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.582411836999974,
+          "referenceWords": 1300
+        },
+        "tiny-q5_1": {
+          "wer": 0.1646153846153846,
+          "meanRTF": 0.04386043315360801,
+          "peakRSS_MB": {
+            "min": 154,
+            "avg": 157,
+            "max": 164
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.600475499000193,
+          "referenceWords": 1300
+        },
+        "tiny-q8_0": {
+          "wer": 0.15,
+          "meanRTF": 0.043907173913402105,
+          "peakRSS_MB": {
+            "min": 172,
+            "avg": 175,
+            "max": 180
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.628822835000115,
+          "referenceWords": 1300
+        },
+        "tiny.en": {
+          "wer": 1.0123076923076924,
+          "meanRTF": 0.043766235559293064,
+          "peakRSS_MB": {
+            "min": 222,
+            "avg": 224,
+            "max": 228
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.543346542000062,
+          "referenceWords": 1300
+        },
+        "tiny.en-q5_1": {
+          "wer": 1.01,
+          "meanRTF": 0.04379252098337944,
+          "peakRSS_MB": {
+            "min": 155,
+            "avg": 157,
+            "max": 162
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.55928812599997,
+          "referenceWords": 1300
+        },
+        "tiny.en-q8_0": {
+          "wer": 1.023076923076923,
+          "meanRTF": 0.0437589859945908,
+          "peakRSS_MB": {
+            "min": 171,
+            "avg": 173,
+            "max": 175
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.538949825999435,
+          "referenceWords": 1300
+        },
+        "base": {
+          "wer": 0.11615384615384615,
+          "meanRTF": 0.043771309245151734,
+          "peakRSS_MB": {
+            "min": 332,
+            "avg": 336,
+            "max": 343
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.54642363099963,
+          "referenceWords": 1300
+        },
+        "base-q5_1": {
+          "wer": 0.11076923076923077,
+          "meanRTF": 0.04398317284494025,
+          "peakRSS_MB": {
+            "min": 216,
+            "avg": 220,
+            "max": 227
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.674914666999367,
+          "referenceWords": 1300
+        },
+        "base-q8_0": {
+          "wer": 0.11384615384615385,
+          "meanRTF": 0.04399550210724094,
+          "peakRSS_MB": {
+            "min": 246,
+            "avg": 248,
+            "max": 256
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 26.68239211799949,
+          "referenceWords": 1300
+        },
+        "base.en": {
+          "wer": 0.9923076923076923,
+          "meanRTF": 0.04536334277799802,
+          "peakRSS_MB": {
+            "min": 331,
+            "avg": 333,
+            "max": 336
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 27.511960128000247,
+          "referenceWords": 1300
+        },
+        "base.en-q5_1": {
+          "wer": 0.9623076923076923,
+          "meanRTF": 0.044974405934244066,
+          "peakRSS_MB": {
+            "min": 215,
+            "avg": 217,
+            "max": 221
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 27.276077711000347,
+          "referenceWords": 1300
+        },
+        "base.en-q8_0": {
+          "wer": 0.9684615384615385,
+          "meanRTF": 0.04524518676955689,
+          "peakRSS_MB": {
+            "min": 244,
+            "avg": 246,
+            "max": 250
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 27.44030087200087,
+          "referenceWords": 1300
+        },
+        "small": {
+          "wer": 0.06,
+          "meanRTF": 0.04473004797520117,
+          "peakRSS_MB": {
+            "min": 806,
+            "avg": 808,
+            "max": 812
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 27.127879496000013,
+          "referenceWords": 1300
+        },
+        "small-q8_0": {
+          "wer": 0.06,
+          "meanRTF": 0.04501036334751405,
+          "peakRSS_MB": {
+            "min": 557,
+            "avg": 559,
+            "max": 564
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 27.297885163000327,
+          "referenceWords": 1300
+        },
+        "small.en": {
+          "wer": 0.91,
+          "meanRTF": 0.047430028879765385,
+          "peakRSS_MB": {
+            "min": 805,
+            "avg": 807,
+            "max": 815
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 28.765363915000115,
+          "referenceWords": 1300
+        },
+        "small.en-q5_1": {
+          "wer": 0.943076923076923,
+          "meanRTF": 0.047469804994394536,
+          "peakRSS_MB": {
+            "min": 473,
+            "avg": 475,
+            "max": 480
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 28.789487333000405,
+          "referenceWords": 1300
+        },
+        "small.en-q8_0": {
+          "wer": 0.8992307692307693,
+          "meanRTF": 0.04510400659543392,
+          "peakRSS_MB": {
+            "min": 556,
+            "avg": 558,
+            "max": 565
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 27.35467791999877,
+          "referenceWords": 1300
+        },
+        "medium": {
+          "wer": 0.04846153846153846,
+          "meanRTF": 0.08965188368289131,
+          "peakRSS_MB": {
+            "min": 2135,
+            "avg": 2139,
+            "max": 2145
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 54.37207441599994,
+          "referenceWords": 1300
+        },
+        "medium-q5_0": {
+          "wer": 0.047692307692307694,
+          "meanRTF": 0.08430355418645055,
+          "peakRSS_MB": {
+            "min": 1120,
+            "avg": 1123,
+            "max": 1125
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 51.12841954299854,
+          "referenceWords": 1300
+        },
+        "medium-q8_0": {
+          "wer": 0.04846153846153846,
+          "meanRTF": 0.08425158310909375,
+          "peakRSS_MB": {
+            "min": 1411,
+            "avg": 1413,
+            "max": 1416
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 51.09690012400319,
+          "referenceWords": 1300
+        },
+        "medium.en": {
+          "wer": 0.8923076923076924,
+          "meanRTF": 0.08866952434870044,
+          "peakRSS_MB": {
+            "min": 2134,
+            "avg": 2137,
+            "max": 2141
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 53.77629312699986,
+          "referenceWords": 1300
+        },
+        "medium.en-q5_0": {
+          "wer": 0.9076923076923077,
+          "meanRTF": 0.07326749240700499,
+          "peakRSS_MB": {
+            "min": 1120,
+            "avg": 1123,
+            "max": 1127
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 44.4352687950004,
+          "referenceWords": 1300
+        },
+        "medium.en-q8_0": {
+          "wer": 0.9,
+          "meanRTF": 0.07085873503495331,
+          "peakRSS_MB": {
+            "min": 1410,
+            "avg": 1413,
+            "max": 1419
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 42.97440562399849,
+          "referenceWords": 1300
+        },
+        "large-v1": {
+          "wer": 0.04153846153846154,
+          "meanRTF": 0.14214445166039652,
+          "peakRSS_MB": {
+            "min": 3975,
+            "avg": 3978,
+            "max": 3990
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 86.2077670429973,
+          "referenceWords": 1300
+        },
+        "large-v2": {
+          "wer": 0.03923076923076923,
+          "meanRTF": 0.14637075755341916,
+          "peakRSS_MB": {
+            "min": 3975,
+            "avg": 3978,
+            "max": 3982
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 88.77093704099768,
+          "referenceWords": 1300
+        },
+        "large-v2-q5_0": {
+          "wer": 0.03923076923076923,
+          "meanRTF": 0.1175726150705789,
+          "peakRSS_MB": {
+            "min": 1973,
+            "avg": 1976,
+            "max": 1979
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 71.3054395880047,
+          "referenceWords": 1300
+        },
+        "large-v2-q8_0": {
+          "wer": 0.03923076923076923,
+          "meanRTF": 0.1270459954029763,
+          "peakRSS_MB": {
+            "min": 2545,
+            "avg": 2548,
+            "max": 2552
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 77.05085529199708,
+          "referenceWords": 1300
+        },
+        "large-v3": {
+          "wer": 0.03538461538461538,
+          "meanRTF": 0.14195602782120512,
+          "peakRSS_MB": {
+            "min": 3981,
+            "avg": 3986,
+            "max": 3991
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 86.0934917530045,
+          "referenceWords": 1300
+        },
+        "large-v3-turbo": {
+          "wer": 0.03307692307692308,
+          "meanRTF": 0.08350048757914605,
+          "peakRSS_MB": {
+            "min": 1877,
+            "avg": 1880,
+            "max": 1884
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 50.641375707000506,
+          "referenceWords": 1300
+        },
+        "large-v3-turbo-q8_0": {
+          "wer": 0.03307692307692308,
+          "meanRTF": 0.08327167438662696,
+          "peakRSS_MB": {
+            "min": 1105,
+            "avg": 1108,
+            "max": 1110
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 606.4800000000001,
+          "totalWallSec": 50.50260508200153,
+          "referenceWords": 1300
+        }
       },
-      "large-v3-turbo-q5_0": {
-        "wer": 0.031538461538461536,
-        "meanRTF": 0.08328084012333455,
-        "peakRSS_MB": {
-          "min": 798,
-          "avg": 801,
-          "max": 805
+      "crispasr": {
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.05693950177935943,
+          "meanRTF": 0.01712202590027085,
+          "peakRSS_MB": {
+            "min": 79,
+            "avg": 81,
+            "max": 86
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 84.46226888500013,
+          "cer": 0.035817400230976515,
+          "referenceWords": 10397,
+          "referenceChars": 62344
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 50.508163917999944
-      },
-      "large-v3-q5_0": {
-        "wer": 0.03461538461538462,
-        "meanRTF": 0.12017087201226664,
-        "peakRSS_MB": {
-          "min": 1984,
-          "avg": 1987,
-          "max": 1991
+        "large-v3-turbo-q5_0": {
+          "wer": 0.032124651341733194,
+          "meanRTF": 0.047225502648916604,
+          "peakRSS_MB": {
+            "min": 755,
+            "avg": 757,
+            "max": 759
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 232.96151554699975,
+          "cer": 0.020771846528936225,
+          "referenceWords": 10397,
+          "referenceChars": 62344
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 72.8812304579995
-      },
-      "parakeet-tdt-0.6b-v3": {
-        "wer": 0.05615384615384615,
-        "meanRTF": 0.015183831150242494,
-        "peakRSS_MB": {
-          "min": 79,
-          "avg": 81,
-          "max": 84
+        "medium.en-q5_0": {
+          "wer": 0.8632478632478633,
+          "meanRTF": 0.04593766552747522,
+          "peakRSS_MB": {
+            "min": 832,
+            "avg": 833,
+            "max": 834
+          },
+          "utteranceCount": 17,
+          "totalAudioSec": 208.92,
+          "totalWallSec": 9.597297082000122,
+          "cer": 0.5776419841840402,
+          "referenceWords": 468,
+          "referenceChars": 2782
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 9.20868991599907
-      },
-      "tiny": {
-        "wer": 0.15,
-        "meanRTF": 0.04383064872213423,
-        "peakRSS_MB": {
-          "min": 223,
-          "avg": 225,
-          "max": 231
+        "large-v3-q5_0": {
+          "wer": 0.02789266134461864,
+          "meanRTF": 0.08094581053545934,
+          "peakRSS_MB": {
+            "min": 1523,
+            "avg": 1524,
+            "max": 1526
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 399.3024455389996,
+          "cer": 0.018093160528679583,
+          "referenceWords": 10397,
+          "referenceChars": 62344
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.582411836999974
-      },
-      "tiny-q5_1": {
-        "wer": 0.1646153846153846,
-        "meanRTF": 0.04386043315360801,
-        "peakRSS_MB": {
-          "min": 154,
-          "avg": 157,
-          "max": 164
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.600475499000193
-      },
-      "tiny-q8_0": {
-        "wer": 0.15,
-        "meanRTF": 0.043907173913402105,
-        "peakRSS_MB": {
-          "min": 172,
-          "avg": 175,
-          "max": 180
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.628822835000115
-      },
-      "tiny.en": {
-        "wer": 1.0123076923076924,
-        "meanRTF": 0.043766235559293064,
-        "peakRSS_MB": {
-          "min": 222,
-          "avg": 224,
-          "max": 228
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.543346542000062
-      },
-      "tiny.en-q5_1": {
-        "wer": 1.01,
-        "meanRTF": 0.04379252098337944,
-        "peakRSS_MB": {
-          "min": 155,
-          "avg": 157,
-          "max": 162
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.55928812599997
-      },
-      "tiny.en-q8_0": {
-        "wer": 1.023076923076923,
-        "meanRTF": 0.0437589859945908,
-        "peakRSS_MB": {
-          "min": 171,
-          "avg": 173,
-          "max": 175
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.538949825999435
-      },
-      "base": {
-        "wer": 0.11615384615384615,
-        "meanRTF": 0.043771309245151734,
-        "peakRSS_MB": {
-          "min": 332,
-          "avg": 336,
-          "max": 343
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.54642363099963
-      },
-      "base-q5_1": {
-        "wer": 0.11076923076923077,
-        "meanRTF": 0.04398317284494025,
-        "peakRSS_MB": {
-          "min": 216,
-          "avg": 220,
-          "max": 227
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.674914666999367
-      },
-      "base-q8_0": {
-        "wer": 0.11384615384615385,
-        "meanRTF": 0.04399550210724094,
-        "peakRSS_MB": {
-          "min": 246,
-          "avg": 248,
-          "max": 256
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 26.68239211799949
-      },
-      "base.en": {
-        "wer": 0.9923076923076923,
-        "meanRTF": 0.04536334277799802,
-        "peakRSS_MB": {
-          "min": 331,
-          "avg": 333,
-          "max": 336
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 27.511960128000247
-      },
-      "base.en-q5_1": {
-        "wer": 0.9623076923076923,
-        "meanRTF": 0.044974405934244066,
-        "peakRSS_MB": {
-          "min": 215,
-          "avg": 217,
-          "max": 221
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 27.276077711000347
-      },
-      "base.en-q8_0": {
-        "wer": 0.9684615384615385,
-        "meanRTF": 0.04524518676955689,
-        "peakRSS_MB": {
-          "min": 244,
-          "avg": 246,
-          "max": 250
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 27.44030087200087
-      },
-      "small": {
-        "wer": 0.06,
-        "meanRTF": 0.04473004797520117,
-        "peakRSS_MB": {
-          "min": 806,
-          "avg": 808,
-          "max": 812
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 27.127879496000013
-      },
-      "small-q8_0": {
-        "wer": 0.06,
-        "meanRTF": 0.04501036334751405,
-        "peakRSS_MB": {
-          "min": 557,
-          "avg": 559,
-          "max": 564
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 27.297885163000327
-      },
-      "small.en": {
-        "wer": 0.91,
-        "meanRTF": 0.047430028879765385,
-        "peakRSS_MB": {
-          "min": 805,
-          "avg": 807,
-          "max": 815
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 28.765363915000115
-      },
-      "small.en-q5_1": {
-        "wer": 0.943076923076923,
-        "meanRTF": 0.047469804994394536,
-        "peakRSS_MB": {
-          "min": 473,
-          "avg": 475,
-          "max": 480
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 28.789487333000405
-      },
-      "small.en-q8_0": {
-        "wer": 0.8992307692307693,
-        "meanRTF": 0.04510400659543392,
-        "peakRSS_MB": {
-          "min": 556,
-          "avg": 558,
-          "max": 565
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 27.35467791999877
-      },
-      "medium": {
-        "wer": 0.04846153846153846,
-        "meanRTF": 0.08965188368289131,
-        "peakRSS_MB": {
-          "min": 2135,
-          "avg": 2139,
-          "max": 2145
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 54.37207441599994
-      },
-      "medium-q5_0": {
-        "wer": 0.047692307692307694,
-        "meanRTF": 0.08430355418645055,
-        "peakRSS_MB": {
-          "min": 1120,
-          "avg": 1123,
-          "max": 1125
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 51.12841954299854
-      },
-      "medium-q8_0": {
-        "wer": 0.04846153846153846,
-        "meanRTF": 0.08425158310909375,
-        "peakRSS_MB": {
-          "min": 1411,
-          "avg": 1413,
-          "max": 1416
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 51.09690012400319
-      },
-      "medium.en": {
-        "wer": 0.8923076923076924,
-        "meanRTF": 0.08866952434870044,
-        "peakRSS_MB": {
-          "min": 2134,
-          "avg": 2137,
-          "max": 2141
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 53.77629312699986
-      },
-      "medium.en-q5_0": {
-        "wer": 0.9076923076923077,
-        "meanRTF": 0.07326749240700499,
-        "peakRSS_MB": {
-          "min": 1120,
-          "avg": 1123,
-          "max": 1127
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 44.4352687950004
-      },
-      "medium.en-q8_0": {
-        "wer": 0.9,
-        "meanRTF": 0.07085873503495331,
-        "peakRSS_MB": {
-          "min": 1410,
-          "avg": 1413,
-          "max": 1419
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 42.97440562399849
-      },
-      "large-v1": {
-        "wer": 0.04153846153846154,
-        "meanRTF": 0.14214445166039652,
-        "peakRSS_MB": {
-          "min": 3975,
-          "avg": 3978,
-          "max": 3990
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 86.2077670429973
-      },
-      "large-v2": {
-        "wer": 0.03923076923076923,
-        "meanRTF": 0.14637075755341916,
-        "peakRSS_MB": {
-          "min": 3975,
-          "avg": 3978,
-          "max": 3982
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 88.77093704099768
-      },
-      "large-v2-q5_0": {
-        "wer": 0.03923076923076923,
-        "meanRTF": 0.1175726150705789,
-        "peakRSS_MB": {
-          "min": 1973,
-          "avg": 1976,
-          "max": 1979
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 71.3054395880047
-      },
-      "large-v2-q8_0": {
-        "wer": 0.03923076923076923,
-        "meanRTF": 0.1270459954029763,
-        "peakRSS_MB": {
-          "min": 2545,
-          "avg": 2548,
-          "max": 2552
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 77.05085529199708
-      },
-      "large-v3": {
-        "wer": 0.03538461538461538,
-        "meanRTF": 0.14195602782120512,
-        "peakRSS_MB": {
-          "min": 3981,
-          "avg": 3986,
-          "max": 3991
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 86.0934917530045
-      },
-      "large-v3-turbo": {
-        "wer": 0.03307692307692308,
-        "meanRTF": 0.08350048757914605,
-        "peakRSS_MB": {
-          "min": 1877,
-          "avg": 1880,
-          "max": 1884
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 50.641375707000506
-      },
-      "large-v3-turbo-q8_0": {
-        "wer": 0.03307692307692308,
-        "meanRTF": 0.08327167438662696,
-        "peakRSS_MB": {
-          "min": 1105,
-          "avg": 1108,
-          "max": 1110
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 606.4800000000001,
-        "totalWallSec": 50.50260508200153
+        "small-q5_1": {
+          "wer": 0.06174858132153506,
+          "meanRTF": 0.02449940763801031,
+          "peakRSS_MB": {
+            "min": 383,
+            "avg": 383,
+            "max": 385
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 120.85459790199938,
+          "cer": 0.032465032721673295,
+          "referenceWords": 10397,
+          "referenceChars": 62344
+        }
       }
     },
     "da_dk": {
-      "small-q5_1": {
-        "wer": 0.3641552511415525,
-        "meanRTF": 0.05245912624329973,
-        "peakRSS_MB": {
-          "min": 473,
-          "avg": 475,
-          "max": 477
+      "whisper-cli": {
+        "small-q5_1": {
+          "wer": 0.35693571773803767,
+          "meanRTF": 0.05130073368626607,
+          "peakRSS_MB": {
+            "min": 475,
+            "avg": 476,
+            "max": 477
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 113.23200540700024,
+          "referenceWords": 4138
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.81395778800023
+        "large-v3-turbo-q5_0": {
+          "wer": 0.1457225712904785,
+          "meanRTF": 0.09593476335435532,
+          "peakRSS_MB": {
+            "min": 799,
+            "avg": 801,
+            "max": 802
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 211.7491283710002,
+          "referenceWords": 4138
+        },
+        "large-v3-q5_0": {
+          "wer": 0.1292895118414693,
+          "meanRTF": 0.13943335838339777,
+          "peakRSS_MB": {
+            "min": 1985,
+            "avg": 1987,
+            "max": 1991
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 307.7600972910033,
+          "referenceWords": 4138
+        },
+        "tiny": {
+          "wer": 0.8584474885844748,
+          "meanRTF": 0.05293633161560428,
+          "peakRSS_MB": {
+            "min": 223,
+            "avg": 226,
+            "max": 229
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 27.057876541999978,
+          "referenceWords": 876
+        },
+        "tiny-q5_1": {
+          "wer": 0.8561643835616438,
+          "meanRTF": 0.05394294192197808,
+          "peakRSS_MB": {
+            "min": 156,
+            "avg": 157,
+            "max": 159
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 27.57239533399988,
+          "referenceWords": 876
+        },
+        "tiny-q8_0": {
+          "wer": 0.8881278538812786,
+          "meanRTF": 0.05277593093281655,
+          "peakRSS_MB": {
+            "min": 172,
+            "avg": 175,
+            "max": 178
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 26.975889336999856,
+          "referenceWords": 876
+        },
+        "tiny.en": {
+          "wer": 1.187214611872146,
+          "meanRTF": 0.053176408046719754,
+          "peakRSS_MB": {
+            "min": 223,
+            "avg": 225,
+            "max": 226
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 27.180589209000342,
+          "referenceWords": 876
+        },
+        "tiny.en-q5_1": {
+          "wer": 1.2602739726027397,
+          "meanRTF": 0.05273946463982471,
+          "peakRSS_MB": {
+            "min": 155,
+            "avg": 158,
+            "max": 161
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 26.957249956000005,
+          "referenceWords": 876
+        },
+        "tiny.en-q8_0": {
+          "wer": 1.20662100456621,
+          "meanRTF": 0.05284601853503832,
+          "peakRSS_MB": {
+            "min": 172,
+            "avg": 174,
+            "max": 176
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 27.011713913999493,
+          "referenceWords": 876
+        },
+        "base": {
+          "wer": 0.6050228310502284,
+          "meanRTF": 0.051906361924324566,
+          "peakRSS_MB": {
+            "min": 331,
+            "avg": 333,
+            "max": 337
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 26.531417833999264,
+          "referenceWords": 876
+        },
+        "base-q5_1": {
+          "wer": 0.6244292237442922,
+          "meanRTF": 0.05220725535274203,
+          "peakRSS_MB": {
+            "min": 215,
+            "avg": 218,
+            "max": 223
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 26.685216501000568,
+          "referenceWords": 876
+        },
+        "base-q8_0": {
+          "wer": 0.6164383561643836,
+          "meanRTF": 0.05210769318386583,
+          "peakRSS_MB": {
+            "min": 244,
+            "avg": 246,
+            "max": 252
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 26.634326294001184,
+          "referenceWords": 876
+        },
+        "base.en": {
+          "wer": 1.0696347031963471,
+          "meanRTF": 0.054657992669327804,
+          "peakRSS_MB": {
+            "min": 331,
+            "avg": 334,
+            "max": 338
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 27.937886373000218,
+          "referenceWords": 876
+        },
+        "base.en-q5_1": {
+          "wer": 1.095890410958904,
+          "meanRTF": 0.05473885864733763,
+          "peakRSS_MB": {
+            "min": 215,
+            "avg": 217,
+            "max": 220
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 27.97922020900016,
+          "referenceWords": 876
+        },
+        "base.en-q8_0": {
+          "wer": 1.0787671232876712,
+          "meanRTF": 0.05290901008921278,
+          "peakRSS_MB": {
+            "min": 244,
+            "avg": 247,
+            "max": 250
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 27.043911417000228,
+          "referenceWords": 876
+        },
+        "small": {
+          "wer": 0.3584474885844749,
+          "meanRTF": 0.052202112601245416,
+          "peakRSS_MB": {
+            "min": 805,
+            "avg": 807,
+            "max": 811
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 26.682587835000586,
+          "referenceWords": 876
+        },
+        "small-q8_0": {
+          "wer": 0.3607305936073059,
+          "meanRTF": 0.05224280830692091,
+          "peakRSS_MB": {
+            "min": 556,
+            "avg": 557,
+            "max": 559
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 26.703389037999557,
+          "referenceWords": 876
+        },
+        "small.en": {
+          "wer": 1.1529680365296804,
+          "meanRTF": 0.05819602800211281,
+          "peakRSS_MB": {
+            "min": 805,
+            "avg": 807,
+            "max": 813
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 29.746317752999946,
+          "referenceWords": 876
+        },
+        "small.en-q5_1": {
+          "wer": 1.1723744292237444,
+          "meanRTF": 0.06208474243847298,
+          "peakRSS_MB": {
+            "min": 474,
+            "avg": 475,
+            "max": 478
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 31.733995250001083,
+          "referenceWords": 876
+        },
+        "small.en-q8_0": {
+          "wer": 1.1929223744292237,
+          "meanRTF": 0.055785018370698554,
+          "peakRSS_MB": {
+            "min": 556,
+            "avg": 559,
+            "max": 565
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 28.513954289998864,
+          "referenceWords": 876
+        },
+        "medium": {
+          "wer": 0.2180365296803653,
+          "meanRTF": 0.10180854984544013,
+          "peakRSS_MB": {
+            "min": 2135,
+            "avg": 2137,
+            "max": 2139
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 52.03842216799828,
+          "referenceWords": 876
+        },
+        "medium-q5_0": {
+          "wer": 0.22945205479452055,
+          "meanRTF": 0.09679734401728943,
+          "peakRSS_MB": {
+            "min": 1120,
+            "avg": 1122,
+            "max": 1125
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 49.47699442099733,
+          "referenceWords": 876
+        },
+        "medium-q8_0": {
+          "wer": 0.22146118721461186,
+          "meanRTF": 0.09901131426419435,
+          "peakRSS_MB": {
+            "min": 1410,
+            "avg": 1412,
+            "max": 1414
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 50.60864317300031,
+          "referenceWords": 876
+        },
+        "medium.en": {
+          "wer": 1.139269406392694,
+          "meanRTF": 0.1147346694838987,
+          "peakRSS_MB": {
+            "min": 2134,
+            "avg": 2137,
+            "max": 2141
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 58.64547895999999,
+          "referenceWords": 876
+        },
+        "medium.en-q5_0": {
+          "wer": 1.1141552511415524,
+          "meanRTF": 0.10181261608169835,
+          "peakRSS_MB": {
+            "min": 1121,
+            "avg": 1124,
+            "max": 1129
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 52.040500583999304,
+          "referenceWords": 876
+        },
+        "medium.en-q8_0": {
+          "wer": 1.16324200913242,
+          "meanRTF": 0.10408469320342816,
+          "peakRSS_MB": {
+            "min": 1411,
+            "avg": 1412,
+            "max": 1414
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 53.20185008400028,
+          "referenceWords": 876
+        },
+        "large-v1": {
+          "wer": 0.19292237442922375,
+          "meanRTF": 0.1716901434362342,
+          "peakRSS_MB": {
+            "min": 3976,
+            "avg": 3978,
+            "max": 3984
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 87.75769991599677,
+          "referenceWords": 876
+        },
+        "large-v2": {
+          "wer": 0.1552511415525114,
+          "meanRTF": 0.17064379100832944,
+          "peakRSS_MB": {
+            "min": 3976,
+            "avg": 3978,
+            "max": 3984
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 87.22286733599752,
+          "referenceWords": 876
+        },
+        "large-v2-q5_0": {
+          "wer": 0.16095890410958905,
+          "meanRTF": 0.13578656262667269,
+          "peakRSS_MB": {
+            "min": 1973,
+            "avg": 1974,
+            "max": 1975
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 69.40594362099749,
+          "referenceWords": 876
+        },
+        "large-v2-q8_0": {
+          "wer": 0.1541095890410959,
+          "meanRTF": 0.14479014971632592,
+          "peakRSS_MB": {
+            "min": 2545,
+            "avg": 2547,
+            "max": 2550
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 74.00803712600285,
+          "referenceWords": 876
+        },
+        "large-v3": {
+          "wer": 0.1267123287671233,
+          "meanRTF": 0.1685848047247245,
+          "peakRSS_MB": {
+            "min": 3982,
+            "avg": 3983,
+            "max": 3985
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 86.1704370869957,
+          "referenceWords": 876
+        },
+        "large-v3-turbo": {
+          "wer": 0.1678082191780822,
+          "meanRTF": 0.09920677251829178,
+          "peakRSS_MB": {
+            "min": 1877,
+            "avg": 1878,
+            "max": 1880
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 50.70854970499967,
+          "referenceWords": 876
+        },
+        "large-v3-turbo-q8_0": {
+          "wer": 0.1678082191780822,
+          "meanRTF": 0.09865601832766194,
+          "peakRSS_MB": {
+            "min": 1105,
+            "avg": 1107,
+            "max": 1110
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 511.1400000000001,
+          "totalWallSec": 50.42703720800113,
+          "referenceWords": 876
+        }
       },
-      "large-v3-turbo-q5_0": {
-        "wer": 0.1552511415525114,
-        "meanRTF": 0.09880168707399126,
-        "peakRSS_MB": {
-          "min": 799,
-          "avg": 800,
-          "max": 803
+      "crispasr": {
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.19449737970462125,
+          "meanRTF": 0.018647548269147014,
+          "peakRSS_MB": {
+            "min": 78,
+            "avg": 80,
+            "max": 82
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 82.33190921600718,
+          "cer": 0.08227343483047951,
+          "referenceWords": 8396,
+          "referenceChars": 52678
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 50.501494330999904
-      },
-      "large-v3-q5_0": {
-        "wer": 0.1312785388127854,
-        "meanRTF": 0.1395654883358763,
-        "peakRSS_MB": {
-          "min": 1984,
-          "avg": 1986,
-          "max": 1988
+        "large-v3-turbo-q5_0": {
+          "wer": 0.14387803716055264,
+          "meanRTF": 0.05427797304129403,
+          "peakRSS_MB": {
+            "min": 755,
+            "avg": 757,
+            "max": 758
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 239.64593545299988,
+          "cer": 0.06105015376437982,
+          "referenceWords": 8396,
+          "referenceChars": 52678
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 71.33750370799982
-      },
-      "parakeet-tdt-0.6b-v3": {
-        "wer": 0.22031963470319635,
-        "meanRTF": 0.016676507086120135,
-        "peakRSS_MB": {
-          "min": 78,
-          "avg": 79,
-          "max": 82
+        "hviske-v5-tiny-f16": {
+          "wer": 0.11478975350410826,
+          "meanRTF": 0.021264334056414966,
+          "peakRSS_MB": {
+            "min": 595,
+            "avg": 601,
+            "max": 604
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 46.935063416000254,
+          "cer": 0.06794518450467003,
+          "referenceWords": 4138,
+          "referenceChars": 26124
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 8.524029831999448
-      },
-      "tiny": {
-        "wer": 0.8584474885844748,
-        "meanRTF": 0.05293633161560428,
-        "peakRSS_MB": {
-          "min": 223,
-          "avg": 226,
-          "max": 229
+        "hviske-v5-tiny-q8_0": {
+          "wer": 0.1152730787820203,
+          "meanRTF": 0.017546516890477322,
+          "peakRSS_MB": {
+            "min": 362,
+            "avg": 368,
+            "max": 372
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 38.72902301099937,
+          "cer": 0.06798346348185577,
+          "referenceWords": 4138,
+          "referenceChars": 26124
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 27.057876541999978
-      },
-      "tiny-q5_1": {
-        "wer": 0.8561643835616438,
-        "meanRTF": 0.05394294192197808,
-        "peakRSS_MB": {
-          "min": 156,
-          "avg": 157,
-          "max": 159
+        "hviske-v5-tiny-q6_k": {
+          "wer": 0.11672305461575641,
+          "meanRTF": 0.01681509649649786,
+          "peakRSS_MB": {
+            "min": 327,
+            "avg": 332,
+            "max": 336
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 37.114617289000016,
+          "cer": 0.06821313734497014,
+          "referenceWords": 4138,
+          "referenceChars": 26124
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 27.57239533399988
-      },
-      "tiny-q8_0": {
-        "wer": 0.8881278538812786,
-        "meanRTF": 0.05277593093281655,
-        "peakRSS_MB": {
-          "min": 172,
-          "avg": 175,
-          "max": 178
+        "hviske-v5-tiny-q5_0": {
+          "wer": 0.11124344926155312,
+          "referenceWords": 8396,
+          "meanRTF": 0.018415575981617874,
+          "peakRSS_MB": {
+            "min": 300,
+            "avg": 305,
+            "max": 308
+          },
+          "utteranceCount": 397,
+          "failures": 0,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 81.30771445100002,
+          "cer": 0.06553020236151715,
+          "referenceChars": 52678
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.975889336999856
-      },
-      "tiny.en": {
-        "wer": 1.187214611872146,
-        "meanRTF": 0.053176408046719754,
-        "peakRSS_MB": {
-          "min": 223,
-          "avg": 225,
-          "max": 226
+        "hviske-v5-tiny-q4_k": {
+          "wer": 0.11430642822619623,
+          "meanRTF": 0.01579096655838553,
+          "peakRSS_MB": {
+            "min": 248,
+            "avg": 253,
+            "max": 256
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2207.2200000000007,
+          "totalWallSec": 34.85413720699972,
+          "cer": 0.06825141632215587,
+          "referenceWords": 4138,
+          "referenceChars": 26124
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 27.180589209000342
-      },
-      "tiny.en-q5_1": {
-        "wer": 1.2602739726027397,
-        "meanRTF": 0.05273946463982471,
-        "peakRSS_MB": {
-          "min": 155,
-          "avg": 158,
-          "max": 161
+        "small-q5_1": {
+          "wer": 0.37529776083849453,
+          "meanRTF": 0.028410371743719416,
+          "peakRSS_MB": {
+            "min": 384,
+            "avg": 384,
+            "max": 385
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 125.43633690800029,
+          "cer": 0.15537795664224155,
+          "referenceWords": 8396,
+          "referenceChars": 52678
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.957249956000005
-      },
-      "tiny.en-q8_0": {
-        "wer": 1.20662100456621,
-        "meanRTF": 0.05284601853503832,
-        "peakRSS_MB": {
-          "min": 172,
-          "avg": 174,
-          "max": 176
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 27.011713913999493
-      },
-      "base": {
-        "wer": 0.6050228310502284,
-        "meanRTF": 0.051906361924324566,
-        "peakRSS_MB": {
-          "min": 331,
-          "avg": 333,
-          "max": 337
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.531417833999264
-      },
-      "base-q5_1": {
-        "wer": 0.6244292237442922,
-        "meanRTF": 0.05220725535274203,
-        "peakRSS_MB": {
-          "min": 215,
-          "avg": 218,
-          "max": 223
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.685216501000568
-      },
-      "base-q8_0": {
-        "wer": 0.6164383561643836,
-        "meanRTF": 0.05210769318386583,
-        "peakRSS_MB": {
-          "min": 244,
-          "avg": 246,
-          "max": 252
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.634326294001184
-      },
-      "base.en": {
-        "wer": 1.0696347031963471,
-        "meanRTF": 0.054657992669327804,
-        "peakRSS_MB": {
-          "min": 331,
-          "avg": 334,
-          "max": 338
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 27.937886373000218
-      },
-      "base.en-q5_1": {
-        "wer": 1.095890410958904,
-        "meanRTF": 0.05473885864733763,
-        "peakRSS_MB": {
-          "min": 215,
-          "avg": 217,
-          "max": 220
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 27.97922020900016
-      },
-      "base.en-q8_0": {
-        "wer": 1.0787671232876712,
-        "meanRTF": 0.05290901008921278,
-        "peakRSS_MB": {
-          "min": 244,
-          "avg": 247,
-          "max": 250
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 27.043911417000228
-      },
-      "small": {
-        "wer": 0.3584474885844749,
-        "meanRTF": 0.052202112601245416,
-        "peakRSS_MB": {
-          "min": 805,
-          "avg": 807,
-          "max": 811
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.682587835000586
-      },
-      "small-q8_0": {
-        "wer": 0.3607305936073059,
-        "meanRTF": 0.05224280830692091,
-        "peakRSS_MB": {
-          "min": 556,
-          "avg": 557,
-          "max": 559
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 26.703389037999557
-      },
-      "small.en": {
-        "wer": 1.1529680365296804,
-        "meanRTF": 0.05819602800211281,
-        "peakRSS_MB": {
-          "min": 805,
-          "avg": 807,
-          "max": 813
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 29.746317752999946
-      },
-      "small.en-q5_1": {
-        "wer": 1.1723744292237444,
-        "meanRTF": 0.06208474243847298,
-        "peakRSS_MB": {
-          "min": 474,
-          "avg": 475,
-          "max": 478
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 31.733995250001083
-      },
-      "small.en-q8_0": {
-        "wer": 1.1929223744292237,
-        "meanRTF": 0.055785018370698554,
-        "peakRSS_MB": {
-          "min": 556,
-          "avg": 559,
-          "max": 565
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 28.513954289998864
-      },
-      "medium": {
-        "wer": 0.2180365296803653,
-        "meanRTF": 0.10180854984544013,
-        "peakRSS_MB": {
-          "min": 2135,
-          "avg": 2137,
-          "max": 2139
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 52.03842216799828
-      },
-      "medium-q5_0": {
-        "wer": 0.22945205479452055,
-        "meanRTF": 0.09679734401728943,
-        "peakRSS_MB": {
-          "min": 1120,
-          "avg": 1122,
-          "max": 1125
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 49.47699442099733
-      },
-      "medium-q8_0": {
-        "wer": 0.22146118721461186,
-        "meanRTF": 0.09901131426419435,
-        "peakRSS_MB": {
-          "min": 1410,
-          "avg": 1412,
-          "max": 1414
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 50.60864317300031
-      },
-      "medium.en": {
-        "wer": 1.139269406392694,
-        "meanRTF": 0.1147346694838987,
-        "peakRSS_MB": {
-          "min": 2134,
-          "avg": 2137,
-          "max": 2141
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 58.64547895999999
-      },
-      "medium.en-q5_0": {
-        "wer": 1.1141552511415524,
-        "meanRTF": 0.10181261608169835,
-        "peakRSS_MB": {
-          "min": 1121,
-          "avg": 1124,
-          "max": 1129
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 52.040500583999304
-      },
-      "medium.en-q8_0": {
-        "wer": 1.16324200913242,
-        "meanRTF": 0.10408469320342816,
-        "peakRSS_MB": {
-          "min": 1411,
-          "avg": 1412,
-          "max": 1414
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 53.20185008400028
-      },
-      "large-v1": {
-        "wer": 0.19292237442922375,
-        "meanRTF": 0.1716901434362342,
-        "peakRSS_MB": {
-          "min": 3976,
-          "avg": 3978,
-          "max": 3984
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 87.75769991599677
-      },
-      "large-v2": {
-        "wer": 0.1552511415525114,
-        "meanRTF": 0.17064379100832944,
-        "peakRSS_MB": {
-          "min": 3976,
-          "avg": 3978,
-          "max": 3984
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 87.22286733599752
-      },
-      "large-v2-q5_0": {
-        "wer": 0.16095890410958905,
-        "meanRTF": 0.13578656262667269,
-        "peakRSS_MB": {
-          "min": 1973,
-          "avg": 1974,
-          "max": 1975
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 69.40594362099749
-      },
-      "large-v2-q8_0": {
-        "wer": 0.1541095890410959,
-        "meanRTF": 0.14479014971632592,
-        "peakRSS_MB": {
-          "min": 2545,
-          "avg": 2547,
-          "max": 2550
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 74.00803712600285
-      },
-      "large-v3": {
-        "wer": 0.1267123287671233,
-        "meanRTF": 0.1685848047247245,
-        "peakRSS_MB": {
-          "min": 3982,
-          "avg": 3983,
-          "max": 3985
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 86.1704370869957
-      },
-      "large-v3-turbo": {
-        "wer": 0.1678082191780822,
-        "meanRTF": 0.09920677251829178,
-        "peakRSS_MB": {
-          "min": 1877,
-          "avg": 1878,
-          "max": 1880
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 50.70854970499967
-      },
-      "large-v3-turbo-q8_0": {
-        "wer": 0.1678082191780822,
-        "meanRTF": 0.09865601832766194,
-        "peakRSS_MB": {
-          "min": 1105,
-          "avg": 1107,
-          "max": 1110
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 511.1400000000001,
-        "totalWallSec": 50.42703720800113
-      },
-      "hviske-v5-tiny-f16": {
-        "wer": 0.11478975350410826,
-        "meanRTF": 0.021264334056414966,
-        "peakRSS_MB": {
-          "min": 595,
-          "avg": 601,
-          "max": 604
-        },
-        "utteranceCount": 197,
-        "totalAudioSec": 2207.2200000000007,
-        "totalWallSec": 46.935063416000254,
-        "cer": 0.06794518450467003
-      },
-      "hviske-v5-tiny-q8_0": {
-        "wer": 0.1152730787820203,
-        "meanRTF": 0.017546516890477322,
-        "peakRSS_MB": {
-          "min": 362,
-          "avg": 368,
-          "max": 372
-        },
-        "utteranceCount": 197,
-        "totalAudioSec": 2207.2200000000007,
-        "totalWallSec": 38.72902301099937,
-        "cer": 0.06798346348185577
-      },
-      "hviske-v5-tiny-q6_k": {
-        "wer": 0.11672305461575641,
-        "meanRTF": 0.01681509649649786,
-        "peakRSS_MB": {
-          "min": 327,
-          "avg": 332,
-          "max": 336
-        },
-        "utteranceCount": 197,
-        "totalAudioSec": 2207.2200000000007,
-        "totalWallSec": 37.114617289000016,
-        "cer": 0.06821313734497014
-      },
-      "hviske-v5-tiny-q5_0": {
-        "wer": 0.11285645239246013,
-        "meanRTF": 0.016491096681345616,
-        "peakRSS_MB": {
-          "min": 277,
-          "avg": 282,
-          "max": 285
-        },
-        "utteranceCount": 197,
-        "totalAudioSec": 2207.2200000000007,
-        "totalWallSec": 36.39947841699968,
-        "cer": 0.06717960496095544
-      },
-      "hviske-v5-tiny-q4_k": {
-        "wer": 0.11430642822619623,
-        "meanRTF": 0.01579096655838553,
-        "peakRSS_MB": {
-          "min": 248,
-          "avg": 253,
-          "max": 256
-        },
-        "utteranceCount": 197,
-        "totalAudioSec": 2207.2200000000007,
-        "totalWallSec": 34.85413720699972,
-        "cer": 0.06825141632215587
+        "large-v3-q5_0": {
+          "wer": 0.1294664125774178,
+          "meanRTF": 0.09227139478592003,
+          "peakRSS_MB": {
+            "min": 1522,
+            "avg": 1524,
+            "max": 1525
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 407.39297140300295,
+          "cer": 0.05748130149208398,
+          "referenceWords": 8396,
+          "referenceChars": 52678
+        }
       }
     },
     "hu_hu": {
-      "small-q5_1": {
-        "wer": 0.4019501625135428,
-        "meanRTF": 0.04956883721667528,
-        "peakRSS_MB": {
-          "min": 475,
-          "avg": 477,
-          "max": 481
+      "whisper-cli": {
+        "small-q5_1": {
+          "wer": 0.4057023280146482,
+          "meanRTF": 0.04774381633795777,
+          "peakRSS_MB": {
+            "min": 476,
+            "avg": 478,
+            "max": 479
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2452.0200000000004,
+          "totalWallSec": 117.06879253699923,
+          "referenceWords": 3823
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 28.298849166999915
+        "large-v3-turbo-q5_0": {
+          "wer": 0.16453047345017002,
+          "meanRTF": 0.08635791255740206,
+          "peakRSS_MB": {
+            "min": 800,
+            "avg": 802,
+            "max": 805
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2452.0200000000004,
+          "totalWallSec": 211.75132874900106,
+          "referenceWords": 3823
+        },
+        "large-v3-q5_0": {
+          "wer": 0.1449123724823437,
+          "meanRTF": 0.14069719508486955,
+          "peakRSS_MB": {
+            "min": 1986,
+            "avg": 1989,
+            "max": 1991
+          },
+          "utteranceCount": 197,
+          "totalAudioSec": 2452.0200000000004,
+          "totalWallSec": 344.9923362920019,
+          "referenceWords": 3823
+        },
+        "tiny": {
+          "wer": 0.8309859154929577,
+          "meanRTF": 0.04767051249430697,
+          "peakRSS_MB": {
+            "min": 224,
+            "avg": 227,
+            "max": 230
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 27.215095582999847,
+          "referenceWords": 923
+        },
+        "tiny-q5_1": {
+          "wer": 0.8829902491874323,
+          "meanRTF": 0.047547831420563715,
+          "peakRSS_MB": {
+            "min": 158,
+            "avg": 160,
+            "max": 162
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 27.145056957999824,
+          "referenceWords": 923
+        },
+        "tiny-q8_0": {
+          "wer": 0.8212351029252438,
+          "meanRTF": 0.04664128590471178,
+          "peakRSS_MB": {
+            "min": 173,
+            "avg": 176,
+            "max": 179
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 26.627510122999954,
+          "referenceWords": 923
+        },
+        "tiny.en": {
+          "wer": 1.2437703141928493,
+          "meanRTF": 0.05173590215449372,
+          "peakRSS_MB": {
+            "min": 222,
+            "avg": 224,
+            "max": 228
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 29.53602654000046,
+          "referenceWords": 923
+        },
+        "tiny.en-q5_1": {
+          "wer": 1.2318526543878656,
+          "meanRTF": 0.05434018683832603,
+          "peakRSS_MB": {
+            "min": 155,
+            "avg": 158,
+            "max": 160
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 31.02281266600033,
+          "referenceWords": 923
+        },
+        "tiny.en-q8_0": {
+          "wer": 1.3066088840736727,
+          "meanRTF": 0.05172683685759445,
+          "peakRSS_MB": {
+            "min": 172,
+            "avg": 175,
+            "max": 181
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 29.530851162000673,
+          "referenceWords": 923
+        },
+        "base": {
+          "wer": 0.6468039003250271,
+          "meanRTF": 0.04662344886845206,
+          "peakRSS_MB": {
+            "min": 332,
+            "avg": 335,
+            "max": 340
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 26.61732695899928,
+          "referenceWords": 923
+        },
+        "base-q5_1": {
+          "wer": 0.6359696641386782,
+          "meanRTF": 0.047487839746014816,
+          "peakRSS_MB": {
+            "min": 218,
+            "avg": 221,
+            "max": 224
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 27.110807710999858,
+          "referenceWords": 923
+        },
+        "base-q8_0": {
+          "wer": 0.6446370530877573,
+          "meanRTF": 0.04654453027149966,
+          "peakRSS_MB": {
+            "min": 245,
+            "avg": 248,
+            "max": 251
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 26.57227233199915,
+          "referenceWords": 923
+        },
+        "base.en": {
+          "wer": 1.1375947995666305,
+          "meanRTF": 0.049746372101945185,
+          "peakRSS_MB": {
+            "min": 331,
+            "avg": 333,
+            "max": 340
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 28.400203833000504,
+          "referenceWords": 923
+        },
+        "base.en-q5_1": {
+          "wer": 1.1018418201516793,
+          "meanRTF": 0.04842013669994615,
+          "peakRSS_MB": {
+            "min": 215,
+            "avg": 217,
+            "max": 218
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 27.64305604199926,
+          "referenceWords": 923
+        },
+        "base.en-q8_0": {
+          "wer": 1.1094257854821234,
+          "meanRTF": 0.048146839647924676,
+          "peakRSS_MB": {
+            "min": 246,
+            "avg": 248,
+            "max": 252
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 27.487030755000198,
+          "referenceWords": 923
+        },
+        "small": {
+          "wer": 0.38244853737811485,
+          "meanRTF": 0.051577479635662796,
+          "peakRSS_MB": {
+            "min": 805,
+            "avg": 808,
+            "max": 810
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 29.44558312399989,
+          "referenceWords": 923
+        },
+        "small-q8_0": {
+          "wer": 0.39003250270855905,
+          "meanRTF": 0.049427811199858146,
+          "peakRSS_MB": {
+            "min": 557,
+            "avg": 560,
+            "max": 566
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 28.218337413999013,
+          "referenceWords": 923
+        },
+        "small.en": {
+          "wer": 1.2188515709642471,
+          "meanRTF": 0.05223463149588314,
+          "peakRSS_MB": {
+            "min": 804,
+            "avg": 806,
+            "max": 810
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 29.82075112099968,
+          "referenceWords": 923
+        },
+        "small.en-q5_1": {
+          "wer": 1.2632719393282774,
+          "meanRTF": 0.052060336896127345,
+          "peakRSS_MB": {
+            "min": 473,
+            "avg": 475,
+            "max": 478
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 29.7212463339991,
+          "referenceWords": 923
+        },
+        "small.en-q8_0": {
+          "wer": 1.2296858071505958,
+          "meanRTF": 0.05174574465580602,
+          "peakRSS_MB": {
+            "min": 557,
+            "avg": 559,
+            "max": 568
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 29.541645623999653,
+          "referenceWords": 923
+        },
+        "medium": {
+          "wer": 0.21668472372697725,
+          "meanRTF": 0.10659844719565346,
+          "peakRSS_MB": {
+            "min": 2136,
+            "avg": 2139,
+            "max": 2143
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 60.85705350399856,
+          "referenceWords": 923
+        },
+        "medium-q5_0": {
+          "wer": 0.21776814734561215,
+          "meanRTF": 0.09462739380627504,
+          "peakRSS_MB": {
+            "min": 1121,
+            "avg": 1124,
+            "max": 1126
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 54.02277912400242,
+          "referenceWords": 923
+        },
+        "medium-q8_0": {
+          "wer": 0.2210184182015168,
+          "meanRTF": 0.09475248773165802,
+          "peakRSS_MB": {
+            "min": 1412,
+            "avg": 1414,
+            "max": 1417
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 54.094195246003565,
+          "referenceWords": 923
+        },
+        "medium.en": {
+          "wer": 1.255687973997833,
+          "meanRTF": 0.09834941802067185,
+          "peakRSS_MB": {
+            "min": 2135,
+            "avg": 2136,
+            "max": 2138
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 56.14768274800156,
+          "referenceWords": 923
+        },
+        "medium.en-q5_0": {
+          "wer": 1.3196099674972914,
+          "meanRTF": 0.08924291017165861,
+          "peakRSS_MB": {
+            "min": 1121,
+            "avg": 1123,
+            "max": 1127
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 50.9487774169999,
+          "referenceWords": 923
+        },
+        "medium.en-q8_0": {
+          "wer": 1.2741061755146261,
+          "meanRTF": 0.09054422644247234,
+          "peakRSS_MB": {
+            "min": 1411,
+            "avg": 1413,
+            "max": 1415
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 51.69169887600746,
+          "referenceWords": 923
+        },
+        "large-v1": {
+          "wer": 0.17768147345612134,
+          "meanRTF": 0.1739961443895601,
+          "peakRSS_MB": {
+            "min": 3976,
+            "avg": 3980,
+            "max": 3986
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 99.33439883199985,
+          "referenceWords": 923
+        },
+        "large-v2": {
+          "wer": 0.14734561213434452,
+          "meanRTF": 0.1741094567122114,
+          "peakRSS_MB": {
+            "min": 3976,
+            "avg": 3979,
+            "max": 3987
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 99.39908883700149,
+          "referenceWords": 923
+        },
+        "large-v2-q5_0": {
+          "wer": 0.14734561213434452,
+          "meanRTF": 0.14632630722718776,
+          "peakRSS_MB": {
+            "min": 1973,
+            "avg": 1976,
+            "max": 1983
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 83.53768879600149,
+          "referenceWords": 923
+        },
+        "large-v2-q8_0": {
+          "wer": 0.14842903575297942,
+          "meanRTF": 0.1482328012051137,
+          "peakRSS_MB": {
+            "min": 2546,
+            "avg": 2548,
+            "max": 2554
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 84.62610620799941,
+          "referenceWords": 923
+        },
+        "large-v3": {
+          "wer": 0.10509209100758396,
+          "meanRTF": 0.17330059248905283,
+          "peakRSS_MB": {
+            "min": 3983,
+            "avg": 3984,
+            "max": 3987
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 98.93730825200025,
+          "referenceWords": 923
+        },
+        "large-v3-turbo": {
+          "wer": 0.1256771397616468,
+          "meanRTF": 0.0905009266771758,
+          "peakRSS_MB": {
+            "min": 1877,
+            "avg": 1880,
+            "max": 1882
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 51.66697903999966,
+          "referenceWords": 923
+        },
+        "large-v3-turbo-q8_0": {
+          "wer": 0.12459371614301191,
+          "meanRTF": 0.08791209632685296,
+          "peakRSS_MB": {
+            "min": 1106,
+            "avg": 1109,
+            "max": 1113
+          },
+          "utteranceCount": 47,
+          "totalAudioSec": 570.9,
+          "totalWallSec": 50.18901579300035,
+          "referenceWords": 923
+        }
       },
-      "large-v3-turbo-q5_0": {
-        "wer": 0.13542795232936078,
-        "meanRTF": 0.08840033565598206,
-        "peakRSS_MB": {
-          "min": 799,
-          "avg": 801,
-          "max": 804
+      "crispasr": {
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.18680574370089406,
+          "meanRTF": 0.017485068067158407,
+          "peakRSS_MB": {
+            "min": 79,
+            "avg": 81,
+            "max": 85
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 84.14863858000652,
+          "cer": 0.06467345604036251,
+          "referenceWords": 7382,
+          "referenceChars": 53515
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 50.46775162600016
-      },
-      "large-v3-q5_0": {
-        "wer": 0.11700975081256772,
-        "meanRTF": 0.1451413187423366,
-        "peakRSS_MB": {
-          "min": 1985,
-          "avg": 1987,
-          "max": 1990
+        "small-q5_1": {
+          "wer": 0.43687347602275806,
+          "meanRTF": 0.02842302212712472,
+          "peakRSS_MB": {
+            "min": 385,
+            "avg": 385,
+            "max": 386
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 136.78863628900038,
+          "cer": 0.14298794730449407,
+          "referenceWords": 7382,
+          "referenceChars": 53515
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 82.86117886999996
-      },
-      "parakeet-tdt-0.6b-v3": {
-        "wer": 0.15492957746478872,
-        "meanRTF": 0.0157078595200562,
-        "peakRSS_MB": {
-          "min": 79,
-          "avg": 80,
-          "max": 83
+        "large-v3-turbo-q5_0": {
+          "wer": 0.17434299647791926,
+          "meanRTF": 0.05218568657316212,
+          "peakRSS_MB": {
+            "min": 756,
+            "avg": 757,
+            "max": 758
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 251.14883520199993,
+          "cer": 0.052975801177240024,
+          "referenceWords": 7382,
+          "referenceChars": 53515
         },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 8.967617000000084
-      },
-      "tiny": {
-        "wer": 0.8309859154929577,
-        "meanRTF": 0.04767051249430697,
-        "peakRSS_MB": {
-          "min": 224,
-          "avg": 227,
-          "max": 230
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 27.215095582999847
-      },
-      "tiny-q5_1": {
-        "wer": 0.8829902491874323,
-        "meanRTF": 0.047547831420563715,
-        "peakRSS_MB": {
-          "min": 158,
-          "avg": 160,
-          "max": 162
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 27.145056957999824
-      },
-      "tiny-q8_0": {
-        "wer": 0.8212351029252438,
-        "meanRTF": 0.04664128590471178,
-        "peakRSS_MB": {
-          "min": 173,
-          "avg": 176,
-          "max": 179
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 26.627510122999954
-      },
-      "tiny.en": {
-        "wer": 1.2437703141928493,
-        "meanRTF": 0.05173590215449372,
-        "peakRSS_MB": {
-          "min": 222,
-          "avg": 224,
-          "max": 228
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 29.53602654000046
-      },
-      "tiny.en-q5_1": {
-        "wer": 1.2318526543878656,
-        "meanRTF": 0.05434018683832603,
-        "peakRSS_MB": {
-          "min": 155,
-          "avg": 158,
-          "max": 160
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 31.02281266600033
-      },
-      "tiny.en-q8_0": {
-        "wer": 1.3066088840736727,
-        "meanRTF": 0.05172683685759445,
-        "peakRSS_MB": {
-          "min": 172,
-          "avg": 175,
-          "max": 181
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 29.530851162000673
-      },
-      "base": {
-        "wer": 0.6468039003250271,
-        "meanRTF": 0.04662344886845206,
-        "peakRSS_MB": {
-          "min": 332,
-          "avg": 335,
-          "max": 340
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 26.61732695899928
-      },
-      "base-q5_1": {
-        "wer": 0.6359696641386782,
-        "meanRTF": 0.047487839746014816,
-        "peakRSS_MB": {
-          "min": 218,
-          "avg": 221,
-          "max": 224
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 27.110807710999858
-      },
-      "base-q8_0": {
-        "wer": 0.6446370530877573,
-        "meanRTF": 0.04654453027149966,
-        "peakRSS_MB": {
-          "min": 245,
-          "avg": 248,
-          "max": 251
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 26.57227233199915
-      },
-      "base.en": {
-        "wer": 1.1375947995666305,
-        "meanRTF": 0.049746372101945185,
-        "peakRSS_MB": {
-          "min": 331,
-          "avg": 333,
-          "max": 340
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 28.400203833000504
-      },
-      "base.en-q5_1": {
-        "wer": 1.1018418201516793,
-        "meanRTF": 0.04842013669994615,
-        "peakRSS_MB": {
-          "min": 215,
-          "avg": 217,
-          "max": 218
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 27.64305604199926
-      },
-      "base.en-q8_0": {
-        "wer": 1.1094257854821234,
-        "meanRTF": 0.048146839647924676,
-        "peakRSS_MB": {
-          "min": 246,
-          "avg": 248,
-          "max": 252
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 27.487030755000198
-      },
-      "small": {
-        "wer": 0.38244853737811485,
-        "meanRTF": 0.051577479635662796,
-        "peakRSS_MB": {
-          "min": 805,
-          "avg": 808,
-          "max": 810
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 29.44558312399989
-      },
-      "small-q8_0": {
-        "wer": 0.39003250270855905,
-        "meanRTF": 0.049427811199858146,
-        "peakRSS_MB": {
-          "min": 557,
-          "avg": 560,
-          "max": 566
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 28.218337413999013
-      },
-      "small.en": {
-        "wer": 1.2188515709642471,
-        "meanRTF": 0.05223463149588314,
-        "peakRSS_MB": {
-          "min": 804,
-          "avg": 806,
-          "max": 810
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 29.82075112099968
-      },
-      "small.en-q5_1": {
-        "wer": 1.2632719393282774,
-        "meanRTF": 0.052060336896127345,
-        "peakRSS_MB": {
-          "min": 473,
-          "avg": 475,
-          "max": 478
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 29.7212463339991
-      },
-      "small.en-q8_0": {
-        "wer": 1.2296858071505958,
-        "meanRTF": 0.05174574465580602,
-        "peakRSS_MB": {
-          "min": 557,
-          "avg": 559,
-          "max": 568
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 29.541645623999653
-      },
-      "medium": {
-        "wer": 0.21668472372697725,
-        "meanRTF": 0.10659844719565346,
-        "peakRSS_MB": {
-          "min": 2136,
-          "avg": 2139,
-          "max": 2143
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 60.85705350399856
-      },
-      "medium-q5_0": {
-        "wer": 0.21776814734561215,
-        "meanRTF": 0.09462739380627504,
-        "peakRSS_MB": {
-          "min": 1121,
-          "avg": 1124,
-          "max": 1126
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 54.02277912400242
-      },
-      "medium-q8_0": {
-        "wer": 0.2210184182015168,
-        "meanRTF": 0.09475248773165802,
-        "peakRSS_MB": {
-          "min": 1412,
-          "avg": 1414,
-          "max": 1417
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 54.094195246003565
-      },
-      "medium.en": {
-        "wer": 1.255687973997833,
-        "meanRTF": 0.09834941802067185,
-        "peakRSS_MB": {
-          "min": 2135,
-          "avg": 2136,
-          "max": 2138
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 56.14768274800156
-      },
-      "medium.en-q5_0": {
-        "wer": 1.3196099674972914,
-        "meanRTF": 0.08924291017165861,
-        "peakRSS_MB": {
-          "min": 1121,
-          "avg": 1123,
-          "max": 1127
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 50.9487774169999
-      },
-      "medium.en-q8_0": {
-        "wer": 1.2741061755146261,
-        "meanRTF": 0.09054422644247234,
-        "peakRSS_MB": {
-          "min": 1411,
-          "avg": 1413,
-          "max": 1415
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 51.69169887600746
-      },
-      "large-v1": {
-        "wer": 0.17768147345612134,
-        "meanRTF": 0.1739961443895601,
-        "peakRSS_MB": {
-          "min": 3976,
-          "avg": 3980,
-          "max": 3986
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 99.33439883199985
-      },
-      "large-v2": {
-        "wer": 0.14734561213434452,
-        "meanRTF": 0.1741094567122114,
-        "peakRSS_MB": {
-          "min": 3976,
-          "avg": 3979,
-          "max": 3987
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 99.39908883700149
-      },
-      "large-v2-q5_0": {
-        "wer": 0.14734561213434452,
-        "meanRTF": 0.14632630722718776,
-        "peakRSS_MB": {
-          "min": 1973,
-          "avg": 1976,
-          "max": 1983
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 83.53768879600149
-      },
-      "large-v2-q8_0": {
-        "wer": 0.14842903575297942,
-        "meanRTF": 0.1482328012051137,
-        "peakRSS_MB": {
-          "min": 2546,
-          "avg": 2548,
-          "max": 2554
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 84.62610620799941
-      },
-      "large-v3": {
-        "wer": 0.10509209100758396,
-        "meanRTF": 0.17330059248905283,
-        "peakRSS_MB": {
-          "min": 3983,
-          "avg": 3984,
-          "max": 3987
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 98.93730825200025
-      },
-      "large-v3-turbo": {
-        "wer": 0.1256771397616468,
-        "meanRTF": 0.0905009266771758,
-        "peakRSS_MB": {
-          "min": 1877,
-          "avg": 1880,
-          "max": 1882
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 51.66697903999966
-      },
-      "large-v3-turbo-q8_0": {
-        "wer": 0.12459371614301191,
-        "meanRTF": 0.08791209632685296,
-        "peakRSS_MB": {
-          "min": 1106,
-          "avg": 1109,
-          "max": 1113
-        },
-        "utteranceCount": 47,
-        "totalAudioSec": 570.9,
-        "totalWallSec": 50.18901579300035
+        "large-v3-q5_0": {
+          "wer": 0.14765646166350582,
+          "meanRTF": 0.09259542562710488,
+          "peakRSS_MB": {
+            "min": 1522,
+            "avg": 1524,
+            "max": 1525
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 445.6247453730048,
+          "cer": 0.04591236102027469,
+          "referenceWords": 7382,
+          "referenceChars": 53515
+        }
       }
     }
   }

@@ -1,0 +1,323 @@
+{
+  "description": "Curated models at 400 samples per dataset to match the Wispr Flow 1.6.765 external-product run at equal depth for the published comparison",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.6.2"
+  },
+  "runDate": "2026-09-04T09:41:04.025Z",
+  "config": {
+    "sampleSize": 400,
+    "warmupCount": 3,
+    "normalization": "whisper-basic"
+  },
+  "librispeech": {
+    "test-clean": {
+      "crispasr": {
+        "small-q5_1": {
+          "wer": 0.046074871666457996,
+          "meanRTF": 0.03587874291984999,
+          "peakRSS_MB": {
+            "min": 382,
+            "avg": 383,
+            "max": 385
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 105.35990191500001,
+          "referenceWords": 7987
+        },
+        "large-v3-turbo-q5_0": {
+          "wer": 0.03418054338299737,
+          "meanRTF": 0.07828247662073425,
+          "peakRSS_MB": {
+            "min": 756,
+            "avg": 757,
+            "max": 758
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 229.88079813300004,
+          "referenceWords": 7987
+        },
+        "large-v3-q5_0": {
+          "wer": 0.032177288093151374,
+          "meanRTF": 0.12337931412454278,
+          "peakRSS_MB": {
+            "min": 1524,
+            "avg": 1525,
+            "max": 1526
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 362.3101417889964,
+          "referenceWords": 7987
+        },
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.03918868160761237,
+          "meanRTF": 0.025332362735926168,
+          "peakRSS_MB": {
+            "min": 78,
+            "avg": 79,
+            "max": 83
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2936.5549999999976,
+          "totalWallSec": 74.3898764539976,
+          "referenceWords": 7987
+        }
+      }
+    },
+    "test-other": {
+      "crispasr": {
+        "small-q5_1": {
+          "wer": 0.08912751677852349,
+          "meanRTF": 0.03731926681155909,
+          "peakRSS_MB": {
+            "min": 382,
+            "avg": 382,
+            "max": 384
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 102.22232563400011,
+          "referenceWords": 7450
+        },
+        "large-v3-turbo-q5_0": {
+          "wer": 0.052080536912751677,
+          "meanRTF": 0.0814254886142336,
+          "peakRSS_MB": {
+            "min": 756,
+            "avg": 757,
+            "max": 757
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 223.03500371699894,
+          "referenceWords": 7450
+        },
+        "large-v3-q5_0": {
+          "wer": 0.04832214765100671,
+          "meanRTF": 0.12938114658219196,
+          "peakRSS_MB": {
+            "min": 1523,
+            "avg": 1525,
+            "max": 1526
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 354.39178812400144,
+          "referenceWords": 7450
+        },
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.05624161073825503,
+          "meanRTF": 0.027844700362415535,
+          "peakRSS_MB": {
+            "min": 78,
+            "avg": 80,
+            "max": 81
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 2739.1300625000026,
+          "totalWallSec": 76.2702558439971,
+          "referenceWords": 7450
+        }
+      }
+    }
+  },
+  "fleurs": {
+    "es_419": {
+      "crispasr": {
+        "small-q5_1": {
+          "wer": 0.06174858132153506,
+          "meanRTF": 0.02449940763801031,
+          "peakRSS_MB": {
+            "min": 383,
+            "avg": 383,
+            "max": 385
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 120.85459790199938,
+          "cer": 0.032465032721673295,
+          "referenceWords": 10397,
+          "referenceChars": 62344
+        },
+        "large-v3-turbo-q5_0": {
+          "wer": 0.032124651341733194,
+          "meanRTF": 0.047225502648916604,
+          "peakRSS_MB": {
+            "min": 755,
+            "avg": 757,
+            "max": 759
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 232.96151554699975,
+          "cer": 0.020771846528936225,
+          "referenceWords": 10397,
+          "referenceChars": 62344
+        },
+        "large-v3-q5_0": {
+          "wer": 0.02789266134461864,
+          "meanRTF": 0.08094581053545934,
+          "peakRSS_MB": {
+            "min": 1523,
+            "avg": 1524,
+            "max": 1526
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 399.3024455389996,
+          "cer": 0.018093160528679583,
+          "referenceWords": 10397,
+          "referenceChars": 62344
+        },
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.05693950177935943,
+          "meanRTF": 0.01712202590027085,
+          "peakRSS_MB": {
+            "min": 79,
+            "avg": 81,
+            "max": 86
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4932.960000000002,
+          "totalWallSec": 84.46226888500013,
+          "cer": 0.035817400230976515,
+          "referenceWords": 10397,
+          "referenceChars": 62344
+        }
+      }
+    },
+    "da_dk": {
+      "crispasr": {
+        "small-q5_1": {
+          "wer": 0.37529776083849453,
+          "meanRTF": 0.028410371743719416,
+          "peakRSS_MB": {
+            "min": 384,
+            "avg": 384,
+            "max": 385
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 125.43633690800029,
+          "cer": 0.15537795664224155,
+          "referenceWords": 8396,
+          "referenceChars": 52678
+        },
+        "large-v3-turbo-q5_0": {
+          "wer": 0.14387803716055264,
+          "meanRTF": 0.05427797304129403,
+          "peakRSS_MB": {
+            "min": 755,
+            "avg": 757,
+            "max": 758
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 239.64593545299988,
+          "cer": 0.06105015376437982,
+          "referenceWords": 8396,
+          "referenceChars": 52678
+        },
+        "large-v3-q5_0": {
+          "wer": 0.1294664125774178,
+          "meanRTF": 0.09227139478592003,
+          "peakRSS_MB": {
+            "min": 1522,
+            "avg": 1524,
+            "max": 1525
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 407.39297140300295,
+          "cer": 0.05748130149208398,
+          "referenceWords": 8396,
+          "referenceChars": 52678
+        },
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.19449737970462125,
+          "meanRTF": 0.018647548269147014,
+          "peakRSS_MB": {
+            "min": 78,
+            "avg": 80,
+            "max": 82
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4415.160000000003,
+          "totalWallSec": 82.33190921600718,
+          "cer": 0.08227343483047951,
+          "referenceWords": 8396,
+          "referenceChars": 52678
+        }
+      }
+    },
+    "hu_hu": {
+      "crispasr": {
+        "small-q5_1": {
+          "wer": 0.43687347602275806,
+          "meanRTF": 0.02842302212712472,
+          "peakRSS_MB": {
+            "min": 385,
+            "avg": 385,
+            "max": 386
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 136.78863628900038,
+          "cer": 0.14298794730449407,
+          "referenceWords": 7382,
+          "referenceChars": 53515
+        },
+        "large-v3-turbo-q5_0": {
+          "wer": 0.17434299647791926,
+          "meanRTF": 0.05218568657316212,
+          "peakRSS_MB": {
+            "min": 756,
+            "avg": 757,
+            "max": 758
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 251.14883520199993,
+          "cer": 0.052975801177240024,
+          "referenceWords": 7382,
+          "referenceChars": 53515
+        },
+        "large-v3-q5_0": {
+          "wer": 0.14765646166350582,
+          "meanRTF": 0.09259542562710488,
+          "peakRSS_MB": {
+            "min": 1522,
+            "avg": 1524,
+            "max": 1525
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 445.6247453730048,
+          "cer": 0.04591236102027469,
+          "referenceWords": 7382,
+          "referenceChars": 53515
+        },
+        "parakeet-tdt-0.6b-v3": {
+          "wer": 0.18680574370089406,
+          "meanRTF": 0.017485068067158407,
+          "peakRSS_MB": {
+            "min": 79,
+            "avg": 81,
+            "max": 85
+          },
+          "utteranceCount": 397,
+          "totalAudioSec": 4812.5999999999985,
+          "totalWallSec": 84.14863858000652,
+          "cer": 0.06467345604036251,
+          "referenceWords": 7382,
+          "referenceChars": 53515
+        }
+      }
+    }
+  }
+}
