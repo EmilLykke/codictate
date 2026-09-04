@@ -22,6 +22,7 @@ import {
   completedV2Records,
   incompleteV2Stages,
   loadV2Stages,
+  reconciledContinuationCursor,
   unresumableV2Stages,
   v2DatasetCoverage,
   V2_PLAN_SUFFIX,
@@ -273,6 +274,28 @@ describe("loadV2Stages", () => {
     expect(loadV2Stages(join(tmpdir(), "codictate-does-not-exist"))).toEqual(
       [],
     );
+  });
+});
+
+describe("legacy/v2 cursor reconciliation", () => {
+  test("completed v2 samples extend a historical v1 prefix", () => {
+    expect(
+      reconciledContinuationCursor(
+        POOL,
+        40,
+        POOL.slice(40, 70).map((clipId) => sampleOf(clipId)),
+      ),
+    ).toBe(70);
+  });
+
+  test("a v2 gap never becomes depth", () => {
+    expect(
+      reconciledContinuationCursor(
+        POOL,
+        40,
+        POOL.slice(50, 70).map((clipId) => sampleOf(clipId)),
+      ),
+    ).toBe(40);
   });
 });
 

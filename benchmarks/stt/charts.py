@@ -3,10 +3,32 @@ import json
 import sys
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
+matplotlib = None
+plt = None
+np = None
+
+
+def load_plotting() -> None:
+    """Load optional rendering dependencies only when charts are requested."""
+    global matplotlib, plt, np, COLORS
+    try:
+        import matplotlib as matplotlib_module
+        matplotlib_module.use("Agg")
+        import matplotlib.pyplot as pyplot_module
+        import numpy as numpy_module
+    except ImportError as error:
+        print(
+            "Chart rendering requires matplotlib and numpy. "
+            "Install them for this Python environment before generating charts.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from error
+    matplotlib = matplotlib_module
+    plt = pyplot_module
+    np = numpy_module
+    tab20 = plt.cm.tab20(np.linspace(0, 1, 20))
+    tab20b = plt.cm.tab20b(np.linspace(0, 1, 20))
+    COLORS = [matplotlib.colors.to_hex(c) for c in np.vstack((tab20, tab20b))]
 
 CONDITION_LABELS = {
     "test-clean": "English (clean)",
@@ -59,9 +81,7 @@ try! png.write(to: URL(fileURLWithPath: "{tmp}"))
         pass
     return None
 
-_TAB20 = plt.cm.tab20(np.linspace(0, 1, 20))
-_TAB20B = plt.cm.tab20b(np.linspace(0, 1, 20))
-COLORS = [matplotlib.colors.to_hex(c) for c in np.vstack((_TAB20, _TAB20B))]
+COLORS = []
 
 DARK_BG = "#1a1a1a"
 DARK_FG = "#eeeeee"
@@ -553,7 +573,7 @@ def extract_cer_data(results: dict) -> list[dict]:
     return points
 
 
-def style_ax(ax: plt.Axes) -> None:
+def style_ax(ax: "plt.Axes") -> None:
     ax.set_facecolor(DARK_BG)
     ax.tick_params(colors=DARK_LABEL, which="both")
     for spine in ax.spines.values():
@@ -1160,6 +1180,8 @@ def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: charts.py <results-dir> | charts.py --self-check", file=sys.stderr)
         sys.exit(1)
+
+    load_plotting()
 
     results_dir = Path(sys.argv[1])
     no_chunks = "--no-chunks" in sys.argv

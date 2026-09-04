@@ -28,13 +28,13 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | `bun run start:windows` | Dev mode (Windows) |
 | `bun run lint:fix` | ESLint fix |
 | `bun run tsc` | Type-check both tsconfigs |
-| `bun run test` | Run the test suite |
+| `bun run test` | Run the hermetic test suite |
 | `bun run test:manual` | Run the two opt-in suites (network, Benchmark Run archive) |
 | `bun run check:native:windows-helper` | Rust helper fmt / check / clippy / test (Windows host) |
 
 ## Tests and CI
 
-`bun run test` is `bun test` with no arguments: it discovers every `*.test.ts` in the repo. Those are pure-function tests - no spawn, no filesystem, no webview - which is what lets them run on any platform.
+`bun run test` is `bun test` with no arguments: it discovers every `*.test.ts` in the repo. Those are hermetic tests - no process spawn, network, user state or webview - which is what lets them run on any platform. Durable filesystem adapters may use committed fixtures and isolated temporary directories; they must clean up the latter.
 
 Two suites are deliberately outside that run and carry a `.manual.ts` suffix so `bun test` never discovers them:
 
@@ -47,7 +47,7 @@ Run both with `bun run test:manual`, or one with `bun test ./benchmarks/stt/resu
 
 `.github/workflows/ci.yml` runs `test`, `lint` and `tsc` on every push to `main` and every pull request, and runs `check:native:windows-helper` (which includes `cargo test` for the Rust matchers) on a Windows runner. The opt-in suites are not in CI by design.
 
-New tests go in a `*.test.ts` beside the module they cover, and only pure functions belong in the default run. See `docs/ARCHITECTURE_REVIEW.md` candidate E for the interfaces still waiting for coverage.
+New tests go in a `*.test.ts` beside the module they cover. Default tests must be hermetic: pure functions are preferred; durable filesystem adapters may read committed fixtures and use isolated temporary fixtures that are removed after the suite. They may not spawn processes, access the network or webview, read user state, or mutate repository state. See `docs/ARCHITECTURE_REVIEW.md` candidate E for the interfaces still waiting for coverage.
 
 ## Project structure
 

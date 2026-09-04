@@ -353,4 +353,63 @@ describe("a record must agree with its own plan reference", () => {
       assertRunRecordAgreesWithPlan(runRecord({ completedAt: null })),
     ).toThrow(/completed with no completedAt/);
   });
+
+  test("the duplicated dataset and batch identities have to match", () => {
+    const batched = runRecord({ batchId: "batch-a" });
+    batched.plan.batchId = "batch-a";
+    expect(() => assertRunRecordAgreesWithPlan(batched)).not.toThrow();
+    expect(() =>
+      assertRunRecordAgreesWithPlan({ ...batched, datasetId: "fleurs/hu_hu" }),
+    ).toThrow(/dataset/);
+    expect(() =>
+      assertRunRecordAgreesWithPlan({ ...batched, batchId: "batch-b" }),
+    ).toThrow(/batch/);
+  });
+
+  test("status and timestamps describe one possible lifecycle", () => {
+    expect(() =>
+      assertRunRecordAgreesWithPlan(
+        runRecord({
+          status: "incomplete",
+          completedAt: "2026-09-04T09:02:11.000Z",
+        }),
+      ),
+    ).toThrow(/incomplete.*completedAt/);
+    expect(() =>
+      assertRunRecordAgreesWithPlan(runRecord({ startedAt: "not-a-date" })),
+    ).toThrow(/startedAt/);
+    expect(() =>
+      assertRunRecordAgreesWithPlan(
+        runRecord({ completedAt: "2026-09-04T07:02:11.000Z" }),
+      ),
+    ).toThrow(/before it started/);
+  });
+
+  test("a completed record contains every planned scored clip exactly once", () => {
+    expect(() =>
+      assertRunRecordAgreesWithPlan(runRecord({ samples: [] })),
+    ).toThrow(/1 unique scored Sample/);
+    expect(() =>
+      assertRunRecordAgreesWithPlan(
+        runRecord({ samples: [sample(), sample()] }),
+      ),
+    ).toThrow(/1 unique scored Sample/);
+  });
+
+  test("plan bounds are whole, non-negative and match clipCount", () => {
+    for (const plan of [
+      { fromIndex: -1 },
+      { fromIndex: 0.5 },
+      { toIndex: 0 },
+      { clipCount: 2 },
+    ]) {
+      const record = runRecord();
+      expect(() =>
+        assertRunRecordAgreesWithPlan({
+          ...record,
+          plan: { ...record.plan, ...plan },
+        }),
+      ).toThrow(/invalid plan bounds/);
+    }
+  });
 });

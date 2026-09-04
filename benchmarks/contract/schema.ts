@@ -432,6 +432,8 @@ export function isRunPlanRefV2(value: unknown): value is RunPlanRefV2 {
     typeof candidate.toIndex === "number" &&
     typeof candidate.clipCount === "number" &&
     typeof candidate.createdAt === "string" &&
+    (candidate.batchId === undefined ||
+      typeof candidate.batchId === "string") &&
     isFingerprintV2(candidate.fingerprintV2)
   );
 }
@@ -456,6 +458,8 @@ export function isRunRecordV2(value: unknown): value is RunRecordV2 {
     isMeasuringHarness(candidate.harness) &&
     typeof candidate.model === "string" &&
     typeof candidate.datasetId === "string" &&
+    (candidate.batchId === undefined ||
+      typeof candidate.batchId === "string") &&
     isRunPlanRefV2(candidate.plan) &&
     isFingerprintV2(candidate.fingerprintV2) &&
     Array.isArray(candidate.samples) &&
@@ -525,10 +529,79 @@ export function assertRunRecordAgreesWithPlan(record: RunRecordV2): void {
         `${record.plan.fingerprintV2.value}. One of the two was copied from another plan.`,
     );
   }
+  if (record.plan.datasetId !== record.datasetId) {
+    throw new Error(
+      `Run ${record.runId} says dataset ${record.datasetId} but its plan says ` +
+        `${record.plan.datasetId}. One of the two was copied from another plan.`,
+    );
+  }
+  if (record.plan.batchId !== record.batchId) {
+    throw new Error(
+      `Run ${record.runId} says batch ${record.batchId ?? "(none)"} but its plan says ` +
+        `${record.plan.batchId ?? "(none)"}. One of the two was copied from another plan.`,
+    );
+  }
+  const { fromIndex, toIndex, clipCount } = record.plan;
+  if (
+    !Number.isInteger(fromIndex) ||
+    !Number.isInteger(toIndex) ||
+    !Number.isInteger(clipCount) ||
+    fromIndex < 0 ||
+    toIndex < fromIndex ||
+    clipCount <= 0 ||
+    toIndex - fromIndex !== clipCount
+  ) {
+    throw new Error(
+      `Run ${record.runId} has invalid plan bounds [${fromIndex}, ${toIndex}) for ` +
+        `clipCount ${clipCount}.`,
+    );
+  }
+  const planCreatedMs = Date.parse(record.plan.createdAt);
+  if (!Number.isFinite(planCreatedMs)) {
+    throw new Error(
+      `Run ${record.runId} has invalid plan createdAt ${record.plan.createdAt}.`,
+    );
+  }
+  const startedMs = Date.parse(record.startedAt);
+  if (!Number.isFinite(startedMs)) {
+    throw new Error(
+      `Run ${record.runId} has invalid startedAt ${record.startedAt}.`,
+    );
+  }
   if (record.status === "completed" && record.completedAt === null) {
     throw new Error(
       `Run ${record.runId} is marked completed with no completedAt. Recency in pooling is ` +
         `taken from completedAt, so a completed run without one cannot be ordered.`,
     );
+  }
+  if (record.status === "incomplete" && record.completedAt !== null) {
+    throw new Error(
+      `Run ${record.runId} is incomplete but carries completedAt ${record.completedAt}.`,
+    );
+  }
+  if (record.completedAt !== null) {
+    const completedMs = Date.parse(record.completedAt);
+    if (!Number.isFinite(completedMs)) {
+      throw new Error(
+        `Run ${record.runId} has invalid completedAt ${record.completedAt}.`,
+      );
+    }
+    if (completedMs < startedMs) {
+      throw new Error(`Run ${record.runId} completed before it started.`);
+    }
+  }
+  if (record.status === "completed") {
+    const scored = record.samples.filter(isScoredSample);
+    const uniqueScored = new Set(scored.map((sample) => sample.clipId)).size;
+    if (
+      scored.length !== record.plan.clipCount ||
+      uniqueScored !== record.plan.clipCount
+    ) {
+      throw new Error(
+        `Run ${record.runId} is completed but has ${scored.length} scored Samples and ` +
+          `${uniqueScored} unique scored Samples for a plan requiring ` +
+          `${record.plan.clipCount} unique scored Sample${record.plan.clipCount === 1 ? "" : "s"}.`,
+      );
+    }
   }
 }

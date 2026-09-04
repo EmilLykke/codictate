@@ -566,6 +566,30 @@ export interface V2DatasetCoverage {
 }
 
 /**
+ * Continue from legacy v1 coverage, then let completed v2 Samples extend that prefix.
+ *
+ * v2 cannot replace the legacy cursor outright: every run before schema v2 has no
+ * Samples to reconstruct, so a first v2 continuation may legitimately begin at 400.
+ * Treating the trusted v1 cursor as the historical prefix lets v2 prove only what comes
+ * after it, while still stopping at the first v2 hole.
+ */
+export function reconciledContinuationCursor(
+  orderedConsumableClipIds: readonly string[],
+  legacyCursor: number,
+  samples: readonly SampleMeasurementV2[],
+): number {
+  const baseline = Math.min(
+    Math.max(Number.isInteger(legacyCursor) ? legacyCursor : 0, 0),
+    orderedConsumableClipIds.length,
+  );
+  const measured = new Set(orderedConsumableClipIds.slice(0, baseline));
+  for (const sample of samples) {
+    if (!sample.isWarmup) measured.add(sample.clipId);
+  }
+  return contiguousCursor(orderedConsumableClipIds, measured);
+}
+
+/**
  * Where a Combination has got to in a dataset, from its pooled v2 Samples.
  *
  * The clip-set twin of `cursorFor` in `sample-cursor.ts`, which computes the same two

@@ -25,6 +25,7 @@ import {
 } from "./scripts/build-manifests";
 import {
   benchmarkModel,
+  leafFromSamples,
   partialFromSamples,
   type PartialProgress,
 } from "./stt/runner";
@@ -51,6 +52,7 @@ import {
   incompleteV2Stages,
   loadCoverage,
   loadV2Stages,
+  reconciledContinuationCursor,
   unresumableV2Stages,
   v2DatasetCoverage,
   V2_PLAN_SUFFIX,
@@ -884,6 +886,16 @@ export function stageRecord(input: {
   description?: string;
 }): RunRecordV2 {
   assertSamplesInPlanOrder(input.plan, input.samples);
+  if (input.status === "completed") {
+    const scoredCount = input.samples.filter(
+      (sample) => !sample.isWarmup,
+    ).length;
+    if (scoredCount !== input.plan.orderedClipIds.length) {
+      throw new Error(
+        `Run ${input.runId} cannot be completed with ${scoredCount}/${input.plan.orderedClipIds.length} scored Samples.`,
+      );
+    }
+  }
   return {
     schemaVersion: SCHEMA_VERSION,
     runId: input.runId,
@@ -957,6 +969,52 @@ interface Stage {
 }
 
 /**
+ * Repair the narrow legacy crash window where a completed v2 record reached disk before
+ * its v1 checkpoint leaf. New writes publish the checkpoint first; this keeps runs made
+ * by the earlier ordering resumable without re-transcribing anything.
+ */
+export function recoverCompletedCheckpointLeaf(
+  store: { librispeech: DatasetResults; fleurs: DatasetResults },
+  inProgress: CheckpointData["inProgress"],
+  stages: readonly ReturnType<typeof loadV2Stages>[number][],
+): boolean {
+  if (!inProgress?.range) return false;
+  if (
+    getCombinationResult(
+      store[inProgress.datasetType],
+      inProgress.datasetKey,
+      inProgress.harness,
+      inProgress.modelId,
+    )
+  ) {
+    return false;
+  }
+  const expectedStageId = stageIdFor(
+    inProgress.datasetKey,
+    inProgress.harness,
+    inProgress.modelId,
+  );
+  const stage = stages.find(
+    (candidate) =>
+      candidate.stageId === expectedStageId &&
+      candidate.record?.status === "completed",
+  );
+  if (!stage?.record) return false;
+  setCombinationResult(
+    store[inProgress.datasetType],
+    inProgress.datasetKey,
+    inProgress.harness,
+    inProgress.modelId,
+    leafFromSamples(stage.record.samples, {
+      range: inProgress.range,
+      peakRSS_MB: null,
+      computeCer: inProgress.datasetType === "fleurs",
+    }),
+  );
+  return true;
+}
+
+/**
  * Measure every stage, writing the plan once and the record after every scored clip.
  *
  * The two accumulators are both kept for a reason. `checkpoint.json` carries the v1
@@ -1022,7 +1080,33 @@ async function runStages(
     const computeCer = pool.datasetType === "fleurs";
 
     if (getCombinationResult(target, pool.datasetKey, bucket, modelId)) {
-      console.log(`  [${modelId}] ${pool.label}: skipped (already done)`);
+      const scoredCount = stage.recordedSamples.filter(
+        (sample) => !sample.isWarmup,
+      ).length;
+      if (scoredCount !== plan.orderedClipIds.length) {
+        throw new Error(
+          `Checkpoint says ${modelId}/${pool.datasetKey} is done, but its run record has ` +
+            `${scoredCount}/${plan.orderedClipIds.length} scored Samples.`,
+        );
+      }
+      // Recovery for a crash after the durable checkpoint leaf but before the final
+      // status flip. No audio runs: the complete incomplete-record is promoted in place.
+      writeStageRecord(
+        runDir,
+        stage.stageId,
+        stageRecord({
+          runId: plan.runId,
+          plan,
+          status: "completed",
+          startedAt: stage.startedAt,
+          completedAt: new Date().toISOString(),
+          samples: stage.recordedSamples,
+          description: context.description ?? flags.description,
+        }),
+      );
+      console.log(
+        `  [${modelId}] ${pool.label}: recovered (checkpoint done; record promoted without transcription)`,
+      );
       continue;
     }
 
@@ -1067,6 +1151,16 @@ async function runStages(
       },
     });
 
+    setCombinationResult(
+      target,
+      pool.datasetKey,
+      bucket,
+      modelId,
+      outcome.result,
+    );
+    saveCheckpoint(runDir, checkpointData());
+    // Completion is published last. A crash before this write resumes from the complete
+    // incomplete-record and the durable v1 leaf above; a crash after it loses neither.
     writeStageRecord(
       runDir,
       stage.stageId,
@@ -1080,15 +1174,6 @@ async function runStages(
         description: context.description ?? flags.description,
       }),
     );
-
-    setCombinationResult(
-      target,
-      pool.datasetKey,
-      bucket,
-      modelId,
-      outcome.result,
-    );
-    saveCheckpoint(runDir, checkpointData());
   }
 }
 
@@ -1241,6 +1326,18 @@ async function resumeRun(flags: ReturnType<typeof parseArgs>): Promise<void> {
     librispeech: checkpoint.librispeech,
     fleurs: checkpoint.fleurs,
   };
+
+  if (recoverCompletedCheckpointLeaf(store, checkpoint.inProgress, allStages)) {
+    console.warn(
+      `Recovered ${checkpoint.inProgress!.modelId}/${checkpoint.inProgress!.datasetKey} from its completed v2 record; the earlier process stopped before saving its v1 checkpoint leaf. Peak RSS is unavailable for that recovered leaf.`,
+    );
+    saveCheckpoint(runDir, {
+      ...checkpoint,
+      librispeech: store.librispeech,
+      fleurs: store.fleurs,
+      inProgress: undefined,
+    });
+  }
 
   // The description cannot be re-typed on a resume: `--description` is not forbidden, but
   // the run page's title comes from it and a second wording would silently replace the
@@ -1857,15 +1954,20 @@ async function startNewRun(flags: ReturnType<typeof parseArgs>): Promise<void> {
           pool.datasetKey,
           pool.fingerprint,
         );
-        const v2 = v2DatasetCoverage(
-          pool.consumable.map((entry) => entry.clipId),
+        const orderedClipIds = pool.consumable.map((entry) => entry.clipId);
+        const completedV2Samples =
           v2SamplesByDataset.get(
             `${modelId}|${datasetIdFor(pool.datasetType, pool.datasetKey)}`,
-          ) ?? [],
+          ) ?? [];
+        const v2 = v2DatasetCoverage(orderedClipIds, completedV2Samples);
+        const continuationCursor = reconciledContinuationCursor(
+          orderedClipIds,
+          cursor,
+          completedV2Samples,
         );
-        if (v2.maxMeasuredEnd > v2.cursor) {
+        if (v2.maxMeasuredEnd > continuationCursor) {
           console.log(
-            `  [${modelId}] ${pool.datasetKey}: v2 cursor ${v2.cursor} (contiguous), deepest measured end ${v2.maxMeasuredEnd} - ${v2.maxMeasuredEnd - v2.cursor} clip(s) sit past a hole and are not a depth`,
+            `  [${modelId}] ${pool.datasetKey}: cursor ${continuationCursor} (legacy prefix plus contiguous v2), deepest v2 measured end ${v2.maxMeasuredEnd} - ${v2.maxMeasuredEnd - continuationCursor} clip(s) sit past a hole and are not a depth`,
           );
         }
         const combination: PlannedCombination = {
@@ -1874,7 +1976,7 @@ async function startNewRun(flags: ReturnType<typeof parseArgs>): Promise<void> {
           modelId,
           pool,
           plan: planRange(
-            cursor,
+            continuationCursor,
             pool.consumable.length,
             flags.demand,
             flags.from ?? undefined,

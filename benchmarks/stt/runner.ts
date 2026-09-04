@@ -1116,11 +1116,10 @@ export async function benchmarkModel(
   const adapterOverride = options.adapter;
   const modelPath = adapterOverride ? "" : resolveModelPath(modelId);
   if (modelPath === null) {
-    console.log(`  [skip] ${modelId} not found`);
-    return {
-      result: unmeasuredLeaf(options.range),
-      samples: [...(options.recordedSamples ?? [])],
-    };
+    throw new Error(
+      `Speech Model ${modelId} is not on disk. This Combination remains incomplete; ` +
+        `restore or download the model, then resume the same run.`,
+    );
   }
 
   const entriesByClipId = new Map(

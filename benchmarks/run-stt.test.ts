@@ -34,6 +34,7 @@ import {
   parseStageId,
   PRODUCTION_RESULTS_DIR,
   resolveResumeTarget,
+  recoverCompletedCheckpointLeaf,
   stageIdFor,
   stagePlanPath,
   stageRecord,
@@ -52,6 +53,7 @@ import {
   parseRunRecordV2,
   pooledV2Leaves,
   V2_RECORDS_DIRNAME,
+  type DatasetResults,
 } from "./stt/results-schema";
 import {
   completedV2Records,
@@ -188,6 +190,20 @@ describe("assertSamplesInPlanOrder", () => {
     expect(() => assertSamplesInPlanOrder(plan, withWarmups)).not.toThrow();
   });
 
+  test("a completed record requires the full scored plan", () => {
+    const plan = planFor("run/s", 0, 5);
+    expect(() =>
+      stageRecord({
+        runId: plan.runId,
+        plan,
+        status: "completed",
+        startedAt: "2026-09-04T08:00:00.000Z",
+        completedAt: "2026-09-04T09:00:00.000Z",
+        samples: plan.orderedClipIds.slice(0, 4).map(sampleOf),
+      }),
+    ).toThrow(/cannot be completed/);
+  });
+
   test("the record writer enforces it, not just the helper", () => {
     const plan = planFor("run/s", 0, 3);
     expect(() =>
@@ -200,6 +216,52 @@ describe("assertSamplesInPlanOrder", () => {
         samples: [sampleOf(plan.orderedClipIds[2])],
       }),
     ).toThrow(/plan order/);
+  });
+});
+
+describe("completed-record checkpoint recovery", () => {
+  test("reconstructs a missing v1 leaf without transcribing", () => {
+    const plan = planFor("2026-09-04_08-00-00_recovery/s", 0, 5);
+    const samples = plan.orderedClipIds.map(sampleOf);
+    const store: { librispeech: DatasetResults; fleurs: DatasetResults } = {
+      librispeech: {},
+      fleurs: {},
+    };
+    const recovered = recoverCompletedCheckpointLeaf(
+      store,
+      {
+        harness: "crispasr",
+        modelId: plan.model,
+        datasetKey: "da_dk",
+        datasetType: "fleurs",
+        partial: {} as never,
+        range: {
+          startIndex: 0,
+          endIndex: 5,
+          manifestFingerprint: "100:abc",
+        },
+      },
+      [
+        {
+          runName: "2026-09-04_08-00-00_recovery",
+          stageId: stageIdFor("da_dk", "crispasr", plan.model),
+          planPath: "",
+          recordPath: "",
+          plan,
+          record: stageRecord({
+            runId: plan.runId,
+            plan,
+            status: "completed",
+            startedAt: "2026-09-04T08:00:00.000Z",
+            completedAt: "2026-09-04T09:00:00.000Z",
+            samples,
+          }),
+        },
+      ],
+    );
+    expect(recovered).toBe(true);
+    expect(store.fleurs.da_dk.crispasr![plan.model].utteranceCount).toBe(5);
+    expect(store.fleurs.da_dk.crispasr![plan.model].peakRSS_MB).toBeNull();
   });
 });
 

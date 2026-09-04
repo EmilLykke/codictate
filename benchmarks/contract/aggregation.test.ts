@@ -317,6 +317,22 @@ describe("an overlapping rerun replaces only the clips it re-measured", () => {
       "2026-09-05_bbb",
     );
   });
+
+  test("ISO offsets are ordered by instant, not lexicographically", () => {
+    const olderOffset = run(
+      "2026-09-05_offset",
+      [sample(clip(0), { wordErrors: 9 })],
+      { completedAt: "2026-09-05T01:00:00+02:00" },
+    );
+    const newerUtc = run(
+      "2026-09-05_utc",
+      [sample(clip(0), { wordErrors: 1 })],
+      { completedAt: "2026-09-05T00:30:00.000Z" },
+    );
+    expect(
+      onlyBucket(poolSamples([newerUtc, olderOffset])).samples[0].wordErrors,
+    ).toBe(1);
+  });
 });
 
 describe("an incomplete run is not a measurement", () => {
@@ -470,6 +486,23 @@ describe("accuracy is pooled, never a mean of means", () => {
     const pooled = pooledWer([{ wordErrors: 3 }]);
     expect(pooled.rate).toBeNull();
     expect(pooled.references).toBe(0);
+  });
+
+  test("negative and fractional counts are malformed leaves, not arithmetic", () => {
+    const pooled = pooledWer([
+      { wordErrors: -1, referenceWords: 10 },
+      { wordErrors: 1.5, referenceWords: 10 },
+      { wordErrors: 1, referenceWords: -10 },
+      { wordErrors: 1, referenceWords: 2.5 },
+      { wordErrors: 2, referenceWords: 20 },
+    ]);
+    expect(pooled).toEqual({
+      rate: 0.1,
+      errors: 2,
+      references: 20,
+      leafCount: 1,
+      skippedCount: 4,
+    });
   });
 });
 

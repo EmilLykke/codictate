@@ -277,6 +277,9 @@ function rateAgreesWithSums(speed: Record<string, unknown>): string | null {
       `not a number`
     );
   }
+  if (!isFiniteNumber(wallRtf)) {
+    return `speedV2 has ${audioDurationSec} s of poolable audio but wallRtf is not a number`;
+  }
   const implied = responseMs / audioDurationSec;
   if (Math.abs(implied - responseMsPerAudioSec) > 1e-6 * Math.max(1, implied)) {
     return (
@@ -284,10 +287,7 @@ function rateAgreesWithSums(speed: Record<string, unknown>): string | null {
       `${implied} ms/s but responseMsPerAudioSec says ${responseMsPerAudioSec}`
     );
   }
-  if (
-    isFiniteNumber(wallRtf) &&
-    Math.abs(wallRtf - responseMsPerAudioSec / 1000) > 1e-9
-  ) {
+  if (Math.abs(wallRtf - responseMsPerAudioSec / 1000) > 1e-9) {
     return `speedV2 wallRtf ${wallRtf} is not responseMsPerAudioSec / 1000`;
   }
   return null;
@@ -328,6 +328,19 @@ export function v2OnV1LeafComplaints(
       complaints.push(`${field} must be a finite number`);
     }
   }
+  for (const field of [
+    "referenceWords",
+    "wordErrors",
+    "utteranceCount",
+    "failures",
+  ]) {
+    if (
+      isFiniteNumber(leaf[field]) &&
+      (!Number.isInteger(leaf[field]) || leaf[field] < 0)
+    ) {
+      complaints.push(`${field} must be a non-negative integer`);
+    }
+  }
 
   // The rate and the counts have to agree, or the leaf cannot be re-pooled: a consumer
   // reading `wer` and a consumer reading `wordErrors / referenceWords` would publish two
@@ -357,6 +370,15 @@ export function v2OnV1LeafComplaints(
       `cer, referenceChars and charErrors are all present or all absent, got only ` +
         `${cerPresent.join(", ")}`,
     );
+  }
+  for (const field of ["referenceChars", "charErrors"]) {
+    if (
+      leaf[field] !== undefined &&
+      isFiniteNumber(leaf[field]) &&
+      (!Number.isInteger(leaf[field]) || leaf[field] < 0)
+    ) {
+      complaints.push(`${field} must be a non-negative integer`);
+    }
   }
 
   if (leaf[LEAF_SPEED_V2_FIELD] === undefined) {

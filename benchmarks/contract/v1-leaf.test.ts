@@ -172,6 +172,10 @@ describe("the v2 speed ratio is poolable across leaves", () => {
     expect(v2OnV1LeafComplaints(leaf({ speedV2: badRtf })).join(" ")).toMatch(
       /wallRtf 0.185 is not responseMsPerAudioSec \/ 1000/,
     );
+    const missingRtf = { ...fixture.leaf.speedV2, wallRtf: null };
+    expect(
+      v2OnV1LeafComplaints(leaf({ speedV2: missingRtf })).join(" "),
+    ).toMatch(/wallRtf is not a number/);
   });
 
   test("no poolable audio means the ratio must be null", () => {
