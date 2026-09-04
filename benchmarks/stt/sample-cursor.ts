@@ -108,38 +108,91 @@ export type SampleDemand =
 
 export interface RangePlan {
   mode: SampleDemand["mode"];
-  /** Cursor this plan starts from, i.e. consumable entries already measured. */
+  /**
+   * Consumable entries this Combination had already been measured on when the plan was
+   * made. Equal to `startIndex` unless `--from` overrode it.
+   */
+  cursor: number;
+  /**
+   * The `--from N` override, or `null` when the cursor picked the start.
+   *
+   * Carried so the preview can say a start index was *imposed* rather than derived.
+   * Every other flag can only push the range forward; this is the only one that can
+   * point it at clips already paid for, and a reader of the preview has to be able to
+   * see which of the two happened.
+   */
+  fromIndex: number | null;
+  /** First consumable entry this plan measures. */
   startIndex: number;
-  /** Cursor this plan would leave behind. */
+  /** One past the last consumable entry this plan measures. */
   endIndex: number;
   /** Clips this plan actually runs. `endIndex - startIndex`. */
   count: number;
   /** Clips the demand asked for, before the pool ran out. */
   requested: number;
+  /**
+   * The half-open end the demand named, before clamping to the pool or to `startIndex`.
+   *
+   * Reported rather than the clamped `endIndex` wherever the preview explains why a plan
+   * selected nothing: `--from 500 --to 200` clamps to 500, and a message naming 500 as
+   * the depth asked for would be the one line of the preview that lied.
+   */
+  requestedEndIndex: number;
   /** Consumable entries in the dataset. */
   consumableTotal: number;
   /** Consumable entries left unmeasured after this plan. */
   remainingAfter: number;
   /** True when the pool ran out before the demand was met. */
   truncated: boolean;
+  /**
+   * True when `--from` starts inside the measured prefix, so this plan re-measures
+   * clips this Combination has already been measured on. The only deliberately
+   * destructive path in the harness, and why `formatPlanLine` has a branch for it.
+   */
+  rewind: boolean;
+  /**
+   * True when `--from` starts *past* the cursor, leaving `[cursor, startIndex)`
+   * unmeasured while the depth this run records jumps over it. Not a rewind, but the
+   * mirror-image hazard: a claimed depth over clips nobody transcribed.
+   */
+  gap: boolean;
+  /**
+   * The cursor this plan leaves behind, `max(cursor, endIndex)`.
+   *
+   * The cursor is the deepest recorded `endIndex` per Combination (see
+   * `foldRecordedRanges`), so a rewind can only raise it or leave it alone. Computed
+   * here so the preview can promise that on the line that announces the rewind.
+   */
+  cursorAfter: number;
 }
 
 /**
- * Turn a cursor and a demand into the range to run.
+ * Turn a cursor, a demand and an optional explicit start into the range to run.
  *
  * Never throws and never wraps around. A dataset with fewer clips left than asked for
  * yields a short plan - the caller runs it, records the true depth and moves on to the
  * next dataset - because throwing there is what the old `entries.slice` did indirectly by
  * silently measuring a shorter sample than the flag claimed.
+ *
+ * `fromIndex` is `--from N`: the start this plan uses *instead of* the cursor, for this
+ * run only. Nothing is written back and no cursor is edited - the override exists so the
+ * same clips can be measured twice, which is the only way to tell a real change apart
+ * from a change of sample.
  */
 export function planRange(
   cursor: number,
   consumableTotal: number,
   demand: SampleDemand,
+  fromIndex?: number,
 ): RangePlan {
   // Clamped defensively. A cursor past the end of the pool means the pool shrank, which
-  // changes the fingerprint and is refused before this is reached.
-  const startIndex = Math.max(0, Math.min(cursor, consumableTotal));
+  // changes the fingerprint and is refused before this is reached. A `--from` past the end
+  // is refused by `fromIndexError` before this is reached, for the opposite reason: it is
+  // typed by a human rather than derived from a recorded range.
+  const startIndex = Math.max(
+    0,
+    Math.min(fromIndex ?? cursor, consumableTotal),
+  );
   const wanted =
     demand.mode === "delta" ? startIndex + demand.count : demand.depth;
   const endIndex = Math.max(startIndex, Math.min(wanted, consumableTotal));
@@ -148,14 +201,53 @@ export function planRange(
 
   return {
     mode: demand.mode,
+    cursor,
+    fromIndex: fromIndex ?? null,
     startIndex,
     endIndex,
     count,
     requested,
+    requestedEndIndex: wanted,
     consumableTotal,
     remainingAfter: consumableTotal - endIndex,
     truncated: count < requested,
+    rewind: fromIndex !== undefined && startIndex < cursor,
+    gap: fromIndex !== undefined && startIndex > cursor,
+    cursorAfter: Math.max(cursor, endIndex),
   };
+}
+
+/**
+ * Rejects a `--from N` no selected dataset can honour, naming the dataset and its
+ * consumable count.
+ *
+ * Checked rather than clamped. Every other offset here is derived from a recorded range
+ * and is inside the pool by construction; `--from` is typed by a human, so `--from 5000`
+ * on a 902-clip pool would otherwise measure nothing and record a depth of 902. Returns
+ * the message rather than printing it, so the bound is unit-testable without a run tree.
+ */
+export function fromIndexError(
+  fromIndex: number,
+  consumableTotals: ReadonlyMap<string, number>,
+): string | null {
+  if (!Number.isInteger(fromIndex) || fromIndex < 0) {
+    return `Error: --from must be a non-negative integer index into the consumable range, got ${fromIndex}.`;
+  }
+  for (const [datasetKey, consumableTotal] of consumableTotals) {
+    if (consumableTotal === 0) {
+      return (
+        `Error: --from ${fromIndex} is out of range for ${datasetKey}: it has 0 consumable clips, ` +
+        `so there is nothing for --from to point at.`
+      );
+    }
+    if (fromIndex >= consumableTotal) {
+      return (
+        `Error: --from ${fromIndex} is out of range for ${datasetKey}: it has ${consumableTotal} ` +
+        `consumable clips, so the valid --from indices are 0-${consumableTotal - 1}.`
+      );
+    }
+  }
+  return null;
 }
 
 /** The `SampleRange` a plan records on the leaf it produces. */
@@ -168,6 +260,31 @@ export function rangeOf(plan: RangePlan, fingerprint: string): SampleRange {
 }
 
 /**
+ * The refusal for a `--from` given while an unfinished run is on disk, or `null` when
+ * there is nothing to refuse.
+ *
+ * A resume is implicit in this harness - the next invocation picks up an unfinished run
+ * directory - so the two intents can collide without the operator naming both. They are
+ * incoherent together: a resume replays the range its checkpoint recorded and carries the
+ * clips it already transcribed from that range, while `--from` names a different start, so
+ * honouring both would file a partial numerator against clips it never saw.
+ *
+ * Refused for `--plan-only` too. With a checkpoint on disk the preview would describe a
+ * range the real run would then override, and a preview that does not predict the run is
+ * worse than no preview.
+ */
+export function fromResumeRefusal(
+  fromIndex: number | null,
+  incompleteRunDir: string | null,
+): string[] | null {
+  if (fromIndex === null || incompleteRunDir === null) return null;
+  return [
+    `Error: --from cannot be combined with a resume. ${incompleteRunDir} holds an unfinished run, and this invocation would resume it.`,
+    "  That run recorded the range it was measuring, and the partial results it carries belong to that range. Finish it, or delete that directory - nothing in it was ever written to stt.json - then start a fresh run with --from.",
+  ];
+}
+
+/**
  * One line of the plan preview, printed for every (Speech Model, dataset) before any clip
  * runs.
  *
@@ -177,15 +294,25 @@ export function rangeOf(plan: RangePlan, fingerprint: string): SampleRange {
  *
  * Clip numbers are 1-based and inclusive, because they are being read by a person; the
  * cursor values on the same line are the offsets that get stored.
+ *
+ * A `--from` rewind gets its own shape rather than the same shape with different numbers.
+ * It is the one path that spends clips already paid for, so it says so in words: the arrow
+ * runs backwards, the flag is named beside the cursor it overrode, and the number of clips
+ * about to be measured a second time is spelled out. A reader skimming for the usual
+ * `cursor A -> B` cannot mistake it for a forward run.
  */
 export function formatPlanLine(
   modelId: string,
   datasetKey: string,
   plan: RangePlan,
 ): string {
-  const head = `[${modelId}] ${datasetKey}: cursor ${plan.startIndex} -> ${plan.endIndex}`;
+  const prefix = `[${modelId}] ${datasetKey}`;
+  const head = `${prefix}: cursor ${plan.cursor} -> ${plan.endIndex}`;
 
   if (plan.count === 0) {
+    if (plan.fromIndex !== null) {
+      return `${prefix}: nothing to run: --from ${plan.fromIndex} with depth ${plan.requestedEndIndex} selects no clips (cursor stays ${plan.cursor})`;
+    }
     if (plan.remainingAfter === 0) {
       return `${head} (nothing left: all ${plan.consumableTotal} consumable clips measured)`;
     }
@@ -196,6 +323,24 @@ export function formatPlanLine(
   const short = plan.truncated
     ? `, ${plan.count} of ${plan.requested} requested - dataset exhausted`
     : "";
+
+  if (plan.rewind) {
+    const again = Math.min(plan.endIndex, plan.cursor) - plan.startIndex;
+    return (
+      `${prefix}: REWIND cursor ${plan.cursor} -> --from ${plan.fromIndex}` +
+      ` (re-measuring ${clips}${short}, ${again} of them already measured;` +
+      ` cursor ends at ${plan.cursorAfter}, never lower than ${plan.cursor})`
+    );
+  }
+
+  if (plan.gap) {
+    return (
+      `${prefix}: GAP --from ${plan.fromIndex} starts past cursor ${plan.cursor}` +
+      ` (${clips}${short}, leaving clips ${plan.cursor + 1}-${plan.startIndex} unmeasured;` +
+      ` cursor ends at ${plan.cursorAfter})`
+    );
+  }
+
   return `${head} (${clips}${short}, ${plan.remainingAfter} remaining after)`;
 }
 

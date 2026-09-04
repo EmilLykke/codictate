@@ -38,6 +38,8 @@ import { loadCoverage } from "./stt/coverage";
 import {
   consumableEntries,
   cursorFor,
+  fromIndexError,
+  fromResumeRefusal,
   formatFingerprintConflict,
   formatPlanLine,
   manifestFingerprint,
@@ -200,6 +202,24 @@ function parseDatasetSelection(raw: string): string[] {
 /** Clips per dataset a run measures when neither `--samples` nor `--to` is given. */
 const DEFAULT_SAMPLE_DELTA = 200;
 
+/**
+ * A flag value that has to be a non-negative whole index, or the run stops.
+ *
+ * Separate from {@link parsePositiveInt} because `--from 0` is the whole point of `--from`
+ * - re-measure from the first consumable clip - while `--samples 0` and `--to 0` are
+ * nonsense. An index and a count have different legal sets.
+ */
+function parseNonNegativeInt(raw: string | undefined, flag: string): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    console.error(
+      `Error: ${flag} needs a non-negative whole index into the consumable range (0 is the first clip after the ${WARMUP_RESERVATION} reserved warmups), got "${raw ?? ""}".`,
+    );
+    process.exit(1);
+  }
+  return value;
+}
+
 /** A flag value that has to be a positive whole number of clips, or the run stops. */
 function parsePositiveInt(raw: string | undefined, flag: string): number {
   const value = Number(raw);
@@ -232,6 +252,12 @@ function parseArgs() {
       mode: "delta",
       count: DEFAULT_SAMPLE_DELTA,
     } as SampleDemand,
+    /**
+     * `--from N`: an explicit start index into the consumable range, overriding every
+     * cursor for this run only. Null when the cursors decide, which is every run that is
+     * adding coverage rather than re-measuring.
+     */
+    from: null as number | null,
     skipDownload: false,
     skipConvert: false,
     planOnly: false,
@@ -311,6 +337,9 @@ function parseArgs() {
           depth: parsePositiveInt(args[++i], "--to"),
         });
         break;
+      case "--from":
+        flags.from = parseNonNegativeInt(args[++i], "--from");
+        break;
       case "--skip-download":
         flags.skipDownload = true;
         break;
@@ -345,11 +374,24 @@ function parseArgs() {
       case "--name":
         flags.name = args[++i];
         break;
+      // Two spellings of one field, so the same command shape works here and in
+      // dictation-product-benchmark, which calls the free-text note
+      // `--configuration-note`. Both write `description` in stt.json; the recorded field
+      // name is unchanged.
       case "--description":
+      case "--configuration-note":
         flags.description = args[++i];
         break;
     }
   }
+
+  if (flags.from !== null && demandFlag === null) {
+    console.error(
+      `Error: --from needs a depth flag. --from N --samples M measures M clips starting at N; --from N --to M measures from N up to depth M. --from on its own names a start and no end, and falling back to the default --samples ${DEFAULT_SAMPLE_DELTA} would pick a depth nobody asked for on the one path that re-spends clips already measured.`,
+    );
+    process.exit(1);
+  }
+
   return flags;
 }
 
@@ -376,8 +418,22 @@ interface PlannedCombination {
   plan: RangePlan;
 }
 
-/** The demand in one phrase, for the header and the plan heading. */
-function describeDemand(demand: SampleDemand): string {
+/**
+ * The demand in one phrase, for the header and the plan heading.
+ *
+ * `--from` changes what "new" means, so it changes the phrase: with an explicit start the
+ * clips are not new at all, and a heading that still said "new clips" would be the one
+ * line of the preview that lied.
+ */
+function describeDemand(
+  demand: SampleDemand,
+  from: number | null = null,
+): string {
+  if (from !== null) {
+    return demand.mode === "delta"
+      ? `${demand.count} clip${demand.count === 1 ? "" : "s"} per dataset from consumable index ${from} (--from ${from} --samples ${demand.count}; the cursors are ignored for this run)`
+      : `consumable index ${from} up to depth ${demand.depth} per dataset (--from ${from} --to ${demand.depth}; the cursors are ignored for this run)`;
+  }
   return demand.mode === "delta"
     ? `${demand.count} new clip${demand.count === 1 ? "" : "s"} per dataset (--samples, a delta from each cursor)`
     : `depth ${demand.depth} per dataset (--to, a target; already-measured clips are not re-run)`;
@@ -525,6 +581,31 @@ async function main() {
 
   // Interactive setup, unless the caller drove everything with flags.
   const useTui = !flags.modelsExplicit && !flags.noTui;
+
+  // `--from` is a scripted intent and the TUI is not. The TUI only ever offers a delta
+  // from each cursor (it exists to add coverage), and it overwrites `flags.demand` with
+  // what was picked on screen - so a typed `--from` combined with a TUI-chosen depth would
+  // be a rewind nobody selected in the TUI. Refused rather than honoured silently.
+  if (flags.from !== null && useTui) {
+    console.error(
+      "Error: --from cannot be combined with the interactive picker. The picker only offers a delta from each cursor, so a typed --from would rewind a range nobody selected on screen.",
+    );
+    console.error(
+      "  Name the models on the command line instead: --models <ids> --from N --samples M. --no-tui also works.",
+    );
+    process.exit(1);
+  }
+
+  // A resume already recorded the range it was measuring and carries the clips it
+  // finished from that range; rewinding it to a different start would file those clips
+  // against a range they do not belong to. Refused for --plan-only too: with a checkpoint
+  // on disk the preview would describe a run that would not happen.
+  const fromRefusal = fromResumeRefusal(flags.from, findIncompleteRun());
+  if (fromRefusal) {
+    for (const line of fromRefusal) console.error(line);
+    process.exit(1);
+  }
+
   if (useTui) {
     const plan = await promptBenchmarkPlan({
       coverage: loadCoverage(RESULTS_BASE_DIR),
@@ -548,7 +629,12 @@ async function main() {
   console.log(`Models: ${flags.models.join(", ")}`);
   console.log(`LibriSpeech splits: ${flags.splits.join(", ") || "none"}`);
   console.log(`FLEURS languages: ${flags.languages.join(", ") || "none"}`);
-  console.log(`Depth: ${describeDemand(flags.demand)}`);
+  console.log(`Depth: ${describeDemand(flags.demand, flags.from)}`);
+  if (flags.from !== null) {
+    console.log(
+      `From: --from ${flags.from} (explicit start into the consumable range; every cursor is ignored for this run only)`,
+    );
+  }
   if (flags.planOnly)
     console.log("Plan only: ON (nothing will be transcribed)");
   if (flags.offloadModels) console.log("Offload models: ON");
@@ -685,6 +771,20 @@ async function main() {
   }
   console.log("");
 
+  // `--from` is the one offset a human types, so its bound is checked against the pools
+  // that were actually selected rather than clamped. It cannot be checked at parse time:
+  // how many consumable clips exist depends on --splits and --languages.
+  if (flags.from !== null) {
+    const error = fromIndexError(
+      flags.from,
+      new Map(pools.map((pool) => [pool.datasetKey, pool.consumable.length])),
+    );
+    if (error) {
+      console.error(error);
+      process.exit(1);
+    }
+  }
+
   // Step 3: Where every Combination has got to. Derived from the run directories, which
   // are the source of truth; the root aggregate is deliberately not read.
   const coverage = loadCoverage(RESULTS_BASE_DIR);
@@ -743,7 +843,12 @@ async function main() {
           bucket,
           modelId,
           pool,
-          plan: planRange(cursor, pool.consumable.length, flags.demand),
+          plan: planRange(
+            cursor,
+            pool.consumable.length,
+            flags.demand,
+            flags.from ?? undefined,
+          ),
         };
         plans.push(planned);
         plannedKeys.set(key, planned);
@@ -751,7 +856,7 @@ async function main() {
     }
   }
 
-  console.log(`--- Plan: ${describeDemand(flags.demand)} ---`);
+  console.log(`--- Plan: ${describeDemand(flags.demand, flags.from)} ---`);
   let plannedHarness: string | null = null;
   for (const planned of plans) {
     if (flags.harnesses.length > 1 && planned.harness !== plannedHarness) {
@@ -760,6 +865,13 @@ async function main() {
     }
     console.log(
       `  ${formatPlanLine(planned.modelId, planned.pool.datasetKey, planned.plan)}`,
+    );
+  }
+
+  const rewinds = plans.filter((p) => p.plan.rewind && p.plan.count > 0);
+  if (rewinds.length > 0) {
+    console.log(
+      `\n  REWIND: ${rewinds.length} combination${rewinds.length === 1 ? " will re-measure clips it has" : "s will re-measure clips they have"} already been measured on. Nothing is deleted and no cursor moves backwards; the same clips are simply run again.`,
     );
   }
 

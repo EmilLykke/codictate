@@ -119,6 +119,78 @@ bun run bench:stt -- --name hu-to-800 --description "Hungarian, both models to 8
 
 An interrupted session leaves a `checkpoint.json` and no `stt.json`. Re-running **the same `--name`** resumes it: an unfinished run of that name is not a name collision, and the resume finishes the range the checkpoint recorded rather than re-slicing from the cursor - which could not see the unfinished run anyway. A completed run's name is still refused.
 
+### Re-measuring clips already measured: `--from`
+
+`--samples` and `--to` can only ever push a cursor forward, which is what makes them safe and what makes them useless for one job: **verifying a fix in isolation**. If a timing change moves Hungarian WER from 22.9% to 21.4%, the cursor guarantees the second measurement used *different clips*, so the difference could be the fix or could be the sample.
+
+`--from N` is the answer. It is an **explicit start index into the consumable range**, overriding every cursor for that run only. Index 0 is the first clip after the 3 reserved warmups, so `--from 0` starts at `manifest[3]`.
+
+```bash
+# Re-measure the same 400 clips this model was already measured on
+bun run bench:stt -- --name verify-timing-fix --description "Re-measure clips 1-400 to isolate the timing fix" \
+  --models large-v3-q5_0 --splits none --languages hu_hu --from 0 --samples 400
+```
+
+**`--from` needs a depth flag.** `--from N --samples M` measures M clips starting at N; `--from N --to M` measures from N up to depth M. `--from 0 --samples 400` and `--from 0 --to 400` name the identical 400 clips. `--from` on its own is rejected rather than defaulting: it names a start and no end, and inventing one would pick a depth nobody asked for on the one path that re-spends clips.
+
+It is refused in four cases, each a separate message:
+
+| Refused | Why |
+| --- | --- |
+| a negative index | `--from` is an index, not a count; `0` is legal and `-1` is not |
+| an index at or past a dataset's consumable count | Clamping is what makes it dangerous: `--from 5000` on the 902-clip `hu_hu` pool would measure nothing and record depth 902. The message names the dataset and its count |
+| combined with a resume | An unfinished run directory recorded the range it was measuring and carries the clips it already transcribed from that range. Rewinding it would file a partial numerator against clips it never saw. Refused for `--plan-only` too, because with a checkpoint on disk the preview would not predict the run |
+| combined with the interactive picker | The picker only offers a delta from each cursor and overwrites the depth, so a typed `--from` would rewind a range nobody selected on screen. Pass `--models` (or `--no-tui`) to use `--from` |
+
+**The plan preview makes a rewind impossible to miss.** It is not the ordinary line with different numbers: the arrow runs backwards, the flag is named beside the cursor it overrode, and the clips about to be spent a second time are counted out.
+
+```
+--- Plan: 400 clips per dataset from consumable index 0 (--from 0 --samples 400; the cursors are ignored for this run) ---
+  [large-v3-q5_0] hu_hu: REWIND cursor 397 -> --from 0 (re-measuring clips 1-400 of 902 consumable, 397 of them already measured; cursor ends at 400, never lower than 397)
+
+  REWIND: 1 combination will re-measure clips it has already been measured on. Nothing is deleted and no cursor moves backwards; the same clips are simply run again.
+
+  400 clips to transcribe across 1 combination
+```
+
+Compare the same command without `--from`, which is the shape every other run prints:
+
+```
+--- Plan: 400 new clips per dataset (--samples, a delta from each cursor) ---
+  [large-v3-q5_0] hu_hu: cursor 397 -> 797 (clips 398-797 of 902 consumable, 105 remaining after)
+
+  400 clips to transcribe across 1 combination
+```
+
+**A rewind never lowers a cursor.** The cursor is the deepest `endIndex` across every run, so a rewound run is recorded exactly like any other and the maximum does the rest. Re-measuring `[0, 400)` over a cursor of 397 leaves it at **400**; re-measuring `[0, 200)` leaves it at **397**, untouched. The earlier run is not rewritten and nothing subtracts. `--from` starting *past* a cursor is not a rewind but is flagged too, as a `GAP`, because it would record a depth over clips nobody transcribed:
+
+```
+  [large-v3-q5_0] hu_hu: GAP --from 500 starts past cursor 397 (clips 501-600 of 902 consumable, leaving clips 398-500 unmeasured; cursor ends at 600)
+```
+
+#### Worked example: verifying a fix by re-measuring the same range
+
+`large-v3-q5_0` sits at cursor 397 on `hu_hu` from the September run, which scored 22.93% WER. A timing fix lands. To attribute a change to the fix rather than to a different sample:
+
+```bash
+# 1. Read off exactly which clips will be spent, and spend nothing.
+bun run bench:stt -- --plan-only --models large-v3-q5_0 --splits none --languages hu_hu --from 0 --to 397
+#   [large-v3-q5_0] hu_hu: REWIND cursor 397 -> --from 0 (re-measuring clips 1-397 of 902 consumable, 397 of them already measured; cursor ends at 397, never lower than 397)
+
+# 2. Re-measure the identical 397 clips. --to 397 rather than --samples 397 so the range
+#    matches the recorded one exactly, whatever the cursor happens to be.
+bun run bench:stt -- --name hu-after-timing-fix --description "Clips 1-397 again, after the timing fix" \
+  --models large-v3-q5_0 --splits none --languages hu_hu --from 0 --to 397
+
+# 3. Both runs now carry sampleRange {startIndex: 0, endIndex: 397} against the same
+#    fingerprint, so the two WERs are the same 397 clips and the delta is the fix.
+#    The cursor is still 397: nothing was consumed and nothing was lost.
+bun run bench:stt -- --plan-only --models large-v3-q5_0 --splits none --languages hu_hu --samples 400
+#   [large-v3-q5_0] hu_hu: cursor 397 -> 797 (clips 398-797 of 902 consumable, 105 remaining after)
+```
+
+Two runs at equal depth are a real case downstream: the website's benchmark reader gives an **equal-depth tie to the newer `runDate`**, so the re-measured run is the one that renders. `--aggregate` here does the same.
+
 ### Migrating the archive, and one deliberate hole
 
 `sampleRange` was backfilled onto the seven archived runs by:
@@ -189,6 +261,10 @@ bun run bench:stt -- --name deeper --description "Another 400 clips per dataset"
 # Top every selected model up to depth 800, no matter where it started. Safe to re-run
 bun run bench:stt -- --name to-800 --description "Every curated model to 800 clips" --models small-q5_1,large-v3-q5_0 --to 800
 
+# Re-measure the SAME 400 clips a model was already measured on, to verify a fix in
+# isolation. The only flag that can re-spend clips; the plan preview says REWIND
+bun run bench:stt -- --name verify-timing-fix --description "Re-measure clips 1-400 to isolate the timing fix" --models large-v3-q5_0 --splits none --languages hu_hu --from 0 --samples 400
+
 # Benchmark all models, free disk space as each model finishes
 bun run bench:stt -- --name full-run --description "All models, cleanup after" --offload-models
 
@@ -199,16 +275,61 @@ bun run bench:stt -- --name new-models --description "Test new quantizations" --
 bun run bench:stt -- --report-only
 ```
 
+## The same command in both harnesses
+
+Two repositories measure the same clips against the same ordered manifests: the app's own harness here, and `dictation-product-benchmark` next door. The flags line up on purpose, so one command shape works in both.
+
+| | `dictation-product-benchmark` (one external product) | `codictate` (its own Speech Models) |
+| --- | --- | --- |
+| entry point | `bun run benchmark -- ...` | `bun run benchmark -- ...`, or the original `bun run bench:stt -- ...` |
+| preview, run nothing | `--dry-run` | `--plan-only` |
+| depth as a delta | `--samples N` | `--samples N` |
+| depth as a target | `--to N` | `--to N` |
+| explicit start index | `--from N` | `--from N` |
+| dataset choice | `--datasets test-clean,hu_hu` | `--splits test-clean` and `--languages hu_hu` |
+| run name | `--name <slug>`, required for a new run | `--name <slug>`, required unless `--plan-only` |
+| free-text note | `--configuration-note` or `--description` | `--description` or `--configuration-note` |
+| model choice | none: the product is the subject | `--models <ids>`; omitting it opens the interactive picker |
+
+Both spellings of the note flag are accepted in both repositories, so neither has to be retyped. Two differences are real and stay:
+
+- **`codictate` requires the note, `dictation-product-benchmark` does not.** `codictate` writes it to `description` in `stt.json`, and the website renders that string as the run page's `<title>`, its meta and OpenGraph description, and the page lede. A blank one would publish a page titled ` - Codictate benchmarks`, so it stays required rather than defaulted. `--plan-only` needs neither `--name` nor `--description`.
+- **`codictate` has an interactive picker, `dictation-product-benchmark` has nothing to pick.** A multi-model harness offers a model list when `--models` is absent; a single-product harness has one subject. `--from` is refused on the picker path in `codictate`, because the picker only offers a delta from each cursor and would overwrite a typed depth.
+
+### Re-measure the same 400 clips I already measured
+
+```bash
+# dictation-product-benchmark
+bun run benchmark -- --name verify-timing-fix \
+  --description "Re-measure clips 1-400 to isolate the timing fix" \
+  --datasets hu_hu --from 0 --samples 400
+
+# codictate
+bun run benchmark -- --name verify-timing-fix \
+  --description "Re-measure clips 1-400 to isolate the timing fix" \
+  --models large-v3-q5_0 --splits none --languages hu_hu --from 0 --samples 400
+```
+
+Both print the same rewind line, differing only in the model prefix `codictate` needs:
+
+```
+  hu_hu: REWIND cursor 397 -> --from 0 (re-measuring clips 1-400 of 902 consumable, 397 of them already measured; cursor ends at 400, never lower than 397)
+  [large-v3-q5_0] hu_hu: REWIND cursor 397 -> --from 0 (re-measuring clips 1-400 of 902 consumable, 397 of them already measured; cursor ends at 400, never lower than 397)
+```
+
+Add `--plan-only` (here) or `--dry-run` (`dictation-product-benchmark`) to see that line and spend nothing.
+
 ## CLI Flags
 
 | Flag               | Default            | Description                                                                                                     |
 | ------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------- |
 | `--harness`        | `crispasr`         | Comma-separated runnable ASR Harnesses. Only `crispasr` is runnable; a retired Harness is rejected, not ignored |
 | `--name`           | **required**       | Slug appended to results directory, used as URL path on website                                                 |
-| `--description`    | **required**       | Goal/context for this benchmark run (stored in stt.json, shown in report)                                       |
+| `--description`    | **required**       | Goal/context for this benchmark run (stored in stt.json, shown in report). `--configuration-note` is an accepted alias, so a command written for `dictation-product-benchmark` runs here unchanged. Not required by `--plan-only` |
 | `--models`         | all                | Comma-separated model IDs (all 34 models if omitted)                                                            |
 | `--samples`        | 200                | **A delta.** Clips per dataset this model has *not* been measured on yet. Mutually exclusive with `--to`         |
 | `--to`             | -                  | **A target depth.** Run whatever is needed to reach depth N per dataset; a no-op where it is already reached     |
+| `--from`           | -                  | **An explicit start index** into the consumable range, overriding every cursor for this run only. Index 0 is the first clip after the 3 reserved warmups. Needs `--samples` or `--to`; refused with a resume or the interactive picker. See [`--from`](#re-measuring-clips-already-measured---from) |
 | `--plan-only`      | false              | Print the plan preview and exit. Downloads nothing, converts nothing, writes nothing                            |
 | `--splits`         | all                | LibriSpeech splits (`test-clean,test-other`). `none` selects no LibriSpeech at all                              |
 | `--languages`      | es_419,da_dk,hu_hu | FLEURS language codes. `none` selects no FLEURS at all                                                          |

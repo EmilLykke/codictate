@@ -15,6 +15,8 @@ import {
   cursorFor,
   foldRecordedRanges,
   formatPlanLine,
+  fromIndexError,
+  fromResumeRefusal,
   manifestFingerprint,
   manifestFingerprintConflicts,
   planRange,
@@ -177,6 +179,210 @@ describe("exhaustion", () => {
       endIndex: 902,
       manifestFingerprint: FINGERPRINT,
     });
+  });
+});
+
+describe("--from N is an explicit start index", () => {
+  test("it overrides the cursor for this run only", () => {
+    const forward = planRange(397, 902, { mode: "delta", count: 400 });
+    const rewound = planRange(397, 902, { mode: "delta", count: 400 }, 0);
+
+    expect(forward.startIndex).toBe(397);
+    // Same cursor, same depth flag. The only difference is that `--from` was given.
+    expect(rewound.cursor).toBe(397);
+    expect(rewound.startIndex).toBe(0);
+    expect(rewound.endIndex).toBe(400);
+    expect(rewound.fromIndex).toBe(0);
+    expect(rewound.rewind).toBe(true);
+    expect(rewound.count).toBe(400);
+  });
+
+  test("a delta is counted from --from, not from the cursor", () => {
+    const plan = planRange(397, 902, { mode: "delta", count: 400 }, 0);
+    expect(plan.startIndex).toBe(0);
+    expect(plan.endIndex).toBe(400);
+    expect(plan.count).toBe(400);
+    expect(plan.remainingAfter).toBe(502);
+  });
+
+  test("a target is still a depth, so --from 0 --to 400 is the same range", () => {
+    const delta = planRange(397, 902, { mode: "delta", count: 400 }, 0);
+    const target = planRange(397, 902, { mode: "target", depth: 400 }, 0);
+
+    expect(target.startIndex).toBe(0);
+    expect(target.endIndex).toBe(400);
+    expect(target.startIndex).toBe(delta.startIndex);
+    expect(target.endIndex).toBe(delta.endIndex);
+  });
+
+  test("a target below --from selects nothing rather than running backwards", () => {
+    const plan = planRange(397, 902, { mode: "target", depth: 200 }, 500);
+    expect(plan.count).toBe(0);
+    expect(formatPlanLine("tiny", "hu_hu", plan)).toBe(
+      "[tiny] hu_hu: nothing to run: --from 500 with depth 200 selects no clips (cursor stays 397)",
+    );
+  });
+
+  test("the plan preview marks a rewind and names the cursor it overrode", () => {
+    // The one deliberately destructive path in the harness, so it must not be readable
+    // as the ordinary forward line. The arrow runs backwards, the flag sits beside the
+    // cursor it overrode, and 397 is spelled out as clips being spent a second time.
+    expect(
+      formatPlanLine(
+        "large-v3-q5_0",
+        "hu_hu",
+        planRange(397, 902, { mode: "delta", count: 400 }, 0),
+      ),
+    ).toBe(
+      "[large-v3-q5_0] hu_hu: REWIND cursor 397 -> --from 0 (re-measuring clips 1-400 of 902 consumable, 397 of them already measured; cursor ends at 400, never lower than 397)",
+    );
+  });
+
+  test("the preview marks a start past the cursor as a gap, not a rewind", () => {
+    const plan = planRange(397, 902, { mode: "delta", count: 100 }, 500);
+    expect(plan.rewind).toBe(false);
+    expect(plan.gap).toBe(true);
+    expect(formatPlanLine("large-v3-q5_0", "hu_hu", plan)).toBe(
+      "[large-v3-q5_0] hu_hu: GAP --from 500 starts past cursor 397 (clips 501-600 of 902 consumable, leaving clips 398-500 unmeasured; cursor ends at 600)",
+    );
+  });
+
+  test("a forward run prints exactly the line it always printed", () => {
+    expect(
+      formatPlanLine(
+        "large-v3-q5_0",
+        "hu_hu",
+        planRange(397, 902, { mode: "delta", count: 400 }),
+      ),
+    ).toBe(
+      "[large-v3-q5_0] hu_hu: cursor 397 -> 797 (clips 398-797 of 902 consumable, 105 remaining after)",
+    );
+  });
+
+  test("a rewound run records its range like any other and does not lower the cursor", () => {
+    const forward = planRange(0, 902, { mode: "target", depth: 397 });
+    const rewound = planRange(397, 902, { mode: "delta", count: 400 }, 0);
+
+    const ranges: RecordedRange[] = [
+      {
+        runName: "2026-09-04_08-28-52_first-397",
+        harness: "crispasr",
+        modelId: "large-v3-q5_0",
+        datasetKey: "hu_hu",
+        utteranceCount: forward.count,
+        range: rangeOf(forward, FINGERPRINT),
+      },
+      {
+        runName: "2026-09-05_08-00-00_rewound-400",
+        harness: "crispasr",
+        modelId: "large-v3-q5_0",
+        datasetKey: "hu_hu",
+        utteranceCount: rewound.count,
+        range: rangeOf(rewound, FINGERPRINT),
+      },
+    ];
+
+    // The recorded range is exactly the range that ran: no special field, no flag.
+    expect(rangeOf(rewound, FINGERPRINT)).toEqual({
+      startIndex: 0,
+      endIndex: 400,
+      manifestFingerprint: FINGERPRINT,
+    });
+
+    const index = foldRecordedRanges(ranges);
+    // The cursor is the deepest endIndex across runs, so re-measuring [0, 400) over a
+    // cursor of 397 leaves it at 400. Nothing rewrites the 397 run and nothing subtracts.
+    expect(
+      cursorFor(index, "crispasr", "large-v3-q5_0", "hu_hu", FINGERPRINT),
+    ).toBe(400);
+    expect(index.inconsistencies).toEqual([]);
+  });
+
+  test("a shallow rewind leaves the cursor exactly where it was", () => {
+    const forward = planRange(0, 902, { mode: "target", depth: 397 });
+    const shallow = planRange(397, 902, { mode: "delta", count: 200 }, 0);
+
+    expect(shallow.cursorAfter).toBe(397);
+
+    const index = foldRecordedRanges([
+      {
+        runName: "2026-09-04_08-28-52_first-397",
+        harness: "crispasr",
+        modelId: "large-v3-q5_0",
+        datasetKey: "hu_hu",
+        utteranceCount: forward.count,
+        range: rangeOf(forward, FINGERPRINT),
+      },
+      {
+        runName: "2026-09-05_08-00-00_rewound-200",
+        harness: "crispasr",
+        modelId: "large-v3-q5_0",
+        datasetKey: "hu_hu",
+        utteranceCount: shallow.count,
+        range: rangeOf(shallow, FINGERPRINT),
+      },
+    ]);
+
+    expect(
+      cursorFor(index, "crispasr", "large-v3-q5_0", "hu_hu", FINGERPRINT),
+    ).toBe(397);
+  });
+});
+
+describe("--from validation", () => {
+  const pools = new Map([
+    ["test-clean", 2617],
+    ["hu_hu", 902],
+  ]);
+
+  test("an index inside every selected dataset is accepted", () => {
+    expect(fromIndexError(0, pools)).toBeNull();
+    expect(fromIndexError(901, pools)).toBeNull();
+  });
+
+  test("an index past a dataset's consumable count is rejected by name and count", () => {
+    // Clamping is what would make this dangerous: `--from 5000` would otherwise measure
+    // nothing and record a depth of 902.
+    expect(fromIndexError(902, pools)).toBe(
+      "Error: --from 902 is out of range for hu_hu: it has 902 consumable clips, so the valid --from indices are 0-901.",
+    );
+    expect(fromIndexError(5000, pools)).toBe(
+      "Error: --from 5000 is out of range for test-clean: it has 2617 consumable clips, so the valid --from indices are 0-2616.",
+    );
+  });
+
+  test("a negative index is rejected", () => {
+    expect(fromIndexError(-1, pools)).toBe(
+      "Error: --from must be a non-negative integer index into the consumable range, got -1.",
+    );
+  });
+
+  test("a dataset with nothing consumable says so rather than naming an index range", () => {
+    expect(fromIndexError(0, new Map([["tiny", 0]]))).toBe(
+      "Error: --from 0 is out of range for tiny: it has 0 consumable clips, so there is nothing for --from to point at.",
+    );
+  });
+
+  test("--from is refused while an unfinished run is on disk", () => {
+    const refusal = fromResumeRefusal(
+      0,
+      "benchmarks/results/2026-09-05_08-00-00_interrupted",
+    );
+    expect(refusal).not.toBeNull();
+    expect(refusal![0]).toContain("--from cannot be combined with a resume");
+    expect(refusal![0]).toContain(
+      "benchmarks/results/2026-09-05_08-00-00_interrupted",
+    );
+  });
+
+  test("nothing is refused when there is nothing to resume, or no --from", () => {
+    expect(fromResumeRefusal(0, null)).toBeNull();
+    expect(
+      fromResumeRefusal(
+        null,
+        "benchmarks/results/2026-09-05_08-00-00_interrupted",
+      ),
+    ).toBeNull();
   });
 });
 

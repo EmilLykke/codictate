@@ -36,7 +36,8 @@
     "start": "bun run build:native && vite build && CODICTATE_CHANNEL=dev electrobun dev",
     "start:windows": "bun run build:native:windows-helper && vite build && CODICTATE_CHANNEL=dev electrobun dev",
     "postbuild": "chmod +x build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/KeyListener build/dev-macos-arm64/react-tailwind-vite-dev.app/Contents/Resources/native-helpers/MicRecorder",
-    "bench:stt": "bun run benchmarks/run-stt.ts"
+    "bench:stt": "bun run benchmarks/run-stt.ts",
+    "benchmark": "bun run benchmarks/run-stt.ts"
   },
   "dependencies": {
     "@fontsource/iceberg": "^5.2.8",
