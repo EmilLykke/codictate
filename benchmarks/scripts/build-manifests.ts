@@ -16,6 +16,35 @@ function estimateWavDurationSec(filePath: string): number {
   return estimateWavDurationSecFromBytes(readFileSync(filePath)) ?? 0;
 }
 
+/**
+ * Options for building a manifest.
+ *
+ * `withDurations` exists because measuring a duration means reading the whole wav, so
+ * building every manifest reads roughly a gigabyte off disk. A Benchmark Run needs the
+ * durations - they are the denominator of RTF. A consumer that only needs *which*
+ * entries were selected, in what order, does not, and reading them anyway competes for
+ * disk with whatever run is in flight. Selection and order are unaffected either way,
+ * so a manifest built without durations is the same sample in the same sequence.
+ */
+export interface ManifestOptions {
+  /** Default true. Set false to leave `audioDurationSec` at 0 and read no audio. */
+  withDurations?: boolean;
+}
+
+export interface LibriSpeechManifestOptions extends ManifestOptions {
+  /**
+   * Default true. Set false for the pre-shuffle traversal order.
+   *
+   * LibriSpeech was sampled in filesystem-traversal order until d8b91ee ("use seeded
+   * shuffle for both", 2026-05-09), which is a fact about three archived Benchmark Runs
+   * rather than an option a run should ever choose: those runs measured the first N
+   * entries in traversal order, and reproducing which utterances they scored - to
+   * recount a denominator, say - means reproducing that order. FLEURS has no such flag
+   * because it was seeded from the start.
+   */
+  withShuffle?: boolean;
+}
+
 // -- Deterministic seeded shuffle --
 
 function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -49,7 +78,9 @@ function findTransFiles(dir: string): string[] {
 export function buildLibriSpeechManifest(
   datasetsDir: string,
   split: string,
+  options?: LibriSpeechManifestOptions,
 ): ManifestEntry[] {
+  const withDurations = options?.withDurations ?? true;
   const splitDir = join(datasetsDir, "librispeech", split);
   const wavDir = join(datasetsDir, "librispeech", "wav", split);
 
@@ -80,14 +111,15 @@ export function buildLibriSpeechManifest(
         audioPath: wavPath,
         transcript,
         language: "en",
-        audioDurationSec: estimateWavDurationSec(wavPath),
+        audioDurationSec: withDurations ? estimateWavDurationSec(wavPath) : 0,
       });
     }
   }
 
-  const shuffled = seededShuffle(entries, 42);
-  console.log(`[manifest] LibriSpeech ${split}: ${shuffled.length} utterances`);
-  return shuffled;
+  const ordered =
+    (options?.withShuffle ?? true) ? seededShuffle(entries, 42) : entries;
+  console.log(`[manifest] LibriSpeech ${split}: ${ordered.length} utterances`);
+  return ordered;
 }
 
 // -- FLEURS manifest --
@@ -125,7 +157,9 @@ export function buildFleursManifest(
   datasetsDir: string,
   fleursLang: string,
   sampleSize: number,
+  options?: ManifestOptions,
 ): ManifestEntry[] {
+  const withDurations = options?.withDurations ?? true;
   const langDir = join(datasetsDir, "fleurs", fleursLang);
   const tsvPath = join(langDir, "test.tsv");
 
@@ -167,7 +201,7 @@ export function buildFleursManifest(
       transcript,
       rawTranscript,
       language: codLang,
-      audioDurationSec: estimateWavDurationSec(audioPath),
+      audioDurationSec: withDurations ? estimateWavDurationSec(audioPath) : 0,
     });
   }
 

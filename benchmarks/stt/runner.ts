@@ -27,6 +27,7 @@ import { computeRtf } from "./rtf";
 import { measurePeakRss } from "./memory";
 import type { ManifestEntry } from "../scripts/build-manifests";
 
+/** Leading manifest entries transcribed but not scored, so the model is warm. */
 const WARMUP_COUNT = 3;
 const MEMORY_SAMPLE_COUNT = 10;
 
@@ -79,7 +80,22 @@ export interface PeakRSSStats {
 
 export interface ModelDatasetResult {
   wer: number;
+  /**
+   * Reference words the WER was divided by, i.e. the denominator of this leaf.
+   *
+   * Without it a consumer cannot pool: averaging per-dataset WERs unweighted is a
+   * different number from `sum(errors) / sum(referenceWords)`, and only the second one
+   * is the accuracy of the combined sample. `wer * referenceWords` recovers the error
+   * count, so any set of leaves can be re-pooled after the fact.
+   *
+   * Optional because it is a read type as well as a write type: the runs written before
+   * this field existed have no denominator on disk and must still load. Every new run
+   * sets it - see `CompletedModelDatasetResult`.
+   */
+  referenceWords?: number;
   cer?: number;
+  /** Reference characters the CER was divided by. Absent wherever `cer` is absent. */
+  referenceChars?: number;
   meanRTF: number;
   peakRSS_MB: PeakRSSStats | null;
   utteranceCount: number;
@@ -87,9 +103,28 @@ export interface ModelDatasetResult {
   totalWallSec: number;
 }
 
+/**
+ * A result this build produces, as opposed to one it may read off disk.
+ *
+ * `referenceWords` is optional on the read type because the archive predates it, and
+ * required here so that a new emit path which forgets the denominator fails `bun run
+ * tsc` rather than quietly writing another unpoolable leaf.
+ */
+export type CompletedModelDatasetResult = ModelDatasetResult & {
+  referenceWords: number;
+};
+
+/**
+ * Mid-Combination state written to `checkpoint.json`, carrying running numerators and
+ * denominators rather than derived rates. A resumed run adds to these and reports the
+ * same `wer`, `referenceWords` and `meanRTF` an uninterrupted run would have, which a
+ * checkpoint that stored only the rate so far could not do.
+ */
 export interface PartialProgress {
   utterancesDone: number;
+  /** Word errors so far. Numerator of `wer`. */
   totalWer: number;
+  /** Reference words so far. Denominator of `wer`, emitted as `referenceWords`. */
   totalRefWords: number;
   totalCer?: number;
   totalRefChars?: number;
@@ -292,7 +327,7 @@ export async function benchmarkModel(
      */
     harness?: AsrHarnessId;
   },
-): Promise<ModelDatasetResult> {
+): Promise<CompletedModelDatasetResult> {
   const harness = options?.harness ?? DEFAULT_ASR_HARNESS;
   const speech = getSpeechModel(modelId);
   if (!speech) {
@@ -304,6 +339,7 @@ export async function benchmarkModel(
     console.log(`  [skip] ${modelId} not found`);
     return {
       wer: -1,
+      referenceWords: 0,
       meanRTF: -1,
       peakRSS_MB: null,
       utteranceCount: 0,
@@ -420,14 +456,18 @@ export async function benchmarkModel(
     `    done | WER: ${(aggWer * 100).toFixed(2)}%${cerStr} | RTF: ${meanRTF.toFixed(3)} | RSS: ${peakRSS_MB ? `${peakRSS_MB.min}/${peakRSS_MB.avg}/${peakRSS_MB.max}` : "N/A"} MB (min/avg/max)`,
   );
 
-  const result: ModelDatasetResult = {
+  const result: CompletedModelDatasetResult = {
     wer: aggWer,
+    referenceWords: totalRefWords,
     meanRTF,
     peakRSS_MB,
     utteranceCount: benchEntries.length,
     totalAudioSec,
     totalWallSec,
   };
-  if (aggCer !== undefined) result.cer = aggCer;
+  if (aggCer !== undefined) {
+    result.cer = aggCer;
+    result.referenceChars = totalRefChars;
+  }
   return result;
 }

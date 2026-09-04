@@ -107,6 +107,33 @@ bun run bench:stt -- --report-only
 - `benchmarks/results/<timestamp>_<name>/*.png` - chart images
 - Markdown table printed to stdout
 
+### Pooling accuracy across datasets
+
+Each result leaf carries `referenceWords` - the denominator its `wer` was divided by -
+and `referenceChars` alongside any `cer`. Combine datasets by pooling:
+
+```
+pooled WER = sum(wer * referenceWords) / sum(referenceWords)
+```
+
+An unweighted mean of per-dataset WERs is a different number and is not the accuracy of
+the combined sample, so never publish one. `wer * referenceWords` is the error count and
+is always a whole number, which also makes any leaf checkable.
+
+The denominators are optional on read, because the archived runs were written before the
+field existed. Fill them in without re-running a model:
+
+```bash
+bun run benchmarks/scripts/backfill-reference-words.ts          # dry run
+bun run benchmarks/scripts/backfill-reference-words.ts --write
+```
+
+It recounts the scored slice of each dataset at each depth and refuses to write a count
+that does not divide the recorded rate into whole errors. Two sample orderings are tried,
+because LibriSpeech was drawn in filesystem-traversal order until d8b91ee (2026-05-09) and
+the three May runs predate the seeded shuffle; the ordering used is named in the output
+whenever it is not the current one.
+
 ## Adding Languages
 
 FLEURS supports 102 languages. To add a language:

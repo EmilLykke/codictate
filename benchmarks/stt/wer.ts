@@ -81,16 +81,33 @@ function levenshteinOps(ref: string[], hyp: string[]): WerResult {
   };
 }
 
+/**
+ * The token sequence WER is measured over.
+ *
+ * Exported because the denominator has to be recomputable outside a Benchmark Run -
+ * `benchmarks/scripts/backfill-reference-words.ts` recounts reference words for runs
+ * that predate the `referenceWords` field. A recount that normalises or splits even
+ * slightly differently produces a denominator the recorded WER was never divided by,
+ * so both paths go through this one function rather than agreeing by inspection.
+ */
+export function tokenizeForWer(text: string): string[] {
+  return normalizeForWer(text).split(" ").filter(Boolean);
+}
+
 export function computeWer(reference: string, hypothesis: string): WerResult {
-  const refWords = normalizeForWer(reference).split(" ").filter(Boolean);
-  const hypWords = normalizeForWer(hypothesis).split(" ").filter(Boolean);
-  return levenshteinOps(refWords, hypWords);
+  return levenshteinOps(tokenizeForWer(reference), tokenizeForWer(hypothesis));
+}
+
+/** The character sequence CER is measured over. Exported for the same reason. */
+export function tokenizeForCer(text: string): string[] {
+  return [...normalizeForCer(text)];
 }
 
 export function computeCer(reference: string, hypothesis: string): CerResult {
-  const refChars = [...normalizeForCer(reference)];
-  const hypChars = [...normalizeForCer(hypothesis)];
-  const ops = levenshteinOps(refChars, hypChars);
+  const ops = levenshteinOps(
+    tokenizeForCer(reference),
+    tokenizeForCer(hypothesis),
+  );
   return {
     cer: ops.wer,
     substitutions: ops.substitutions,
