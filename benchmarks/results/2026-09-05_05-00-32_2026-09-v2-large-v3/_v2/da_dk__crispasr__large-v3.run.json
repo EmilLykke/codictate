@@ -1,0 +1,6882 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-09-05_05-00-32_2026-09-v2-large-v3/da_dk__crispasr__large-v3",
+  "status": "completed",
+  "startedAt": "2026-09-05T05:00:32.560Z",
+  "completedAt": "2026-09-05T05:40:02.080Z",
+  "harness": "codictate",
+  "model": "large-v3",
+  "datasetId": "fleurs/da_dk",
+  "plan": {
+    "runId": "2026-09-05_05-00-32_2026-09-v2-large-v3/da_dk__crispasr__large-v3",
+    "batchId": "2026-09-v2",
+    "datasetId": "fleurs/da_dk",
+    "fromIndex": 0,
+    "toIndex": 400,
+    "clipCount": 400,
+    "fingerprintV2": {
+      "version": "benchmark-v2",
+      "value": "977a60cbffe9800b"
+    },
+    "createdAt": "2026-09-05T05:00:32.560Z"
+  },
+  "fingerprintV2": {
+    "version": "benchmark-v2",
+    "value": "977a60cbffe9800b"
+  },
+  "batchId": "2026-09-v2",
+  "samples": [
+    {
+      "clipId": "fleurs/da_dk/audio/test/5201915393021401660.wav",
+      "sentenceId": "1702",
+      "audioDurationSec": 8.76,
+      "responseMs": 1514.4955830001272,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 127,
+      "isWarmup": true,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1514.4955830001272
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10016401698104160032.wav",
+      "sentenceId": "1908",
+      "audioDurationSec": 5.1,
+      "responseMs": 1356.358375000069,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 12,
+      "charErrors": 6,
+      "referenceChars": 67,
+      "isWarmup": true,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1356.358375000069
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2041213163198696716.wav",
+      "sentenceId": "1694",
+      "audioDurationSec": 7.02,
+      "responseMs": 1515.465792000061,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 5,
+      "referenceChars": 114,
+      "isWarmup": true,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1515.465792000061
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1064777122682787070.wav",
+      "sentenceId": "1909",
+      "audioDurationSec": 12.96,
+      "responseMs": 1414.950166999828,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 119,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1414.950166999828
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16728222473422919347.wav",
+      "sentenceId": "1987",
+      "audioDurationSec": 11.76,
+      "responseMs": 1493.3319999999367,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 5,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1493.3319999999367
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6804228936613176480.wav",
+      "sentenceId": "1703",
+      "audioDurationSec": 10.2,
+      "responseMs": 1390.3638329999521,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 15,
+      "charErrors": 9,
+      "referenceChars": 83,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1390.3638329999521
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9186704911569813787.wav",
+      "sentenceId": "1801",
+      "audioDurationSec": 9.36,
+      "responseMs": 1544.9289169998374,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 23,
+      "charErrors": 12,
+      "referenceChars": 150,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1544.9289169998374
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6415361470979678872.wav",
+      "sentenceId": "1696",
+      "audioDurationSec": 8.64,
+      "responseMs": 1510.8905420000665,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 19,
+      "charErrors": 2,
+      "referenceChars": 133,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1510.8905420000665
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8327848719915608774.wav",
+      "sentenceId": "1811",
+      "audioDurationSec": 12.66,
+      "responseMs": 1396.630708000157,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 8,
+      "charErrors": 10,
+      "referenceChars": 69,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1396.630708000157
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1960595976230176090.wav",
+      "sentenceId": "1736",
+      "audioDurationSec": 6.18,
+      "responseMs": 1291.543832999887,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 7,
+      "charErrors": 2,
+      "referenceChars": 48,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1291.543832999887
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12373086615706096453.wav",
+      "sentenceId": "1910",
+      "audioDurationSec": 10.86,
+      "responseMs": 1355.1169159999117,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 12,
+      "charErrors": 3,
+      "referenceChars": 78,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1355.1169159999117
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5382349595794383424.wav",
+      "sentenceId": "1687",
+      "audioDurationSec": 9.42,
+      "responseMs": 1411.719083999982,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1411.719083999982
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10085624755376094742.wav",
+      "sentenceId": "1856",
+      "audioDurationSec": 11.34,
+      "responseMs": 1534.362833000021,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 3,
+      "referenceChars": 133,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1534.362833000021
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12671670356950287228.wav",
+      "sentenceId": "1907",
+      "audioDurationSec": 9.6,
+      "responseMs": 1504.5875419999938,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 2,
+      "referenceChars": 103,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1504.5875419999938
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11982302963583486932.wav",
+      "sentenceId": "1673",
+      "audioDurationSec": 12.66,
+      "responseMs": 1548.7114590001293,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 14,
+      "referenceChars": 157,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1548.7114590001293
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3728188713391910453.wav",
+      "sentenceId": "1969",
+      "audioDurationSec": 15.72,
+      "responseMs": 1614.459875000175,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 24,
+      "charErrors": 5,
+      "referenceChars": 156,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1614.459875000175
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14145780932617665756.wav",
+      "sentenceId": "1839",
+      "audioDurationSec": 9.6,
+      "responseMs": 1305.5646250001155,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 10,
+      "charErrors": 7,
+      "referenceChars": 55,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1305.5646250001155
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16784563479963076732.wav",
+      "sentenceId": "1830",
+      "audioDurationSec": 11.46,
+      "responseMs": 1477.1623750000726,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 14,
+      "charErrors": 9,
+      "referenceChars": 116,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1477.1623750000726
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9314707765799819306.wav",
+      "sentenceId": "2003",
+      "audioDurationSec": 8.88,
+      "responseMs": 1488.1995000001043,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 20,
+      "charErrors": 8,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1488.1995000001043
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13332395717695480955.wav",
+      "sentenceId": "1768",
+      "audioDurationSec": 9.6,
+      "responseMs": 1556.9954590001144,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 24,
+      "charErrors": 12,
+      "referenceChars": 139,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1556.9954590001144
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2779964568335145920.wav",
+      "sentenceId": "1996",
+      "audioDurationSec": 14.34,
+      "responseMs": 1588.7309160002042,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 23,
+      "charErrors": 20,
+      "referenceChars": 164,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1588.7309160002042
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11140462932562295794.wav",
+      "sentenceId": "1963",
+      "audioDurationSec": 15.6,
+      "responseMs": 1642.7057920000516,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 29,
+      "charErrors": 2,
+      "referenceChars": 157,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1642.7057920000516
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11946103684991817641.wav",
+      "sentenceId": "1724",
+      "audioDurationSec": 11.52,
+      "responseMs": 1502.5110839998815,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 20,
+      "charErrors": 40,
+      "referenceChars": 107,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1502.5110839998815
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2449715463891813058.wav",
+      "sentenceId": "1888",
+      "audioDurationSec": 11.4,
+      "responseMs": 1574.4746250000317,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 25,
+      "charErrors": 11,
+      "referenceChars": 155,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1574.4746250000317
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15789760661077835164.wav",
+      "sentenceId": "1762",
+      "audioDurationSec": 8.4,
+      "responseMs": 1323.8059590000194,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 11,
+      "charErrors": 9,
+      "referenceChars": 67,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1323.8059590000194
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2069210468313883379.wav",
+      "sentenceId": "1924",
+      "audioDurationSec": 15.18,
+      "responseMs": 1609.2575829999987,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 25,
+      "charErrors": 3,
+      "referenceChars": 148,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1609.2575829999987
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10149729587964516590.wav",
+      "sentenceId": "1919",
+      "audioDurationSec": 8.76,
+      "responseMs": 1520.229374999879,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 19,
+      "charErrors": 8,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1520.229374999879
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4630067251839564670.wav",
+      "sentenceId": "1811",
+      "audioDurationSec": 9,
+      "responseMs": 1380.3723330001812,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 8,
+      "charErrors": 8,
+      "referenceChars": 69,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1380.3723330001812
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11906653500152793360.wav",
+      "sentenceId": "1895",
+      "audioDurationSec": 14.52,
+      "responseMs": 1579.7290419999044,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1579.7290419999044
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12441156702259421775.wav",
+      "sentenceId": "1957",
+      "audioDurationSec": 5.22,
+      "responseMs": 1338.0475419999566,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 8,
+      "charErrors": 5,
+      "referenceChars": 59,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1338.0475419999566
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6446797981571985757.wav",
+      "sentenceId": "1994",
+      "audioDurationSec": 6.24,
+      "responseMs": 1407.5419999998994,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 20,
+      "charErrors": 5,
+      "referenceChars": 99,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1407.5419999998994
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13549537525840412382.wav",
+      "sentenceId": "1739",
+      "audioDurationSec": 7.8,
+      "responseMs": 1455.3292080000974,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 19,
+      "charErrors": 11,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1455.3292080000974
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8751775646666757446.wav",
+      "sentenceId": "1796",
+      "audioDurationSec": 8.52,
+      "responseMs": 1469.9005829999223,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 19,
+      "charErrors": 2,
+      "referenceChars": 119,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1469.9005829999223
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9994382333084727454.wav",
+      "sentenceId": "1689",
+      "audioDurationSec": 20.04,
+      "responseMs": 1771.8184159998782,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 30,
+      "charErrors": 3,
+      "referenceChars": 208,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1771.8184159998782
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11809608498275954000.wav",
+      "sentenceId": "1974",
+      "audioDurationSec": 6.6,
+      "responseMs": 1405.1563330001663,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 13,
+      "charErrors": 13,
+      "referenceChars": 67,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1405.1563330001663
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10687961773464947357.wav",
+      "sentenceId": "1920",
+      "audioDurationSec": 7.08,
+      "responseMs": 1503.1824580000248,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 23,
+      "charErrors": 4,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1503.1824580000248
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2515522085205086134.wav",
+      "sentenceId": "1998",
+      "audioDurationSec": 11.1,
+      "responseMs": 1437.064250000054,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 16,
+      "charErrors": 4,
+      "referenceChars": 77,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1437.064250000054
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1702861470000431347.wav",
+      "sentenceId": "1744",
+      "audioDurationSec": 8.1,
+      "responseMs": 1424.4713749999646,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 4,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1424.4713749999646
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16248713788008328980.wav",
+      "sentenceId": "1983",
+      "audioDurationSec": 16.5,
+      "responseMs": 1907.752250000136,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 39,
+      "charErrors": 21,
+      "referenceChars": 241,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1907.752250000136
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5270457580782293263.wav",
+      "sentenceId": "1943",
+      "audioDurationSec": 14.04,
+      "responseMs": 1480.396083000116,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 129,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1480.396083000116
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4911145471037499460.wav",
+      "sentenceId": "1721",
+      "audioDurationSec": 13.98,
+      "responseMs": 1492.5163329998031,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 1,
+      "referenceChars": 119,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1492.5163329998031
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6489800705662786376.wav",
+      "sentenceId": "1951",
+      "audioDurationSec": 11.22,
+      "responseMs": 1495.9097090000287,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 21,
+      "charErrors": 15,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1495.9097090000287
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15328066965779006482.wav",
+      "sentenceId": "1665",
+      "audioDurationSec": 10.62,
+      "responseMs": 1594.157499999972,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 18,
+      "charErrors": 22,
+      "referenceChars": 133,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1594.157499999972
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14851203585828840659.wav",
+      "sentenceId": "1810",
+      "audioDurationSec": 10.86,
+      "responseMs": 1520.4734169999138,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 146,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1520.4734169999138
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7407803414687478783.wav",
+      "sentenceId": "1692",
+      "audioDurationSec": 9,
+      "responseMs": 1408.5073750000447,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 12,
+      "charErrors": 9,
+      "referenceChars": 87,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1408.5073750000447
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7896038032376643108.wav",
+      "sentenceId": "1872",
+      "audioDurationSec": 13.38,
+      "responseMs": 1688.2556249999907,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 28,
+      "charErrors": 14,
+      "referenceChars": 178,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1688.2556249999907
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17495635934140517390.wav",
+      "sentenceId": "1940",
+      "audioDurationSec": 10.38,
+      "responseMs": 1589.9455830000807,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 27,
+      "charErrors": 4,
+      "referenceChars": 157,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1589.9455830000807
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7491714630630955967.wav",
+      "sentenceId": "1801",
+      "audioDurationSec": 15.12,
+      "responseMs": 1565.5306249998976,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 23,
+      "charErrors": 6,
+      "referenceChars": 150,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1565.5306249998976
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3372237219763476224.wav",
+      "sentenceId": "1917",
+      "audioDurationSec": 7.2,
+      "responseMs": 1392.4975000000559,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1392.4975000000559
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13063750386933196016.wav",
+      "sentenceId": "1669",
+      "audioDurationSec": 8.52,
+      "responseMs": 1501.9137079999782,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 15,
+      "charErrors": 3,
+      "referenceChars": 110,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1501.9137079999782
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4680373946944808473.wav",
+      "sentenceId": "1891",
+      "audioDurationSec": 10.14,
+      "responseMs": 1415.6374160000123,
+      "status": "ok",
+      "wordErrors": 10,
+      "referenceWords": 13,
+      "charErrors": 37,
+      "referenceChars": 97,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1415.6374160000123
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9453472081392776840.wav",
+      "sentenceId": "1914",
+      "audioDurationSec": 8.94,
+      "responseMs": 1487.8656250000931,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 9,
+      "referenceChars": 134,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1487.8656250000931
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2893665052870754384.wav",
+      "sentenceId": "1742",
+      "audioDurationSec": 13.32,
+      "responseMs": 1475.6248330001254,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 1,
+      "referenceChars": 128,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1475.6248330001254
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6709723109730999371.wav",
+      "sentenceId": "1708",
+      "audioDurationSec": 11.76,
+      "responseMs": 1572.6346249999478,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 26,
+      "charErrors": 17,
+      "referenceChars": 159,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1572.6346249999478
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7127255172636030470.wav",
+      "sentenceId": "1794",
+      "audioDurationSec": 9.12,
+      "responseMs": 1514.9018329998944,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 20,
+      "charErrors": 8,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1514.9018329998944
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9514110744250646871.wav",
+      "sentenceId": "1937",
+      "audioDurationSec": 31.44,
+      "responseMs": 2604.3480419998523,
+      "status": "ok",
+      "wordErrors": 11,
+      "referenceWords": 51,
+      "charErrors": 46,
+      "referenceChars": 369,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 2604.3480419998523
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3614004634310114662.wav",
+      "sentenceId": "1857",
+      "audioDurationSec": 9.24,
+      "responseMs": 1556.4922919999808,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 4,
+      "referenceChars": 137,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1556.4922919999808
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5388158507225033621.wav",
+      "sentenceId": "1805",
+      "audioDurationSec": 8.64,
+      "responseMs": 1377.6924999998882,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 13,
+      "charErrors": 4,
+      "referenceChars": 71,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1377.6924999998882
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10798961523111446333.wav",
+      "sentenceId": "1782",
+      "audioDurationSec": 18.96,
+      "responseMs": 1720.549875000026,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 32,
+      "charErrors": 2,
+      "referenceChars": 196,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1720.549875000026
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6527710501640220521.wav",
+      "sentenceId": "1757",
+      "audioDurationSec": 8.04,
+      "responseMs": 1490.19379200018,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 17,
+      "charErrors": 8,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1490.19379200018
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7025964328178732394.wav",
+      "sentenceId": "1815",
+      "audioDurationSec": 7.86,
+      "responseMs": 1445.6347090001218,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 19,
+      "charErrors": 3,
+      "referenceChars": 119,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1445.6347090001218
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14709890120106319602.wav",
+      "sentenceId": "1945",
+      "audioDurationSec": 7.02,
+      "responseMs": 1323.9599999999627,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 13,
+      "charErrors": 4,
+      "referenceChars": 75,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1323.9599999999627
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12300251318705659537.wav",
+      "sentenceId": "1775",
+      "audioDurationSec": 10.08,
+      "responseMs": 1607.3555420001503,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 19,
+      "charErrors": 8,
+      "referenceChars": 141,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1607.3555420001503
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1832774014714577041.wav",
+      "sentenceId": "1749",
+      "audioDurationSec": 15.6,
+      "responseMs": 1652.5354999999981,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 29,
+      "charErrors": 4,
+      "referenceChars": 167,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1652.5354999999981
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12284092231424550491.wav",
+      "sentenceId": "1711",
+      "audioDurationSec": 13.26,
+      "responseMs": 1733.8030840000138,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 34,
+      "charErrors": 0,
+      "referenceChars": 217,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1733.8030840000138
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10916928670767702046.wav",
+      "sentenceId": "1868",
+      "audioDurationSec": 9.9,
+      "responseMs": 1643.2694170000032,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 31,
+      "charErrors": 9,
+      "referenceChars": 170,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1643.2694170000032
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8570479183930383871.wav",
+      "sentenceId": "1752",
+      "audioDurationSec": 9.54,
+      "responseMs": 1389.7595000001602,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 4,
+      "referenceChars": 85,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1389.7595000001602
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13107750945336767653.wav",
+      "sentenceId": "1894",
+      "audioDurationSec": 6.24,
+      "responseMs": 1404.5509589998983,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 5,
+      "referenceChars": 88,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1404.5509589998983
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3026670543081713892.wav",
+      "sentenceId": "1748",
+      "audioDurationSec": 6.66,
+      "responseMs": 1358.6945839999244,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 9,
+      "charErrors": 12,
+      "referenceChars": 70,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1358.6945839999244
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13379532157145770422.wav",
+      "sentenceId": "1829",
+      "audioDurationSec": 9.54,
+      "responseMs": 1568.1662919998635,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 25,
+      "charErrors": 15,
+      "referenceChars": 155,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1568.1662919998635
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3583350144172607347.wav",
+      "sentenceId": "1754",
+      "audioDurationSec": 14.82,
+      "responseMs": 1464.2545829999726,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1464.2545829999726
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2261887372357860760.wav",
+      "sentenceId": "1740",
+      "audioDurationSec": 6.12,
+      "responseMs": 1365.3484579999931,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 3,
+      "referenceChars": 88,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1365.3484579999931
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1445956169340518744.wav",
+      "sentenceId": "1843",
+      "audioDurationSec": 13.2,
+      "responseMs": 1551.5738750000019,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 25,
+      "charErrors": 20,
+      "referenceChars": 169,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1551.5738750000019
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1335019945211504224.wav",
+      "sentenceId": "1996",
+      "audioDurationSec": 19.32,
+      "responseMs": 1569.8993749998044,
+      "status": "ok",
+      "wordErrors": 14,
+      "referenceWords": 23,
+      "charErrors": 24,
+      "referenceChars": 164,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1569.8993749998044
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8909706455771271153.wav",
+      "sentenceId": "1954",
+      "audioDurationSec": 11.58,
+      "responseMs": 1559.0182909998111,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 25,
+      "charErrors": 1,
+      "referenceChars": 163,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1559.0182909998111
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15366913341326208521.wav",
+      "sentenceId": "1936",
+      "audioDurationSec": 17.28,
+      "responseMs": 1887.4331249999814,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 52,
+      "charErrors": 14,
+      "referenceChars": 278,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1887.4331249999814
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1615014881862120473.wav",
+      "sentenceId": "1966",
+      "audioDurationSec": 8.7,
+      "responseMs": 1380.823166999966,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 13,
+      "charErrors": 5,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1380.823166999966
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4596677789826187230.wav",
+      "sentenceId": "1889",
+      "audioDurationSec": 5.34,
+      "responseMs": 1201.4727499999572,
+      "status": "ok",
+      "wordErrors": 10,
+      "referenceWords": 10,
+      "charErrors": 46,
+      "referenceChars": 61,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1201.4727499999572
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14985335444944438449.wav",
+      "sentenceId": "1972",
+      "audioDurationSec": 5.64,
+      "responseMs": 1301.9773329999298,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 3,
+      "referenceChars": 70,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1301.9773329999298
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1684245381754983895.wav",
+      "sentenceId": "1887",
+      "audioDurationSec": 11.34,
+      "responseMs": 1411.064750000136,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1411.064750000136
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12216589681110245395.wav",
+      "sentenceId": "1686",
+      "audioDurationSec": 9.18,
+      "responseMs": 1522.8714590000454,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 26,
+      "charErrors": 8,
+      "referenceChars": 163,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1522.8714590000454
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3494513282894665412.wav",
+      "sentenceId": "1758",
+      "audioDurationSec": 9.6,
+      "responseMs": 1418.4330000001937,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 8,
+      "referenceChars": 111,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1418.4330000001937
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17422806787346790024.wav",
+      "sentenceId": "1722",
+      "audioDurationSec": 12.54,
+      "responseMs": 1587.560999999987,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 7,
+      "referenceChars": 138,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1587.560999999987
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14524040401498118125.wav",
+      "sentenceId": "1675",
+      "audioDurationSec": 8.04,
+      "responseMs": 1443.8213750000577,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 17,
+      "charErrors": 9,
+      "referenceChars": 98,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1443.8213750000577
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6777724895396296746.wav",
+      "sentenceId": "1720",
+      "audioDurationSec": 10.86,
+      "responseMs": 1456.8637500000186,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 1,
+      "referenceChars": 106,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1456.8637500000186
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6303048700358650142.wav",
+      "sentenceId": "1840",
+      "audioDurationSec": 13.08,
+      "responseMs": 1577.403915999923,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 147,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1577.403915999923
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14713311937288361621.wav",
+      "sentenceId": "1754",
+      "audioDurationSec": 8.46,
+      "responseMs": 1489.9965000001248,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 22,
+      "charErrors": 14,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1489.9965000001248
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4159636865869556691.wav",
+      "sentenceId": "1920",
+      "audioDurationSec": 8.04,
+      "responseMs": 1483.0509170000441,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 3,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1483.0509170000441
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15691753212464481520.wav",
+      "sentenceId": "1879",
+      "audioDurationSec": 6.24,
+      "responseMs": 1331.8363330001011,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 7,
+      "referenceChars": 82,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1331.8363330001011
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12023156022621747395.wav",
+      "sentenceId": "1865",
+      "audioDurationSec": 11.7,
+      "responseMs": 1646.6017920000013,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 26,
+      "charErrors": 15,
+      "referenceChars": 170,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1646.6017920000013
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11244848568085017046.wav",
+      "sentenceId": "1826",
+      "audioDurationSec": 8.88,
+      "responseMs": 1356.8873750001658,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 13,
+      "charErrors": 5,
+      "referenceChars": 73,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1356.8873750001658
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17711617084437610362.wav",
+      "sentenceId": "1759",
+      "audioDurationSec": 19.68,
+      "responseMs": 1765.3592080001254,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 38,
+      "charErrors": 11,
+      "referenceChars": 226,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1765.3592080001254
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2291558259242446985.wav",
+      "sentenceId": "1921",
+      "audioDurationSec": 8.7,
+      "responseMs": 1524.6646249999758,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 23,
+      "charErrors": 1,
+      "referenceChars": 135,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1524.6646249999758
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7337155096492851669.wav",
+      "sentenceId": "1818",
+      "audioDurationSec": 8.82,
+      "responseMs": 1560.310707999859,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 125,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1560.310707999859
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12952568350031679422.wav",
+      "sentenceId": "1779",
+      "audioDurationSec": 9.36,
+      "responseMs": 1460.019375000149,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 13,
+      "charErrors": 3,
+      "referenceChars": 109,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1460.019375000149
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3043652005562990196.wav",
+      "sentenceId": "1764",
+      "audioDurationSec": 7.86,
+      "responseMs": 1433.8422910000663,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 116,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1433.8422910000663
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17208226724144212283.wav",
+      "sentenceId": "1836",
+      "audioDurationSec": 13.5,
+      "responseMs": 1801.9216669998132,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 37,
+      "charErrors": 17,
+      "referenceChars": 219,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1801.9216669998132
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8217971478901634535.wav",
+      "sentenceId": "1776",
+      "audioDurationSec": 6.9,
+      "responseMs": 1398.5554589999374,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 17,
+      "charErrors": 9,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1398.5554589999374
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15886572148361822186.wav",
+      "sentenceId": "1920",
+      "audioDurationSec": 7.38,
+      "responseMs": 1520.3322079998907,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 23,
+      "charErrors": 10,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1520.3322079998907
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9448792416365072129.wav",
+      "sentenceId": "1874",
+      "audioDurationSec": 11.94,
+      "responseMs": 1599.2811249999795,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 30,
+      "charErrors": 18,
+      "referenceChars": 186,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1599.2811249999795
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5188886329265655655.wav",
+      "sentenceId": "1818",
+      "audioDurationSec": 8.46,
+      "responseMs": 1600.0520000001416,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 125,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1600.0520000001416
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13952153566846455412.wav",
+      "sentenceId": "2009",
+      "audioDurationSec": 12.54,
+      "responseMs": 1687.4736669999547,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 29,
+      "charErrors": 8,
+      "referenceChars": 188,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1687.4736669999547
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3225591418780843391.wav",
+      "sentenceId": "1716",
+      "audioDurationSec": 29.34,
+      "responseMs": 2039.6410419999156,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 46,
+      "charErrors": 4,
+      "referenceChars": 336,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 2039.6410419999156
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10920143897207906635.wav",
+      "sentenceId": "1793",
+      "audioDurationSec": 10.32,
+      "responseMs": 1524.1192920000758,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 2,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1524.1192920000758
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11821169664011393142.wav",
+      "sentenceId": "1939",
+      "audioDurationSec": 10.44,
+      "responseMs": 1577.077166999923,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 24,
+      "charErrors": 3,
+      "referenceChars": 152,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1577.077166999923
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10644475897032637683.wav",
+      "sentenceId": "1843",
+      "audioDurationSec": 15.6,
+      "responseMs": 1562.232667000033,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 25,
+      "charErrors": 18,
+      "referenceChars": 169,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1562.232667000033
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10277501068965892175.wav",
+      "sentenceId": "1771",
+      "audioDurationSec": 8.64,
+      "responseMs": 1494.3709159998689,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 25,
+      "charErrors": 4,
+      "referenceChars": 133,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1494.3709159998689
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10937388317283063115.wav",
+      "sentenceId": "1991",
+      "audioDurationSec": 9.18,
+      "responseMs": 1517.0101250000298,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 20,
+      "charErrors": 1,
+      "referenceChars": 128,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1517.0101250000298
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15529423390504519736.wav",
+      "sentenceId": "1851",
+      "audioDurationSec": 7.92,
+      "responseMs": 1500.877416000003,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 19,
+      "charErrors": 3,
+      "referenceChars": 116,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1500.877416000003
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17969817683317668028.wav",
+      "sentenceId": "1690",
+      "audioDurationSec": 21.18,
+      "responseMs": 1712.1290829998907,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 34,
+      "charErrors": 6,
+      "referenceChars": 209,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1712.1290829998907
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17061611590733398111.wav",
+      "sentenceId": "1992",
+      "audioDurationSec": 13.44,
+      "responseMs": 1477.2808749999385,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 118,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1477.2808749999385
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11586158018602318724.wav",
+      "sentenceId": "1786",
+      "audioDurationSec": 11.64,
+      "responseMs": 1584.3660420000087,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 20,
+      "charErrors": 10,
+      "referenceChars": 143,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1584.3660420000087
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6923520639500879983.wav",
+      "sentenceId": "1819",
+      "audioDurationSec": 10.86,
+      "responseMs": 1609.1441669999622,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 26,
+      "charErrors": 2,
+      "referenceChars": 159,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1609.1441669999622
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8551361646853476160.wav",
+      "sentenceId": "1867",
+      "audioDurationSec": 7.38,
+      "responseMs": 1494.9786659998354,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 15,
+      "charErrors": 23,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1494.9786659998354
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14287656405694437528.wav",
+      "sentenceId": "1887",
+      "audioDurationSec": 7.02,
+      "responseMs": 1442.596499999985,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 1,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1442.596499999985
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9387385459182671208.wav",
+      "sentenceId": "1807",
+      "audioDurationSec": 11.7,
+      "responseMs": 1524.565750000067,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 1,
+      "referenceChars": 139,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1524.565750000067
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4244305472427063963.wav",
+      "sentenceId": "1985",
+      "audioDurationSec": 17.94,
+      "responseMs": 1664.7791669999715,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 26,
+      "charErrors": 7,
+      "referenceChars": 168,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1664.7791669999715
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6080080025687274159.wav",
+      "sentenceId": "1774",
+      "audioDurationSec": 18.06,
+      "responseMs": 1775.9282909999602,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 31,
+      "charErrors": 4,
+      "referenceChars": 211,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1775.9282909999602
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6512731739119659242.wav",
+      "sentenceId": "1863",
+      "audioDurationSec": 19.8,
+      "responseMs": 1763.1816249999683,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 10,
+      "referenceChars": 228,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1763.1816249999683
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17703504540088619581.wav",
+      "sentenceId": "1719",
+      "audioDurationSec": 11.34,
+      "responseMs": 1589.073958999943,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 20,
+      "charErrors": 7,
+      "referenceChars": 168,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1589.073958999943
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5088674578222794112.wav",
+      "sentenceId": "1939",
+      "audioDurationSec": 15,
+      "responseMs": 1535.6617499999702,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 24,
+      "charErrors": 1,
+      "referenceChars": 152,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1535.6617499999702
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13311631221642826160.wav",
+      "sentenceId": "1868",
+      "audioDurationSec": 12.78,
+      "responseMs": 1604.1954999999143,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 31,
+      "charErrors": 11,
+      "referenceChars": 170,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1604.1954999999143
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/731239159296925080.wav",
+      "sentenceId": "1857",
+      "audioDurationSec": 9.66,
+      "responseMs": 1554.9797499999404,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 23,
+      "charErrors": 7,
+      "referenceChars": 137,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1554.9797499999404
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17296715742903287191.wav",
+      "sentenceId": "1736",
+      "audioDurationSec": 8.22,
+      "responseMs": 1302.4395419999491,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 7,
+      "charErrors": 6,
+      "referenceChars": 48,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1302.4395419999491
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16879640127772398966.wav",
+      "sentenceId": "1819",
+      "audioDurationSec": 12.66,
+      "responseMs": 1661.842958000023,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 26,
+      "charErrors": 2,
+      "referenceChars": 159,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1661.842958000023
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12456468605276206290.wav",
+      "sentenceId": "1843",
+      "audioDurationSec": 16.92,
+      "responseMs": 1567.830290999962,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 25,
+      "charErrors": 12,
+      "referenceChars": 169,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1567.830290999962
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3043405956907485544.wav",
+      "sentenceId": "1823",
+      "audioDurationSec": 13.5,
+      "responseMs": 1568.5584580001887,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 19,
+      "charErrors": 10,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1568.5584580001887
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14329729598196172450.wav",
+      "sentenceId": "1836",
+      "audioDurationSec": 14.7,
+      "responseMs": 1780.238125000149,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 37,
+      "charErrors": 11,
+      "referenceChars": 219,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1780.238125000149
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/433478936568140393.wav",
+      "sentenceId": "1778",
+      "audioDurationSec": 6.42,
+      "responseMs": 1399.9442090000957,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 66,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1399.9442090000957
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4417004461305310620.wav",
+      "sentenceId": "1798",
+      "audioDurationSec": 11.1,
+      "responseMs": 1522.0364169999957,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 22,
+      "charErrors": 3,
+      "referenceChars": 142,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1522.0364169999957
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8476856523086109723.wav",
+      "sentenceId": "1693",
+      "audioDurationSec": 9.36,
+      "responseMs": 1502.40625,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 21,
+      "charErrors": 8,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1502.40625
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1771435209874197673.wav",
+      "sentenceId": "1755",
+      "audioDurationSec": 5.46,
+      "responseMs": 1295.344084000215,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 8,
+      "charErrors": 5,
+      "referenceChars": 57,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1295.344084000215
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2636035819514124569.wav",
+      "sentenceId": "1817",
+      "audioDurationSec": 5.64,
+      "responseMs": 1347.4014169999864,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 10,
+      "charErrors": 1,
+      "referenceChars": 73,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1347.4014169999864
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16356580284857444093.wav",
+      "sentenceId": "1872",
+      "audioDurationSec": 20.4,
+      "responseMs": 1751.9948330000043,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 28,
+      "charErrors": 12,
+      "referenceChars": 178,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1751.9948330000043
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2737403369323631923.wav",
+      "sentenceId": "2008",
+      "audioDurationSec": 16.32,
+      "responseMs": 1602.5192080000415,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 27,
+      "charErrors": 10,
+      "referenceChars": 174,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1602.5192080000415
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14892008184251939742.wav",
+      "sentenceId": "1895",
+      "audioDurationSec": 15.96,
+      "responseMs": 1559.5354589999188,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 21,
+      "charErrors": 5,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1559.5354589999188
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2854454441391045230.wav",
+      "sentenceId": "1882",
+      "audioDurationSec": 9.84,
+      "responseMs": 1537.3372080000117,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 2,
+      "referenceChars": 142,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1537.3372080000117
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6344532094691945657.wav",
+      "sentenceId": "1696",
+      "audioDurationSec": 12.66,
+      "responseMs": 1496.4909590000752,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 19,
+      "charErrors": 2,
+      "referenceChars": 133,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1496.4909590000752
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1213083239860266269.wav",
+      "sentenceId": "1946",
+      "audioDurationSec": 14.52,
+      "responseMs": 1560.6721669998951,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 169,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1560.6721669998951
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4622711583553312928.wav",
+      "sentenceId": "1667",
+      "audioDurationSec": 12.42,
+      "responseMs": 1664.6005410000216,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 31,
+      "charErrors": 4,
+      "referenceChars": 185,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1664.6005410000216
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17420615574674276152.wav",
+      "sentenceId": "1987",
+      "audioDurationSec": 10.8,
+      "responseMs": 1482.5062919999473,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 3,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1482.5062919999473
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14938722565240732313.wav",
+      "sentenceId": "1723",
+      "audioDurationSec": 10.86,
+      "responseMs": 1610.8252499999944,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 3,
+      "referenceChars": 139,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1610.8252499999944
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1892314626509120692.wav",
+      "sentenceId": "1676",
+      "audioDurationSec": 8.28,
+      "responseMs": 1444.408208000008,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 13,
+      "charErrors": 3,
+      "referenceChars": 96,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1444.408208000008
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18067324092959884860.wav",
+      "sentenceId": "1841",
+      "audioDurationSec": 9.48,
+      "responseMs": 1505.1217080000788,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 24,
+      "charErrors": 7,
+      "referenceChars": 142,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1505.1217080000788
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11637217116315583388.wav",
+      "sentenceId": "1973",
+      "audioDurationSec": 13.62,
+      "responseMs": 1631.2653330001049,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 33,
+      "charErrors": 9,
+      "referenceChars": 177,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1631.2653330001049
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2022178223320604004.wav",
+      "sentenceId": "1799",
+      "audioDurationSec": 8.58,
+      "responseMs": 1417.581583000021,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 11,
+      "charErrors": 2,
+      "referenceChars": 90,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1417.581583000021
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7230777442619336461.wav",
+      "sentenceId": "1730",
+      "audioDurationSec": 15.54,
+      "responseMs": 1772.1192910000682,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 33,
+      "charErrors": 31,
+      "referenceChars": 193,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1772.1192910000682
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10445705242398543312.wav",
+      "sentenceId": "1977",
+      "audioDurationSec": 7.56,
+      "responseMs": 1454.9497919999994,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 16,
+      "charErrors": 20,
+      "referenceChars": 91,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1454.9497919999994
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9872112720599754030.wav",
+      "sentenceId": "1712",
+      "audioDurationSec": 13.98,
+      "responseMs": 1653.8545000001322,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 23,
+      "charErrors": 14,
+      "referenceChars": 148,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1653.8545000001322
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6352236958813160644.wav",
+      "sentenceId": "1877",
+      "audioDurationSec": 18.78,
+      "responseMs": 1764.784292000113,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 37,
+      "charErrors": 18,
+      "referenceChars": 238,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1764.784292000113
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5490406232915026100.wav",
+      "sentenceId": "1701",
+      "audioDurationSec": 9.48,
+      "responseMs": 1489.4144999999553,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 19,
+      "charErrors": 14,
+      "referenceChars": 104,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1489.4144999999553
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18419240635773277632.wav",
+      "sentenceId": "1808",
+      "audioDurationSec": 8.52,
+      "responseMs": 1452.559750000015,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 17,
+      "charErrors": 9,
+      "referenceChars": 102,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1452.559750000015
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12430585981430708211.wav",
+      "sentenceId": "1981",
+      "audioDurationSec": 8.04,
+      "responseMs": 1445.359875000082,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 2,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1445.359875000082
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9235749423312238267.wav",
+      "sentenceId": "1821",
+      "audioDurationSec": 8.82,
+      "responseMs": 1495.969708000077,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 11,
+      "charErrors": 17,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1495.969708000077
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4649469732053524978.wav",
+      "sentenceId": "1852",
+      "audioDurationSec": 17.76,
+      "responseMs": 1902.0584580001887,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 43,
+      "charErrors": 20,
+      "referenceChars": 280,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1902.0584580001887
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2866428409734105968.wav",
+      "sentenceId": "1844",
+      "audioDurationSec": 10.74,
+      "responseMs": 1405.10004200018,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 13,
+      "charErrors": 4,
+      "referenceChars": 74,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1405.10004200018
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8755170469503374054.wav",
+      "sentenceId": "1797",
+      "audioDurationSec": 6.12,
+      "responseMs": 1320.7381249999162,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 14,
+      "charErrors": 11,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1320.7381249999162
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13395464068459165123.wav",
+      "sentenceId": "2008",
+      "audioDurationSec": 12.96,
+      "responseMs": 1614.5957499998622,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 27,
+      "charErrors": 9,
+      "referenceChars": 174,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1614.5957499998622
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17708823409885613255.wav",
+      "sentenceId": "1816",
+      "audioDurationSec": 8.7,
+      "responseMs": 1451.90699999989,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 1,
+      "referenceChars": 115,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1451.90699999989
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13497583737792288176.wav",
+      "sentenceId": "1918",
+      "audioDurationSec": 10.5,
+      "responseMs": 1613.140209000092,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 21,
+      "charErrors": 16,
+      "referenceChars": 147,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1613.140209000092
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10254792225179731420.wav",
+      "sentenceId": "1727",
+      "audioDurationSec": 9.72,
+      "responseMs": 1391.998249999946,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 16,
+      "charErrors": 19,
+      "referenceChars": 104,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1391.998249999946
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1432794498521334603.wav",
+      "sentenceId": "1817",
+      "audioDurationSec": 5.04,
+      "responseMs": 1352.3486659999471,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 10,
+      "charErrors": 8,
+      "referenceChars": 73,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1352.3486659999471
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2824449049248884197.wav",
+      "sentenceId": "1993",
+      "audioDurationSec": 10.8,
+      "responseMs": 1515.501458000159,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 17,
+      "charErrors": 3,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1515.501458000159
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13460745445743265781.wav",
+      "sentenceId": "1982",
+      "audioDurationSec": 11.58,
+      "responseMs": 1479.2418329999782,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 5,
+      "referenceChars": 103,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1479.2418329999782
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8148420202379480292.wav",
+      "sentenceId": "1960",
+      "audioDurationSec": 12.78,
+      "responseMs": 1656.1840409999713,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 31,
+      "charErrors": 12,
+      "referenceChars": 186,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1656.1840409999713
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6895844022604940375.wav",
+      "sentenceId": "1726",
+      "audioDurationSec": 9.36,
+      "responseMs": 1559.6488329998683,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 30,
+      "charErrors": 5,
+      "referenceChars": 156,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1559.6488329998683
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13782880493481590338.wav",
+      "sentenceId": "1824",
+      "audioDurationSec": 18.3,
+      "responseMs": 1750.3997500000987,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 32,
+      "charErrors": 27,
+      "referenceChars": 215,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1750.3997500000987
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14944960359267242921.wav",
+      "sentenceId": "1846",
+      "audioDurationSec": 10.44,
+      "responseMs": 1431.1808339999989,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 17,
+      "charErrors": 16,
+      "referenceChars": 110,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1431.1808339999989
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16130933473911869109.wav",
+      "sentenceId": "1769",
+      "audioDurationSec": 9.96,
+      "responseMs": 1600.4714169998188,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 28,
+      "charErrors": 23,
+      "referenceChars": 162,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1600.4714169998188
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16873947600595730768.wav",
+      "sentenceId": "1694",
+      "audioDurationSec": 7.5,
+      "responseMs": 1494.4156659999862,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 18,
+      "charErrors": 2,
+      "referenceChars": 114,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1494.4156659999862
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4488869448322613100.wav",
+      "sentenceId": "1693",
+      "audioDurationSec": 15.06,
+      "responseMs": 1487.183165999828,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 21,
+      "charErrors": 11,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1487.183165999828
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15563946988017860713.wav",
+      "sentenceId": "1947",
+      "audioDurationSec": 10.98,
+      "responseMs": 1425.5741250000428,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 90,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1425.5741250000428
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8623233556821191338.wav",
+      "sentenceId": "1747",
+      "audioDurationSec": 7.86,
+      "responseMs": 1243.594084000215,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 5,
+      "charErrors": 4,
+      "referenceChars": 32,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1243.594084000215
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18006750170848073618.wav",
+      "sentenceId": "1752",
+      "audioDurationSec": 12.24,
+      "responseMs": 1407.647333000088,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 14,
+      "charErrors": 6,
+      "referenceChars": 85,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1407.647333000088
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14633645613292848372.wav",
+      "sentenceId": "1807",
+      "audioDurationSec": 8.94,
+      "responseMs": 1561.7103339999449,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 1,
+      "referenceChars": 139,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1561.7103339999449
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5213393788768692809.wav",
+      "sentenceId": "1970",
+      "audioDurationSec": 13.86,
+      "responseMs": 1633.016416999977,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 30,
+      "charErrors": 21,
+      "referenceChars": 175,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1633.016416999977
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4897182662493113731.wav",
+      "sentenceId": "1827",
+      "audioDurationSec": 5.64,
+      "responseMs": 1341.5742500000633,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 14,
+      "charErrors": 3,
+      "referenceChars": 67,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1341.5742500000633
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2351799844265400524.wav",
+      "sentenceId": "1767",
+      "audioDurationSec": 11.64,
+      "responseMs": 1434.0784999998286,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 103,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1434.0784999998286
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9065584810687226364.wav",
+      "sentenceId": "1892",
+      "audioDurationSec": 17.16,
+      "responseMs": 1607.0941669999156,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 164,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1607.0941669999156
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/116922833064148241.wav",
+      "sentenceId": "1989",
+      "audioDurationSec": 15.6,
+      "responseMs": 1890.889124999987,
+      "status": "ok",
+      "wordErrors": 10,
+      "referenceWords": 32,
+      "charErrors": 57,
+      "referenceChars": 200,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1890.889124999987
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10510528106946579301.wav",
+      "sentenceId": "1966",
+      "audioDurationSec": 11.28,
+      "responseMs": 1412.5640830001794,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 13,
+      "charErrors": 4,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1412.5640830001794
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14105454608037720070.wav",
+      "sentenceId": "1853",
+      "audioDurationSec": 8.46,
+      "responseMs": 1402.5112500002142,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 14,
+      "charErrors": 4,
+      "referenceChars": 98,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1402.5112500002142
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8389385032287003597.wav",
+      "sentenceId": "1708",
+      "audioDurationSec": 15.12,
+      "responseMs": 1589.7079580000136,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 26,
+      "charErrors": 6,
+      "referenceChars": 159,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1589.7079580000136
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13443213326709803060.wav",
+      "sentenceId": "1942",
+      "audioDurationSec": 10.44,
+      "responseMs": 1544.5641250000335,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 25,
+      "charErrors": 2,
+      "referenceChars": 143,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1544.5641250000335
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8840774073340133784.wav",
+      "sentenceId": "1980",
+      "audioDurationSec": 8.4,
+      "responseMs": 1484.4470829998609,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 17,
+      "charErrors": 20,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1484.4470829998609
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11687601946879625884.wav",
+      "sentenceId": "1960",
+      "audioDurationSec": 13.74,
+      "responseMs": 1664.6757079998497,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 31,
+      "charErrors": 20,
+      "referenceChars": 186,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1664.6757079998497
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12490215519204899973.wav",
+      "sentenceId": "1893",
+      "audioDurationSec": 10.08,
+      "responseMs": 1508.717915999936,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 22,
+      "charErrors": 5,
+      "referenceChars": 132,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1508.717915999936
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18224935792419767713.wav",
+      "sentenceId": "1953",
+      "audioDurationSec": 6.78,
+      "responseMs": 1287.5595830001403,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 5,
+      "referenceChars": 74,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1287.5595830001403
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17451873670505636445.wav",
+      "sentenceId": "1755",
+      "audioDurationSec": 4.32,
+      "responseMs": 1301.7240420000162,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 8,
+      "charErrors": 3,
+      "referenceChars": 57,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1301.7240420000162
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2856568968227975749.wav",
+      "sentenceId": "1919",
+      "audioDurationSec": 10.68,
+      "responseMs": 1521.3150829998776,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 19,
+      "charErrors": 3,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1521.3150829998776
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17065628210510850538.wav",
+      "sentenceId": "1852",
+      "audioDurationSec": 18.24,
+      "responseMs": 1870.2533749998547,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 43,
+      "charErrors": 23,
+      "referenceChars": 280,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1870.2533749998547
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3320585664731047350.wav",
+      "sentenceId": "2006",
+      "audioDurationSec": 7.08,
+      "responseMs": 1430.851166000124,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 17,
+      "charErrors": 3,
+      "referenceChars": 109,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1430.851166000124
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9416755168082079050.wav",
+      "sentenceId": "1965",
+      "audioDurationSec": 9.9,
+      "responseMs": 1511.8669590000063,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 16,
+      "charErrors": 20,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1511.8669590000063
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/869149912504119615.wav",
+      "sentenceId": "1669",
+      "audioDurationSec": 9.3,
+      "responseMs": 1515.1181250000373,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 15,
+      "charErrors": 5,
+      "referenceChars": 110,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1515.1181250000373
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1988808286396247391.wav",
+      "sentenceId": "1963",
+      "audioDurationSec": 15.18,
+      "responseMs": 1646.307334000012,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 29,
+      "charErrors": 5,
+      "referenceChars": 157,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1646.307334000012
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9714204990938256282.wav",
+      "sentenceId": "1901",
+      "audioDurationSec": 13.92,
+      "responseMs": 1639.392625000095,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 185,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1639.392625000095
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7754341511491533969.wav",
+      "sentenceId": "1742",
+      "audioDurationSec": 10.44,
+      "responseMs": 1486.060499999905,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 21,
+      "charErrors": 8,
+      "referenceChars": 128,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1486.060499999905
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8196900061451487716.wav",
+      "sentenceId": "1694",
+      "audioDurationSec": 6.84,
+      "responseMs": 1495.2612920000684,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 6,
+      "referenceChars": 114,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1495.2612920000684
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12121096184404555631.wav",
+      "sentenceId": "1962",
+      "audioDurationSec": 8.4,
+      "responseMs": 1420.514666999923,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 13,
+      "charErrors": 10,
+      "referenceChars": 79,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1420.514666999923
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2211794716168605444.wav",
+      "sentenceId": "1672",
+      "audioDurationSec": 8.16,
+      "responseMs": 1494.6377499999944,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 5,
+      "referenceChars": 116,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1494.6377499999944
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15515807529628654845.wav",
+      "sentenceId": "1833",
+      "audioDurationSec": 10.02,
+      "responseMs": 1526.9780419999734,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 24,
+      "charErrors": 4,
+      "referenceChars": 140,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1526.9780419999734
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10268651938677775364.wav",
+      "sentenceId": "1787",
+      "audioDurationSec": 13.32,
+      "responseMs": 1567.6632920000702,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 22,
+      "charErrors": 3,
+      "referenceChars": 146,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1567.6632920000702
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4344982820235297372.wav",
+      "sentenceId": "1703",
+      "audioDurationSec": 12.78,
+      "responseMs": 1381.906207999913,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 15,
+      "charErrors": 7,
+      "referenceChars": 83,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1381.906207999913
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5584273039702866515.wav",
+      "sentenceId": "1937",
+      "audioDurationSec": 29.28,
+      "responseMs": 2236.296374999918,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 51,
+      "charErrors": 12,
+      "referenceChars": 369,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 2236.296374999918
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18064310464473355259.wav",
+      "sentenceId": "1854",
+      "audioDurationSec": 6.6,
+      "responseMs": 1388.30929200002,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 14,
+      "charErrors": 14,
+      "referenceChars": 87,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1388.30929200002
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17808966797274398296.wav",
+      "sentenceId": "1949",
+      "audioDurationSec": 7.8,
+      "responseMs": 1428.6954999999143,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 1,
+      "referenceChars": 90,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1428.6954999999143
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16393281231203288667.wav",
+      "sentenceId": "1933",
+      "audioDurationSec": 11.04,
+      "responseMs": 1608.3276250001509,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 23,
+      "charErrors": 13,
+      "referenceChars": 143,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1608.3276250001509
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13791947777541083217.wav",
+      "sentenceId": "1844",
+      "audioDurationSec": 6.72,
+      "responseMs": 1388.7233749998268,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 13,
+      "charErrors": 8,
+      "referenceChars": 74,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1388.7233749998268
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1913746596450159994.wav",
+      "sentenceId": "1871",
+      "audioDurationSec": 4.26,
+      "responseMs": 1343.2382089998573,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 58,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1343.2382089998573
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12698119801134905452.wav",
+      "sentenceId": "1917",
+      "audioDurationSec": 7.2,
+      "responseMs": 1426.940958000021,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 16,
+      "charErrors": 10,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1426.940958000021
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14485950022967785119.wav",
+      "sentenceId": "1866",
+      "audioDurationSec": 8.1,
+      "responseMs": 1446.0133340000175,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 3,
+      "referenceChars": 82,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1446.0133340000175
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13837234798931403067.wav",
+      "sentenceId": "1943",
+      "audioDurationSec": 8.82,
+      "responseMs": 1462.842999999877,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 129,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1462.842999999877
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16117023508139290395.wav",
+      "sentenceId": "1710",
+      "audioDurationSec": 11.1,
+      "responseMs": 1604.313542000018,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 20,
+      "charErrors": 6,
+      "referenceChars": 146,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1604.313542000018
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12686847086827376556.wav",
+      "sentenceId": "1992",
+      "audioDurationSec": 7.8,
+      "responseMs": 1482.4675409998745,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 19,
+      "charErrors": 1,
+      "referenceChars": 118,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1482.4675409998745
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2973275739436433944.wav",
+      "sentenceId": "1825",
+      "audioDurationSec": 7.74,
+      "responseMs": 1433.4629170000553,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 3,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1433.4629170000553
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9516840841015838643.wav",
+      "sentenceId": "1700",
+      "audioDurationSec": 5.7,
+      "responseMs": 1321.9480419999454,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 3,
+      "referenceChars": 56,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1321.9480419999454
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6144962782109059796.wav",
+      "sentenceId": "1998",
+      "audioDurationSec": 6.36,
+      "responseMs": 1400.456291000126,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 3,
+      "referenceChars": 77,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1400.456291000126
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12619605225731052286.wav",
+      "sentenceId": "1960",
+      "audioDurationSec": 10.92,
+      "responseMs": 1651.9502499999944,
+      "status": "ok",
+      "wordErrors": 11,
+      "referenceWords": 31,
+      "charErrors": 37,
+      "referenceChars": 186,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1651.9502499999944
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15749184021175026510.wav",
+      "sentenceId": "1690",
+      "audioDurationSec": 19.8,
+      "responseMs": 1724.5039590001106,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 34,
+      "charErrors": 7,
+      "referenceChars": 209,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1724.5039590001106
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9915354536997443376.wav",
+      "sentenceId": "1873",
+      "audioDurationSec": 7.26,
+      "responseMs": 1500.112833000021,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 23,
+      "charErrors": 6,
+      "referenceChars": 121,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1500.112833000021
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9543766454892007667.wav",
+      "sentenceId": "1922",
+      "audioDurationSec": 12.06,
+      "responseMs": 1600.997250000015,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 22,
+      "charErrors": 11,
+      "referenceChars": 154,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1600.997250000015
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7535638467844872837.wav",
+      "sentenceId": "1741",
+      "audioDurationSec": 10.98,
+      "responseMs": 1472.1657499999274,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1472.1657499999274
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12942226787481791065.wav",
+      "sentenceId": "1784",
+      "audioDurationSec": 12.96,
+      "responseMs": 1729.862375000026,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 36,
+      "charErrors": 3,
+      "referenceChars": 197,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1729.862375000026
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8836316096815699884.wav",
+      "sentenceId": "1665",
+      "audioDurationSec": 11.64,
+      "responseMs": 1576.4492079999764,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 18,
+      "charErrors": 9,
+      "referenceChars": 133,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1576.4492079999764
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9900361752235707789.wav",
+      "sentenceId": "1853",
+      "audioDurationSec": 13.08,
+      "responseMs": 1397.8829999999143,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 14,
+      "charErrors": 2,
+      "referenceChars": 98,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1397.8829999999143
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3564010392351053271.wav",
+      "sentenceId": "1776",
+      "audioDurationSec": 9.6,
+      "responseMs": 1416.4365830000024,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 17,
+      "charErrors": 8,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1416.4365830000024
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5449558715318648907.wav",
+      "sentenceId": "1893",
+      "audioDurationSec": 11.04,
+      "responseMs": 1552.0651670000516,
+      "status": "ok",
+      "wordErrors": 9,
+      "referenceWords": 22,
+      "charErrors": 19,
+      "referenceChars": 132,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1552.0651670000516
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18311596596853813711.wav",
+      "sentenceId": "1990",
+      "audioDurationSec": 12.72,
+      "responseMs": 1792.5624160000589,
+      "status": "ok",
+      "wordErrors": 9,
+      "referenceWords": 29,
+      "charErrors": 15,
+      "referenceChars": 220,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1792.5624160000589
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2136330870429771014.wav",
+      "sentenceId": "1952",
+      "audioDurationSec": 14.04,
+      "responseMs": 1531.5095829998609,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 1,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1531.5095829998609
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16255801558617495813.wav",
+      "sentenceId": "1906",
+      "audioDurationSec": 6.84,
+      "responseMs": 1328.7362079999875,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 3,
+      "referenceChars": 85,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1328.7362079999875
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/661607679249349058.wav",
+      "sentenceId": "1986",
+      "audioDurationSec": 10.62,
+      "responseMs": 1494.064250000054,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 21,
+      "charErrors": 10,
+      "referenceChars": 119,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1494.064250000054
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13533280874433647874.wav",
+      "sentenceId": "1683",
+      "audioDurationSec": 16.68,
+      "responseMs": 1708.789916999871,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 32,
+      "charErrors": 11,
+      "referenceChars": 175,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1708.789916999871
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6255144405229761434.wav",
+      "sentenceId": "1661",
+      "audioDurationSec": 11.46,
+      "responseMs": 1410.8195840001572,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 4,
+      "referenceChars": 106,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1410.8195840001572
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12166439093874875903.wav",
+      "sentenceId": "1799",
+      "audioDurationSec": 6.9,
+      "responseMs": 1383.7754170000553,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 11,
+      "charErrors": 3,
+      "referenceChars": 90,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1383.7754170000553
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16288334275008587888.wav",
+      "sentenceId": "1947",
+      "audioDurationSec": 7.08,
+      "responseMs": 1395.8466250000056,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 12,
+      "charErrors": 3,
+      "referenceChars": 90,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1395.8466250000056
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9818104050578555353.wav",
+      "sentenceId": "1670",
+      "audioDurationSec": 27.78,
+      "responseMs": 1918.2965419997927,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 50,
+      "charErrors": 17,
+      "referenceChars": 330,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1918.2965419997927
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2761819308288477915.wav",
+      "sentenceId": "1984",
+      "audioDurationSec": 16.98,
+      "responseMs": 1581.2097920002416,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 149,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1581.2097920002416
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11853261502837655299.wav",
+      "sentenceId": "1835",
+      "audioDurationSec": 10.26,
+      "responseMs": 1612.5369170000777,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 21,
+      "charErrors": 11,
+      "referenceChars": 152,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1612.5369170000777
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8226326008201955957.wav",
+      "sentenceId": "1959",
+      "audioDurationSec": 7.26,
+      "responseMs": 1507.1563749997877,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 18,
+      "charErrors": 8,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1507.1563749997877
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2772587519392369236.wav",
+      "sentenceId": "1932",
+      "audioDurationSec": 16.08,
+      "responseMs": 1873.0730409999378,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 47,
+      "charErrors": 14,
+      "referenceChars": 249,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1873.0730409999378
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5310141596867796886.wav",
+      "sentenceId": "1980",
+      "audioDurationSec": 7.92,
+      "responseMs": 1458.4804580002092,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 17,
+      "charErrors": 17,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1458.4804580002092
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18210889073701327363.wav",
+      "sentenceId": "1985",
+      "audioDurationSec": 16.86,
+      "responseMs": 1664.8644579998218,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 26,
+      "charErrors": 27,
+      "referenceChars": 168,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1664.8644579998218
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6890632002131217530.wav",
+      "sentenceId": "1958",
+      "audioDurationSec": 12.24,
+      "responseMs": 1401.2012499999255,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 108,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1401.2012499999255
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1922582735196720517.wav",
+      "sentenceId": "1715",
+      "audioDurationSec": 18.06,
+      "responseMs": 1707.5915839998052,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 27,
+      "charErrors": 5,
+      "referenceChars": 196,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1707.5915839998052
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2502419634491081382.wav",
+      "sentenceId": "1727",
+      "audioDurationSec": 15.9,
+      "responseMs": 1475.2874159999192,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 16,
+      "charErrors": 9,
+      "referenceChars": 104,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1475.2874159999192
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17302436144835817352.wav",
+      "sentenceId": "1878",
+      "audioDurationSec": 11.1,
+      "responseMs": 1674.7533749998547,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 34,
+      "charErrors": 25,
+      "referenceChars": 194,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1674.7533749998547
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11452258187249288021.wav",
+      "sentenceId": "1763",
+      "audioDurationSec": 15.66,
+      "responseMs": 1504.0396250002086,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 18,
+      "charErrors": 18,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1504.0396250002086
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9114718957009854168.wav",
+      "sentenceId": "1737",
+      "audioDurationSec": 6.12,
+      "responseMs": 1353.4120419998653,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 13,
+      "charErrors": 10,
+      "referenceChars": 73,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1353.4120419998653
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2757313799092094830.wav",
+      "sentenceId": "1744",
+      "audioDurationSec": 10.08,
+      "responseMs": 1367.7287079999223,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 4,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1367.7287079999223
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7458956209108861991.wav",
+      "sentenceId": "1660",
+      "audioDurationSec": 13.8,
+      "responseMs": 1477.0142080001533,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 8,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1477.0142080001533
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11878526950974709916.wav",
+      "sentenceId": "1738",
+      "audioDurationSec": 8.22,
+      "responseMs": 1425.486583000049,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 23,
+      "charErrors": 6,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1425.486583000049
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13271221183433403690.wav",
+      "sentenceId": "1683",
+      "audioDurationSec": 11.64,
+      "responseMs": 1708.174167000223,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 32,
+      "charErrors": 12,
+      "referenceChars": 175,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1708.174167000223
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5300878945147275748.wav",
+      "sentenceId": "1927",
+      "audioDurationSec": 13.92,
+      "responseMs": 1464.6810829997994,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 17,
+      "charErrors": 7,
+      "referenceChars": 122,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1464.6810829997994
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14830345458541865052.wav",
+      "sentenceId": "1839",
+      "audioDurationSec": 4.98,
+      "responseMs": 1261.7974160001613,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 10,
+      "charErrors": 9,
+      "referenceChars": 55,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1261.7974160001613
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15723415155788780916.wav",
+      "sentenceId": "1785",
+      "audioDurationSec": 10.08,
+      "responseMs": 1534.7186670000665,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 25,
+      "charErrors": 20,
+      "referenceChars": 151,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1534.7186670000665
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8041217098911304754.wav",
+      "sentenceId": "1929",
+      "audioDurationSec": 10.14,
+      "responseMs": 1352.6514159999788,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 14,
+      "charErrors": 5,
+      "referenceChars": 75,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1352.6514159999788
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2383412894716753050.wav",
+      "sentenceId": "1885",
+      "audioDurationSec": 9.3,
+      "responseMs": 1287.7514999997802,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 11,
+      "charErrors": 11,
+      "referenceChars": 61,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1287.7514999997802
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9288109589840314498.wav",
+      "sentenceId": "1678",
+      "audioDurationSec": 18,
+      "responseMs": 1732.0969579997472,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 38,
+      "charErrors": 3,
+      "referenceChars": 220,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1732.0969579997472
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2356728348841894394.wav",
+      "sentenceId": "1777",
+      "audioDurationSec": 9.42,
+      "responseMs": 1477.971499999985,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 19,
+      "charErrors": 6,
+      "referenceChars": 132,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1477.971499999985
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2756650487106810641.wav",
+      "sentenceId": "1953",
+      "audioDurationSec": 10.32,
+      "responseMs": 1314.1470829998143,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 4,
+      "referenceChars": 74,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1314.1470829998143
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17925398793009402026.wav",
+      "sentenceId": "1678",
+      "audioDurationSec": 13.44,
+      "responseMs": 1707.8050420000218,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 38,
+      "charErrors": 1,
+      "referenceChars": 220,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1707.8050420000218
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15643472103064232279.wav",
+      "sentenceId": "1666",
+      "audioDurationSec": 9.9,
+      "responseMs": 1522.1171249998733,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 26,
+      "charErrors": 0,
+      "referenceChars": 132,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1522.1171249998733
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17739709431421699219.wav",
+      "sentenceId": "1764",
+      "audioDurationSec": 6.36,
+      "responseMs": 1385.474458000157,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 21,
+      "charErrors": 19,
+      "referenceChars": 116,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1385.474458000157
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4481630462782594786.wav",
+      "sentenceId": "1916",
+      "audioDurationSec": 9.42,
+      "responseMs": 1561.218499999959,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 22,
+      "charErrors": 3,
+      "referenceChars": 134,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1561.218499999959
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7451719543084409316.wav",
+      "sentenceId": "1978",
+      "audioDurationSec": 4.98,
+      "responseMs": 1276.9279580004513,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 12,
+      "charErrors": 7,
+      "referenceChars": 64,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1276.9279580004513
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/497345075328610783.wav",
+      "sentenceId": "1954",
+      "audioDurationSec": 9.72,
+      "responseMs": 1546.9042080002837,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 25,
+      "charErrors": 4,
+      "referenceChars": 163,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1546.9042080002837
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6611345297253997476.wav",
+      "sentenceId": "1903",
+      "audioDurationSec": 11.76,
+      "responseMs": 1568.8583750003017,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 161,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1568.8583750003017
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3197205890727281546.wav",
+      "sentenceId": "1935",
+      "audioDurationSec": 10.08,
+      "responseMs": 1369.6523750000633,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 2,
+      "referenceChars": 98,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1369.6523750000633
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4002321076437705577.wav",
+      "sentenceId": "1821",
+      "audioDurationSec": 10.98,
+      "responseMs": 1445.6732499999925,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 11,
+      "charErrors": 3,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1445.6732499999925
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15207118604281425113.wav",
+      "sentenceId": "1734",
+      "audioDurationSec": 13.2,
+      "responseMs": 1463.244707999751,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1463.244707999751
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15486937537875211010.wav",
+      "sentenceId": "1738",
+      "audioDurationSec": 8.34,
+      "responseMs": 1427.519459000323,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 23,
+      "charErrors": 6,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1427.519459000323
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1571974078698541573.wav",
+      "sentenceId": "1971",
+      "audioDurationSec": 14.4,
+      "responseMs": 1620.4141250001267,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 21,
+      "charErrors": 5,
+      "referenceChars": 144,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1620.4141250001267
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1487690424151693863.wav",
+      "sentenceId": "1862",
+      "audioDurationSec": 15.48,
+      "responseMs": 1583.6508340002038,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 27,
+      "charErrors": 2,
+      "referenceChars": 159,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1583.6508340002038
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2502153119349042890.wav",
+      "sentenceId": "1862",
+      "audioDurationSec": 12.96,
+      "responseMs": 1562.0981669998728,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 159,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1562.0981669998728
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18406202035946144932.wav",
+      "sentenceId": "2002",
+      "audioDurationSec": 9.42,
+      "responseMs": 1469.1185409999453,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 124,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1469.1185409999453
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5776980136713121517.wav",
+      "sentenceId": "1882",
+      "audioDurationSec": 10.44,
+      "responseMs": 1533.172625000123,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 21,
+      "charErrors": 16,
+      "referenceChars": 142,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1533.172625000123
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17856972689230068240.wav",
+      "sentenceId": "1814",
+      "audioDurationSec": 8.46,
+      "responseMs": 1459.2657500002533,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 5,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1459.2657500002533
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15471996969635620037.wav",
+      "sentenceId": "1897",
+      "audioDurationSec": 9.96,
+      "responseMs": 1338.3497079997323,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 1,
+      "referenceChars": 73,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1338.3497079997323
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7681709618412870925.wav",
+      "sentenceId": "2002",
+      "audioDurationSec": 7.92,
+      "responseMs": 1450.7220830000006,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 124,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1450.7220830000006
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8888883371064541139.wav",
+      "sentenceId": "1759",
+      "audioDurationSec": 19.86,
+      "responseMs": 1767.8988330001011,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 38,
+      "charErrors": 10,
+      "referenceChars": 226,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1767.8988330001011
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11615732986018014600.wav",
+      "sentenceId": "1834",
+      "audioDurationSec": 10.44,
+      "responseMs": 1437.854416999966,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 20,
+      "charErrors": 12,
+      "referenceChars": 122,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1437.854416999966
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13988644215380186650.wav",
+      "sentenceId": "1837",
+      "audioDurationSec": 10.56,
+      "responseMs": 1482.0300840004347,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 13,
+      "charErrors": 3,
+      "referenceChars": 132,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1482.0300840004347
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14855955620666588544.wav",
+      "sentenceId": "1818",
+      "audioDurationSec": 8.58,
+      "responseMs": 1531.173082999885,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 125,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1531.173082999885
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12025624623589855934.wav",
+      "sentenceId": "1944",
+      "audioDurationSec": 8.04,
+      "responseMs": 1446.1353750000708,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 20,
+      "charErrors": 12,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1446.1353750000708
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14839996038400449799.wav",
+      "sentenceId": "1667",
+      "audioDurationSec": 12.06,
+      "responseMs": 1650.3940000003204,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 31,
+      "charErrors": 6,
+      "referenceChars": 185,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1650.3940000003204
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7671117098627241264.wav",
+      "sentenceId": "1688",
+      "audioDurationSec": 12,
+      "responseMs": 1702.1870409999974,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 38,
+      "charErrors": 14,
+      "referenceChars": 207,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1702.1870409999974
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/731573035460961798.wav",
+      "sentenceId": "1712",
+      "audioDurationSec": 19.62,
+      "responseMs": 1577.6655419999734,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 23,
+      "charErrors": 5,
+      "referenceChars": 148,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1577.6655419999734
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16498655651849057130.wav",
+      "sentenceId": "1961",
+      "audioDurationSec": 15.06,
+      "responseMs": 1884.0011669998057,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 37,
+      "charErrors": 10,
+      "referenceChars": 234,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1884.0011669998057
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17340757067814297395.wav",
+      "sentenceId": "1685",
+      "audioDurationSec": 17.1,
+      "responseMs": 1590.2167500001378,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 24,
+      "charErrors": 7,
+      "referenceChars": 171,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1590.2167500001378
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6112664151579025112.wav",
+      "sentenceId": "1939",
+      "audioDurationSec": 10.68,
+      "responseMs": 1545.321832999587,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 152,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1545.321832999587
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11657230937236500261.wav",
+      "sentenceId": "1908",
+      "audioDurationSec": 5.4,
+      "responseMs": 1354.2528329999186,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 12,
+      "charErrors": 7,
+      "referenceChars": 67,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1354.2528329999186
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14511501353828819160.wav",
+      "sentenceId": "1988",
+      "audioDurationSec": 11.7,
+      "responseMs": 1400.0637499997392,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 102,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1400.0637499997392
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/744641347469249135.wav",
+      "sentenceId": "1947",
+      "audioDurationSec": 7.86,
+      "responseMs": 1382.7751249996945,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 12,
+      "charErrors": 1,
+      "referenceChars": 90,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1382.7751249996945
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16313627644736591984.wav",
+      "sentenceId": "1772",
+      "audioDurationSec": 6.72,
+      "responseMs": 1365.1712919999845,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 12,
+      "charErrors": 4,
+      "referenceChars": 74,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1365.1712919999845
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10688082146494402374.wav",
+      "sentenceId": "1873",
+      "audioDurationSec": 7.62,
+      "responseMs": 1494.086083999835,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 8,
+      "referenceChars": 121,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1494.086083999835
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3053408014248227106.wav",
+      "sentenceId": "1995",
+      "audioDurationSec": 14.16,
+      "responseMs": 1673.3525829999708,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 31,
+      "charErrors": 20,
+      "referenceChars": 203,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1673.3525829999708
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/430668655675045731.wav",
+      "sentenceId": "1741",
+      "audioDurationSec": 7.14,
+      "responseMs": 1467.9224170004018,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 17,
+      "charErrors": 5,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1467.9224170004018
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4342346100936740829.wav",
+      "sentenceId": "1982",
+      "audioDurationSec": 7.26,
+      "responseMs": 1476.3127080001868,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 15,
+      "charErrors": 12,
+      "referenceChars": 103,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1476.3127080001868
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12763786245275163057.wav",
+      "sentenceId": "1820",
+      "audioDurationSec": 5.88,
+      "responseMs": 1432.9271660000086,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 1,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1432.9271660000086
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17871318675191626915.wav",
+      "sentenceId": "1817",
+      "audioDurationSec": 6.36,
+      "responseMs": 1329.4576249998063,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 10,
+      "charErrors": 1,
+      "referenceChars": 73,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1329.4576249998063
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12347936420712513138.wav",
+      "sentenceId": "1794",
+      "audioDurationSec": 9.96,
+      "responseMs": 1484.971499999985,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 20,
+      "charErrors": 3,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1484.971499999985
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6675362693348014215.wav",
+      "sentenceId": "1797",
+      "audioDurationSec": 7.2,
+      "responseMs": 1352.2053339998238,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1352.2053339998238
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2247147758136403922.wav",
+      "sentenceId": "1820",
+      "audioDurationSec": 6.42,
+      "responseMs": 1441.8859999999404,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 16,
+      "charErrors": 6,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1441.8859999999404
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9861821999759237692.wav",
+      "sentenceId": "1738",
+      "audioDurationSec": 12.6,
+      "responseMs": 1438.7139159999788,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 23,
+      "charErrors": 6,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1438.7139159999788
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14321397791565371463.wav",
+      "sentenceId": "1677",
+      "audioDurationSec": 6.96,
+      "responseMs": 1388.464833999984,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 89,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1388.464833999984
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6247251752034576857.wav",
+      "sentenceId": "1867",
+      "audioDurationSec": 7.5,
+      "responseMs": 1440.7072089998983,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 15,
+      "charErrors": 11,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1440.7072089998983
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4737197675879579219.wav",
+      "sentenceId": "1957",
+      "audioDurationSec": 9,
+      "responseMs": 1320.6665420001373,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 8,
+      "charErrors": 3,
+      "referenceChars": 59,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1320.6665420001373
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16586768870043340408.wav",
+      "sentenceId": "1706",
+      "audioDurationSec": 11.7,
+      "responseMs": 1622.0154579998925,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 25,
+      "charErrors": 13,
+      "referenceChars": 171,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1622.0154579998925
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10243602616588494946.wav",
+      "sentenceId": "1774",
+      "audioDurationSec": 20.52,
+      "responseMs": 1801.2647919999436,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 31,
+      "charErrors": 17,
+      "referenceChars": 211,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1801.2647919999436
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4640326579723436010.wav",
+      "sentenceId": "1941",
+      "audioDurationSec": 5.16,
+      "responseMs": 1283.1568330000155,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 68,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1283.1568330000155
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6865293163002547550.wav",
+      "sentenceId": "1850",
+      "audioDurationSec": 12.12,
+      "responseMs": 1519.7114590001293,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 17,
+      "charErrors": 3,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1519.7114590001293
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4751922037750425022.wav",
+      "sentenceId": "1771",
+      "audioDurationSec": 8.64,
+      "responseMs": 1462.8487499998882,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 25,
+      "charErrors": 0,
+      "referenceChars": 133,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1462.8487499998882
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13913865098734932695.wav",
+      "sentenceId": "1995",
+      "audioDurationSec": 13.8,
+      "responseMs": 1674.8252499997616,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 31,
+      "charErrors": 8,
+      "referenceChars": 203,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1674.8252499997616
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2418826896607956448.wav",
+      "sentenceId": "1784",
+      "audioDurationSec": 12.78,
+      "responseMs": 1705.4722920004278,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 36,
+      "charErrors": 6,
+      "referenceChars": 197,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1705.4722920004278
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3328649799407550220.wav",
+      "sentenceId": "1904",
+      "audioDurationSec": 9.3,
+      "responseMs": 1455.9707499998622,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 16,
+      "charErrors": 4,
+      "referenceChars": 116,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1455.9707499998622
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12520163232449391899.wav",
+      "sentenceId": "1706",
+      "audioDurationSec": 12.96,
+      "responseMs": 1649.9139159996994,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 25,
+      "charErrors": 20,
+      "referenceChars": 171,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1649.9139159996994
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18124294783610224486.wav",
+      "sentenceId": "1668",
+      "audioDurationSec": 15.6,
+      "responseMs": 1569.6387499999255,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 28,
+      "charErrors": 3,
+      "referenceChars": 161,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1569.6387499999255
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14870770374953206198.wav",
+      "sentenceId": "1767",
+      "audioDurationSec": 7.56,
+      "responseMs": 1440.2371660000645,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 103,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1440.2371660000645
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15129174101005703565.wav",
+      "sentenceId": "1845",
+      "audioDurationSec": 11.16,
+      "responseMs": 1508.8633329998702,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1508.8633329998702
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7753087847342332044.wav",
+      "sentenceId": "1918",
+      "audioDurationSec": 10.86,
+      "responseMs": 1516.7912500002421,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 21,
+      "charErrors": 4,
+      "referenceChars": 147,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1516.7912500002421
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4345525737580151394.wav",
+      "sentenceId": "1827",
+      "audioDurationSec": 6.84,
+      "responseMs": 1308.4458750002086,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 67,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1308.4458750002086
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14151662380357874362.wav",
+      "sentenceId": "1803",
+      "audioDurationSec": 10.56,
+      "responseMs": 1427.4492079997435,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 18,
+      "charErrors": 1,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1427.4492079997435
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17761889080327466122.wav",
+      "sentenceId": "1934",
+      "audioDurationSec": 10.86,
+      "responseMs": 1429.08058300009,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 107,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1429.08058300009
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10092298310061000596.wav",
+      "sentenceId": "1810",
+      "audioDurationSec": 9.12,
+      "responseMs": 1506.7469589998946,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 17,
+      "charErrors": 8,
+      "referenceChars": 146,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1506.7469589998946
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8747134777302800040.wav",
+      "sentenceId": "1793",
+      "audioDurationSec": 12,
+      "responseMs": 1501.5637090001255,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 4,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1501.5637090001255
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5990608052883240655.wav",
+      "sentenceId": "1705",
+      "audioDurationSec": 13.68,
+      "responseMs": 1431.9078750000335,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 5,
+      "referenceChars": 116,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1431.9078750000335
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6697149474527790475.wav",
+      "sentenceId": "1995",
+      "audioDurationSec": 18.84,
+      "responseMs": 1676.958083000034,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 31,
+      "charErrors": 5,
+      "referenceChars": 203,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1676.958083000034
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4743373096374233446.wav",
+      "sentenceId": "1899",
+      "audioDurationSec": 12.84,
+      "responseMs": 1653.7370829996653,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 33,
+      "charErrors": 22,
+      "referenceChars": 182,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1653.7370829996653
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15436953449711549858.wav",
+      "sentenceId": "1940",
+      "audioDurationSec": 8.94,
+      "responseMs": 1577.9977500000969,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 27,
+      "charErrors": 4,
+      "referenceChars": 157,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1577.9977500000969
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3986415406707714828.wav",
+      "sentenceId": "1875",
+      "audioDurationSec": 11.04,
+      "responseMs": 1397.8497079997323,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 18,
+      "charErrors": 10,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1397.8497079997323
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8129880229863027491.wav",
+      "sentenceId": "1990",
+      "audioDurationSec": 17.28,
+      "responseMs": 1808.283999999985,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 29,
+      "charErrors": 19,
+      "referenceChars": 220,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1808.283999999985
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8219208488942884851.wav",
+      "sentenceId": "1858",
+      "audioDurationSec": 11.28,
+      "responseMs": 1579.423041000031,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 18,
+      "charErrors": 7,
+      "referenceChars": 132,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1579.423041000031
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1656115636242274414.wav",
+      "sentenceId": "1762",
+      "audioDurationSec": 8.34,
+      "responseMs": 1303.9738329998218,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 11,
+      "charErrors": 3,
+      "referenceChars": 67,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1303.9738329998218
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15257189895087431806.wav",
+      "sentenceId": "1845",
+      "audioDurationSec": 6.66,
+      "responseMs": 1510.8318749996834,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1510.8318749996834
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16831600558883092207.wav",
+      "sentenceId": "1897",
+      "audioDurationSec": 10.68,
+      "responseMs": 1340.9169160001911,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 1,
+      "referenceChars": 73,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1340.9169160001911
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11000151033146472268.wav",
+      "sentenceId": "1928",
+      "audioDurationSec": 9.6,
+      "responseMs": 1393.5662910002284,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 17,
+      "charErrors": 16,
+      "referenceChars": 107,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1393.5662910002284
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8107633630096323623.wav",
+      "sentenceId": "1896",
+      "audioDurationSec": 12.96,
+      "responseMs": 1682.4032079996541,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 30,
+      "charErrors": 4,
+      "referenceChars": 177,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1682.4032079996541
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12876333909288805607.wav",
+      "sentenceId": "1907",
+      "audioDurationSec": 7.32,
+      "responseMs": 1510.9676250000484,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 103,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1510.9676250000484
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1539716107974080087.wav",
+      "sentenceId": "1859",
+      "audioDurationSec": 14.52,
+      "responseMs": 1749.2605830002576,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 33,
+      "charErrors": 7,
+      "referenceChars": 201,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1749.2605830002576
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2051415096147390912.wav",
+      "sentenceId": "1918",
+      "audioDurationSec": 13.68,
+      "responseMs": 1549.496334000025,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 21,
+      "charErrors": 8,
+      "referenceChars": 147,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1549.496334000025
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10090792264157033835.wav",
+      "sentenceId": "1836",
+      "audioDurationSec": 22.44,
+      "responseMs": 1748.4214580003172,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 37,
+      "charErrors": 7,
+      "referenceChars": 219,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1748.4214580003172
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14380553716130427640.wav",
+      "sentenceId": "1663",
+      "audioDurationSec": 11.46,
+      "responseMs": 1513.011208999902,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 15,
+      "charErrors": 8,
+      "referenceChars": 124,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1513.011208999902
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4675552385457128833.wav",
+      "sentenceId": "1679",
+      "audioDurationSec": 8.04,
+      "responseMs": 1273.6128749996424,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 60,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1273.6128749996424
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/18277627435258568421.wav",
+      "sentenceId": "1707",
+      "audioDurationSec": 9.3,
+      "responseMs": 1462.7924999999814,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 11,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1462.7924999999814
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7129532321776912217.wav",
+      "sentenceId": "1757",
+      "audioDurationSec": 7.92,
+      "responseMs": 1430.538500000257,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 17,
+      "charErrors": 6,
+      "referenceChars": 117,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1430.538500000257
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5635480224312482141.wav",
+      "sentenceId": "1871",
+      "audioDurationSec": 5.7,
+      "responseMs": 1326.7281249999069,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 58,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1326.7281249999069
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2674016783625168210.wav",
+      "sentenceId": "1917",
+      "audioDurationSec": 6.54,
+      "responseMs": 1375.1995830000378,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 100,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1375.1995830000378
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2944168673602192602.wav",
+      "sentenceId": "1781",
+      "audioDurationSec": 8.52,
+      "responseMs": 1373.5917500001378,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 18,
+      "charErrors": 5,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1373.5917500001378
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16282750135711378400.wav",
+      "sentenceId": "1691",
+      "audioDurationSec": 11.4,
+      "responseMs": 1479.7983339997008,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 118,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1479.7983339997008
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3964704728058563250.wav",
+      "sentenceId": "1729",
+      "audioDurationSec": 19.44,
+      "responseMs": 1742.2546669999138,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 36,
+      "charErrors": 7,
+      "referenceChars": 236,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1742.2546669999138
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14405449502959538390.wav",
+      "sentenceId": "1900",
+      "audioDurationSec": 9.78,
+      "responseMs": 1495.400041999761,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 30,
+      "charErrors": 17,
+      "referenceChars": 146,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1495.400041999761
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12578326960004694057.wav",
+      "sentenceId": "1733",
+      "audioDurationSec": 17.46,
+      "responseMs": 1787.5747500001453,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 36,
+      "charErrors": 4,
+      "referenceChars": 222,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1787.5747500001453
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/50048407425502034.wav",
+      "sentenceId": "1809",
+      "audioDurationSec": 10.32,
+      "responseMs": 1632.8139590001665,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 28,
+      "charErrors": 8,
+      "referenceChars": 166,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1632.8139590001665
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17400113705028798121.wav",
+      "sentenceId": "1699",
+      "audioDurationSec": 9.84,
+      "responseMs": 1605.3000420001335,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 25,
+      "charErrors": 6,
+      "referenceChars": 153,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1605.3000420001335
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3840131144048653786.wav",
+      "sentenceId": "1781",
+      "audioDurationSec": 6.78,
+      "responseMs": 1366.383124999702,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 18,
+      "charErrors": 3,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1366.383124999702
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11907920642611729323.wav",
+      "sentenceId": "1773",
+      "audioDurationSec": 13.5,
+      "responseMs": 1607.0233749998733,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 22,
+      "charErrors": 4,
+      "referenceChars": 135,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1607.0233749998733
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7284981888481424922.wav",
+      "sentenceId": "1720",
+      "audioDurationSec": 12.48,
+      "responseMs": 1444.9212500001304,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 1,
+      "referenceChars": 106,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1444.9212500001304
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17313649346411014955.wav",
+      "sentenceId": "1879",
+      "audioDurationSec": 5.04,
+      "responseMs": 1344.5176659999415,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 7,
+      "referenceChars": 82,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1344.5176659999415
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7661635807213130056.wav",
+      "sentenceId": "1718",
+      "audioDurationSec": 13.26,
+      "responseMs": 1634.479500000365,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 25,
+      "charErrors": 20,
+      "referenceChars": 176,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1634.479500000365
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17458960251241329773.wav",
+      "sentenceId": "1798",
+      "audioDurationSec": 10.56,
+      "responseMs": 1583.9448750000447,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 22,
+      "charErrors": 16,
+      "referenceChars": 142,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1583.9448750000447
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2243867570629784888.wav",
+      "sentenceId": "1743",
+      "audioDurationSec": 19.38,
+      "responseMs": 1965.474042000249,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 45,
+      "charErrors": 21,
+      "referenceChars": 291,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1965.474042000249
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2220975201121240036.wav",
+      "sentenceId": "1716",
+      "audioDurationSec": 25.86,
+      "responseMs": 2051.4728330001235,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 46,
+      "charErrors": 6,
+      "referenceChars": 336,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 2051.4728330001235
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15134554026137927276.wav",
+      "sentenceId": "1967",
+      "audioDurationSec": 13.68,
+      "responseMs": 1655.252708000131,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 27,
+      "charErrors": 15,
+      "referenceChars": 196,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1655.252708000131
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17711964635887822731.wav",
+      "sentenceId": "1974",
+      "audioDurationSec": 4.86,
+      "responseMs": 1415.513290999923,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 2,
+      "referenceChars": 67,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1415.513290999923
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/5890389482943078866.wav",
+      "sentenceId": "1888",
+      "audioDurationSec": 10.74,
+      "responseMs": 1578.0472079999745,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 25,
+      "charErrors": 15,
+      "referenceChars": 155,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1578.0472079999745
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9222774888683223720.wav",
+      "sentenceId": "2007",
+      "audioDurationSec": 12,
+      "responseMs": 1505.0060829999857,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 17,
+      "charErrors": 1,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1505.0060829999857
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8249235869104880062.wav",
+      "sentenceId": "1778",
+      "audioDurationSec": 4.98,
+      "responseMs": 1438.435541999992,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 9,
+      "charErrors": 13,
+      "referenceChars": 66,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1438.435541999992
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8201676523641597540.wav",
+      "sentenceId": "1755",
+      "audioDurationSec": 4.74,
+      "responseMs": 1289.3140829997137,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 57,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1289.3140829997137
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8296564372965817865.wav",
+      "sentenceId": "1930",
+      "audioDurationSec": 7.62,
+      "responseMs": 1453.3212919998914,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 14,
+      "charErrors": 5,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1453.3212919998914
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2034669447395048348.wav",
+      "sentenceId": "1754",
+      "audioDurationSec": 9.36,
+      "responseMs": 1454.6740419999696,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 120,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1454.6740419999696
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3371010083640225543.wav",
+      "sentenceId": "1907",
+      "audioDurationSec": 13.32,
+      "responseMs": 1518.1218329998665,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 3,
+      "referenceChars": 103,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1518.1218329998665
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3652899245651000567.wav",
+      "sentenceId": "1949",
+      "audioDurationSec": 10.26,
+      "responseMs": 1406.0505840000696,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 14,
+      "charErrors": 6,
+      "referenceChars": 90,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1406.0505840000696
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/258776887528490951.wav",
+      "sentenceId": "1984",
+      "audioDurationSec": 13.2,
+      "responseMs": 1600.4665000000969,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 24,
+      "charErrors": 6,
+      "referenceChars": 149,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1600.4665000000969
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12352940451391543429.wav",
+      "sentenceId": "1832",
+      "audioDurationSec": 13.62,
+      "responseMs": 1613.548667000141,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 15,
+      "charErrors": 2,
+      "referenceChars": 146,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1613.548667000141
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1345573887499797112.wav",
+      "sentenceId": "1739",
+      "audioDurationSec": 7.92,
+      "responseMs": 1426.2012499999255,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 19,
+      "charErrors": 9,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1426.2012499999255
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12042205905730138744.wav",
+      "sentenceId": "1825",
+      "audioDurationSec": 12.36,
+      "responseMs": 1438.0941249998286,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 105,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1438.0941249998286
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/398385868884907904.wav",
+      "sentenceId": "1725",
+      "audioDurationSec": 12.24,
+      "responseMs": 1610.4502499997616,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 20,
+      "charErrors": 13,
+      "referenceChars": 148,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1610.4502499997616
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/11482973169603931262.wav",
+      "sentenceId": "1938",
+      "audioDurationSec": 10.38,
+      "responseMs": 1495.5598329999484,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 19,
+      "charErrors": 4,
+      "referenceChars": 148,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1495.5598329999484
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3235842918728236492.wav",
+      "sentenceId": "1887",
+      "audioDurationSec": 7.5,
+      "responseMs": 1414.2618329999968,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 15,
+      "charErrors": 6,
+      "referenceChars": 94,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1414.2618329999968
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16828639786221201263.wav",
+      "sentenceId": "1777",
+      "audioDurationSec": 10.98,
+      "responseMs": 1480.7810829998925,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 19,
+      "charErrors": 6,
+      "referenceChars": 132,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1480.7810829998925
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10467390180524459413.wav",
+      "sentenceId": "1867",
+      "audioDurationSec": 14.7,
+      "responseMs": 1480.2290000002831,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 15,
+      "charErrors": 6,
+      "referenceChars": 112,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1480.2290000002831
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9220647056912051227.wav",
+      "sentenceId": "2009",
+      "audioDurationSec": 12.06,
+      "responseMs": 1694.4619169998914,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 29,
+      "charErrors": 14,
+      "referenceChars": 188,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1694.4619169998914
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15976464897736728196.wav",
+      "sentenceId": "1803",
+      "audioDurationSec": 7.02,
+      "responseMs": 1432.2632500003092,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 18,
+      "charErrors": 3,
+      "referenceChars": 95,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1432.2632500003092
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6918764478594328295.wav",
+      "sentenceId": "1815",
+      "audioDurationSec": 7.8,
+      "responseMs": 1446.4664999996312,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 19,
+      "charErrors": 4,
+      "referenceChars": 119,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1446.4664999996312
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17505806934313483514.wav",
+      "sentenceId": "1806",
+      "audioDurationSec": 13.32,
+      "responseMs": 1646.56650000019,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 40,
+      "charErrors": 13,
+      "referenceChars": 200,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1646.56650000019
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/3710452167686111528.wav",
+      "sentenceId": "1718",
+      "audioDurationSec": 15,
+      "responseMs": 1638.9097090000287,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 25,
+      "charErrors": 1,
+      "referenceChars": 176,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1638.9097090000287
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14238446120242737817.wav",
+      "sentenceId": "1976",
+      "audioDurationSec": 15.78,
+      "responseMs": 1516.6365420003422,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 18,
+      "charErrors": 14,
+      "referenceChars": 118,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1516.6365420003422
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/16738960962671709126.wav",
+      "sentenceId": "1894",
+      "audioDurationSec": 7.92,
+      "responseMs": 1411.4876669999212,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 88,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1411.4876669999212
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9062625645976324064.wav",
+      "sentenceId": "1906",
+      "audioDurationSec": 5.94,
+      "responseMs": 1354.0565420002677,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 3,
+      "referenceChars": 85,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1354.0565420002677
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/7875745549255097530.wav",
+      "sentenceId": "1848",
+      "audioDurationSec": 15.72,
+      "responseMs": 1608.704125000164,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 23,
+      "charErrors": 8,
+      "referenceChars": 152,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1608.704125000164
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/4475321435895612605.wav",
+      "sentenceId": "1749",
+      "audioDurationSec": 11.34,
+      "responseMs": 1665.4773329999298,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 29,
+      "charErrors": 2,
+      "referenceChars": 167,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1665.4773329999298
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/2270762369544592788.wav",
+      "sentenceId": "1925",
+      "audioDurationSec": 9.06,
+      "responseMs": 1509.905999999959,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 19,
+      "charErrors": 5,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1509.905999999959
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13832031985763220779.wav",
+      "sentenceId": "1766",
+      "audioDurationSec": 14.52,
+      "responseMs": 1481.625957999844,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 123,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1481.625957999844
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/6689482259038411211.wav",
+      "sentenceId": "1833",
+      "audioDurationSec": 11.28,
+      "responseMs": 1561.9870410002768,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 24,
+      "charErrors": 4,
+      "referenceChars": 140,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1561.9870410002768
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/14276364642616334117.wav",
+      "sentenceId": "1846",
+      "audioDurationSec": 7.86,
+      "responseMs": 1443.1042920001782,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 17,
+      "charErrors": 14,
+      "referenceChars": 110,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1443.1042920001782
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/10781449947270288939.wav",
+      "sentenceId": "1928",
+      "audioDurationSec": 9.6,
+      "responseMs": 1427.743249999825,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 17,
+      "charErrors": 21,
+      "referenceChars": 107,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1427.743249999825
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/15690691316276475327.wav",
+      "sentenceId": "1695",
+      "audioDurationSec": 12.3,
+      "responseMs": 1672.985791000072,
+      "status": "ok",
+      "wordErrors": 9,
+      "referenceWords": 24,
+      "charErrors": 20,
+      "referenceChars": 149,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1672.985791000072
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/17277418137319146401.wav",
+      "sentenceId": "1840",
+      "audioDurationSec": 9.72,
+      "responseMs": 1593.6743749999441,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 27,
+      "charErrors": 4,
+      "referenceChars": 147,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1593.6743749999441
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/9971881831427759748.wav",
+      "sentenceId": "1785",
+      "audioDurationSec": 9.96,
+      "responseMs": 1537.7383330003358,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 25,
+      "charErrors": 10,
+      "referenceChars": 151,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1537.7383330003358
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/1548714359266280254.wav",
+      "sentenceId": "1823",
+      "audioDurationSec": 9.66,
+      "responseMs": 1558.2977500003763,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 19,
+      "charErrors": 7,
+      "referenceChars": 127,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1558.2977500003763
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/13782758650065864718.wav",
+      "sentenceId": "1674",
+      "audioDurationSec": 6.66,
+      "responseMs": 1383.0886249998584,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 83,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1383.0886249998584
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/12003507802982301880.wav",
+      "sentenceId": "1699",
+      "audioDurationSec": 10.68,
+      "responseMs": 1603.0453750002198,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 25,
+      "charErrors": 3,
+      "referenceChars": 153,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1603.0453750002198
+      }
+    },
+    {
+      "clipId": "fleurs/da_dk/audio/test/8476175897995602250.wav",
+      "sentenceId": "1679",
+      "audioDurationSec": 6.84,
+      "responseMs": 1302.6182090002112,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 60,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 1302.6182090002112
+      }
+    }
+  ],
+  "description": "benchmark-v2 publication batch 2026-09-v2; codictate large-v3; clips [0, 400) of the consumable range; hotkey option+z"
+}

@@ -1,0 +1,6479 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-09-05_10-57-37_2026-09-v2-medium-q8-0/test-other__crispasr__medium-q8_0",
+  "status": "completed",
+  "startedAt": "2026-09-05T10:57:37.756Z",
+  "completedAt": "2026-09-05T11:05:56.651Z",
+  "harness": "codictate",
+  "model": "medium-q8_0",
+  "datasetId": "librispeech/test-other",
+  "plan": {
+    "runId": "2026-09-05_10-57-37_2026-09-v2-medium-q8-0/test-other__crispasr__medium-q8_0",
+    "batchId": "2026-09-v2",
+    "datasetId": "librispeech/test-other",
+    "fromIndex": 0,
+    "toIndex": 400,
+    "clipCount": 400,
+    "fingerprintV2": {
+      "version": "benchmark-v2",
+      "value": "35715affcf4d4eff"
+    },
+    "createdAt": "2026-09-05T10:57:37.756Z"
+  },
+  "fingerprintV2": {
+    "version": "benchmark-v2",
+    "value": "35715affcf4d4eff"
+  },
+  "batchId": "2026-09-v2",
+  "samples": [
+    {
+      "clipId": "librispeech/wav/test-other/6070-63485-0005.wav",
+      "audioDurationSec": 7.755,
+      "responseMs": 556.8476249999949,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": true,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 556.8476249999949
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2330-0012.wav",
+      "audioDurationSec": 3.9100625,
+      "responseMs": 515.721332999994,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": true,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 515.721332999994
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269288-0005.wav",
+      "audioDurationSec": 3.07,
+      "responseMs": 510.2205000000249,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": true,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 510.2205000000249
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0009.wav",
+      "audioDurationSec": 2.75,
+      "responseMs": 510.2801249999902,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 510.2801249999902
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117017-0010.wav",
+      "audioDurationSec": 4.24,
+      "responseMs": 529.6483749999898,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 529.6483749999898
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269288-0011.wav",
+      "audioDurationSec": 3.65,
+      "responseMs": 529.1944589999912,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 529.1944589999912
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0060.wav",
+      "audioDurationSec": 6.66,
+      "responseMs": 596.0965829999768,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 596.0965829999768
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86744-0013.wav",
+      "audioDurationSec": 8.68,
+      "responseMs": 642.0269580000022,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 29,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 642.0269580000022
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0042.wav",
+      "audioDurationSec": 9.94,
+      "responseMs": 621.3325829999812,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 26,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 621.3325829999812
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96594-0029.wav",
+      "audioDurationSec": 3.705,
+      "responseMs": 592.9812089999905,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 592.9812089999905
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7018-75788-0010.wav",
+      "audioDurationSec": 4.105,
+      "responseMs": 538.1155000000144,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 538.1155000000144
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96592-0049.wav",
+      "audioDurationSec": 4.135,
+      "responseMs": 536.9759170000034,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 536.9759170000034
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-159411-0033.wav",
+      "audioDurationSec": 6.66,
+      "responseMs": 566.6419590000005,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 566.6419590000005
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0048.wav",
+      "audioDurationSec": 8.91,
+      "responseMs": 656.7079580000136,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 25,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 656.7079580000136
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0048.wav",
+      "audioDurationSec": 4.05,
+      "responseMs": 577.6519580000022,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 577.6519580000022
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-1066-0009.wav",
+      "audioDurationSec": 3.98,
+      "responseMs": 561.4559170000139,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 561.4559170000139
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131564-0019.wav",
+      "audioDurationSec": 12.89,
+      "responseMs": 722.3669579999987,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 722.3669579999987
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-157645-0004.wav",
+      "audioDurationSec": 5.6950625,
+      "responseMs": 580.4824159999844,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.4824159999844
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-274364-0007.wav",
+      "audioDurationSec": 11.57,
+      "responseMs": 668.6134170000441,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 30,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 668.6134170000441
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-29455-0011.wav",
+      "audioDurationSec": 4.64,
+      "responseMs": 592.578749999986,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 592.578749999986
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86744-0023.wav",
+      "audioDurationSec": 4.6300625,
+      "responseMs": 576.7563749999972,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 576.7563749999972
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280085-0005.wav",
+      "audioDurationSec": 8.845,
+      "responseMs": 686.9034579999861,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 686.9034579999861
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24317-0000.wav",
+      "audioDurationSec": 3.54,
+      "responseMs": 548.4587079999619,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 548.4587079999619
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-29455-0027.wav",
+      "audioDurationSec": 17.02,
+      "responseMs": 776.1899170000106,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 53,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 776.1899170000106
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0018.wav",
+      "audioDurationSec": 3.555,
+      "responseMs": 509.30120799998986,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 509.30120799998986
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0080.wav",
+      "audioDurationSec": 5.195,
+      "responseMs": 576.4333329999936,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 576.4333329999936
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-15444-0015.wav",
+      "audioDurationSec": 5.42,
+      "responseMs": 574.1638340000063,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 574.1638340000063
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0033.wav",
+      "audioDurationSec": 8.685,
+      "responseMs": 602.2260409999872,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 602.2260409999872
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0037.wav",
+      "audioDurationSec": 11.93,
+      "responseMs": 694.6137499999604,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 41,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 694.6137499999604
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0029.wav",
+      "audioDurationSec": 6.3000625,
+      "responseMs": 560.691083999991,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 560.691083999991
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0059.wav",
+      "audioDurationSec": 7.725,
+      "responseMs": 572.9377499999828,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 572.9377499999828
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0038.wav",
+      "audioDurationSec": 5.03,
+      "responseMs": 543.7948749999632,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 543.7948749999632
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0010.wav",
+      "audioDurationSec": 5.275,
+      "responseMs": 549.1251249999623,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 549.1251249999623
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131562-0009.wav",
+      "audioDurationSec": 14.805,
+      "responseMs": 708.3565420000232,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 42,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 708.3565420000232
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0044.wav",
+      "audioDurationSec": 2.435,
+      "responseMs": 521.3525000000373,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 521.3525000000373
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117016-0004.wav",
+      "audioDurationSec": 9.45,
+      "responseMs": 624.930250000034,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 624.930250000034
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0032.wav",
+      "audioDurationSec": 15.33,
+      "responseMs": 665.4616249999963,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 39,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 665.4616249999963
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163399-0001.wav",
+      "audioDurationSec": 5.775,
+      "responseMs": 580.4440000000177,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.4440000000177
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63241-0002.wav",
+      "audioDurationSec": 7.39,
+      "responseMs": 569.1325829999987,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 569.1325829999987
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6938-70848-0005.wav",
+      "audioDurationSec": 4.365,
+      "responseMs": 553.4411249999539,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 553.4411249999539
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86744-0007.wav",
+      "audioDurationSec": 8.655,
+      "responseMs": 606.6258329999982,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 606.6258329999982
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0019.wav",
+      "audioDurationSec": 9.78,
+      "responseMs": 633.5812920000171,
+      "status": "ok",
+      "wordErrors": 10,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 633.5812920000171
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0052.wav",
+      "audioDurationSec": 7.785,
+      "responseMs": 600.5032080000383,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 25,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 600.5032080000383
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41169-0017.wav",
+      "audioDurationSec": 3.025,
+      "responseMs": 532.5517499999842,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 532.5517499999842
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7018-75788-0016.wav",
+      "audioDurationSec": 7.54,
+      "responseMs": 591.3621670000139,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 591.3621670000139
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131556-0025.wav",
+      "audioDurationSec": 2.71,
+      "responseMs": 517.0960419999901,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 517.0960419999901
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128291-0014.wav",
+      "audioDurationSec": 3.3349375,
+      "responseMs": 489.07512500003213,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 489.07512500003213
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24318-0007.wav",
+      "audioDurationSec": 8.395,
+      "responseMs": 621.4421670000302,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 621.4421670000302
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0011.wav",
+      "audioDurationSec": 3.745,
+      "responseMs": 547.0765830000164,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 547.0765830000164
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-29455-0002.wav",
+      "audioDurationSec": 3.89,
+      "responseMs": 584.4672080000164,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 584.4672080000164
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159609-0017.wav",
+      "audioDurationSec": 8.13,
+      "responseMs": 644.336874999979,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 644.336874999979
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0018.wav",
+      "audioDurationSec": 2.04,
+      "responseMs": 545.3431670000427,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 545.3431670000427
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7018-75789-0024.wav",
+      "audioDurationSec": 14.43,
+      "responseMs": 751.5371659999946,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 42,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 751.5371659999946
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0090.wav",
+      "audioDurationSec": 8.68,
+      "responseMs": 602.5272499999846,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 602.5272499999846
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-12259-0042.wav",
+      "audioDurationSec": 5.495,
+      "responseMs": 584.5621249999967,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 584.5621249999967
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0113.wav",
+      "audioDurationSec": 6.56,
+      "responseMs": 613.9030829999829,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 613.9030829999829
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180294-0030.wav",
+      "audioDurationSec": 2.715,
+      "responseMs": 519.6123329999973,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 3,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 519.6123329999973
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-61336-0008.wav",
+      "audioDurationSec": 3.645,
+      "responseMs": 554.9330419999897,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 554.9330419999897
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0011.wav",
+      "audioDurationSec": 14.05,
+      "responseMs": 676.7775830000173,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 33,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 676.7775830000173
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41169-0010.wav",
+      "audioDurationSec": 3.075,
+      "responseMs": 559.3051249999553,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 559.3051249999553
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-1066-0008.wav",
+      "audioDurationSec": 5.0500625,
+      "responseMs": 561.705707999994,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 561.705707999994
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0094.wav",
+      "audioDurationSec": 3.8,
+      "responseMs": 530.9254590000492,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 530.9254590000492
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0027.wav",
+      "audioDurationSec": 5.555,
+      "responseMs": 580.0882920000004,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.0882920000004
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0021.wav",
+      "audioDurationSec": 9.565,
+      "responseMs": 682.869250000047,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 35,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 682.869250000047
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131564-0005.wav",
+      "audioDurationSec": 5.84,
+      "responseMs": 615.016707999981,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 615.016707999981
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-159411-0003.wav",
+      "audioDurationSec": 7.27,
+      "responseMs": 621.0204170000507,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 621.0204170000507
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163399-0018.wav",
+      "audioDurationSec": 2.49,
+      "responseMs": 532.0305420000223,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 532.0305420000223
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41169-0002.wav",
+      "audioDurationSec": 2.015,
+      "responseMs": 539.7232079999521,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 539.7232079999521
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-156975-0033.wav",
+      "audioDurationSec": 8.85,
+      "responseMs": 598.9330000000191,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 598.9330000000191
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28312-0014.wav",
+      "audioDurationSec": 11.54,
+      "responseMs": 666.732583999983,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 666.732583999983
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3080-5040-0006.wav",
+      "audioDurationSec": 9.79,
+      "responseMs": 622.6052079999936,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 622.6052079999936
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163622-0018.wav",
+      "audioDurationSec": 11.13,
+      "responseMs": 703.7451659999788,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 38,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 703.7451659999788
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-10919-0032.wav",
+      "audioDurationSec": 4.235,
+      "responseMs": 581.242499999993,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 581.242499999993
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2330-0006.wav",
+      "audioDurationSec": 9.475,
+      "responseMs": 607.5370000000112,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 607.5370000000112
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86744-0005.wav",
+      "audioDurationSec": 17.365,
+      "responseMs": 743.4933329999913,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 47,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 743.4933329999913
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0023.wav",
+      "audioDurationSec": 3.9,
+      "responseMs": 536.5287089999765,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 536.5287089999765
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24317-0003.wav",
+      "audioDurationSec": 4.185,
+      "responseMs": 550.95220900001,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 550.95220900001
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0005.wav",
+      "audioDurationSec": 4.7849375,
+      "responseMs": 551.5619580000057,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 551.5619580000057
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-142836-0026.wav",
+      "audioDurationSec": 10.77,
+      "responseMs": 645.6324579999782,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 645.6324579999782
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159609-0006.wav",
+      "audioDurationSec": 7.73,
+      "responseMs": 652.6075410000049,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 30,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 652.6075410000049
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-1066-0020.wav",
+      "audioDurationSec": 4.605,
+      "responseMs": 560.1328330000397,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 560.1328330000397
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280057-0019.wav",
+      "audioDurationSec": 9.545,
+      "responseMs": 631.7672909999965,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 631.7672909999965
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0026.wav",
+      "audioDurationSec": 5.62,
+      "responseMs": 563.6453329999931,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 563.6453329999931
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-182399-0001.wav",
+      "audioDurationSec": 2.35,
+      "responseMs": 500.2145409999648,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 500.2145409999648
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2033-164914-0010.wav",
+      "audioDurationSec": 10.44,
+      "responseMs": 640.2966250000172,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 26,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 640.2966250000172
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24318-0010.wav",
+      "audioDurationSec": 2.245,
+      "responseMs": 517.5911249999772,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 517.5911249999772
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63244-0010.wav",
+      "audioDurationSec": 4.74,
+      "responseMs": 559.9982919999748,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 559.9982919999748
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0008.wav",
+      "audioDurationSec": 17.84,
+      "responseMs": 753.045374999987,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 47,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 753.045374999987
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6938-70848-0004.wav",
+      "audioDurationSec": 3.645,
+      "responseMs": 540.6023749999586,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 540.6023749999586
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131556-0000.wav",
+      "audioDurationSec": 6.205,
+      "responseMs": 572.6624580000062,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 572.6624580000062
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0012.wav",
+      "audioDurationSec": 8.48,
+      "responseMs": 589.722666000016,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 589.722666000016
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0085.wav",
+      "audioDurationSec": 3.98,
+      "responseMs": 527.7151669999585,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 527.7151669999585
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280076-0006.wav",
+      "audioDurationSec": 3.28,
+      "responseMs": 524.162416999985,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 524.162416999985
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7018-75789-0031.wav",
+      "audioDurationSec": 16.13,
+      "responseMs": 728.0049170000129,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 49,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 728.0049170000129
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/367-130732-0023.wav",
+      "audioDurationSec": 4.255,
+      "responseMs": 564.3782079999801,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 564.3782079999801
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0021.wav",
+      "audioDurationSec": 4.185,
+      "responseMs": 526.491875000007,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 526.491875000007
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28312-0022.wav",
+      "audioDurationSec": 6.19,
+      "responseMs": 579.4079999999958,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 579.4079999999958
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0007.wav",
+      "audioDurationSec": 5.08,
+      "responseMs": 582.8379589999677,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 582.8379589999677
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163624-0026.wav",
+      "audioDurationSec": 6.375,
+      "responseMs": 620.6892499999958,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 25,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 620.6892499999958
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0002.wav",
+      "audioDurationSec": 2.7600625,
+      "responseMs": 530.6616250000079,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 530.6616250000079
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2330-0022.wav",
+      "audioDurationSec": 2.185,
+      "responseMs": 511.0791249999893,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 511.0791249999893
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-29455-0001.wav",
+      "audioDurationSec": 9.015,
+      "responseMs": 623.8665420000325,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 623.8665420000325
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7018-75789-0021.wav",
+      "audioDurationSec": 8.05,
+      "responseMs": 606.8167919999687,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 606.8167919999687
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0016.wav",
+      "audioDurationSec": 3.87,
+      "responseMs": 556.3851670000004,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 556.3851670000004
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131556-0002.wav",
+      "audioDurationSec": 7.965,
+      "responseMs": 631.3271670000395,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 631.3271670000395
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6938-70848-0013.wav",
+      "audioDurationSec": 2.275,
+      "responseMs": 505.75554199999897,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 505.75554199999897
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0012.wav",
+      "audioDurationSec": 5.37,
+      "responseMs": 562.0988329999964,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 562.0988329999964
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128291-0026.wav",
+      "audioDurationSec": 2.28,
+      "responseMs": 640.3378749999683,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 3,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 640.3378749999683
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63244-0017.wav",
+      "audioDurationSec": 9.815,
+      "responseMs": 652.2136249999749,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 652.2136249999749
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163390-0026.wav",
+      "audioDurationSec": 3.075,
+      "responseMs": 542.6244590000133,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 542.6244590000133
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0099.wav",
+      "audioDurationSec": 3.295,
+      "responseMs": 550.64154099999,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 550.64154099999
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96594-0005.wav",
+      "audioDurationSec": 4.39,
+      "responseMs": 595.5912079999689,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 595.5912079999689
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163622-0008.wav",
+      "audioDurationSec": 6.95,
+      "responseMs": 648.7187080000294,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 30,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 648.7187080000294
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131564-0007.wav",
+      "audioDurationSec": 6.42,
+      "responseMs": 577.8101660000393,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 577.8101660000393
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0006.wav",
+      "audioDurationSec": 3.945,
+      "responseMs": 550.4127499999595,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 550.4127499999595
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96595-0006.wav",
+      "audioDurationSec": 4.2,
+      "responseMs": 574.9814579999656,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 574.9814579999656
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163390-0019.wav",
+      "audioDurationSec": 3.165,
+      "responseMs": 518.1675829999731,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 518.1675829999731
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0015.wav",
+      "audioDurationSec": 4.28,
+      "responseMs": 529.241457999975,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 529.241457999975
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0036.wav",
+      "audioDurationSec": 6.56,
+      "responseMs": 606.0487089999951,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 606.0487089999951
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0012.wav",
+      "audioDurationSec": 9.3,
+      "responseMs": 602.7237499999464,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 602.7237499999464
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117029-0004.wav",
+      "audioDurationSec": 8.2,
+      "responseMs": 590.100999999966,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 590.100999999966
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-182399-0018.wav",
+      "audioDurationSec": 8.48,
+      "responseMs": 631.2118330000085,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 631.2118330000085
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0014.wav",
+      "audioDurationSec": 4.895,
+      "responseMs": 530.1163330000127,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 530.1163330000127
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269288-0043.wav",
+      "audioDurationSec": 5.8,
+      "responseMs": 590.4653750000289,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 590.4653750000289
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163624-0016.wav",
+      "audioDurationSec": 5.815,
+      "responseMs": 604.5983340000384,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 604.5983340000384
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0003.wav",
+      "audioDurationSec": 3.845,
+      "responseMs": 540.7742919999873,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 540.7742919999873
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28311-0003.wav",
+      "audioDurationSec": 2.43,
+      "responseMs": 511.28537499997765,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 511.28537499997765
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131562-0001.wav",
+      "audioDurationSec": 8.45,
+      "responseMs": 609.2428749999963,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 609.2428749999963
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-278226-0010.wav",
+      "audioDurationSec": 4.815,
+      "responseMs": 555.5401660000207,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 555.5401660000207
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159609-0005.wav",
+      "audioDurationSec": 6.64,
+      "responseMs": 586.0902910000295,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 586.0902910000295
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0050.wav",
+      "audioDurationSec": 5.78,
+      "responseMs": 581.3990830000257,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 581.3990830000257
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0030.wav",
+      "audioDurationSec": 14.585,
+      "responseMs": 750.0656249999884,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 46,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 750.0656249999884
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2033-164914-0016.wav",
+      "audioDurationSec": 16.925,
+      "responseMs": 724.2963330000057,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 45,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 724.2963330000057
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0040.wav",
+      "audioDurationSec": 5.03,
+      "responseMs": 574.0533330000471,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 574.0533330000471
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159609-0021.wav",
+      "audioDurationSec": 10.37,
+      "responseMs": 638.0435409999918,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 638.0435409999918
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131556-0004.wav",
+      "audioDurationSec": 2.815,
+      "responseMs": 543.4730829999899,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 543.4730829999899
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128291-0006.wav",
+      "audioDurationSec": 3.465,
+      "responseMs": 548.317584000004,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 548.317584000004
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0039.wav",
+      "audioDurationSec": 3.11,
+      "responseMs": 541.7984589999542,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 541.7984589999542
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159609-0000.wav",
+      "audioDurationSec": 18.73,
+      "responseMs": 780.6806670000078,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 61,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 780.6806670000078
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168656-0002.wav",
+      "audioDurationSec": 20.295,
+      "responseMs": 923.1221249999944,
+      "status": "ok",
+      "wordErrors": 16,
+      "referenceWords": 51,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 923.1221249999944
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0048.wav",
+      "audioDurationSec": 7.79,
+      "responseMs": 651.53125,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 651.53125
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180294-0006.wav",
+      "audioDurationSec": 14.125,
+      "responseMs": 657.2649579999852,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 38,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 657.2649579999852
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0047.wav",
+      "audioDurationSec": 4.26,
+      "responseMs": 546.0722090000054,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 546.0722090000054
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-12259-0013.wav",
+      "audioDurationSec": 3.495,
+      "responseMs": 535.2322910000221,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 535.2322910000221
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-14317-0006.wav",
+      "audioDurationSec": 7.95,
+      "responseMs": 632.1393329999992,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 632.1393329999992
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-35475-0020.wav",
+      "audioDurationSec": 3.23,
+      "responseMs": 540.4695000000065,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 540.4695000000065
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128291-0015.wav",
+      "audioDurationSec": 1.9750625,
+      "responseMs": 502.78424999996787,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 3,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 502.78424999996787
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7018-75788-0007.wav",
+      "audioDurationSec": 18.68,
+      "responseMs": 802.2495410000556,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 56,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 802.2495410000556
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-281231-0017.wav",
+      "audioDurationSec": 7.08,
+      "responseMs": 604.524167000025,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 604.524167000025
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41169-0009.wav",
+      "audioDurationSec": 2.435,
+      "responseMs": 515.40625,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 515.40625
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86744-0011.wav",
+      "audioDurationSec": 2.57,
+      "responseMs": 525.4392080000252,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 525.4392080000252
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24318-0001.wav",
+      "audioDurationSec": 14.055,
+      "responseMs": 719.852583000029,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 44,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 719.852583000029
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2033-164915-0017.wav",
+      "audioDurationSec": 22.92,
+      "responseMs": 819.6895420000073,
+      "status": "ok",
+      "wordErrors": 12,
+      "referenceWords": 56,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 819.6895420000073
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-156975-0003.wav",
+      "audioDurationSec": 3.36,
+      "responseMs": 509.3587079999852,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 509.3587079999852
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280057-0005.wav",
+      "audioDurationSec": 3.105,
+      "responseMs": 528.4814580000238,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 528.4814580000238
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0030.wav",
+      "audioDurationSec": 4.615,
+      "responseMs": 562.3607499999925,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 562.3607499999925
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86745-0002.wav",
+      "audioDurationSec": 18.545,
+      "responseMs": 730.0343330000178,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 43,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 730.0343330000178
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-9934-0009.wav",
+      "audioDurationSec": 6.92,
+      "responseMs": 579.3264169999748,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 579.3264169999748
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86744-0027.wav",
+      "audioDurationSec": 10.415,
+      "responseMs": 637.2128750000265,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 29,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 637.2128750000265
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131564-0025.wav",
+      "audioDurationSec": 6.24,
+      "responseMs": 574.5179999999818,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 574.5179999999818
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2330-0002.wav",
+      "audioDurationSec": 16.595,
+      "responseMs": 668.0209579999791,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 34,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 668.0209579999791
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28330-0007.wav",
+      "audioDurationSec": 5.53,
+      "responseMs": 582.9763329999987,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 582.9763329999987
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0045.wav",
+      "audioDurationSec": 3.845,
+      "responseMs": 540.5445000000182,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 540.5445000000182
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-10919-0016.wav",
+      "audioDurationSec": 6.275,
+      "responseMs": 593.3156670000171,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 593.3156670000171
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-1066-0006.wav",
+      "audioDurationSec": 3.795,
+      "responseMs": 531.5044169999892,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 531.5044169999892
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180294-0018.wav",
+      "audioDurationSec": 4.225,
+      "responseMs": 554.2910000000265,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 554.2910000000265
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0004.wav",
+      "audioDurationSec": 4.43,
+      "responseMs": 569.8505000000005,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 569.8505000000005
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131562-0005.wav",
+      "audioDurationSec": 5.58,
+      "responseMs": 562.5956669999869,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 562.5956669999869
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6938-70848-0008.wav",
+      "audioDurationSec": 3.44,
+      "responseMs": 563.9307499999995,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 563.9307499999995
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0120.wav",
+      "audioDurationSec": 2.645,
+      "responseMs": 551.9738329999964,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 551.9738329999964
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-142836-0018.wav",
+      "audioDurationSec": 3.805,
+      "responseMs": 510.7299590000184,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 510.7299590000184
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0012.wav",
+      "audioDurationSec": 1.88,
+      "responseMs": 500.8235829999903,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 3,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 500.8235829999903
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-278226-0013.wav",
+      "audioDurationSec": 8.58,
+      "responseMs": 635.2668750000303,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 635.2668750000303
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0034.wav",
+      "audioDurationSec": 11.415,
+      "responseMs": 684.9641660000198,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 30,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 684.9641660000198
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-14317-0008.wav",
+      "audioDurationSec": 5.945,
+      "responseMs": 579.8364999999758,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 579.8364999999758
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63722-0039.wav",
+      "audioDurationSec": 2.89,
+      "responseMs": 516.4423330000136,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 516.4423330000136
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0054.wav",
+      "audioDurationSec": 5.45,
+      "responseMs": 590.9568340000114,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 590.9568340000114
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63244-0023.wav",
+      "audioDurationSec": 10.3,
+      "responseMs": 650.5617499999935,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 650.5617499999935
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0021.wav",
+      "audioDurationSec": 7.225,
+      "responseMs": 578.3804160000291,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 578.3804160000291
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117017-0021.wav",
+      "audioDurationSec": 3.9,
+      "responseMs": 541.5147909999941,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 541.5147909999941
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131562-0010.wav",
+      "audioDurationSec": 9.18,
+      "responseMs": 599.6537499999977,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 599.6537499999977
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41169-0023.wav",
+      "audioDurationSec": 4.98,
+      "responseMs": 568.0654579999973,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 568.0654579999973
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-63485-0011.wav",
+      "audioDurationSec": 4.99,
+      "responseMs": 544.3447499999893,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 544.3447499999893
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0054.wav",
+      "audioDurationSec": 3.14,
+      "responseMs": 510.47824999998556,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 510.47824999998556
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117016-0010.wav",
+      "audioDurationSec": 5.11,
+      "responseMs": 560.8022920000367,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 560.8022920000367
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28312-0002.wav",
+      "audioDurationSec": 5.66,
+      "responseMs": 552.9094170000171,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 552.9094170000171
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-157645-0005.wav",
+      "audioDurationSec": 16.305,
+      "responseMs": 669.5348750000121,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 31,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 669.5348750000121
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2033-164914-0008.wav",
+      "audioDurationSec": 17.26,
+      "responseMs": 725.9693329999573,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 39,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 725.9693329999573
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280057-0009.wav",
+      "audioDurationSec": 8.4,
+      "responseMs": 629.8844999999856,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 31,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 629.8844999999856
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24317-0017.wav",
+      "audioDurationSec": 16.735,
+      "responseMs": 773.401583000028,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 55,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 773.401583000028
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-274364-0006.wav",
+      "audioDurationSec": 11.465,
+      "responseMs": 658.6554589999723,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 658.6554589999723
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0121.wav",
+      "audioDurationSec": 2.845,
+      "responseMs": 513.2962079999852,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 513.2962079999852
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0010.wav",
+      "audioDurationSec": 3.06,
+      "responseMs": 538.940290999948,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 538.940290999948
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131556-0012.wav",
+      "audioDurationSec": 11.93,
+      "responseMs": 628.6551660000114,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 628.6551660000114
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-274364-0008.wav",
+      "audioDurationSec": 4.9,
+      "responseMs": 586.5167500000098,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 586.5167500000098
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117017-0032.wav",
+      "audioDurationSec": 2.255,
+      "responseMs": 540.4715420000139,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 540.4715420000139
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2033-164914-0017.wav",
+      "audioDurationSec": 18.33,
+      "responseMs": 740.4958329999936,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 38,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 740.4958329999936
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0046.wav",
+      "audioDurationSec": 2.795,
+      "responseMs": 549.8687500000233,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 549.8687500000233
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128291-0003.wav",
+      "audioDurationSec": 2.685,
+      "responseMs": 518.1052919999929,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 518.1052919999929
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96591-0019.wav",
+      "audioDurationSec": 2.365,
+      "responseMs": 537.0714170000283,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 537.0714170000283
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180297-0013.wav",
+      "audioDurationSec": 22.12,
+      "responseMs": 814.2888749999693,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 64,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 814.2888749999693
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0019.wav",
+      "audioDurationSec": 4.73,
+      "responseMs": 556.6479999999865,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 556.6479999999865
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0031.wav",
+      "audioDurationSec": 16.8,
+      "responseMs": 710.7484579999582,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 43,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 710.7484579999582
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0034.wav",
+      "audioDurationSec": 1.93,
+      "responseMs": 518.7301250000019,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 518.7301250000019
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-156975-0015.wav",
+      "audioDurationSec": 8.005,
+      "responseMs": 575.0386660000077,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 575.0386660000077
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0029.wav",
+      "audioDurationSec": 6.97,
+      "responseMs": 584.4728340000147,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 584.4728340000147
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-156975-0000.wav",
+      "audioDurationSec": 4.49,
+      "responseMs": 635.2620839999872,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 635.2620839999872
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-29454-0005.wav",
+      "audioDurationSec": 4.08,
+      "responseMs": 556.479541000037,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 556.479541000037
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-29455-0030.wav",
+      "audioDurationSec": 5.535,
+      "responseMs": 611.2062080000178,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 611.2062080000178
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-29455-0037.wav",
+      "audioDurationSec": 6.65,
+      "responseMs": 611.7727910000249,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 611.7727910000249
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-281231-0031.wav",
+      "audioDurationSec": 11.96,
+      "responseMs": 676.3995839999989,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 38,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 676.3995839999989
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117017-0023.wav",
+      "audioDurationSec": 3.035,
+      "responseMs": 551.1990000000224,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 551.1990000000224
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63244-0009.wav",
+      "audioDurationSec": 8.625,
+      "responseMs": 627.421457999968,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 627.421457999968
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/367-130732-0027.wav",
+      "audioDurationSec": 13.21,
+      "responseMs": 717.8833749999758,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 39,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 717.8833749999758
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0026.wav",
+      "audioDurationSec": 13.095,
+      "responseMs": 658.0262079999666,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 37,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 658.0262079999666
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-14317-0007.wav",
+      "audioDurationSec": 8.43,
+      "responseMs": 695.4759160000249,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 29,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 695.4759160000249
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28319-0021.wav",
+      "audioDurationSec": 4.845,
+      "responseMs": 621.4718329999596,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 621.4718329999596
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0013.wav",
+      "audioDurationSec": 4.59,
+      "responseMs": 580.0733340000152,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.0733340000152
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0035.wav",
+      "audioDurationSec": 10.9,
+      "responseMs": 705.7904999999446,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 705.7904999999446
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0001.wav",
+      "audioDurationSec": 3.095,
+      "responseMs": 562.7640839999658,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 562.7640839999658
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0000.wav",
+      "audioDurationSec": 4.52,
+      "responseMs": 572.4904589999933,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 572.4904589999933
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-142836-0008.wav",
+      "audioDurationSec": 2.21,
+      "responseMs": 525.2096250000177,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 3,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 525.2096250000177
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/367-293981-0008.wav",
+      "audioDurationSec": 6.76,
+      "responseMs": 658.8233330000076,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 658.8233330000076
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0023.wav",
+      "audioDurationSec": 4.56,
+      "responseMs": 588.9168749999953,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 588.9168749999953
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-258277-0003.wav",
+      "audioDurationSec": 4.185,
+      "responseMs": 556.3161669999827,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 556.3161669999827
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0056.wav",
+      "audioDurationSec": 6.79,
+      "responseMs": 574.3954169999924,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 574.3954169999924
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-142836-0001.wav",
+      "audioDurationSec": 8.775,
+      "responseMs": 615.7734579999815,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 25,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 615.7734579999815
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117016-0024.wav",
+      "audioDurationSec": 2.49,
+      "responseMs": 522.8637499999604,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 522.8637499999604
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117017-0011.wav",
+      "audioDurationSec": 3.89,
+      "responseMs": 528.8223749999888,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 528.8223749999888
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41168-0015.wav",
+      "audioDurationSec": 4.975,
+      "responseMs": 551.4071669999976,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 551.4071669999976
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131556-0014.wav",
+      "audioDurationSec": 9.665,
+      "responseMs": 626.5404160000035,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 626.5404160000035
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-182399-0000.wav",
+      "audioDurationSec": 2.495,
+      "responseMs": 522.1399579999852,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 522.1399579999852
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-281231-0032.wav",
+      "audioDurationSec": 9.6399375,
+      "responseMs": 637.5126250000321,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 27,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 637.5126250000321
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-15444-0012.wav",
+      "audioDurationSec": 7.865,
+      "responseMs": 586.2278330000117,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 22,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 586.2278330000117
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0026.wav",
+      "audioDurationSec": 10.3,
+      "responseMs": 659.7857920000097,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 34,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 659.7857920000097
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163389-0012.wav",
+      "audioDurationSec": 7.28,
+      "responseMs": 580.2989170000073,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.2989170000073
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0034.wav",
+      "audioDurationSec": 4.085,
+      "responseMs": 535.1529999999912,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 535.1529999999912
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-142836-0022.wav",
+      "audioDurationSec": 7.84,
+      "responseMs": 588.6282500000088,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 588.6282500000088
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24317-0028.wav",
+      "audioDurationSec": 6.85,
+      "responseMs": 568.5036249999539,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 568.5036249999539
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0018.wav",
+      "audioDurationSec": 4.675,
+      "responseMs": 522.0282500000321,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 522.0282500000321
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-32859-0005.wav",
+      "audioDurationSec": 7.71,
+      "responseMs": 574.3413330000476,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 574.3413330000476
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0011.wav",
+      "audioDurationSec": 7.765,
+      "responseMs": 577.6627919999883,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 577.6627919999883
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-1066-0014.wav",
+      "audioDurationSec": 2.47,
+      "responseMs": 495.6964160000207,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 495.6964160000207
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280063-0004.wav",
+      "audioDurationSec": 2.42,
+      "responseMs": 517.9756659999839,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 517.9756659999839
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0036.wav",
+      "audioDurationSec": 4.465,
+      "responseMs": 535.2002499999944,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 535.2002499999944
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0004.wav",
+      "audioDurationSec": 9.465,
+      "responseMs": 573.0979999999981,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 573.0979999999981
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-61336-0022.wav",
+      "audioDurationSec": 6.42,
+      "responseMs": 527.6536249999772,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 527.6536249999772
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3080-5032-0020.wav",
+      "audioDurationSec": 3.67,
+      "responseMs": 525.609999999986,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 525.609999999986
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0061.wav",
+      "audioDurationSec": 2.695,
+      "responseMs": 493.2755420000176,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 493.2755420000176
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0079.wav",
+      "audioDurationSec": 9.805,
+      "responseMs": 621.3125829999917,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 29,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 621.3125829999917
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131562-0013.wav",
+      "audioDurationSec": 7.13,
+      "responseMs": 594.097333999991,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 594.097333999991
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269288-0010.wav",
+      "audioDurationSec": 4.415,
+      "responseMs": 539.9659170000232,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 539.9659170000232
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0054.wav",
+      "audioDurationSec": 5.69,
+      "responseMs": 559.0559589999611,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 559.0559589999611
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96592-0045.wav",
+      "audioDurationSec": 4.565,
+      "responseMs": 573.2627920000232,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 573.2627920000232
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0001.wav",
+      "audioDurationSec": 5.54,
+      "responseMs": 603.4541669999599,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 603.4541669999599
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28311-0005.wav",
+      "audioDurationSec": 7.86,
+      "responseMs": 613.5558329999913,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 25,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 613.5558329999913
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0030.wav",
+      "audioDurationSec": 6.005,
+      "responseMs": 541.3283330000122,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 541.3283330000122
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7018-75789-0029.wav",
+      "audioDurationSec": 33.725,
+      "responseMs": 893.9900829999824,
+      "status": "ok",
+      "wordErrors": 49,
+      "referenceWords": 91,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 893.9900829999824
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/367-130732-0010.wav",
+      "audioDurationSec": 1.935,
+      "responseMs": 505.5491659999825,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 505.5491659999825
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0000.wav",
+      "audioDurationSec": 15,
+      "responseMs": 686.8447920000181,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 686.8447920000181
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-12259-0004.wav",
+      "audioDurationSec": 8.075,
+      "responseMs": 638.4000829999568,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 638.4000829999568
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24317-0018.wav",
+      "audioDurationSec": 8.93,
+      "responseMs": 541.5690000000177,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 541.5690000000177
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28330-0023.wav",
+      "audioDurationSec": 6.525,
+      "responseMs": 628.1520829999936,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 628.1520829999936
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24318-0013.wav",
+      "audioDurationSec": 12.71,
+      "responseMs": 688.7064580000006,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 33,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 688.7064580000006
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0087.wav",
+      "audioDurationSec": 2.445,
+      "responseMs": 506.635333000042,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 506.635333000042
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0028.wav",
+      "audioDurationSec": 13.435,
+      "responseMs": 686.8582080000197,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 41,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 686.8582080000197
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-12259-0000.wav",
+      "audioDurationSec": 5.69,
+      "responseMs": 539.0357500000391,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 539.0357500000391
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0047.wav",
+      "audioDurationSec": 1.76,
+      "responseMs": 524.9711659999448,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 524.9711659999448
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2033-164915-0014.wav",
+      "audioDurationSec": 7.16,
+      "responseMs": 592.7727919999743,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 592.7727919999743
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0058.wav",
+      "audioDurationSec": 3.885,
+      "responseMs": 544.6604159999988,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 544.6604159999988
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-281231-0018.wav",
+      "audioDurationSec": 13.09,
+      "responseMs": 711.5194580000243,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 42,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 711.5194580000243
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0049.wav",
+      "audioDurationSec": 8.29,
+      "responseMs": 592.117957999988,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 592.117957999988
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-258277-0007.wav",
+      "audioDurationSec": 4.46,
+      "responseMs": 581.0071669999743,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 581.0071669999743
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-281231-0029.wav",
+      "audioDurationSec": 5.84,
+      "responseMs": 568.974291999999,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 568.974291999999
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-61336-0019.wav",
+      "audioDurationSec": 8.21,
+      "responseMs": 587.6120000000228,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 587.6120000000228
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0046.wav",
+      "audioDurationSec": 12.885,
+      "responseMs": 670.1043330000248,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 39,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 670.1043330000248
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131564-0011.wav",
+      "audioDurationSec": 3.04,
+      "responseMs": 540.2859579999931,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 540.2859579999931
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/367-130732-0002.wav",
+      "audioDurationSec": 11.28,
+      "responseMs": 684.4693330000155,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 40,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 684.4693330000155
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0015.wav",
+      "audioDurationSec": 7.705,
+      "responseMs": 580.3289169999771,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.3289169999771
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63244-0013.wav",
+      "audioDurationSec": 4.145,
+      "responseMs": 537.9987090000068,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 537.9987090000068
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28312-0010.wav",
+      "audioDurationSec": 3.66,
+      "responseMs": 542.7648329999647,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 542.7648329999647
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-10919-0029.wav",
+      "audioDurationSec": 10.56,
+      "responseMs": 651.6265839999542,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 34,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 651.6265839999542
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96592-0041.wav",
+      "audioDurationSec": 2.535,
+      "responseMs": 515.8394579999731,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 515.8394579999731
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0008.wav",
+      "audioDurationSec": 7.17,
+      "responseMs": 614.1394999999902,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 18,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 614.1394999999902
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86745-0004.wav",
+      "audioDurationSec": 2.44,
+      "responseMs": 513.2160420000437,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 513.2160420000437
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-169640-0023.wav",
+      "audioDurationSec": 3.605,
+      "responseMs": 549.3707919999724,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 549.3707919999724
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0045.wav",
+      "audioDurationSec": 3.945,
+      "responseMs": 543.7317909999983,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 543.7317909999983
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28311-0009.wav",
+      "audioDurationSec": 12.01,
+      "responseMs": 745.1651249999995,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 44,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 745.1651249999995
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280057-0010.wav",
+      "audioDurationSec": 3.27,
+      "responseMs": 549.5916660000221,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 549.5916660000221
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63722-0027.wav",
+      "audioDurationSec": 8.125,
+      "responseMs": 665.4189999999944,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 30,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 665.4189999999944
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24317-0019.wav",
+      "audioDurationSec": 6.06,
+      "responseMs": 600.847415999975,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 600.847415999975
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-274364-0009.wav",
+      "audioDurationSec": 11.25,
+      "responseMs": 664.443041999999,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 31,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 664.443041999999
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0034.wav",
+      "audioDurationSec": 15.1649375,
+      "responseMs": 718.0884999999544,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 43,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 718.0884999999544
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-159411-0023.wav",
+      "audioDurationSec": 2.29,
+      "responseMs": 512.9934590000194,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 512.9934590000194
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0042.wav",
+      "audioDurationSec": 3.555,
+      "responseMs": 544.3648749999702,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 544.3648749999702
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159609-0023.wav",
+      "audioDurationSec": 6.34,
+      "responseMs": 587.4481670000241,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 587.4481670000241
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-10919-0028.wav",
+      "audioDurationSec": 5.935,
+      "responseMs": 602.4499589999905,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 602.4499589999905
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-32873-0007.wav",
+      "audioDurationSec": 9.715,
+      "responseMs": 644.836874999979,
+      "status": "ok",
+      "wordErrors": 8,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 644.836874999979
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1998-15444-0003.wav",
+      "audioDurationSec": 7.25,
+      "responseMs": 580.6512499999953,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.6512499999953
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/367-130732-0029.wav",
+      "audioDurationSec": 6.25,
+      "responseMs": 573.1366249999846,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 573.1366249999846
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86744-0003.wav",
+      "audioDurationSec": 2.455,
+      "responseMs": 508.52637500001583,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 508.52637500001583
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163399-0010.wav",
+      "audioDurationSec": 2.23,
+      "responseMs": 507.3316249999916,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 507.3316249999916
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117017-0002.wav",
+      "audioDurationSec": 10.14,
+      "responseMs": 604.0593329999829,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 25,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 604.0593329999829
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7902-96594-0001.wav",
+      "audioDurationSec": 3.035,
+      "responseMs": 538.166125000047,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 538.166125000047
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41168-0020.wav",
+      "audioDurationSec": 3.855,
+      "responseMs": 525.7586669999873,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 525.7586669999873
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0007.wav",
+      "audioDurationSec": 8.155,
+      "responseMs": 586.5507499999949,
+      "status": "ok",
+      "wordErrors": 6,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 586.5507499999949
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6070-86745-0005.wav",
+      "audioDurationSec": 2.33,
+      "responseMs": 518.3084169999929,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 518.3084169999929
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-35475-0013.wav",
+      "audioDurationSec": 4.72,
+      "responseMs": 581.6099169999943,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 581.6099169999943
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63244-0002.wav",
+      "audioDurationSec": 3.61,
+      "responseMs": 519.5954580000252,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 519.5954580000252
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0022.wav",
+      "audioDurationSec": 6.26,
+      "responseMs": 579.7238750000251,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 579.7238750000251
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-169640-0009.wav",
+      "audioDurationSec": 7.255,
+      "responseMs": 599.4296670000185,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 599.4296670000185
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28319-0020.wav",
+      "audioDurationSec": 3.465,
+      "responseMs": 547.4545840000501,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 547.4545840000501
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-1066-0012.wav",
+      "audioDurationSec": 5.215,
+      "responseMs": 558.4821660000016,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 12,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 558.4821660000016
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280076-0004.wav",
+      "audioDurationSec": 8.31,
+      "responseMs": 638.2489579999819,
+      "status": "ok",
+      "wordErrors": 9,
+      "referenceWords": 23,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 638.2489579999819
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0037.wav",
+      "audioDurationSec": 2.63,
+      "responseMs": 503.07391700003063,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 503.07391700003063
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-142836-0017.wav",
+      "audioDurationSec": 10.28,
+      "responseMs": 661.0936250000377,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 39,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 661.0936250000377
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-14317-0017.wav",
+      "audioDurationSec": 9.925,
+      "responseMs": 649.7258750000037,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 649.7258750000037
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0013.wav",
+      "audioDurationSec": 2.465,
+      "responseMs": 522.6775829999824,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 522.6775829999824
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0055.wav",
+      "audioDurationSec": 2.13,
+      "responseMs": 494.5969160000095,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 4,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 494.5969160000095
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180297-0005.wav",
+      "audioDurationSec": 13.83,
+      "responseMs": 707.9374170000083,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 48,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 707.9374170000083
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180294-0010.wav",
+      "audioDurationSec": 8.63,
+      "responseMs": 578.2084170000162,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 578.2084170000162
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180294-0014.wav",
+      "audioDurationSec": 11.765,
+      "responseMs": 632.9240420000278,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 632.9240420000278
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180297-0023.wav",
+      "audioDurationSec": 12.89,
+      "responseMs": 685.301334000018,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 685.301334000018
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-274364-0001.wav",
+      "audioDurationSec": 8.69,
+      "responseMs": 592.9358750000247,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 592.9358750000247
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0050.wav",
+      "audioDurationSec": 4.565,
+      "responseMs": 566.7317499999772,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 566.7317499999772
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41168-0003.wav",
+      "audioDurationSec": 9.97,
+      "responseMs": 605.3330420000129,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 605.3330420000129
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5764-299665-0021.wav",
+      "audioDurationSec": 4.04,
+      "responseMs": 552.7500410000212,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 552.7500410000212
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163624-0014.wav",
+      "audioDurationSec": 4.35,
+      "responseMs": 586.7434169999906,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 586.7434169999906
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0004.wav",
+      "audioDurationSec": 9.525,
+      "responseMs": 634.8456659999792,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 634.8456659999792
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0003.wav",
+      "audioDurationSec": 5.82,
+      "responseMs": 580.1187909999862,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.1187909999862
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-10919-0031.wav",
+      "audioDurationSec": 7.76,
+      "responseMs": 643.2073749999981,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 26,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 643.2073749999981
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0005.wav",
+      "audioDurationSec": 3.4,
+      "responseMs": 535.9734170000302,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 535.9734170000302
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-32873-0015.wav",
+      "audioDurationSec": 14.26,
+      "responseMs": 755.9182079999591,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 40,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 755.9182079999591
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0033.wav",
+      "audioDurationSec": 4.205,
+      "responseMs": 558.1976250000298,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 558.1976250000298
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0015.wav",
+      "audioDurationSec": 1.985,
+      "responseMs": 520.5708749999758,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 520.5708749999758
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0041.wav",
+      "audioDurationSec": 4.98,
+      "responseMs": 562.5103750000126,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 562.5103750000126
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0024.wav",
+      "audioDurationSec": 12.99,
+      "responseMs": 697.9605420000153,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 42,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 697.9605420000153
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8131-117016-0059.wav",
+      "audioDurationSec": 4.005,
+      "responseMs": 544.2713329999824,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 544.2713329999824
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163622-0016.wav",
+      "audioDurationSec": 3.48,
+      "responseMs": 576.617957999988,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 576.617957999988
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0003.wav",
+      "audioDurationSec": 9.245,
+      "responseMs": 652.7549579999759,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 32,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 652.7549579999759
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131562-0011.wav",
+      "audioDurationSec": 3.625,
+      "responseMs": 539.3436249999795,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 539.3436249999795
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0053.wav",
+      "audioDurationSec": 10.68,
+      "responseMs": 636.4364579999819,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 31,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 636.4364579999819
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5484-24317-0020.wav",
+      "audioDurationSec": 7.555,
+      "responseMs": 568.8068750000093,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 14,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 568.8068750000093
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280057-0017.wav",
+      "audioDurationSec": 3.935,
+      "responseMs": 557.9126249999972,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 557.9126249999972
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-159411-0025.wav",
+      "audioDurationSec": 4.015,
+      "responseMs": 528.3297080000048,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 528.3297080000048
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-258277-0010.wav",
+      "audioDurationSec": 8.93,
+      "responseMs": 637.5039580000448,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 29,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 637.5039580000448
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-258277-0016.wav",
+      "audioDurationSec": 4.09,
+      "responseMs": 562.3788749999949,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 562.3788749999949
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-281231-0030.wav",
+      "audioDurationSec": 16.69,
+      "responseMs": 753.6407079999917,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 43,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 753.6407079999917
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280057-0001.wav",
+      "audioDurationSec": 8.09,
+      "responseMs": 587.2090420000022,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 21,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 587.2090420000022
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/1688-142285-0018.wav",
+      "audioDurationSec": 12.79,
+      "responseMs": 687.5626660000416,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 37,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 687.5626660000416
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168670-0038.wav",
+      "audioDurationSec": 3.4149375,
+      "responseMs": 531.4539999999688,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 531.4539999999688
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0025.wav",
+      "audioDurationSec": 1.72,
+      "responseMs": 499.75345800002106,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 3,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 499.75345800002106
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2330-0024.wav",
+      "audioDurationSec": 2.83,
+      "responseMs": 512.3310000000056,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 512.3310000000056
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63722-0001.wav",
+      "audioDurationSec": 8.04,
+      "responseMs": 607.5466250000172,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 26,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 607.5466250000172
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163619-0003.wav",
+      "audioDurationSec": 3.045,
+      "responseMs": 540.7786249999772,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 540.7786249999772
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0023.wav",
+      "audioDurationSec": 9.255,
+      "responseMs": 660.8958339999663,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 31,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 660.8958339999663
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131556-0006.wav",
+      "audioDurationSec": 11.12,
+      "responseMs": 637.4020000000019,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 33,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 637.4020000000019
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7975-280057-0003.wav",
+      "audioDurationSec": 2.79,
+      "responseMs": 543.1034579999978,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 543.1034579999978
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/533-131562-0003.wav",
+      "audioDurationSec": 5.75,
+      "responseMs": 545.4149159999797,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 545.4149159999797
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180297-0007.wav",
+      "audioDurationSec": 2.525,
+      "responseMs": 497.2789580000099,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 497.2789580000099
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-278226-0000.wav",
+      "audioDurationSec": 3.015,
+      "responseMs": 531.4010839999537,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 531.4010839999537
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2033-164916-0008.wav",
+      "audioDurationSec": 14.57,
+      "responseMs": 647.062042000005,
+      "status": "ok",
+      "wordErrors": 7,
+      "referenceWords": 26,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 647.062042000005
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8461-258277-0008.wav",
+      "audioDurationSec": 13.565,
+      "responseMs": 708.30349999998,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 38,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 708.30349999998
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8280-266249-0050.wav",
+      "audioDurationSec": 7.795,
+      "responseMs": 587.4112920000334,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 20,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 587.4112920000334
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-12281-0010.wav",
+      "audioDurationSec": 15.79,
+      "responseMs": 702.4802079999936,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 35,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 702.4802079999936
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0012.wav",
+      "audioDurationSec": 4.005,
+      "responseMs": 553.0193339999532,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 553.0193339999532
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163619-0008.wav",
+      "audioDurationSec": 3.54,
+      "responseMs": 528.9833750000107,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 528.9833750000107
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0033.wav",
+      "audioDurationSec": 8.71,
+      "responseMs": 602.8614579999703,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 24,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 602.8614579999703
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128292-0019.wav",
+      "audioDurationSec": 3.09,
+      "responseMs": 502.6279579999973,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 5,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 502.6279579999973
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269288-0003.wav",
+      "audioDurationSec": 3.14,
+      "responseMs": 517.1674999999814,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 517.1674999999814
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4294-35475-0014.wav",
+      "audioDurationSec": 5.93,
+      "responseMs": 560.4070000000065,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 560.4070000000065
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180294-0012.wav",
+      "audioDurationSec": 19.035,
+      "responseMs": 725.6575420000008,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 46,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 725.6575420000008
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-156975-0014.wav",
+      "audioDurationSec": 3.015,
+      "responseMs": 518.5101250000298,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 518.5101250000298
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0031.wav",
+      "audioDurationSec": 5.39,
+      "responseMs": 567.5110829999903,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 16,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 567.5110829999903
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0014.wav",
+      "audioDurationSec": 7.11,
+      "responseMs": 572.7574170000153,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 572.7574170000153
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2414-128291-0004.wav",
+      "audioDurationSec": 10.445,
+      "responseMs": 601.1214170000167,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 17,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 601.1214170000167
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0039.wav",
+      "audioDurationSec": 2.155,
+      "responseMs": 534.0618330000434,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 534.0618330000434
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/2609-156975-0020.wav",
+      "audioDurationSec": 2.76,
+      "responseMs": 502.0389580000192,
+      "status": "ok",
+      "wordErrors": 4,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 502.0389580000192
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/7105-2340-0028.wav",
+      "audioDurationSec": 11.685,
+      "responseMs": 661.1582909999997,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 26,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 661.1582909999997
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3997-180297-0019.wav",
+      "audioDurationSec": 14.485,
+      "responseMs": 693.2199169999803,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 45,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 693.2199169999803
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63722-0010.wav",
+      "audioDurationSec": 2.84,
+      "responseMs": 545.9688329999917,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 545.9688329999917
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-10919-0013.wav",
+      "audioDurationSec": 3.43,
+      "responseMs": 562.7854999999981,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 562.7854999999981
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269288-0001.wav",
+      "audioDurationSec": 4.575,
+      "responseMs": 543.6682080000173,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 543.6682080000173
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3080-5032-0014.wav",
+      "audioDurationSec": 3.28,
+      "responseMs": 521.7090409999946,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 7,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 521.7090409999946
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4198-61336-0006.wav",
+      "audioDurationSec": 6.725,
+      "responseMs": 569.9006660000305,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 569.9006660000305
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0014.wav",
+      "audioDurationSec": 9.67,
+      "responseMs": 642.4575829999521,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 28,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 642.4575829999521
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3331-159605-0023.wav",
+      "audioDurationSec": 5.085,
+      "responseMs": 559.0377089999965,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 15,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 559.0377089999965
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168656-0012.wav",
+      "audioDurationSec": 3.05,
+      "responseMs": 526.4244170000311,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 526.4244170000311
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3764-168671-0036.wav",
+      "audioDurationSec": 4.25,
+      "responseMs": 558.8797079999931,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 558.8797079999931
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0035.wav",
+      "audioDurationSec": 3.77,
+      "responseMs": 553.709124999994,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 13,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 553.709124999994
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163399-0019.wav",
+      "audioDurationSec": 3.1,
+      "responseMs": 536.7115420000046,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 8,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 536.7115420000046
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269290-0037.wav",
+      "audioDurationSec": 2.57,
+      "responseMs": 524.5368330000201,
+      "status": "ok",
+      "wordErrors": 3,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 524.5368330000201
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6128-63240-0023.wav",
+      "audioDurationSec": 15.91,
+      "responseMs": 665.9311250000028,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 34,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 665.9311250000028
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3528-168669-0043.wav",
+      "audioDurationSec": 4.16,
+      "responseMs": 563.4647080000141,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 563.4647080000141
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4350-9170-0027.wav",
+      "audioDurationSec": 3.045,
+      "responseMs": 545.8716669999994,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 11,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 545.8716669999994
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/8188-269288-0053.wav",
+      "audioDurationSec": 6.065,
+      "responseMs": 580.570000000007,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 19,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 580.570000000007
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/5442-41169-0000.wav",
+      "audioDurationSec": 18.2,
+      "responseMs": 795.5980829999899,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 43,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 795.5980829999899
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/4852-28319-0014.wav",
+      "audioDurationSec": 2.87,
+      "responseMs": 531.8904160000384,
+      "status": "ok",
+      "wordErrors": 1,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 531.8904160000384
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63722-0017.wav",
+      "audioDurationSec": 3.065,
+      "responseMs": 571.457584000018,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 9,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 571.457584000018
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3005-163399-0004.wav",
+      "audioDurationSec": 9.4,
+      "responseMs": 682.5551669999841,
+      "status": "ok",
+      "wordErrors": 2,
+      "referenceWords": 33,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 682.5551669999841
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6432-63723-0018.wav",
+      "audioDurationSec": 2.445,
+      "responseMs": 525.0035840000492,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 6,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 525.0035840000492
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/6938-70848-0000.wav",
+      "audioDurationSec": 3.315,
+      "responseMs": 542.3570839999593,
+      "status": "ok",
+      "wordErrors": 0,
+      "referenceWords": 10,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 542.3570839999593
+      }
+    },
+    {
+      "clipId": "librispeech/wav/test-other/3538-163624-0023.wav",
+      "audioDurationSec": 11.19,
+      "responseMs": 709.1992919999757,
+      "status": "ok",
+      "wordErrors": 5,
+      "referenceWords": 41,
+      "charErrors": 0,
+      "referenceChars": 0,
+      "isWarmup": false,
+      "overhead": {
+        "timingRegime": "direct-adapter",
+        "inferenceMs": null,
+        "wallClockMs": 709.1992919999757
+      }
+    }
+  ],
+  "description": "benchmark-v2 publication batch 2026-09-v2; codictate medium-q8_0; clips [0, 400) of the consumable range; hotkey option+z"
+}

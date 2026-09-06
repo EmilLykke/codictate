@@ -1,0 +1,253 @@
+{
+  "description": "benchmark-v2 publication batch 2026-09-v2; codictate large-v3; clips [0, 400) of the consumable range; hotkey option+z",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.6.2"
+  },
+  "runDate": "2026-09-05T05:51:22.790Z",
+  "config": {
+    "sampleSize": 400,
+    "sampleSizeBasis": "pooled-v2",
+    "warmupCount": 3,
+    "normalization": "whisper-basic",
+    "sampleSelection": {
+      "mode": "target",
+      "requested": 400
+    }
+  },
+  "librispeech": {
+    "test-clean": {
+      "crispasr": {
+        "large-v3": {
+          "wer": 0.03308457711442786,
+          "referenceWords": 8040,
+          "wordErrors": 266,
+          "meanRTF": 0.18260899655241164,
+          "peakRSS_MB": {
+            "min": 3528,
+            "avg": 3529,
+            "max": 3530
+          },
+          "utteranceCount": 400,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 182.60899655241178,
+            "responseMs": 540212.1945009994,
+            "audioDurationSec": 2958.299999999998,
+            "wallRtf": 0.18260899655241178,
+            "medianResponseMs": 1309.4696875000081,
+            "p90ResponseMs": 1531.9183750000084,
+            "attemptedCount": 400,
+            "respondedCount": 400,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 400,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 400
+          },
+          "totalAudioSec": 2958.299999999998,
+          "totalWallSec": 540.212194500999,
+          "sampleRange": {
+            "startIndex": 0,
+            "endIndex": 400,
+            "manifestFingerprint": "2620:8a215ad73b88922c"
+          }
+        }
+      }
+    },
+    "test-other": {
+      "crispasr": {
+        "large-v3": {
+          "wer": 0.047155987744771546,
+          "referenceWords": 7507,
+          "wordErrors": 354,
+          "meanRTF": 0.19363220487975172,
+          "peakRSS_MB": {
+            "min": 3528,
+            "avg": 3529,
+            "max": 3529
+          },
+          "utteranceCount": 400,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 193.63220487975173,
+            "responseMs": 533665.8593269995,
+            "audioDurationSec": 2756.080062500003,
+            "wallRtf": 0.19363220487975172,
+            "medianResponseMs": 1305.2905624999548,
+            "p90ResponseMs": 1506.984749999945,
+            "attemptedCount": 400,
+            "respondedCount": 400,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 400,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 400
+          },
+          "totalAudioSec": 2756.080062500003,
+          "totalWallSec": 533.6658593269995,
+          "sampleRange": {
+            "startIndex": 0,
+            "endIndex": 400,
+            "manifestFingerprint": "2939:7704f27b8872fdca"
+          }
+        }
+      }
+    }
+  },
+  "fleurs": {
+    "es_419": {
+      "crispasr": {
+        "large-v3": {
+          "wer": 0.02831267874165872,
+          "referenceWords": 10490,
+          "wordErrors": 297,
+          "meanRTF": 0.1203632120958238,
+          "peakRSS_MB": {
+            "min": 3527,
+            "avg": 3529,
+            "max": 3532
+          },
+          "utteranceCount": 400,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 120.3632120958238,
+            "responseMs": 598650.508000999,
+            "audioDurationSec": 4973.700000000002,
+            "wallRtf": 0.1203632120958238,
+            "medianResponseMs": 1476.1304169999203,
+            "p90ResponseMs": 1666.9143749999348,
+            "attemptedCount": 400,
+            "respondedCount": 400,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 400,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 400
+          },
+          "totalAudioSec": 4973.700000000002,
+          "totalWallSec": 598.650508000999,
+          "cer": 0.01856738625886243,
+          "referenceChars": 62906,
+          "charErrors": 1168,
+          "sampleRange": {
+            "startIndex": 0,
+            "endIndex": 400,
+            "manifestFingerprint": "908:1bb2995b01539210"
+          }
+        }
+      }
+    },
+    "da_dk": {
+      "crispasr": {
+        "large-v3": {
+          "wer": 0.12619865040842904,
+          "referenceWords": 8447,
+          "wordErrors": 1066,
+          "meanRTF": 0.13722086216577267,
+          "peakRSS_MB": {
+            "min": 3527,
+            "avg": 3528,
+            "max": 3529
+          },
+          "utteranceCount": 400,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 137.22086216577264,
+            "responseMs": 609170.0622470016,
+            "audioDurationSec": 4439.340000000003,
+            "wallRtf": 0.13722086216577264,
+            "medianResponseMs": 1501.7387085000519,
+            "p90ResponseMs": 1707.5915839998052,
+            "attemptedCount": 400,
+            "respondedCount": 400,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 400,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 400
+          },
+          "totalAudioSec": 4439.340000000003,
+          "totalWallSec": 609.1700622470016,
+          "cer": 0.05648053762222977,
+          "referenceChars": 52974,
+          "charErrors": 2992,
+          "sampleRange": {
+            "startIndex": 0,
+            "endIndex": 400,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        }
+      }
+    },
+    "hu_hu": {
+      "crispasr": {
+        "large-v3": {
+          "wer": 0.14835756596661281,
+          "referenceWords": 7428,
+          "wordErrors": 1102,
+          "meanRTF": 0.1351572582188593,
+          "peakRSS_MB": {
+            "min": 3527,
+            "avg": 3528,
+            "max": 3530
+          },
+          "utteranceCount": 400,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 135.15725821885925,
+            "responseMs": 655274.8255870021,
+            "audioDurationSec": 4848.239999999999,
+            "wallRtf": 0.13515725821885927,
+            "medianResponseMs": 1599.0536670000292,
+            "p90ResponseMs": 1868.0699170003645,
+            "attemptedCount": 400,
+            "respondedCount": 400,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 400,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 400
+          },
+          "totalAudioSec": 4848.239999999999,
+          "totalWallSec": 655.2748255870023,
+          "cer": 0.04613498755618291,
+          "referenceChars": 53842,
+          "charErrors": 2484,
+          "sampleRange": {
+            "startIndex": 0,
+            "endIndex": 400,
+            "manifestFingerprint": "905:c3fd7a9081e6bef6"
+          }
+        }
+      }
+    }
+  }
+}

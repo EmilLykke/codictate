@@ -1,0 +1,70 @@
+{
+  "description": "benchmark-v2 publication batch 2026-09-v2; codictate hviske-v5-tiny-q4_k; clips [0, 400) of the consumable range; hotkey option+z",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.6.2"
+  },
+  "runDate": "2026-09-05T11:28:42.886Z",
+  "config": {
+    "sampleSize": 400,
+    "sampleSizeBasis": "pooled-v2",
+    "warmupCount": 3,
+    "normalization": "whisper-basic",
+    "sampleSelection": {
+      "mode": "target",
+      "requested": 400
+    }
+  },
+  "librispeech": {},
+  "fleurs": {
+    "da_dk": {
+      "crispasr": {
+        "hviske-v5-tiny-q4_k": {
+          "wer": 0.11211080857109033,
+          "referenceWords": 8447,
+          "wordErrors": 947,
+          "meanRTF": 0.019396835236769407,
+          "peakRSS_MB": {
+            "min": 289,
+            "avg": 295,
+            "max": 297
+          },
+          "utteranceCount": 400,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 19.396835236769416,
+            "responseMs": 86109.14653999999,
+            "audioDurationSec": 4439.340000000003,
+            "wallRtf": 0.019396835236769414,
+            "medianResponseMs": 210.4072710000005,
+            "p90ResponseMs": 249.3261249999996,
+            "attemptedCount": 400,
+            "respondedCount": 400,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 400,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 400
+          },
+          "totalAudioSec": 4439.340000000003,
+          "totalWallSec": 86.10914653999995,
+          "cer": 0.06697625250122702,
+          "referenceChars": 52974,
+          "charErrors": 3548,
+          "sampleRange": {
+            "startIndex": 0,
+            "endIndex": 400,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        }
+      }
+    }
+  }
+}
