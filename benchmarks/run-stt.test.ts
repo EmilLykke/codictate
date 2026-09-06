@@ -32,6 +32,8 @@ import {
   atomicWriteJsonSync,
   datasetIdFor,
   parseStageId,
+  peakRssForPooledLeaf,
+  pooledPeakRss,
   PRODUCTION_RESULTS_DIR,
   resolveResumeTarget,
   recoverCompletedCheckpointLeaf,
@@ -47,6 +49,7 @@ import {
   measureClips,
   leafFromSamples,
   type AdapterSeam,
+  type PeakRSSStats,
 } from "./stt/runner";
 import {
   CODICTATE_V2_HARNESS,
@@ -68,6 +71,7 @@ import {
   type RunPlan,
   type SampleMeasurementV2,
 } from "./contract";
+import type { BenchmarkResults } from "./stt/report";
 import type { ManifestEntry } from "./scripts/build-manifests";
 import type {
   TranscriptionRequest,
@@ -751,3 +755,137 @@ class StopSession extends Error {
     super("simulated crash");
   }
 }
+
+/**
+ * Peak RSS is the one number a pooled leaf cannot compute from its Samples: it is
+ * measured once per session on ten clips, so nothing on a v2 record carries it. The run
+ * that produced those Samples did write it, though - onto the v1 leaf in its own
+ * `stt.json` - and `--aggregate` overwrites exactly that leaf with the pooled one.
+ *
+ * Worth pinning because the failure is silent and downstream: the aggregate stays
+ * well-formed, every rate in it is correct, and the only symptom is a dash in the RAM
+ * column of a website reading a file that no longer knows how much memory anything used.
+ */
+describe("peak RSS on a pooled leaf", () => {
+  test("one contributing run hands its triple over unchanged", () => {
+    expect(
+      pooledPeakRss([
+        {
+          peakRSS_MB: { min: 1532, avg: 1534, max: 1534 },
+          utteranceCount: 400,
+        },
+      ]),
+    ).toEqual({ min: 1532, avg: 1534, max: 1534 });
+  });
+
+  test("several runs merge as min of mins, max of maxes, utterance-weighted avg", () => {
+    // 400 clips at 1000 MB against 100 at 1500: (400*1000 + 100*1500) / 500 = 1100, not
+    // the 1250 an unweighted mean would publish. The top-up is a fifth of the sample and
+    // gets a fifth of the vote.
+    expect(
+      pooledPeakRss([
+        { peakRSS_MB: { min: 990, avg: 1000, max: 1010 }, utteranceCount: 400 },
+        {
+          peakRSS_MB: { min: 1400, avg: 1500, max: 1600 },
+          utteranceCount: 100,
+        },
+      ]),
+    ).toEqual({ min: 990, avg: 1100, max: 1600 });
+  });
+
+  test("a run that measured no RSS is left out rather than counted as zero", () => {
+    expect(
+      pooledPeakRss([
+        { peakRSS_MB: null, utteranceCount: 400 },
+        { peakRSS_MB: { min: 78, avg: 80, max: 83 }, utteranceCount: 20 },
+      ]),
+    ).toEqual({ min: 78, avg: 80, max: 83 });
+  });
+
+  test("no contributing run measured it: null, which renders as a dash", () => {
+    expect(
+      pooledPeakRss([
+        { peakRSS_MB: null, utteranceCount: 400 },
+        { peakRSS_MB: null, utteranceCount: 100 },
+      ]),
+    ).toBeNull();
+  });
+
+  test("the lookup asks the contributing runs, for the same combination", () => {
+    const results = (
+      peak: PeakRSSStats | null,
+      utteranceCount: number,
+      modelId = "large-v3-q5_0",
+    ): BenchmarkResults =>
+      ({
+        description: "",
+        hardware: {} as BenchmarkResults["hardware"],
+        runDate: "2026-09-05T00:00:00.000Z",
+        config: {
+          sampleSize: utteranceCount,
+          warmupCount: 3,
+          normalization: "whisper-basic",
+        },
+        librispeech: {
+          "test-clean": {
+            crispasr: {
+              [modelId]: {
+                wer: 0.03,
+                meanRTF: 0.2,
+                peakRSS_MB: peak,
+                utteranceCount,
+                failures: 0,
+                totalAudioSec: 100,
+                totalWallSec: 20,
+              },
+            },
+          },
+        },
+        fleurs: {},
+      }) as BenchmarkResults;
+
+    const leaf = {
+      field: "librispeech" as const,
+      datasetKey: "test-clean",
+      harness: "crispasr" as const,
+      modelId: "large-v3-q5_0",
+      runIds: ["deep/stage", "topup/stage"],
+    };
+    const runNames = new Map([
+      ["deep/stage", "2026-09-05_04-27-04_deep"],
+      ["topup/stage", "2026-09-05_09-00-00_topup"],
+      // A run that pooled nothing into this leaf, and must not be consulted.
+      ["other/stage", "2026-09-05_10-00-00_other"],
+    ]);
+    const v1 = new Map([
+      [
+        "2026-09-05_04-27-04_deep",
+        results({ min: 990, avg: 1000, max: 1010 }, 400),
+      ],
+      [
+        "2026-09-05_09-00-00_topup",
+        results({ min: 1400, avg: 1500, max: 1600 }, 100),
+      ],
+      [
+        "2026-09-05_10-00-00_other",
+        results({ min: 9000, avg: 9000, max: 9000 }, 400),
+      ],
+    ]);
+
+    expect(peakRssForPooledLeaf(leaf, runNames, v1)).toEqual({
+      min: 990,
+      avg: 1100,
+      max: 1600,
+    });
+
+    // Same runs, a Model they never measured: nothing to carry over.
+    expect(
+      peakRssForPooledLeaf({ ...leaf, modelId: "medium-q5_0" }, runNames, v1),
+    ).toBeNull();
+    // A run id no stage claims cannot be resolved to a directory, so it contributes
+    // nothing rather than picking up a neighbour's figure.
+    expect(
+      peakRssForPooledLeaf({ ...leaf, runIds: ["ghost/stage"] }, runNames, v1),
+    ).toBeNull();
+  });
+});

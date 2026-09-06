@@ -937,8 +937,11 @@ function poolableLeafFromSamples(
  * range contributes to no cursor, which is exactly right here: `--aggregate` merges
  * leaves that are already counted, and `loadCoverage` deliberately never reads its output.
  *
- * No peak RSS, because it is measured per session on ten clips and is not poolable: the
- * min/avg/max of two runs' triples is not the min/avg/max of their clips.
+ * No peak RSS, because it is measured per session on ten clips and is not poolable from
+ * Samples: the min/avg/max of two runs' triples is not the min/avg/max of their clips.
+ * Null here is "this function cannot know it", not "nobody measured it" - each run wrote
+ * its triple onto its own v1 leaf, and `--aggregate` merges those back onto the pooled
+ * leaf (`pooledPeakRss` in `benchmarks/run-stt.ts`) before publishing it.
  */
 export function pooledLeafFromSamples(
   samples: readonly SampleMeasurementV2[],

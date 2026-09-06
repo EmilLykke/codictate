@@ -2,7 +2,7 @@
 
 **Description:** Aggregated results from all benchmark runs
 
-- **Date:** 2026-09-06T08:34:11.297Z
+- **Date:** 2026-09-06T10:04:23.760Z
 - **Hardware:** Apple M4 Max / 36 GB / macOS 26.6.2
 - **Pooled unique scored clips per dataset:** 400
 - **Warmup utterances:** 3
@@ -25,40 +25,40 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 78 MB | 243 MB | 247 MB | 259 MB | 58 ms (legacy) | 30.6% | 92.0% | -4.2% | 92.4% | 91.8% | 3.2% | -7.9% | -10.9% | N/A | 0 (+5 leafs not counted) |
 | Base full en [whisper-cli] | 142 MB | 330 MB | 333 MB | 340 MB | 59 ms (legacy) | 37.8% | 92.3% | -5.3% | 93.1% | 91.8% | 0.8% | -7.0% | -13.8% | N/A | 0 (+5 leafs not counted) |
 | Base full [whisper-cli] | 142 MB | 330 MB | 334 MB | 343 MB | 57 ms (legacy) | 70.4% | 91.1% | 58.8% | 91.8% | 90.6% | 88.4% | 39.5% | 35.3% | N/A | 0 (+5 leafs not counted) |
-| Hviske V5 Tiny F16 full | 503 MB | N/A | N/A | N/A | 23 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.4% | 0 |
-| Hviske V5 Tiny Q4 full | 153 MB | N/A | N/A | N/A | 19 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.3% | 0 |
-| Hviske V5 Tiny Q5 q5_0 | 181 MB | N/A | N/A | N/A | 20 ms | 88.9% | - | 88.9% | - | - | - | **88.9%** | - | 93.5% | 0 |
-| Hviske V5 Tiny Q6 full | 232 MB | N/A | N/A | N/A | 20 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.4% | 0 |
-| Hviske V5 Tiny Q8 q8_0 | 268 MB | N/A | N/A | N/A | 20 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.4% | 0 |
-| Large V1 full | 2.9 GB | N/A | N/A | N/A | 150 ms | 89.4% | 94.6% | 86.3% | 95.6% | 93.6% | 96.5% | 81.6% | 77.3% | 94.5% | 0 |
+| Hviske V5 Tiny F16 full | 503 MB | 634 MB | 641 MB | 644 MB | 23 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.4% | 0 |
+| Hviske V5 Tiny Q4 full | 153 MB | 289 MB | 295 MB | 297 MB | 19 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.3% | 0 |
+| Hviske V5 Tiny Q5 q5_0 | 181 MB | 317 MB | 322 MB | 325 MB | 20 ms | 88.9% | - | 88.9% | - | - | - | **88.9%** | - | 93.5% | 0 |
+| Hviske V5 Tiny Q6 full | 232 MB | 368 MB | 373 MB | 376 MB | 20 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.4% | 0 |
+| Hviske V5 Tiny Q8 q8_0 | 268 MB | 400 MB | 407 MB | 411 MB | 20 ms | 88.8% | - | 88.8% | - | - | - | 88.8% | - | 93.4% | 0 |
+| Large V1 full | 2.9 GB | 3.5 GB | 3.5 GB | 3.5 GB | 150 ms | 89.4% | 94.6% | 86.3% | 95.6% | 93.6% | 96.5% | 81.6% | 77.3% | 94.5% | 0 |
 | Large V1 full [whisper-cli] | 2.9 GB | 4.0 GB | 4.0 GB | 4.0 GB | 184 ms (legacy) | 89.9% | 94.1% | 87.5% | 94.7% | 93.7% | 95.8% | 80.7% | 82.2% | N/A | 0 (+5 leafs not counted) |
-| Large V2 full | 2.9 GB | N/A | N/A | N/A | 149 ms | 90.9% | 95.0% | 88.6% | 96.2% | 93.6% | 96.9% | 84.8% | 81.1% | 95.3% | 0 |
-| Large V2 q5_0 | 1.1 GB | N/A | N/A | N/A | 96 ms | 90.9% | 95.0% | 88.4% | 96.2% | 93.7% | 96.9% | 84.5% | 81.0% | 95.3% | 0 |
+| Large V2 full | 2.9 GB | 3.5 GB | 3.5 GB | 3.5 GB | 149 ms | 90.9% | 95.0% | 88.6% | 96.2% | 93.6% | 96.9% | 84.8% | 81.1% | 95.3% | 0 |
+| Large V2 q5_0 | 1.1 GB | 1.5 GB | 1.5 GB | 1.5 GB | 96 ms | 90.9% | 95.0% | 88.4% | 96.2% | 93.7% | 96.9% | 84.5% | 81.0% | 95.3% | 0 |
 | Large V2 q5_0 [whisper-cli] | 1.1 GB | 2.0 GB | 2.0 GB | 2.0 GB | 146 ms (legacy) | 91.4% | 94.9% | 89.4% | 95.3% | 94.6% | 96.1% | 83.9% | 85.3% | N/A | 0 (+5 leafs not counted) |
-| Large V2 q8_0 | 1.5 GB | N/A | N/A | N/A | 116 ms | 90.9% | 95.0% | 88.5% | 96.2% | 93.6% | 96.8% | 84.8% | 81.1% | 95.3% | 0 |
+| Large V2 q8_0 | 1.5 GB | 2.1 GB | 2.1 GB | 2.1 GB | 116 ms | 90.9% | 95.0% | 88.5% | 96.2% | 93.6% | 96.8% | 84.8% | 81.1% | 95.3% | 0 |
 | Large V2 q8_0 [whisper-cli] | 1.5 GB | 2.5 GB | 2.5 GB | 2.6 GB | 154 ms (legacy) | 91.5% | 94.9% | 89.6% | 95.0% | 94.9% | 96.1% | 84.6% | 85.2% | N/A | 0 (+5 leafs not counted) |
 | Large V2 full [whisper-cli] | 2.9 GB | 4.0 GB | 4.0 GB | 4.0 GB | 185 ms (legacy) | 91.5% | 94.8% | 89.6% | 95.0% | 94.7% | 96.1% | 84.5% | 85.3% | N/A | 0 (+5 leafs not counted) |
-| Large V3 full | 2.9 GB | N/A | N/A | N/A | 147 ms | **92.6%** | **96.0%** | 90.7% | 96.7% | **95.3%** | 97.2% | 87.4% | 85.2% | **96.1%** | 0 |
-| Large V3 q5_0 | 1.1 GB | N/A | N/A | N/A | 96 ms | 92.6% | 96.0% | 90.6% | **96.8%** | 95.2% | **97.2%** | 87.1% | 85.2% | 96.1% | 0 |
+| Large V3 full | 2.9 GB | 3.5 GB | 3.5 GB | 3.5 GB | 147 ms | **92.6%** | **96.0%** | 90.7% | 96.7% | **95.3%** | 97.2% | 87.4% | 85.2% | **96.1%** | 0 |
+| Large V3 q5_0 | 1.1 GB | 1.5 GB | 1.5 GB | 1.5 GB | 96 ms | 92.6% | 96.0% | 90.6% | **96.8%** | 95.2% | **97.2%** | 87.1% | 85.2% | 96.1% | 0 |
 | Large V3 q5_0 [whisper-cli] | 1.1 GB | 2.0 GB | 2.0 GB | 2.0 GB | 147 ms (legacy) | 92.2% | 95.3% | 90.4% | 96.5% | 94.0% | 97.0% | 87.1% | 85.5% | N/A | 0 (+5 leafs not counted) |
-| Large V3 Turbo full | 1.5 GB | N/A | N/A | N/A | 83 ms | 91.7% | 95.8% | 89.3% | 96.6% | 95.0% | 96.6% | 85.7% | 83.1% | 95.7% | 0 |
-| Large V3 Turbo q5_0 | 574 MB | N/A | N/A | N/A | 59 ms | 91.6% | 95.7% | 89.2% | 96.6% | 94.8% | 96.8% | 85.6% | 82.5% | 95.6% | 0 |
+| Large V3 Turbo full | 1.5 GB | 1.8 GB | 1.8 GB | 1.8 GB | 83 ms | 91.7% | 95.8% | 89.3% | 96.6% | 95.0% | 96.6% | 85.7% | 83.1% | 95.7% | 0 |
+| Large V3 Turbo q5_0 | 574 MB | 768 MB | 769 MB | 772 MB | 59 ms | 91.6% | 95.7% | 89.2% | 96.6% | 94.8% | 96.8% | 85.6% | 82.5% | 95.6% | 0 |
 | Large V3 Turbo q5_0 [whisper-cli] | 574 MB | 798 MB | 801 MB | 805 MB | 105 ms (legacy) | 91.3% | 95.0% | 89.3% | 96.2% | 93.8% | 96.8% | 85.4% | 83.5% | N/A | 0 (+5 leafs not counted) |
-| Large V3 Turbo q8_0 | 834 MB | N/A | N/A | N/A | 65 ms | 91.7% | 95.9% | 89.3% | 96.6% | 95.0% | 96.7% | 85.6% | 83.1% | 95.7% | 0 |
+| Large V3 Turbo q8_0 | 834 MB | 1.1 GB | 1.1 GB | 1.1 GB | 65 ms | 91.7% | 95.9% | 89.3% | 96.6% | 95.0% | 96.7% | 85.6% | 83.1% | 95.7% | 0 |
 | Large V3 Turbo q8_0 [whisper-cli] | 834 MB | 1.1 GB | 1.1 GB | 1.1 GB | 108 ms (legacy) | 90.2% | 95.1% | 85.4% | 95.5% | 94.8% | 96.7% | 83.2% | 87.5% | N/A | 0 (+5 leafs not counted) |
 | Large V3 Turbo full [whisper-cli] | 1.5 GB | 1.9 GB | 1.9 GB | 1.9 GB | 109 ms (legacy) | 91.1% | 95.0% | 83.2% | 95.4% | 94.7% | 96.7% | 83.2% | 87.4% | N/A | 0 (+5 leafs not counted) |
 | Large V3 full [whisper-cli] | 2.9 GB | 4.0 GB | 4.0 GB | 4.0 GB | 183 ms (legacy) | 92.3% | 93.8% | **91.8%** | 96.3% | 93.8% | 96.5% | 87.3% | **89.5%** | N/A | 0 (+5 leafs not counted) |
-| Medium full | 1.5 GB | N/A | N/A | N/A | 84 ms | 87.8% | 94.4% | 83.8% | 96.1% | 92.6% | 96.2% | 78.2% | 72.8% | 93.7% | 0 |
-| Medium q5_0 | 514 MB | N/A | N/A | N/A | 60 ms | 87.7% | 94.5% | 83.7% | 96.0% | 92.9% | 96.2% | 78.0% | 72.5% | 93.6% | 0 |
+| Medium full | 1.5 GB | 1.9 GB | 1.9 GB | 1.9 GB | 84 ms | 87.8% | 94.4% | 83.8% | 96.1% | 92.6% | 96.2% | 78.2% | 72.8% | 93.7% | 0 |
+| Medium q5_0 | 514 MB | 872 MB | 873 MB | 875 MB | 60 ms | 87.7% | 94.5% | 83.7% | 96.0% | 92.9% | 96.2% | 78.0% | 72.5% | 93.6% | 0 |
 | Medium q5_0 [whisper-cli] | 514 MB | 1.1 GB | 1.1 GB | 1.1 GB | 99 ms (legacy) | 88.3% | 94.1% | 85.0% | 95.3% | 93.3% | 95.2% | 77.1% | 78.2% | N/A | 0 (+5 leafs not counted) |
-| Medium q8_0 | 785 MB | N/A | N/A | N/A | 66 ms | 87.7% | 94.4% | 83.8% | 96.1% | 92.6% | 96.2% | 78.2% | 72.6% | 93.6% | 0 |
+| Medium q8_0 | 785 MB | 1.2 GB | 1.2 GB | 1.2 GB | 66 ms | 87.7% | 94.4% | 83.8% | 96.1% | 92.6% | 96.2% | 78.2% | 72.6% | 93.6% | 0 |
 | Medium q8_0 [whisper-cli] | 785 MB | 1.4 GB | 1.4 GB | 1.4 GB | 106 ms (legacy) | 85.8% | 94.0% | 77.9% | 95.0% | 93.4% | 95.2% | 77.9% | 77.9% | N/A | 0 (+5 leafs not counted) |
 | Medium English q5_0 en | 514 MB | 830 MB | 832 MB | 834 MB | 60 ms (legacy) | 61.6% | 94.4% | 13.7% | 95.0% | 93.6% | 13.7% | - | - | 42.2% | 0 (+3 leafs not counted) |
 | Medium English q5_0 en [whisper-cli] | 514 MB | 1.1 GB | 1.1 GB | 1.1 GB | 96 ms (legacy) | 17.1% | 93.1% | -8.9% | 95.7% | 93.1% | 9.2% | -11.4% | -32.0% | N/A | 0 (+5 leafs not counted) |
 | Medium q8_0 en [whisper-cli] | 785 MB | 1.4 GB | 1.4 GB | 1.4 GB | 103 ms (legacy) | 17.3% | 93.0% | -8.6% | 95.7% | 93.0% | 10.0% | -16.3% | -27.4% | N/A | 0 (+5 leafs not counted) |
 | Medium full en [whisper-cli] | 1.5 GB | 2.1 GB | 2.1 GB | 2.1 GB | 116 ms (legacy) | 18.5% | 93.5% | -7.0% | 95.7% | 93.5% | 10.8% | -13.9% | -25.6% | N/A | 0 (+5 leafs not counted) |
 | Medium full [whisper-cli] | 1.5 GB | 2.1 GB | 2.1 GB | 2.1 GB | 116 ms (legacy) | 86.0% | 94.0% | 78.3% | 94.8% | 93.4% | 95.2% | 78.2% | 78.3% | N/A | 0 (+5 leafs not counted) |
-| Parakeet TDT v3 full | 500 MB | N/A | N/A | N/A | **19 ms** | 89.6% | 95.3% | 86.3% | 96.1% | 94.4% | 94.3% | 80.6% | 81.3% | 94.1% | 0 |
+| Parakeet TDT v3 full | 500 MB | **78 MB** | **80 MB** | **86 MB** | **19 ms** | 89.6% | 95.3% | 86.3% | 96.1% | 94.4% | 94.3% | 80.6% | 81.3% | 94.1% | 0 |
 | Small q5_1 | 181 MB | 382 MB | 383 MB | 386 MB | 30 ms (legacy) | 80.7% | 93.3% | 73.2% | 95.4% | 91.1% | 93.8% | 62.5% | 56.3% | 89.4% | 0 (+5 leafs not counted) |
 | Small q5_1 [whisper-cli] | 181 MB | 473 MB | 477 MB | 482 MB | 58 ms (legacy) | 81.1% | 93.0% | 74.4% | 94.9% | 91.1% | 94.1% | 64.3% | 59.4% | N/A | 0 (+5 leafs not counted) |
 | Small q8_0 [whisper-cli] | 252 MB | 555 MB | 558 MB | 566 MB | 58 ms (legacy) | 81.9% | 92.9% | 75.7% | 94.1% | 92.1% | 94.0% | 63.9% | 61.0% | N/A | 0 (+5 leafs not counted) |
@@ -66,9 +66,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Small q8_0 en [whisper-cli] | 252 MB | 555 MB | 558 MB | 568 MB | 60 ms (legacy) | 28.7% | 93.7% | -8.1% | 95.3% | 92.7% | 10.1% | -19.3% | -23.0% | N/A | 0 (+5 leafs not counted) |
 | Small full en [whisper-cli] | 466 MB | 804 MB | 807 MB | 815 MB | 61 ms (legacy) | 29.4% | 93.8% | -7.1% | 95.3% | 92.8% | 9.0% | -15.3% | -21.9% | N/A | 0 (+5 leafs not counted) |
 | Small full [whisper-cli] | 466 MB | 804 MB | 807 MB | 812 MB | 59 ms (legacy) | 82.1% | 92.9% | 76.0% | 94.3% | 92.0% | 94.0% | 64.2% | 61.8% | N/A | 0 (+5 leafs not counted) |
-| Tiny q5_1 [whisper-cli] | **31 MB** | **151 MB** | **157 MB** | 165 MB | 58 ms (legacy) | 58.4% | 86.4% | 42.6% | 87.1% | 86.0% | 83.5% | 14.4% | 11.7% | N/A | 0 (+5 leafs not counted) |
+| Tiny q5_1 [whisper-cli] | **31 MB** | 151 MB | 157 MB | 165 MB | 58 ms (legacy) | 58.4% | 86.4% | 42.6% | 87.1% | 86.0% | 83.5% | 14.4% | 11.7% | N/A | 0 (+5 leafs not counted) |
 | Tiny q8_0 [whisper-cli] | 42 MB | 168 MB | 174 MB | 180 MB | 57 ms (legacy) | 59.6% | 86.9% | 44.1% | 87.2% | 86.8% | 85.0% | 11.2% | 17.9% | N/A | 0 (+5 leafs not counted) |
-| Tiny q5_1 en [whisper-cli] | **31 MB** | **151 MB** | **157 MB** | **162 MB** | 59 ms (legacy) | 22.4% | 88.0% | -14.7% | 88.8% | 87.5% | -1.0% | -26.0% | -23.2% | N/A | 0 (+5 leafs not counted) |
+| Tiny q5_1 en [whisper-cli] | **31 MB** | 151 MB | 157 MB | 162 MB | 59 ms (legacy) | 22.4% | 88.0% | -14.7% | 88.8% | 87.5% | -1.0% | -26.0% | -23.2% | N/A | 0 (+5 leafs not counted) |
 | Tiny q8_0 en [whisper-cli] | 42 MB | 168 MB | 173 MB | 181 MB | 58 ms (legacy) | 21.8% | 88.5% | -15.9% | 89.1% | 88.1% | -2.3% | -20.7% | -30.7% | N/A | 0 (+5 leafs not counted) |
 | Tiny full en [whisper-cli] | 75 MB | 218 MB | 224 MB | 228 MB | 59 ms (legacy) | 23.5% | 88.2% | -13.1% | 88.9% | 87.8% | -1.2% | -18.7% | -24.4% | N/A | 0 (+5 leafs not counted) |
 | Tiny full [whisper-cli] | 75 MB | 218 MB | 224 MB | 231 MB | 57 ms (legacy) | 52.6% | 87.6% | 44.7% | 87.6% | 86.4% | 85.0% | 14.2% | 16.9% | N/A | 0 (+5 leafs not counted) |

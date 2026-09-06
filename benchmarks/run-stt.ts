@@ -28,6 +28,7 @@ import {
   leafFromSamples,
   partialFromSamples,
   type PartialProgress,
+  type PeakRSSStats,
 } from "./stt/runner";
 import {
   generateMarkdownReport,
@@ -45,6 +46,7 @@ import {
   V2_RECORDS_DIRNAME,
   type BenchmarkHarnessLabel,
   type DatasetResults,
+  type PooledV2Leaf,
 } from "./stt/results-schema";
 import { LIBRISPEECH_SPLITS, isLibriSpeechSplit } from "./stt/datasets";
 import {
@@ -1521,6 +1523,107 @@ async function main() {
 // -- Aggregate --
 
 /**
+ * One contributing run's peak RSS for a Combination, and the weight its average carries.
+ *
+ * `utteranceCount` is that run's scored utterances for the same Combination, read off the
+ * same v1 leaf as the triple. It weights the average only; a min and a max need no
+ * weights.
+ */
+export interface PeakRSSContribution {
+  peakRSS_MB: PeakRSSStats | null;
+  utteranceCount: number;
+}
+
+/**
+ * The peak RSS a pooled leaf publishes, merged from the runs that contributed to it.
+ *
+ * Min of mins and max of maxes, because those are the extremes actually observed across
+ * the sessions behind the pool. The average is the mean of the per-run averages weighted
+ * by scored utterances, so a 400-clip run does not get out-voted by a 20-clip top-up that
+ * happened to sit beside it. Rounded to whole MB, which is the shape every run writes.
+ *
+ * `null` when no contributing leaf carries a triple - a measurement nobody took is a dash
+ * on the site, never a zero.
+ */
+export function pooledPeakRss(
+  contributions: readonly PeakRSSContribution[],
+): PeakRSSStats | null {
+  const measured = contributions.filter(
+    (
+      contribution,
+    ): contribution is PeakRSSContribution & {
+      peakRSS_MB: PeakRSSStats;
+    } => contribution.peakRSS_MB !== null,
+  );
+  if (measured.length === 0) return null;
+
+  const weight = (contribution: PeakRSSContribution): number =>
+    contribution.utteranceCount > 0 ? contribution.utteranceCount : 0;
+  const totalWeight = measured.reduce(
+    (sum, contribution) => sum + weight(contribution),
+    0,
+  );
+  // A leaf with no scored utterances still measured its RSS, so an unweighted mean is the
+  // fallback rather than a division by zero.
+  const avg =
+    totalWeight > 0
+      ? measured.reduce(
+          (sum, contribution) =>
+            sum + contribution.peakRSS_MB.avg * weight(contribution),
+          0,
+        ) / totalWeight
+      : measured.reduce(
+          (sum, contribution) => sum + contribution.peakRSS_MB.avg,
+          0,
+        ) / measured.length;
+
+  return {
+    min: Math.min(
+      ...measured.map((contribution) => contribution.peakRSS_MB.min),
+    ),
+    avg: Math.round(avg),
+    max: Math.max(
+      ...measured.map((contribution) => contribution.peakRSS_MB.max),
+    ),
+  };
+}
+
+/**
+ * The peak RSS for one pooled leaf, gathered from the v1 leaves of its own runs.
+ *
+ * Only the runs that actually contributed Samples to this leaf are asked, and each is
+ * asked about the same (dataset, Harness, Model) Combination. A run whose v1 leaf is
+ * missing the Combination, or missing the triple, contributes nothing rather than a zero.
+ */
+export function peakRssForPooledLeaf(
+  leaf: Pick<
+    PooledV2Leaf,
+    "field" | "datasetKey" | "harness" | "modelId" | "runIds"
+  >,
+  runNameByRunId: ReadonlyMap<string, string>,
+  v1ByRun: ReadonlyMap<string, BenchmarkResults>,
+): PeakRSSStats | null {
+  return pooledPeakRss(
+    leaf.runIds.map((runId) => {
+      const runName = runNameByRunId.get(runId);
+      const v1 =
+        runName === undefined
+          ? undefined
+          : getCombinationResult(
+              v1ByRun.get(runName)?.[leaf.field] ?? {},
+              leaf.datasetKey,
+              leaf.harness,
+              leaf.modelId,
+            );
+      return {
+        peakRSS_MB: v1?.peakRSS_MB ?? null,
+        utteranceCount: v1?.utteranceCount ?? 0,
+      };
+    }),
+  );
+}
+
+/**
  * Merge every run into `results/stt.json`, pooling v2 Samples and keeping the v1
  * depth-wins rule for the leaves that have no Samples.
  *
@@ -1538,6 +1641,13 @@ async function main() {
  * The pooled leaves are written **over** the v1 ones for the Combinations they cover, so
  * a Combination measured under v2 publishes its pooled numbers and one measured only
  * under v1 stays visible as the legacy measurement it is.
+ *
+ * Peak RSS is the one figure a pooled leaf cannot compute from Samples: it is measured
+ * per session on ten clips, so `pooledLeafFromSamples` leaves it null. It is not lost,
+ * though - every run wrote its own triple onto the v1 leaf in its own `stt.json`. So the
+ * pooled leaf takes its RSS back from the v1 leaves of exactly the runs that contributed
+ * to it, for the same Combination, merged by `pooledPeakRss`. Overwriting the v1 leaf
+ * without that step is what published a dash for every v2 row on the site.
  */
 async function aggregateAllRuns(): Promise<void> {
   const runs = readdirSync(resultsDir())
@@ -1575,11 +1685,16 @@ async function aggregateAllRuns(): Promise<void> {
   // 397 exist and no v2 Sample does.
   let v1ClaimedMax = 0;
   let pooledMax = 0;
+  // Kept per run rather than only merged, because the pooled half needs to ask a *named*
+  // run what its peak RSS was. The merged tree cannot answer that: depth-wins may have
+  // kept a leaf from a run that contributed no Samples to the pool at all.
+  const v1ByRun = new Map<string, BenchmarkResults>();
 
   for (const run of runs) {
     const jsonPath = join(resultsDir(), run, "stt.json");
     if (!existsSync(jsonPath)) continue;
     const data = readResultsFile(jsonPath);
+    v1ByRun.set(run, data);
     console.log(`  merging: ${run}`);
 
     v1ClaimedMax = Math.max(v1ClaimedMax, data.config.sampleSize);
@@ -1643,6 +1758,14 @@ async function aggregateAllRuns(): Promise<void> {
     );
   }
 
+  // A pooled leaf names its contributing runs by run id, and a run id is the run's own
+  // name plus its stage id. Read off the stages rather than split off the string, so the
+  // lookup keeps working if the id ever gains a part.
+  const runNameByRunId = new Map<string, string>();
+  for (const stage of stages) {
+    if (stage.record) runNameByRunId.set(stage.record.runId, stage.runName);
+  }
+
   if (records.length > 0) {
     const pooled = pooledV2Leaves(records);
     console.log(
@@ -1652,12 +1775,15 @@ async function aggregateAllRuns(): Promise<void> {
       console.log(
         `  [pooled] ${leaf.datasetKey}/${leaf.harness}/${leaf.modelId}: ${leaf.sampleCount} unique scored clips from ${leaf.runIds.length} run${leaf.runIds.length === 1 ? "" : "s"}${leaf.replacedCount > 0 ? `, ${leaf.replacedCount} clip(s) replaced by a later run` : ""}`,
       );
+      // Taken back from the v1 leaves of the contributing runs, since Samples carry no
+      // RSS and this leaf is about to overwrite the v1 one that has it.
+      const peakRSS_MB = peakRssForPooledLeaf(leaf, runNameByRunId, v1ByRun);
       setCombinationResult(
         merged[leaf.field],
         leaf.datasetKey,
         leaf.harness,
         leaf.modelId,
-        leaf.leaf,
+        peakRSS_MB === null ? leaf.leaf : { ...leaf.leaf, peakRSS_MB },
       );
       // A pooled depth is backed by a Sample per clip, unlike the v1 claimed range
       // width beside it.
