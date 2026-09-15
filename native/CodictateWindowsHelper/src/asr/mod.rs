@@ -8,6 +8,10 @@ pub fn handle_transcribe(args: &[String]) -> ExitCode {
     parakeet::handle_transcribe(args)
 }
 
+pub fn handle_transcribe_session(args: &[String]) -> ExitCode {
+    parakeet::handle_transcribe_session(args)
+}
+
 pub fn handle_stream(args: &[String]) -> ExitCode {
     parakeet::handle_stream(args)
 }

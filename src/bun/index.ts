@@ -7,7 +7,7 @@ import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
 import { duckDelayAfterStartChimeMs } from './utils/sound/play-sound'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { checkNativePermissions } from './utils/keyboard/check-native-permissions'
-import { AppConfig } from './AppConfig/AppConfig'
+import { createProductionAppConfig } from './AppConfig/production'
 import { setupApplicationMenu } from './setup-menu'
 import { setupTray } from './setup-tray'
 import { setupRecording } from './setup-recording'
@@ -92,7 +92,7 @@ const url = await getMainViewUrl()
 // used to do on the way to its answer (the other half runs when a download finishes).
 modelManager.reconcileInstalls()
 
-export const UserAppConfig = new AppConfig()
+export const UserAppConfig = createProductionAppConfig()
 await UserAppConfig.load()
 
 const historyManager = new HistoryManager(() =>
@@ -215,7 +215,7 @@ const win = setupWindow({
     menuHandlers.rebuildDeviceMenu(index)
   },
   onSetDebugMode: async (enabled) => {
-    await UserAppConfig.setDebugMode(enabled)
+    await UserAppConfig.updateGeneralSettings({ debugMode: enabled })
     win.send.updateSettings(UserAppConfig.getSettings())
   },
   onTriggerUpdateCheck: () => checkForUpdates(),
@@ -284,8 +284,11 @@ indicatorRef.current = setupIndicatorWindow({
   getSettings: () => UserAppConfig.getSettings(),
   getRecordingIndicatorPosition: () =>
     UserAppConfig.getRecordingIndicatorPosition(),
-  saveRecordingIndicatorPosition: (x, y) =>
-    UserAppConfig.setRecordingIndicatorPosition(x, y),
+  saveRecordingIndicatorPosition: async (x, y) => {
+    await UserAppConfig.updateGeneralSettings({
+      recordingIndicatorPosition: { x, y },
+    })
+  },
   getOnboardingIndicatorPreviewMode: () =>
     UserAppConfig.getRecordingIndicatorOnboardingPreviewMode(),
 })
@@ -293,7 +296,7 @@ indicatorRef.current = setupIndicatorWindow({
 // When the 5-minute auto-disable fires, sync the state back to AppConfig and
 // push the updated settings so the UI toggle turns itself off.
 setOnAutoDisable(async () => {
-  await UserAppConfig.setDebugMode(false)
+  await UserAppConfig.updateGeneralSettings({ debugMode: false })
   win.send.updateSettings(UserAppConfig.getSettings())
 })
 

@@ -20,7 +20,9 @@ export function handleTranscriptionLanguageAction(
 ) {
   if (!action.startsWith(PREFIX)) return
   const id = action.slice(PREFIX.length)
-  void appConfig.setTranscriptionLanguageId(id).then((ok) => {
-    if (ok) onSuccess?.()
-  })
+  void appConfig
+    .updateTranscriptionSettings({ transcriptionLanguageId: id })
+    .then((ok) => {
+      if (ok) onSuccess?.()
+    })
 }

@@ -51,30 +51,6 @@ export class MacOSPlatformProvider implements PlatformProvider {
     ]
   }
 
-  findKeyListenerBinary(): string {
-    // Production: Bun bundle dir → ../native-helpers/
-    // Dev: beside the compiled Swift source
-    const candidates = [
-      join(import.meta.dir, '../native-helpers/KeyListener'),
-      join(import.meta.dir, '../../utils/keyboard/KeyListener'),
-    ]
-    return requireBinary(
-      resolveBinary(candidates),
-      'KeyListener not found. Run `bun run build:native` so src/bun/utils/keyboard/KeyListener exists, then rebuild.'
-    )
-  }
-
-  async findMicRecorderBinary(): Promise<string> {
-    const candidates = [
-      join(import.meta.dir, '../native-helpers/MicRecorder'),
-      join(import.meta.dir, '../../utils/audio/MicRecorder'),
-    ]
-    return requireBinary(
-      await resolveBinaryAsync(candidates),
-      'MicRecorder not found. Run `bun run build:native` so src/bun/utils/audio/MicRecorder exists, then rebuild.'
-    )
-  }
-
   findWindowHelperBinary(): string | null {
     const candidates = [
       join(import.meta.dir, '../native-helpers/CodictateWindowHelper'),

@@ -1,4 +1,5 @@
 import { mkdirSync } from 'fs'
+import { dirname } from 'node:path'
 import {
   DEFAULT_MAX_RECORDING_DURATION_SECONDS,
   isValidMaxRecordingDurationSeconds,
@@ -30,6 +31,7 @@ import type {
   TranscriptionSettingsPatch,
 } from '../../shared/types'
 import { DEFAULT_MODEL_ID } from '../../shared/speech-models'
+import type { PlatformCapabilities } from '../../shared/platform'
 import {
   buildDictationPlan,
   getDictationReadiness,
@@ -55,7 +57,6 @@ import {
   isValidSlackTone,
   type FormattingModeId,
 } from '../../shared/formatting-modes'
-import { modelManager } from '../utils/whisper/model-manager'
 import { persistedSpeechModelId } from './persisted-speech-model'
 import {
   BUILTIN_DICTIONARY_ENTRIES,
@@ -64,26 +65,28 @@ import {
   legacyMigrationPlan,
   withBuiltinDictionaryEntries,
 } from './state-helpers'
-import {
-  detectFormattingAvailable,
-  isFormatterModelInstalled,
-} from '../utils/formatting/formatting-availability'
 import { disableDebug, enableDebug, log } from '../utils/logger'
 import {
   invalidateDictionaryCandidatesForText as getInvalidatedDictionaryCandidatesForText,
   parseDictionaryCandidates,
   stageDictionaryCandidate,
 } from '../utils/dictionary/auto-learn-candidates'
-import {
-  APP_DATA_DIR,
-  DEFAULT_HISTORY_DIR,
-  DICTIONARY_CONFIG_PATH,
-  LEGACY_CONFIG_PATH,
-  MAIN_CONFIG_PATH,
-  getPlatformCapabilities,
-} from '../platform/runtime'
 
-const CONFIG_DIR = APP_DATA_DIR
+export interface AppConfigPaths {
+  readonly mainConfig: string
+  readonly dictionaryConfig: string
+  readonly legacyConfig: string
+  readonly defaultHistory: string
+}
+
+export interface AppConfigDependencies {
+  readonly paths: AppConfigPaths
+  readonly getPlatformCapabilities: () => PlatformCapabilities
+  readonly isModelAvailable: (id: string) => boolean
+  readonly getModelAvailability: () => Record<string, boolean>
+  readonly detectFormattingAvailable: () => boolean
+  readonly isFormatterModelInstalled: (tier: FormatterModelTier) => boolean
+}
 
 const RECORDING_INDICATOR_MODES = new Set<RecordingIndicatorMode>([
   'off',
@@ -269,18 +272,8 @@ export class AppConfig {
    * does not trigger the heal pass, because the configuration was runnable. ADR-0006.
    */
   private dictationFailure: DictationFailureNotice | null = null
-  private readonly mainWriter = new SerializedSnapshotWriter<string>(
-    async (snapshot) => {
-      mkdirSync(CONFIG_DIR, { recursive: true })
-      await Bun.write(MAIN_CONFIG_PATH, snapshot)
-    }
-  )
-  private readonly dictionaryWriter = new SerializedSnapshotWriter<string>(
-    async (snapshot) => {
-      mkdirSync(CONFIG_DIR, { recursive: true })
-      await Bun.write(DICTIONARY_CONFIG_PATH, snapshot)
-    }
-  )
+  private readonly mainWriter: SerializedSnapshotWriter<string>
+  private readonly dictionaryWriter: SerializedSnapshotWriter<string>
 
   /**
    * Wired once at boot. Everything derived from the `(settings, availability)` pair that
@@ -294,7 +287,21 @@ export class AppConfig {
    */
   private runnableDictationObserver: (() => void) | null = null
 
-  constructor() {
+  constructor(private readonly dependencies: AppConfigDependencies) {
+    this.mainWriter = new SerializedSnapshotWriter<string>(async (snapshot) => {
+      mkdirSync(dirname(this.dependencies.paths.mainConfig), {
+        recursive: true,
+      })
+      await Bun.write(this.dependencies.paths.mainConfig, snapshot)
+    })
+    this.dictionaryWriter = new SerializedSnapshotWriter<string>(
+      async (snapshot) => {
+        mkdirSync(dirname(this.dependencies.paths.dictionaryConfig), {
+          recursive: true,
+        })
+        await Bun.write(this.dependencies.paths.dictionaryConfig, snapshot)
+      }
+    )
     this.audioDeviceName = null
     this.audioDeviceId = null
     this.audioDevice = 0
@@ -315,10 +322,13 @@ export class AppConfig {
     this.parakeetCoreMlReady = false
     this.streamTranscriptionMode = 'vad'
     this.userDisplayName = ''
-    this.formatting = defaultFormattingSettings(detectFormattingAvailable(), {
-      fast: isFormatterModelInstalled('fast'),
-      quality: isFormatterModelInstalled('quality'),
-    })
+    this.formatting = defaultFormattingSettings(
+      this.dependencies.detectFormattingAvailable(),
+      {
+        fast: this.dependencies.isFormatterModelInstalled('fast'),
+        quality: this.dependencies.isFormatterModelInstalled('quality'),
+      }
+    )
     this.audioDucking = defaultAudioDuckingSettings()
     this.dictionary = defaultDictionarySettings()
     this.historyEnabled = false
@@ -397,7 +407,7 @@ export class AppConfig {
   }
 
   private applyPersistedMain(raw: Record<string, unknown>): void {
-    const platform = getPlatformCapabilities().platform
+    const platform = this.dependencies.getPlatformCapabilities().platform
     if (raw.audioDeviceName !== undefined) {
       this.audioDeviceName =
         typeof raw.audioDeviceName === 'string' || raw.audioDeviceName === null
@@ -458,6 +468,7 @@ export class AppConfig {
     }
     if (raw.onboardingCompleted === true) this.onboardingCompleted = true
     else if (raw.onboardingCompleted === false) this.onboardingCompleted = false
+    // Existing installs predate this field and must not re-enter first-run onboarding.
     else this.onboardingCompleted = true
     if (isValidRecordingIndicatorMode(raw.recordingIndicatorMode)) {
       this.recordingIndicatorMode = raw.recordingIndicatorMode
@@ -486,7 +497,7 @@ export class AppConfig {
     if (typeof raw.parakeetCoreMlReady === 'boolean') {
       this.parakeetCoreMlReady = raw.parakeetCoreMlReady
     } else {
-      this.parakeetCoreMlReady = modelManager.isModelAvailable(
+      this.parakeetCoreMlReady = this.dependencies.isModelAvailable(
         'parakeet-tdt-0.6b-v3'
       )
     }
@@ -843,32 +854,29 @@ export class AppConfig {
   private async loadFromDisk() {
     try {
       const [hasMain, hasDictionary, hasLegacy] = await Promise.all([
-        Bun.file(MAIN_CONFIG_PATH).exists(),
-        Bun.file(DICTIONARY_CONFIG_PATH).exists(),
-        Bun.file(LEGACY_CONFIG_PATH).exists(),
+        Bun.file(this.dependencies.paths.mainConfig).exists(),
+        Bun.file(this.dependencies.paths.dictionaryConfig).exists(),
+        Bun.file(this.dependencies.paths.legacyConfig).exists(),
       ])
 
       if (hasMain) {
-        const raw = (await Bun.file(MAIN_CONFIG_PATH).json()) as Record<
-          string,
-          unknown
-        >
+        const raw = (await Bun.file(
+          this.dependencies.paths.mainConfig
+        ).json()) as Record<string, unknown>
         this.applyPersistedMain(raw)
       }
       if (hasDictionary) {
-        const raw = (await Bun.file(DICTIONARY_CONFIG_PATH).json()) as Record<
-          string,
-          unknown
-        >
+        const raw = (await Bun.file(
+          this.dependencies.paths.dictionaryConfig
+        ).json()) as Record<string, unknown>
         this.applyDictionarySettings(raw)
       }
 
       const migration = legacyMigrationPlan(hasMain, hasDictionary, hasLegacy)
       if (migration.main || migration.dictionary) {
-        const raw = (await Bun.file(LEGACY_CONFIG_PATH).json()) as Record<
-          string,
-          unknown
-        >
+        const raw = (await Bun.file(
+          this.dependencies.paths.legacyConfig
+        ).json()) as Record<string, unknown>
         if (migration.main) this.applyLegacyMainSettings(raw)
         if (migration.dictionary) this.applyLegacyDictionarySettings(raw)
       }
@@ -915,7 +923,7 @@ export class AppConfig {
       })
     )
     return {
-      capabilities: getPlatformCapabilities(),
+      capabilities: this.dependencies.getPlatformCapabilities(),
       shortcutId: this.shortcutId,
       shortcutHoldOnlyId: this.shortcutHoldOnlyId,
       maxRecordingDuration: this.maxRecordingDuration,
@@ -949,7 +957,8 @@ export class AppConfig {
       },
       history: {
         enabled: this.historyEnabled,
-        storagePath: this.historyStoragePath || DEFAULT_HISTORY_DIR,
+        storagePath:
+          this.historyStoragePath || this.dependencies.paths.defaultHistory,
         maxEntries: this.historyMaxEntries,
         saveAudio: this.historySaveAudio,
       },
@@ -957,7 +966,7 @@ export class AppConfig {
         enabled: this.statsEnabled,
       },
       themePreference: this.themePreference,
-      modelAvailability: modelManager.getAvailabilityMap(),
+      modelAvailability: this.dependencies.getModelAvailability(),
       healAnnouncements: this.getHealAnnouncements(),
       dictationReadiness: this.getDictationReadiness(),
       blockedDictation: this.getBlockedDictation(),
@@ -971,8 +980,9 @@ export class AppConfig {
    */
   private dictationAvailability(): DictationAvailability {
     return {
-      isModelAvailable: (id) => modelManager.isModelAvailable(id),
-      streamSupported: getPlatformCapabilities().supportsStreamMode,
+      isModelAvailable: this.dependencies.isModelAvailable,
+      streamSupported:
+        this.dependencies.getPlatformCapabilities().supportsStreamMode,
     }
   }
 
@@ -1074,7 +1084,7 @@ export class AppConfig {
    * computed here because `dictationAvailability()` reads the filesystem and carries a
    * predicate that cannot cross the RPC bridge. Shipped as plain data in `getSettings()`.
    */
-  public getDictationReadiness(): DictationReadiness {
+  private getDictationReadiness(): DictationReadiness {
     return getDictationReadiness(
       this.runnableDictationSettings(),
       this.dictationAvailability()
@@ -1114,7 +1124,7 @@ export class AppConfig {
     return true
   }
 
-  public getBlockedDictation(): BlockedDictationPlan | null {
+  private getBlockedDictation(): BlockedDictationPlan | null {
     return this.blockedDictation === null ? null : { ...this.blockedDictation }
   }
 
@@ -1134,7 +1144,7 @@ export class AppConfig {
     return true
   }
 
-  public getDictationFailure(): DictationFailureNotice | null {
+  private getDictationFailure(): DictationFailureNotice | null {
     return this.dictationFailure === null ? null : { ...this.dictationFailure }
   }
 
@@ -1148,7 +1158,7 @@ export class AppConfig {
     return true
   }
 
-  public getHealAnnouncements(): SettingsHealAnnouncement[] {
+  private getHealAnnouncements(): SettingsHealAnnouncement[] {
     return this.healAnnouncements.map((announcement) => ({ ...announcement }))
   }
 
@@ -1172,15 +1182,15 @@ export class AppConfig {
   /** Re-check whether each formatter model GGUF exists on disk. */
   public refreshFormatterModelInstalled(): void {
     this.formatting.modelAvailability = {
-      fast: isFormatterModelInstalled('fast'),
-      quality: isFormatterModelInstalled('quality'),
+      fast: this.dependencies.isFormatterModelInstalled('fast'),
+      quality: this.dependencies.isFormatterModelInstalled('quality'),
     }
   }
 
   public async updateGeneralSettings(
     patch: GeneralSettingsPatch
   ): Promise<boolean> {
-    const platform = getPlatformCapabilities().platform
+    const platform = this.dependencies.getPlatformCapabilities().platform
     if (
       patch.shortcutId !== undefined &&
       !isSupportedShortcutId(patch.shortcutId, platform)
@@ -1356,8 +1366,8 @@ export class AppConfig {
     if (next === null) return false
     if (patch.formatterModelTier !== undefined) {
       next.modelAvailability = {
-        fast: isFormatterModelInstalled('fast'),
-        quality: isFormatterModelInstalled('quality'),
+        fast: this.dependencies.isFormatterModelInstalled('fast'),
+        quality: this.dependencies.isFormatterModelInstalled('quality'),
       }
     }
     this.formatting = next
@@ -1404,7 +1414,7 @@ export class AppConfig {
   }
 
   public getHistoryStoragePath(): string {
-    return this.historyStoragePath || DEFAULT_HISTORY_DIR
+    return this.historyStoragePath || this.dependencies.paths.defaultHistory
   }
 
   public getHistorySaveAudio(): boolean {
@@ -1496,22 +1506,6 @@ export class AppConfig {
     await this.saveMain()
   }
 
-  public getAudioDevice() {
-    return this.audioDevice
-  }
-
-  public async setShortcutId(id: ShortcutId): Promise<boolean> {
-    return this.updateGeneralSettings({ shortcutId: id })
-  }
-
-  public async setShortcutHoldOnlyId(id: ShortcutId | null): Promise<boolean> {
-    return this.updateGeneralSettings({ shortcutHoldOnlyId: id })
-  }
-
-  public async setTranscriptionLanguageId(id: string): Promise<boolean> {
-    return this.updateTranscriptionSettings({ transcriptionLanguageId: id })
-  }
-
   public getTranscriptionLanguageId(): string {
     return this.transcriptionLanguageId
   }
@@ -1530,262 +1524,40 @@ export class AppConfig {
     return this.shortcutHoldOnlyId
   }
 
-  public async setDebugMode(enabled: boolean) {
-    await this.updateGeneralSettings({ debugMode: enabled })
-  }
-
-  public getDebugMode(): boolean {
-    return this.debugMode
-  }
-
   public getFunModeEnabled(): boolean {
     return this.funModeEnabled
-  }
-
-  public async setFunModeEnabled(enabled: boolean): Promise<boolean> {
-    return this.updateGeneralSettings({ funModeEnabled: enabled })
   }
 
   public getSoundEffectsEnabled(): boolean {
     return this.soundEffectsEnabled
   }
 
-  public async setSoundEffectsEnabled(enabled: boolean): Promise<boolean> {
-    return this.updateGeneralSettings({ soundEffectsEnabled: enabled })
-  }
-
   public getMaxRecordingDurationSeconds(): number {
     return this.maxRecordingDuration
-  }
-
-  public async setMaxRecordingDurationSeconds(
-    seconds: number
-  ): Promise<boolean> {
-    return this.updateTranscriptionSettings({ maxRecordingDuration: seconds })
   }
 
   public getSpeechModelId(): string {
     return this.speechModelId
   }
 
-  public async setSpeechModelId(id: string): Promise<boolean> {
-    return this.updateTranscriptionSettings({ speechModelId: id })
-  }
-
-  public getTranslateToEnglish(): boolean {
-    return this.translateToEnglish
-  }
-
-  public async setTranslateToEnglish(enabled: boolean): Promise<void> {
-    await this.updateTranscriptionSettings({ translateToEnglish: enabled })
-  }
-
-  public async setTranslateOn(sourceLanguageId: string): Promise<boolean> {
-    if (sourceLanguageId === 'auto') return false
-    return this.updateTranscriptionSettings({
-      transcriptionLanguageId: sourceLanguageId,
-      translateToEnglish: true,
-    })
-  }
-
-  public async setTranslateOff(): Promise<void> {
-    await this.updateTranscriptionSettings({
-      translateToEnglish: false,
-      transcriptionLanguageId: 'auto',
-    })
-  }
-
-  public getTranslateDefaultLanguageId(): string {
-    return this.translateDefaultLanguageId
-  }
-
-  public async setTranslateDefaultLanguageId(id: string): Promise<boolean> {
-    return this.updateTranscriptionSettings({ translateDefaultLanguageId: id })
-  }
-
-  public getUserDisplayName(): string {
-    return this.userDisplayName
-  }
-
-  public async setUserDisplayName(userDisplayName: string): Promise<boolean> {
-    return this.updateGeneralSettings({ userDisplayName })
-  }
-
   public getFormattingEnabled(): boolean {
     return this.formatting.enabled
-  }
-
-  public async setFormattingEnabled(enabled: boolean): Promise<boolean> {
-    return this.updateFormattingSettings({ enabled })
-  }
-
-  public getFormattingEnabledModes(): FormattingSettings['enabledModes'] {
-    return { ...this.formatting.enabledModes }
-  }
-
-  public async setFormattingModeEnabled(
-    modeId: FormattingModeId,
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({
-      enabledModes: { [modeId]: enabled },
-    })
   }
 
   public getFormattingForceModeId(): FormattingModeId | null {
     return this.formatting.forceModeId
   }
 
-  public async setFormattingForceModeId(
-    modeId: FormattingModeId | null
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ forceModeId: modeId })
-  }
-
-  public getFormattingEmailIncludeSenderName(): boolean {
-    return this.formatting.email.includeSenderName
-  }
-
-  public async setFormattingEmailIncludeSenderName(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({
-      email: { includeSenderName: enabled },
-    })
-  }
-
-  public getFormattingEmailGreetingStyle() {
-    return this.formatting.email.greetingStyle
-  }
-
-  public async setFormattingEmailGreetingStyle(
-    style: FormattingSettings['email']['greetingStyle']
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ email: { greetingStyle: style } })
-  }
-
-  public getFormattingEmailClosingStyle() {
-    return this.formatting.email.closingStyle
-  }
-
-  public async setFormattingEmailClosingStyle(
-    style: FormattingSettings['email']['closingStyle']
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ email: { closingStyle: style } })
-  }
-
-  public getFormattingEmailCustomGreeting(): string {
-    return this.formatting.email.customGreeting
-  }
-
-  public async setFormattingEmailCustomGreeting(
-    text: string
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ email: { customGreeting: text } })
-  }
-
-  public getFormattingEmailCustomClosing(): string {
-    return this.formatting.email.customClosing
-  }
-
-  public async setFormattingEmailCustomClosing(text: string): Promise<boolean> {
-    return this.updateFormattingSettings({ email: { customClosing: text } })
-  }
-
-  public async setFormattingImessageTone(
-    tone: FormattingSettings['imessage']['tone']
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ imessage: { tone } })
-  }
-
-  public async setFormattingImessageAllowEmoji(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ imessage: { allowEmoji: enabled } })
-  }
-
-  public async setFormattingImessageLightweight(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({
-      imessage: { lightweight: enabled },
-    })
-  }
-
-  public async setFormattingSlackTone(
-    tone: FormattingSettings['slack']['tone']
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ slack: { tone } })
-  }
-
-  public async setFormattingSlackAllowEmoji(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ slack: { allowEmoji: enabled } })
-  }
-
-  public async setFormattingSlackUseMarkdown(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ slack: { useMarkdown: enabled } })
-  }
-
-  public async setFormattingSlackLightweight(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ slack: { lightweight: enabled } })
-  }
-
-  public async setFormattingDocumentTone(
-    tone: FormattingSettings['document']['tone']
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ document: { tone } })
-  }
-
-  public async setFormattingDocumentStructure(
-    structure: FormattingSettings['document']['structure']
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({ document: { structure } })
-  }
-
-  public async setFormattingDocumentLightweight(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateFormattingSettings({
-      document: { lightweight: enabled },
-    })
-  }
-
   public getAudioDuckingLevel(): number {
     return this.audioDucking.level
-  }
-
-  public async setAudioDuckingLevel(level: number): Promise<boolean> {
-    return this.updateAudioDuckingSettings({ level })
   }
 
   public getAudioDuckingIncludeHeadphones(): boolean {
     return this.audioDucking.includeHeadphones
   }
 
-  public async setAudioDuckingIncludeHeadphones(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateAudioDuckingSettings({ includeHeadphones: enabled })
-  }
-
   public getAudioDuckingIncludeBuiltInSpeakers(): boolean {
     return this.audioDucking.includeBuiltInSpeakers
-  }
-
-  public async setAudioDuckingIncludeBuiltInSpeakers(
-    enabled: boolean
-  ): Promise<boolean> {
-    return this.updateAudioDuckingSettings({ includeBuiltInSpeakers: enabled })
-  }
-
-  public getFormattingAvailable(): boolean {
-    return this.formatting.available
   }
 
   public isParakeetCoreMlReady(): boolean {
@@ -1806,26 +1578,8 @@ export class AppConfig {
     return this.streamMode
   }
 
-  public async setStreamMode(enabled: boolean): Promise<boolean> {
-    log('config', 'set stream mode', {
-      previous: this.streamMode,
-      next: enabled,
-    })
-    return this.updateTranscriptionSettings({ streamMode: enabled })
-  }
-
   public getStreamTranscriptionMode(): StreamTranscriptionMode {
     return this.streamTranscriptionMode
-  }
-
-  public async setStreamTranscriptionMode(
-    mode: StreamTranscriptionMode
-  ): Promise<void> {
-    await this.updateTranscriptionSettings({ streamTranscriptionMode: mode })
-  }
-
-  public async setOnboardingCompleted(completed: boolean): Promise<void> {
-    await this.updateGeneralSettings({ onboardingCompleted: completed })
   }
 
   public setRecordingIndicatorOnboardingPreview(
@@ -1847,40 +1601,15 @@ export class AppConfig {
     return this.recordingIndicatorOnboardingPreviewMode
   }
 
-  public getRecordingIndicatorMode(): RecordingIndicatorMode {
-    return this.recordingIndicatorMode
-  }
-
-  public async setRecordingIndicatorMode(
-    mode: RecordingIndicatorMode
-  ): Promise<boolean> {
-    return this.updateGeneralSettings({ recordingIndicatorMode: mode })
-  }
-
   public getRecordingIndicatorPosition(): { x: number; y: number } | null {
     return this.recordingIndicatorPosition
-  }
-
-  public async setRecordingIndicatorPosition(
-    x: number,
-    y: number
-  ): Promise<void> {
-    await this.updateGeneralSettings({ recordingIndicatorPosition: { x, y } })
   }
 
   public getDictionaryEntries(): DictionaryEntry[] {
     return this.dictionary.entries.map((entry) => ({ ...entry }))
   }
 
-  public getDictionaryCandidates(): DictionaryCandidate[] {
-    return this.dictionary.candidates.map((candidate) => ({ ...candidate }))
-  }
-
-  public getDictionaryWords(): string[] {
-    return this.dictionary.entries.map((entry) => entry.text)
-  }
-
-  public async addDictionaryEntry(
+  private async addDictionaryEntry(
     entry: Omit<DictionaryEntry, 'source'>,
     source: 'manual' | 'auto' = 'manual'
   ): Promise<boolean> {
@@ -1933,44 +1662,6 @@ export class AppConfig {
       entries: nextEntries,
       candidates: nextCandidates,
     })
-  }
-
-  public async removeDictionaryEntry(
-    entry: Pick<DictionaryEntry, 'kind' | 'text' | 'from'>
-  ): Promise<boolean> {
-    const key = normalizeDictionaryKey(
-      entry.kind,
-      entry.text,
-      entry.kind === 'replacement' ? entry.from : undefined
-    )
-    const nextEntries = this.dictionary.entries.filter(
-      (candidate) =>
-        normalizeDictionaryKey(
-          candidate.kind,
-          candidate.text,
-          candidate.from
-        ) !== key
-    )
-    if (nextEntries.length === this.dictionary.entries.length) return false
-    return this.updateDictionarySettings({ entries: nextEntries })
-  }
-
-  public async removeDictionaryCandidate(
-    candidate: Pick<DictionaryCandidate, 'from' | 'to'>
-  ): Promise<boolean> {
-    const from = candidate.from.trim().toLowerCase()
-    const to = candidate.to.trim().toLowerCase()
-    const nextCandidates = this.dictionary.candidates.filter(
-      (entry) =>
-        !(
-          entry.from.trim().toLowerCase() === from &&
-          entry.to.trim().toLowerCase() === to
-        )
-    )
-    if (nextCandidates.length === this.dictionary.candidates.length) {
-      return false
-    }
-    return this.updateDictionarySettings({ candidates: nextCandidates })
   }
 
   public notifyAppliedEntries(entries: DictionaryEntry[]): void {
@@ -2092,9 +1783,5 @@ export class AppConfig {
 
   public getDictionaryAutoLearn(): boolean {
     return this.dictionary.autoLearn
-  }
-
-  public async setDictionaryAutoLearn(enabled: boolean): Promise<boolean> {
-    return this.updateDictionarySettings({ autoLearn: enabled })
   }
 }

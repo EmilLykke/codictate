@@ -68,22 +68,6 @@ export class LinuxPlatformProvider implements PlatformProvider {
 
   // ── Unimplemented native helpers ──────────────────────────────────────────
 
-  findKeyListenerBinary(): string {
-    throw new Error(
-      '[Linux] KeyListener is not yet implemented.\n' +
-        'Contribute a binary at native/linux/KeyListener that speaks the same\n' +
-        'JSON/stdio protocol as the macOS Swift version — see src/bun/platform/types.ts'
-    )
-  }
-
-  async findMicRecorderBinary(): Promise<string> {
-    throw new Error(
-      '[Linux] MicRecorder is not yet implemented.\n' +
-        'Contribute a binary at native/linux/MicRecorder that records WAV via\n' +
-        'ALSA or PipeWire and speaks the same CLI protocol as the macOS Swift version.'
-    )
-  }
-
   findWindowHelperBinary(): string | null {
     return null
   }

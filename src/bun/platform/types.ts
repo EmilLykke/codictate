@@ -31,8 +31,6 @@ export interface PlatformProvider {
   // Required helpers throw if the binary is missing.
   // Optional helpers return null — the feature gracefully degrades.
 
-  findKeyListenerBinary(): string
-  findMicRecorderBinary(): Promise<string>
   findWindowHelperBinary(): string | null
   findObserverHelperBinary(): string | null
   /**

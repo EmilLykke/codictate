@@ -73,20 +73,6 @@ export class WindowsPlatformProvider implements PlatformProvider {
     return resolveLlamaBinary() !== null
   }
 
-  findKeyListenerBinary(): string {
-    return requireBinary(
-      resolveWindowsHelperBinary(),
-      'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
-    )
-  }
-
-  async findMicRecorderBinary(): Promise<string> {
-    return requireBinary(
-      resolveWindowsHelperBinary(),
-      'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
-    )
-  }
-
   findWindowHelperBinary(): string | null {
     return resolveWindowsHelperBinary()
   }

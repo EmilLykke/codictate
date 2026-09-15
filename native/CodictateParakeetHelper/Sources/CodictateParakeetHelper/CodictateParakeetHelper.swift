@@ -51,6 +51,7 @@ private func usage() -> Never {
   let msg = """
     Usage:
       CodictateParakeetHelper transcribe <wavPath> <parakeetModelDir>
+      CodictateParakeetHelper transcribe-session <parakeetModelDir>
       CodictateParakeetHelper stream <vad|live> <parakeetModelDir>
     """
   FileHandle.standardError.write(Data(msg.utf8))
@@ -408,6 +409,7 @@ struct CodictateParakeetHelperMain {
 
     switch cmd {
     case "transcribe": try await transcribeCommand(args)
+    case "transcribe-session": try await transcribeSessionCommand(args)
     case "stream": try await streamCommand(args)
     default: usage()
     }
@@ -430,6 +432,51 @@ struct CodictateParakeetHelperMain {
     let text = applyInverseTextNormalization(result.text)
     logPhase("done")
     emitJSON(["kind": "final", "text": text])
+  }
+
+  // MARK: - transcribe-session (one model load, sequential WAV requests over NDJSON)
+
+  private struct TranscribeSessionRequest: Decodable {
+    let id: Int
+    let audioPath: String
+  }
+
+  /// Benchmark-only batch session. Dictation keeps using the compatible one-shot command.
+  static func transcribeSessionCommand(_ args: [String]) async throws {
+    guard let modelPath = args.first else { usage() }
+    let modelDir = URL(fileURLWithPath: modelPath, isDirectory: true)
+
+    logPhase("transcribe session: loading models…")
+    let models = try await loadAsrModels(parakeetDir: modelDir)
+    let asr = AsrManager(config: .default)
+    try await asr.loadModels(models)
+    emitJSON(["kind": "ready"])
+
+    let decoder = JSONDecoder()
+    while let line = readLine() {
+      if line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { continue }
+      let request = try decoder.decode(
+        TranscribeSessionRequest.self,
+        from: Data(line.utf8)
+      )
+      guard request.id >= 0, !request.audioPath.isEmpty else {
+        throw NSError(
+          domain: "CodictateParakeet",
+          code: 4,
+          userInfo: [NSLocalizedDescriptionKey: "invalid transcribe-session request"]
+        )
+      }
+
+      logPhase("transcribe session: request \(request.id)…")
+      let result = try await asr.transcribe(
+        URL(fileURLWithPath: request.audioPath),
+        source: .system
+      )
+      let text = applyInverseTextNormalization(result.text)
+      emitJSON(["kind": "final", "id": request.id, "text": text])
+    }
+
+    logPhase("transcribe session: stdin closed")
   }
 
   // MARK: - stream (mic → inject text locally; no stdout protocol)

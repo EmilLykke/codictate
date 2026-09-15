@@ -19,6 +19,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   adapterFor,
+  benchmarkModel,
   countFailedScoredSamples,
   countTranscriptionFailures,
   leafFromSamples,
@@ -431,6 +432,86 @@ describe("measureClips: a 400-clip range over the 930-clip Danish pool", () => {
         adapter: countingAdapter(),
       }),
     ).rejects.toThrow(/built from different lists/);
+  });
+});
+
+describe("benchmark adapter lifecycle", () => {
+  test("starts before a zero-warmup response window and closes after the run", async () => {
+    const [entry] = danishPool(1);
+    const events: string[] = [];
+    let tick = 0;
+    const adapter: AdapterSeam = {
+      start: async () => {
+        events.push("start");
+      },
+      ensureReady: async () => {
+        events.push("ensure-ready");
+      },
+      prepare: () => {
+        events.push("prepare");
+        return countingAdapter().prepare(entry);
+      },
+      invoke: async () => {
+        events.push("invoke");
+        return { status: "ok", rawTranscript: entry.transcript };
+      },
+      close: async () => {
+        events.push("close");
+      },
+    };
+
+    await benchmarkModel("large-v3-turbo-q5_0", [entry], "test", {
+      range: {
+        startIndex: 0,
+        endIndex: 1,
+        manifestFingerprint: "1:0123456789abcdef",
+      },
+      plan: { orderedClipIds: [entry.clipId], warmupClipIds: [] },
+      adapter,
+      measureMemory: false,
+      now: () => {
+        events.push("clock");
+        return ++tick;
+      },
+    });
+
+    expect(events).toEqual([
+      "start",
+      "ensure-ready",
+      "prepare",
+      "clock",
+      "invoke",
+      "clock",
+      "close",
+    ]);
+  });
+
+  test("closes the adapter when an invocation throws", async () => {
+    const [entry] = danishPool(1);
+    let closeCalls = 0;
+    const adapter: AdapterSeam = {
+      prepare: countingAdapter().prepare,
+      invoke: async () => {
+        throw new Error("adapter exploded");
+      },
+      close: async () => {
+        closeCalls++;
+      },
+    };
+
+    await expect(
+      benchmarkModel("large-v3-turbo-q5_0", [entry], "test", {
+        range: {
+          startIndex: 0,
+          endIndex: 1,
+          manifestFingerprint: "1:0123456789abcdef",
+        },
+        plan: { orderedClipIds: [entry.clipId], warmupClipIds: [] },
+        adapter,
+        measureMemory: false,
+      }),
+    ).rejects.toThrow("adapter exploded");
+    expect(closeCalls).toBe(1);
   });
 });
 

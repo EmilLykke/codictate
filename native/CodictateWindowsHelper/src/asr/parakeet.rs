@@ -4,9 +4,9 @@ use crate::ipc::emit_json;
 use crate::keyboard::inject;
 use arboard::Clipboard;
 use parakeet_rs::{ExecutionConfig, ExecutionProvider, ParakeetTDT, TimestampMode, Transcriber};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::process::ExitCode;
 use std::thread;
@@ -17,6 +17,25 @@ const STREAM_RECV_TIMEOUT: Duration = Duration::from_millis(100);
 #[derive(Serialize)]
 struct FinalTranscriptMessage {
     kind: &'static str,
+    text: String,
+}
+
+#[derive(Serialize)]
+struct SessionReadyMessage {
+    kind: &'static str,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TranscribeSessionRequest {
+    id: u64,
+    audio_path: String,
+}
+
+#[derive(Serialize)]
+struct SessionFinalTranscriptMessage {
+    kind: &'static str,
+    id: u64,
     text: String,
 }
 
@@ -215,6 +234,12 @@ fn resample_to_recording_rate(samples: &[f32], sample_rate: u32) -> Result<Vec<f
     Ok(out)
 }
 
+fn transcribe_wav(model: &mut ParakeetTDT, wav_path: &str) -> Result<String, String> {
+    let (samples, sample_rate) = load_wav_mono_f32(wav_path)?;
+    let samples = resample_to_recording_rate(&samples, sample_rate)?;
+    transcribe_samples(model, samples)
+}
+
 fn rms(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -270,9 +295,7 @@ pub fn handle_transcribe(args: &[String]) -> ExitCode {
     let result = (|| -> Result<String, String> {
         let mut model = load_model(model_dir)?;
         log_phase("transcribing wav...");
-        let (samples, sample_rate) = load_wav_mono_f32(wav_path)?;
-        let samples = resample_to_recording_rate(&samples, sample_rate)?;
-        transcribe_samples(&mut model, samples)
+        transcribe_wav(&mut model, wav_path)
     })();
 
     match result {
@@ -288,6 +311,51 @@ pub fn handle_transcribe(args: &[String]) -> ExitCode {
         },
         Err(err) => {
             eprintln!("CodictateWindowsHelper transcribe failed: {err}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+pub fn handle_transcribe_session(args: &[String]) -> ExitCode {
+    if args.len() < 3 {
+        eprintln!("CodictateWindowsHelper transcribe-session <parakeetModelDir>");
+        return ExitCode::from(1);
+    }
+
+    let model_dir = &args[2];
+    let result = (|| -> Result<(), String> {
+        let mut model = load_model(model_dir)?;
+        emit_json(&SessionReadyMessage { kind: "ready" })
+            .map_err(|err| format!("failed to write ready response: {err}"))?;
+
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            let line = line.map_err(|err| format!("failed to read session request: {err}"))?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let request: TranscribeSessionRequest = serde_json::from_str(&line)
+                .map_err(|err| format!("invalid transcribe-session request: {err}"))?;
+            if request.audio_path.is_empty() {
+                return Err("invalid transcribe-session request: audioPath is empty".to_string());
+            }
+
+            log_phase(format!("transcribe session request {}...", request.id));
+            let text = transcribe_wav(&mut model, &request.audio_path)?;
+            emit_json(&SessionFinalTranscriptMessage {
+                kind: "final",
+                id: request.id,
+                text,
+            })
+            .map_err(|err| format!("failed to write session response: {err}"))?;
+        }
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("CodictateWindowsHelper transcribe-session failed: {err}");
             ExitCode::from(1)
         }
     }
@@ -520,6 +588,46 @@ fn commit_live_utterance(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn session_request_uses_the_shared_camel_case_contract() {
+        let request: TranscribeSessionRequest =
+            serde_json::from_str(r#"{"id":7,"audioPath":"C:\\clips\\sample.wav"}"#)
+                .expect("request should decode");
+
+        assert_eq!(request.id, 7);
+        assert_eq!(request.audio_path, r"C:\clips\sample.wav");
+        assert!(
+            serde_json::from_str::<TranscribeSessionRequest>(
+                r#"{"id":-1,"audioPath":"sample.wav"}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<TranscribeSessionRequest>(
+                r#"{"id":1.5,"audioPath":"sample.wav"}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn session_messages_emit_ready_and_correlated_final_shapes() {
+        let ready = serde_json::to_string(&SessionReadyMessage { kind: "ready" })
+            .expect("ready response should encode");
+        let final_response = serde_json::to_string(&SessionFinalTranscriptMessage {
+            kind: "final",
+            id: 7,
+            text: "hej verden".to_string(),
+        })
+        .expect("final response should encode");
+
+        assert_eq!(ready, r#"{"kind":"ready"}"#);
+        assert_eq!(
+            final_response,
+            r#"{"kind":"final","id":7,"text":"hej verden"}"#
+        );
+    }
 
     #[test]
     fn stable_prefix_lags_by_one_completed_word() {

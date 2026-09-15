@@ -23,10 +23,12 @@ import type {
   TranscriptionRequest,
   TranscriptionResult,
 } from "../../src/bun/utils/whisper/engines/transcription";
+import { failedTranscription } from "../../src/bun/utils/whisper/engines/transcription";
 import { getPlatform } from "../../src/bun/platform";
 import { computeWer, computeCer, type WerResult } from "./wer";
 import { computeRtf } from "./rtf";
 import { measurePeakRss } from "./memory";
+import { ParakeetBenchmarkSession } from "./parakeet-session";
 import type { ManifestEntry } from "../scripts/build-manifests";
 import { type SampleRange } from "./sample-cursor";
 import {
@@ -495,10 +497,16 @@ function reportTranscriptionFailure(
  * adapter.
  */
 export interface AdapterSeam {
+  /** Optional process/model setup, awaited before the first measured response window. */
+  start?: () => Promise<void>;
+  /** Re-establish invalidated adapter state outside each Sample's response window. */
+  ensureReady?: () => Promise<void>;
   /** Built **outside** the timing window. */
   prepare: (entry: ManifestEntry) => TranscriptionRequest;
   /** The only statement **inside** the timing window. */
   invoke: (request: TranscriptionRequest) => Promise<TranscriptionResult>;
+  /** Release any long-lived adapter resources. Idempotent implementations are preferred. */
+  close?: () => Promise<void>;
 }
 
 /** The Speech Engine Adapter for one Benchmark Combination. */
@@ -507,21 +515,50 @@ export function adapterFor(
   modelPath: string,
   harness: AsrHarnessId,
 ): AdapterSeam {
+  const speech = getSpeechModel(modelId)!;
+  const prepare = (entry: ManifestEntry) =>
+    transcriptionRequestFor(
+      modelId,
+      modelPath,
+      entry.audioPath,
+      harness,
+      entry.language,
+      entry.audioDurationSec,
+    );
+
+  if (speech.engine === PARAKEET_ENGINE_ID) {
+    const session = new ParakeetBenchmarkSession({
+      speechModelId: modelId,
+      modelDir: modelPath,
+      resolveHelperBinary: () => getPlatform().findParakeetHelperBinary(),
+    });
+    return {
+      start: () => session.start(),
+      ensureReady: () => session.start(),
+      prepare,
+      invoke: (request) => {
+        if (request.engineId !== PARAKEET_ENGINE_ID) {
+          return Promise.resolve(
+            failedTranscription(
+              "engine_output_unreadable",
+              request.speechModelId,
+              "Parakeet session received a non-Parakeet request",
+            ),
+          );
+        }
+        return session.transcribe(request);
+      },
+      close: () => session.close(),
+    };
+  }
+
   return {
     // The Sample is read where it already lives. It used to be copied over
     // RECORDING_PATH, the app's own recording buffer, roughly 200 times per Benchmark
     // Combination - so a Benchmark Run alongside a running Codictate clobbered whatever
     // the user had just dictated. Nothing on this path needs that path; a Transcription
     // Request takes an audioPath.
-    prepare: (entry) =>
-      transcriptionRequestFor(
-        modelId,
-        modelPath,
-        entry.audioPath,
-        harness,
-        entry.language,
-        entry.audioDurationSec,
-      ),
+    prepare,
     invoke: runTranscription,
   };
 }
@@ -540,6 +577,9 @@ async function measureClip(
   computeCerToo: boolean,
   onFailure: (failure: FailedTranscription) => void,
 ): Promise<MeasuredClip> {
+  // A previous request may have invalidated a persistent session. Restarting and loading
+  // its model are benchmark overhead, not the Speech Engine response being measured.
+  await adapter.ensureReady?.();
   const request = adapter.prepare(entry);
 
   // The timing window. Two statements and one call between them, on purpose.
@@ -714,6 +754,13 @@ export async function measureClips(
   const samples: SampleMeasurementV2[] = [...recorded];
   const utterances: UtteranceResult[] = [];
   let adapterInvocations = 0;
+
+  // A persistent adapter loads its Speech Model here, before any response clock starts.
+  // This also keeps a zero-warmup Run Plan honest: its first scored Sample cannot inherit
+  // process startup merely because there was no reserved clip to absorb it.
+  if (selection.warmupsToReplay.length > 0 || selection.remaining.length > 0) {
+    await input.adapter.start?.();
+  }
 
   // Warmup, on every call including a resume. A resumed Benchmark Run is a fresh cold
   // process, so it needs warming exactly as much as the first one did; the reservation
@@ -1158,35 +1205,41 @@ export async function benchmarkModel(
   }
 
   const shouldComputeCer = options?.computeCer ?? false;
-  const outcome = await measureClips({
-    plan,
-    entriesByClipId,
-    adapter: adapterOverride ?? adapterFor(modelId, modelPath, harness),
-    recordedSamples: recorded,
-    computeCer: shouldComputeCer,
-    onScoredClip: options.onScoredClip,
-    now: options.now,
-    onFailure: (failure) => reportTranscriptionFailure(modelId, failure),
-    onProgress: (done, total, samples) => {
-      // Progress is logged every fiftieth clip and the checkpoint is written every clip.
-      // They used to share one condition, which is how a 50-clip batch became the
-      // checkpoint interval: the log line's job is to not flood a console, and the
-      // checkpoint's job is to lose nothing.
-      if (done % 50 !== 0 && done !== total) return;
-      const partial = partialFromSamples(samples);
-      const wer =
-        partial.totalRefWords > 0
-          ? partial.totalWer / partial.totalRefWords
-          : 0;
-      const cerStr =
-        shouldComputeCer && (partial.totalRefChars ?? 0) > 0
-          ? ` | CER: ${(((partial.totalCer ?? 0) / (partial.totalRefChars ?? 1)) * 100).toFixed(2)}%`
-          : "";
-      console.log(
-        `    ${done}/${total} | WER: ${(wer * 100).toFixed(2)}%${cerStr} | RTF: ${computeRtf(partial.totalWallSec, partial.totalAudioSec).toFixed(3)}`,
-      );
-    },
-  });
+  const adapter = adapterOverride ?? adapterFor(modelId, modelPath, harness);
+  let outcome: MeasureClipsOutcome;
+  try {
+    outcome = await measureClips({
+      plan,
+      entriesByClipId,
+      adapter,
+      recordedSamples: recorded,
+      computeCer: shouldComputeCer,
+      onScoredClip: options.onScoredClip,
+      now: options.now,
+      onFailure: (failure) => reportTranscriptionFailure(modelId, failure),
+      onProgress: (done, total, samples) => {
+        // Progress is logged every fiftieth clip and the checkpoint is written every clip.
+        // They used to share one condition, which is how a 50-clip batch became the
+        // checkpoint interval: the log line's job is to not flood a console, and the
+        // checkpoint's job is to lose nothing.
+        if (done % 50 !== 0 && done !== total) return;
+        const partial = partialFromSamples(samples);
+        const wer =
+          partial.totalRefWords > 0
+            ? partial.totalWer / partial.totalRefWords
+            : 0;
+        const cerStr =
+          shouldComputeCer && (partial.totalRefChars ?? 0) > 0
+            ? ` | CER: ${(((partial.totalCer ?? 0) / (partial.totalRefChars ?? 1)) * 100).toFixed(2)}%`
+            : "";
+        console.log(
+          `    ${done}/${total} | WER: ${(wer * 100).toFixed(2)}%${cerStr} | RTF: ${computeRtf(partial.totalWallSec, partial.totalAudioSec).toFixed(3)}`,
+        );
+      },
+    });
+  } finally {
+    await adapter.close?.();
+  }
 
   // Memory measurement on small sample
   let peakRSS_MB: PeakRSSStats | null = null;

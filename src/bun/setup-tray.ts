@@ -291,13 +291,15 @@ export const setupTray = (
         if (suffix === 'auto') {
           const forcedBefore = appConfig.getFormattingForceModeId()
           if (forcedBefore !== null) {
-            const ok = await appConfig.setFormattingForceModeId(null)
+            const ok = await appConfig.updateFormattingSettings({
+              forceModeId: null,
+            })
             tray.setMenu(buildMenu(resolveCurrentDevice()))
             if (ok) onFormattingModeChanged?.()
           } else {
-            const ok = await appConfig.setFormattingEnabled(
-              !appConfig.getFormattingEnabled()
-            )
+            const ok = await appConfig.updateFormattingSettings({
+              enabled: !appConfig.getFormattingEnabled(),
+            })
             tray.setMenu(buildMenu(resolveCurrentDevice()))
             if (ok) onFormattingModeChanged?.()
           }
@@ -306,7 +308,9 @@ export const setupTray = (
         const next: FormattingModeId | null = isValidFormattingModeId(suffix)
           ? suffix
           : null
-        const ok = await appConfig.setFormattingForceModeId(next)
+        const ok = await appConfig.updateFormattingSettings({
+          forceModeId: next,
+        })
         tray.setMenu(buildMenu(resolveCurrentDevice()))
         if (ok) onFormattingModeChanged?.()
       })()
