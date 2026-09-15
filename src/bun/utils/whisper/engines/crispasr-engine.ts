@@ -13,9 +13,9 @@ import { buildWhisperHarnessCommand } from '../whisper-harness-command'
 import {
   decodeEngineStderr,
   decodeEngineStdout,
-  drainReadableStream,
   stderrTail,
 } from './drain-stream'
+import { superviseProcess } from './process-supervisor'
 import {
   failedTranscription,
   type HarnessTranscriptionRequest,
@@ -88,22 +88,43 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     },
   })
 
-  const stderrPromise = drainReadableStream(proc.stderr)
-  const stdoutPromise = drainReadableStream(proc.stdout)
-  await proc.exited
-  const stderrText = decodeEngineStderr(await stderrPromise)
-  const stdoutBytes = await stdoutPromise
+  const supervised = await superviseProcess(proc, {
+    stdout: proc.stdout,
+    stderr: proc.stderr,
+    timeoutMs: request.timeoutMs,
+  })
+  const stderrText = decodeEngineStderr(supervised.stderr)
+  if (supervised.status === 'timed_out') {
+    log('whisper', 'ASR harness timed out', {
+      harness: command.harness,
+      timeoutMs: request.timeoutMs,
+      stderr: stderrText.slice(0, 500) || undefined,
+    })
+    return failedTranscription(
+      'engine_timed_out',
+      request.speechModelId,
+      `deadline ${request.timeoutMs} ms: ${stderrTail(stderrText)}`
+    )
+  }
+  if (!supervised.outputComplete) {
+    return failedTranscription(
+      'engine_output_unreadable',
+      request.speechModelId,
+      'process exited but its output pipes did not close'
+    )
+  }
+  const stdoutBytes = supervised.stdout
 
-  if (proc.exitCode !== 0) {
+  if (supervised.exitCode !== 0) {
     log('whisper', 'ASR harness exited non-zero', {
       harness: command.harness,
-      exitCode: proc.exitCode,
+      exitCode: supervised.exitCode,
       stderr: stderrText.slice(0, 500) || undefined,
     })
     return failedTranscription(
       'engine_exited_nonzero',
       request.speechModelId,
-      `exit ${proc.exitCode}: ${stderrTail(stderrText)}`
+      `exit ${supervised.exitCode}: ${stderrTail(stderrText)}`
     )
   }
 
@@ -124,7 +145,7 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
 
   log('whisper', 'transcription complete', {
     harness: command.harness,
-    exitCode: proc.exitCode,
+    exitCode: supervised.exitCode,
     transcriptLength: rawTranscript.length,
     stderr: stderrText.slice(0, 500) || undefined,
   })

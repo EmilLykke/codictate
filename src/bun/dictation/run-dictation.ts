@@ -27,6 +27,7 @@ import { applyDictionary } from '../utils/dictionary/apply-dictionary'
 import { applyFormatting } from '../utils/formatting/apply-formatting'
 import { buildFormatterRequest } from '../utils/formatting/resolve-formatting-request'
 import { runTranscription } from '../utils/whisper/engines/run-transcription'
+import { engineProcessTimeoutMs } from '../utils/whisper/engines/process-supervisor'
 import {
   transcriptionRequestFromPlan,
   type FailedTranscription,
@@ -86,7 +87,12 @@ export async function runDictation(
   const { plan } = request
 
   const engineResult = await runTranscription(
-    transcriptionRequestFromPlan(plan, request.audioPath, modelManager)
+    transcriptionRequestFromPlan(
+      plan,
+      request.audioPath,
+      engineProcessTimeoutMs(request.durationMs),
+      modelManager
+    )
   )
   if (engineResult.status === 'failed') return engineResult
 

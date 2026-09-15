@@ -48,6 +48,8 @@ export interface HarnessTranscriptionRequest {
    */
   speechModelId: string
   audioPath: string
+  /** Deadline derived by the caller from this recording's duration. */
+  timeoutMs: number
   /** Absolute path to the weights file. */
   modelPath: string
   /** The whisper.cpp language token, or `null` for automatic detection. */
@@ -68,6 +70,8 @@ export interface ParakeetTranscriptionRequest {
   engineId: typeof PARAKEET_ENGINE_ID
   speechModelId: string
   audioPath: string
+  /** Deadline derived by the caller from this recording's duration. */
+  timeoutMs: number
   /** Absolute path to the Parakeet install directory (Core ML on macOS, ONNX on Windows). */
   modelDir: string
 }
@@ -79,7 +83,7 @@ export type TranscriptionRequest =
  * Why a Speech Engine produced no transcript. Closed union, engine-only: nothing about
  * settings, the Dictionary or the Formatting Backend belongs here.
  *
- * `TRANSCRIPTION_FAILURE_MESSAGES` below is an exhaustive `Record` over it, so a fifth
+ * `TRANSCRIPTION_FAILURE_MESSAGES` below is an exhaustive `Record` over it, so another
  * failure mode does not compile until it has a sentence - the same device ADR-0005 used for
  * `DictationBlockedReason`.
  */
@@ -96,6 +100,8 @@ export type TranscriptionFailureReason =
    * cloud-storage eviction lands.
    */
   | 'engine_runtime_missing'
+  /** The engine exceeded the duration-aware deadline and was terminated. */
+  | 'engine_timed_out'
   /**
    * The Parakeet Native Helper emitted no `final` NDJSON line. Not the same as a `final`
    * line carrying an empty string, which is a silent Dictation and a success.
@@ -155,6 +161,8 @@ const TRANSCRIPTION_FAILURE_MESSAGES: Record<
     `Dictation stopped because ${label} exited without transcribing. Nothing was pasted. Try again, and check the debug log if it keeps happening.`,
   engine_runtime_missing: (label) =>
     `Dictation stopped because ${label} could not be started: its engine or its weights are no longer on disk. Check the Speech Model in Settings, or reinstall Codictate.`,
+  engine_timed_out: (label) =>
+    `Dictation stopped because ${label} took too long to transcribe the recording. Nothing was pasted.`,
   parakeet_no_final_line: (label) =>
     `Dictation stopped because ${label} finished without returning a transcript. Nothing was pasted.`,
   engine_output_unreadable: (label) =>
@@ -215,6 +223,7 @@ export interface SpeechModelLocations {
 export function transcriptionRequestFromPlan(
   plan: RunnableDictationPlan,
   audioPath: string,
+  timeoutMs: number,
   locations: SpeechModelLocations
 ): TranscriptionRequest {
   if (plan.engineId === PARAKEET_ENGINE_ID) {
@@ -222,6 +231,7 @@ export function transcriptionRequestFromPlan(
       engineId: PARAKEET_ENGINE_ID,
       speechModelId: plan.speechModelId,
       audioPath,
+      timeoutMs,
       modelDir: locations.getParakeetInstallDir(plan.speechModelId),
     }
   }
@@ -230,6 +240,7 @@ export function transcriptionRequestFromPlan(
     engineId: plan.engineId,
     speechModelId: plan.speechModelId,
     audioPath,
+    timeoutMs,
     modelPath: locations.getModelPath(plan.speechModelId),
     languageCode: plan.languageCode,
     translateToEnglish: plan.translateToEnglish,

@@ -9,15 +9,48 @@
  * re-implemented four pieces of the engine invocation because it could not reuse any of it.
  */
 export async function drainReadableStream(
-  stream: ReadableStream<Uint8Array> | undefined
+  stream: ReadableStream<Uint8Array> | undefined,
+  signal?: AbortSignal
 ): Promise<Uint8Array> {
   if (!stream) return new Uint8Array(0)
   const reader = stream.getReader()
   const chunks: Uint8Array[] = []
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    if (value?.length) chunks.push(value)
+  const aborted = Symbol('aborted')
+  let resolveAbort: ((value: typeof aborted) => void) | undefined
+  const abortPromise = new Promise<typeof aborted>((resolve) => {
+    resolveAbort = resolve
+  })
+  const onAbort = () => resolveAbort?.(aborted)
+  signal?.addEventListener('abort', onAbort, { once: true })
+
+  try {
+    while (!signal?.aborted) {
+      const read = reader.read()
+      const next = signal
+        ? await Promise.race([read, abortPromise])
+        : await read
+      if (next === aborted) break
+      if (next.done) break
+      if (next.value?.length) chunks.push(next.value)
+    }
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
+    if (signal?.aborted) {
+      // A Bun pipe normally settles its pending read when cancelled. Do not await that
+      // contract here: an uncooperative stream is exactly what process supervision has to
+      // make bounded, and cancellation itself is allowed to return a pending promise.
+      try {
+        void reader.cancel().catch(() => {})
+      } catch {
+        // The reader may already have released itself as the process exited.
+      }
+    }
+    try {
+      reader.releaseLock()
+    } catch {
+      // A pending read can retain the lock until cancellation settles. Nothing else uses
+      // this process pipe, so retaining it is preferable to waiting without a bound.
+    }
   }
   const len = chunks.reduce((a, b) => a + b.length, 0)
   const out = new Uint8Array(len)

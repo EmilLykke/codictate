@@ -13,11 +13,11 @@
  *   ObserverHelper — AT-SPI2 (libatspi) for accessibility text observation
  */
 
-import { existsSync } from 'fs'
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import type { PlatformProvider, PermissionType } from '../types'
 import { FORMATTER_MODEL_PATH } from '../runtime'
+import { requireBinary, resolveBinary } from '../resolve-binary'
 
 function llamaBinaryCandidates(): string[] {
   return [
@@ -27,10 +27,7 @@ function llamaBinaryCandidates(): string[] {
 }
 
 function resolveLlamaBinary(): string | null {
-  for (const candidate of llamaBinaryCandidates()) {
-    if (existsSync(candidate)) return candidate
-  }
-  return null
+  return resolveBinary(llamaBinaryCandidates())
 }
 
 export class LinuxPlatformProvider implements PlatformProvider {
@@ -96,13 +93,10 @@ export class LinuxPlatformProvider implements PlatformProvider {
   }
 
   async findLlamaBinary(): Promise<string> {
-    const found = resolveLlamaBinary()
-    if (!found) {
-      throw new Error(
-        'llama-completion not found. Run `bun scripts/pre-build.ts` to build it.'
-      )
-    }
-    return found
+    return requireBinary(
+      resolveLlamaBinary(),
+      'llama-completion not found. Run `bun scripts/pre-build.ts` to build it.'
+    )
   }
 
   getFormatterModelPath(): string {

@@ -25,10 +25,27 @@ interface StatsIndex {
   entries: StatsSessionEntry[]
 }
 
+function subtractCalendarMonthsClamped(date: Date, months: number): Date {
+  const day = date.getDate()
+  const result = new Date(date)
+  result.setDate(1)
+  result.setMonth(result.getMonth() - months)
+  const lastDay = new Date(
+    result.getFullYear(),
+    result.getMonth() + 1,
+    0
+  ).getDate()
+  result.setDate(Math.min(day, lastDay))
+  return result
+}
+
 export class StatsManager {
   private writeQueue: Promise<void> = Promise.resolve()
 
-  constructor(private getStoragePath: () => string) {}
+  constructor(
+    private getStoragePath: () => string,
+    private readonly now: () => number = Date.now
+  ) {}
 
   private get statsPath(): string {
     return join(this.getStoragePath(), STATS_FILENAME)
@@ -74,10 +91,11 @@ export class StatsManager {
     })
   }
 
-  private rangeToMs(range: StatsRange): { start: number; prevStart: number } {
-    const now = new Date()
-    now.setHours(23, 59, 59, 999)
-    const today = new Date()
+  private rangeToMs(
+    range: StatsRange,
+    nowMs: number
+  ): { start: number; prevStart: number } {
+    const today = new Date(nowMs)
     today.setHours(0, 0, 0, 0)
 
     switch (range) {
@@ -102,10 +120,8 @@ export class StatsManager {
         return { start: start.getTime(), prevStart: prev.getTime() }
       }
       case '3m': {
-        const start = new Date(today)
-        start.setMonth(start.getMonth() - 3)
-        const prev = new Date(start)
-        prev.setMonth(prev.getMonth() - 3)
+        const start = subtractCalendarMonthsClamped(today, 3)
+        const prev = subtractCalendarMonthsClamped(start, 3)
         return { start: start.getTime(), prevStart: prev.getTime() }
       }
       case 'all': {
@@ -132,24 +148,25 @@ export class StatsManager {
 
     if (allEntries.length === 0) return empty
 
-    const { start, prevStart } = this.rangeToMs(range)
+    const nowMs = this.now()
+    const { start, prevStart } = this.rangeToMs(range, nowMs)
     const filtered = allEntries.filter((e) => e.timestamp >= start)
+    const now = new Date(nowMs)
+    const currentMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    ).getTime()
 
     let prevFiltered: StatsSessionEntry[]
     if (range === 'all') {
-      const now = new Date()
-      const thisMonthStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1
-      ).getTime()
       const lastMonthStart = new Date(
         now.getFullYear(),
         now.getMonth() - 1,
         1
       ).getTime()
       prevFiltered = allEntries.filter(
-        (e) => e.timestamp >= lastMonthStart && e.timestamp < thisMonthStart
+        (e) => e.timestamp >= lastMonthStart && e.timestamp < currentMonthStart
       )
     } else {
       prevFiltered = allEntries.filter(
@@ -177,7 +194,8 @@ export class StatsManager {
       }
     }
 
-    const heatmapStart = range === 'today' ? this.rangeToMs('7d').start : start
+    const heatmapStart =
+      range === 'today' ? this.rangeToMs('7d', nowMs).start : start
     const heatmapEntries = allEntries.filter((e) => e.timestamp >= heatmapStart)
     const dailyActivity: Record<string, number> = {}
     for (const e of heatmapEntries) {
@@ -192,22 +210,16 @@ export class StatsManager {
 
     let trendCurrentWords = totalOutputWords
     if (range === 'all') {
-      const now = new Date()
-      const thisMonthStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1
-      ).getTime()
       trendCurrentWords = 0
       for (const e of filtered) {
-        if (e.timestamp >= thisMonthStart)
+        if (e.timestamp >= currentMonthStart)
           trendCurrentWords += e.outputWordCount
       }
     }
 
     const averageRawWpm = wpmCount > 0 ? Math.round(wpmSum / wpmCount) : 0
     const allActiveDays = this.getActiveDays(allEntries)
-    const currentStreakDays = this.computeCurrentStreak(allActiveDays)
+    const currentStreakDays = this.computeCurrentStreak(allActiveDays, nowMs)
     const longestStreakDays = this.computeLongestStreak(allActiveDays)
     const formattingUsagePercent =
       formattingKnownCount > 0
@@ -235,8 +247,8 @@ export class StatsManager {
     return days
   }
 
-  private computeCurrentStreak(activeDays: Set<string>): number {
-    const today = new Date()
+  private computeCurrentStreak(activeDays: Set<string>, nowMs: number): number {
+    const today = new Date(nowMs)
     today.setHours(0, 0, 0, 0)
 
     const todayKey = toLocalDateKey(today.getTime())

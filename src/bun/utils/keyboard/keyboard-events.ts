@@ -225,7 +225,6 @@ const hasMeta = (e: KeyEvent) => e.command
 const hasOption = (e: KeyEvent) => e.option
 
 export interface ShortcutDefinition {
-  displayKeys: string[]
   /** One or more swallow rules (e.g. Fn uses two hardware keycodes). */
   swallowRules: KeyEvent[]
   matchesToggleDown: (e: KeyEvent) => boolean
@@ -239,14 +238,12 @@ export type ShortcutDefinitionOptions = {
 
 export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   'option-space': {
-    displayKeys: ['⌥', 'Space'],
     swallowRules: [rule(Key.space, { option: true })],
     matchesToggleDown: optionComboToggleDown(Key.space),
     matchesHoldDown: optionComboHoldDown(Key.space),
     matchesHoldUp: optionComboHoldUp(Key.space),
   },
   'right-option': {
-    displayKeys: ['Right ⌥'],
     swallowRules: [rule(Key.rightOption, { option: true })],
     matchesToggleDown: (e) =>
       e.keyDown && e.keycode === Key.rightOption && e.option && !e.isRepeat,
@@ -256,35 +253,30 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     matchesHoldUp: (e) => e.keycode === Key.rightOption && !e.keyDown,
   },
   'option-enter': {
-    displayKeys: ['⌥', 'Enter'],
     swallowRules: [rule(Key.enter, { option: true })],
     matchesToggleDown: optionComboToggleDown(Key.enter),
     matchesHoldDown: optionComboHoldDown(Key.enter),
     matchesHoldUp: optionComboHoldUp(Key.enter),
   },
   'fn-space': {
-    displayKeys: ['Fn', 'Space'],
     swallowRules: [rule(Key.space, { fn: true })],
     matchesToggleDown: fnComboToggleDown(Key.space),
     matchesHoldDown: fnComboHoldDown(Key.space),
     matchesHoldUp: fnComboHoldUp(Key.space),
   },
   'fn-f1': {
-    displayKeys: ['Fn', 'F1'],
     swallowRules: [rule(Key.f1, { fn: true })],
     matchesToggleDown: fnComboToggleDown(Key.f1),
     matchesHoldDown: fnComboHoldDown(Key.f1),
     matchesHoldUp: fnComboHoldUp(Key.f1),
   },
   'fn-f2': {
-    displayKeys: ['Fn', 'F2'],
     swallowRules: [rule(Key.f2, { fn: true })],
     matchesToggleDown: fnComboToggleDown(Key.f2),
     matchesHoldDown: fnComboHoldDown(Key.f2),
     matchesHoldUp: fnComboHoldUp(Key.f2),
   },
   'fn-globe': {
-    displayKeys: ['Fn'],
     swallowRules: [rule(Key.fn, { fn: true }), rule(Key.globeFn, { fn: true })],
     matchesToggleDown: (e) =>
       FN_PHYSICAL_KEYCODES.includes(
@@ -304,21 +296,18 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
       ) && !e.keyDown,
   },
   'control-space': {
-    displayKeys: ['⌃', 'Space'],
     swallowRules: [rule(Key.space, { control: true })],
     matchesToggleDown: controlComboToggleDown(Key.space),
     matchesHoldDown: controlComboHoldDown(Key.space),
     matchesHoldUp: controlComboHoldUp(Key.space),
   },
   'control-enter': {
-    displayKeys: ['⌃', 'Enter'],
     swallowRules: [rule(Key.enter, { control: true })],
     matchesToggleDown: controlComboToggleDown(Key.enter),
     matchesHoldDown: controlComboHoldDown(Key.enter),
     matchesHoldUp: controlComboHoldUp(Key.enter),
   },
   'control-option': {
-    displayKeys: ['⌃', '⌥'],
     // Swallow both the Control-then-Option and Option-then-Control orders.
     swallowRules: [
       ...OPTION_KEYCODES.map((k) => rule(k, { control: true, option: true })),
@@ -330,7 +319,6 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     ]),
   },
   'control-meta': {
-    displayKeys: ['⌃', '⌘'],
     // The Win/Command key-down rules are what stop Windows opening the Start menu.
     swallowRules: [
       ...META_KEYCODES.map((k) => rule(k, { control: true, command: true })),
@@ -342,7 +330,6 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
     ]),
   },
   'control-meta-space': {
-    displayKeys: ['⌃', '⌘', 'Space'],
     swallowRules: [
       rule(Key.space, { control: true, command: true }),
       // Without these the bare Ctrl+Win prefix still reaches the OS while the user
@@ -354,12 +341,10 @@ export const SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
 }
 
 function buildOptionShortcutDefinition(
-  displayKeys: string[],
   trigger: number,
   requireLeftOption = false
 ): ShortcutDefinition {
   return {
-    displayKeys,
     swallowRules: [
       requireLeftOption
         ? rule(trigger, {
@@ -384,9 +369,9 @@ export function getShortcutDefinition(
 
   switch (id) {
     case 'option-space':
-      return buildOptionShortcutDefinition(['⌥', 'Space'], Key.space, true)
+      return buildOptionShortcutDefinition(Key.space, true)
     case 'option-enter':
-      return buildOptionShortcutDefinition(['⌥', 'Enter'], Key.enter, true)
+      return buildOptionShortcutDefinition(Key.enter, true)
     default:
       return SHORTCUTS[id]
   }

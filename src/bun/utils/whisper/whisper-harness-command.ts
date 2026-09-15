@@ -33,6 +33,11 @@ export interface WhisperHarnessCommand {
   crispasrBackend?: CrispasrBackendId
 }
 
+export interface WhisperHarnessCommandDependencies {
+  resolveBinary: (harness: AsrHarnessId) => Promise<string>
+  threadCount: () => number
+}
+
 function whisperHarnessThreadCount(): number {
   return Math.max(4, availableParallelism?.() ?? 4)
 }
@@ -62,7 +67,11 @@ function whisperHarnessThreadCount(): number {
  * building a command for it. See ADR-0005.
  */
 export async function buildWhisperHarnessCommand(
-  options: WhisperHarnessCommandOptions
+  options: WhisperHarnessCommandOptions,
+  dependencies: WhisperHarnessCommandDependencies = {
+    resolveBinary: findAsrHarnessBinary,
+    threadCount: whisperHarnessThreadCount,
+  }
 ): Promise<WhisperHarnessCommand> {
   const harness = options.harness ?? DEFAULT_ASR_HARNESS
   const backend = options.crispasrBackend
@@ -73,7 +82,7 @@ export async function buildWhisperHarnessCommand(
     )
   }
 
-  const binary = await findAsrHarnessBinary(harness)
+  const binary = await dependencies.resolveBinary(harness)
   const languageArg = asrHarnessLanguageArg(options.language)
 
   const argv = [binary]
@@ -86,7 +95,7 @@ export async function buildWhisperHarnessCommand(
     '-m',
     options.modelPath,
     '-t',
-    String(whisperHarnessThreadCount()),
+    String(dependencies.threadCount()),
     '--language',
     languageArg,
     '-f',

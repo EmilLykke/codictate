@@ -44,6 +44,7 @@ import type {
   TranscriptionRequest,
   TranscriptionResult,
 } from "../../src/bun/utils/whisper/engines/transcription";
+import { failedTranscription } from "../../src/bun/utils/whisper/engines/transcription";
 
 /** The range a leaf in these fixtures claims to have measured. */
 const RANGE: SampleRange = {
@@ -305,6 +306,7 @@ function countingAdapter(
         engineId: "whisper_cpp",
         speechModelId: "large-v3-turbo-q5_0",
         audioPath: entry.audioPath,
+        timeoutMs: 180_000,
         modelPath: "/weights/large-v3-turbo-q5_0.bin",
         languageCode: entry.language,
         translateToEnglish: false,
@@ -373,6 +375,30 @@ describe("measureClips: a 400-clip range over the 930-clip Danish pool", () => {
       expect(measured.overhead?.timingRegime).toBe("direct-adapter");
       expect(measured.overhead?.inferenceMs).toBeNull();
     }
+  });
+
+  test("records engine deadlines as timeouts and checkpoints later clips", async () => {
+    const pool = danishPool(5);
+    const checkpoints: SampleMeasurementV2[][] = [];
+    const adapter = countingAdapter(() =>
+      failedTranscription("engine_timed_out", "large-v3-turbo-q5_0"),
+    );
+
+    const outcome = await measureClips({
+      plan: planOver(pool, 0, 2),
+      entriesByClipId: entriesByClipId(pool),
+      adapter,
+      onScoredClip: (samples) => checkpoints.push([...samples]),
+    });
+
+    const scored = outcome.samples.filter((sample) => !sample.isWarmup);
+    expect(scored.map((sample) => sample.status)).toEqual([
+      "timeout",
+      "timeout",
+    ]);
+    expect(scored.map((sample) => sample.responseMs)).toEqual([null, null]);
+    expect(checkpoints.length).toBe(2);
+    expect(checkpoints[1].filter((sample) => !sample.isWarmup).length).toBe(2);
   });
 
   test("nothing but the adapter call sits inside the timing window", async () => {
@@ -903,11 +929,23 @@ describe("adapterFor", () => {
 
     expect(request.audioPath).toBe(entry.audioPath);
     expect(request.speechModelId).toBe("large-v3-turbo-q5_0");
+    expect(request.timeoutMs).toBe(180_000);
     // No Benchmark Combination translates: WER is scored against a reference transcript
     // in the Sample's own language.
     expect("translateToEnglish" in request && request.translateToEnglish).toBe(
       false,
     );
+  });
+
+  test("derives a longer Request deadline from a long benchmark clip", () => {
+    const [base] = danishPool(1);
+    const request = adapterFor(
+      "large-v3-turbo-q5_0",
+      "/weights/turbo.bin",
+      "crispasr",
+    ).prepare({ ...base, audioDurationSec: 30 * 60 });
+
+    expect(request.timeoutMs).toBe(91 * 60_000);
   });
 });
 

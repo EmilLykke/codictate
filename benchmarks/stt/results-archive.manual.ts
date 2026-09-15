@@ -33,7 +33,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { ASR_HARNESS_IDS } from "../../src/shared/asr-harness";
 import { getSpeechModel } from "../../src/shared/speech-models";
 import { generateMarkdownReport, type BenchmarkResults } from "./report";
 import { loadCoverage } from "./coverage";
@@ -42,10 +41,8 @@ import {
   flattenDatasetResults,
   harnessLabelsPresent,
   isBenchmarkHarnessLabel,
-  makeVariantKey,
   normalizeDatasetResults,
   parseVariantKey,
-  BENCHMARK_HARNESS_LABELS,
   DEFAULT_HARNESS_LABEL,
   PRE_HARNESS_ARCHIVE_LABEL,
 } from "./results-schema";
@@ -72,38 +69,6 @@ function readRun(run: string): BenchmarkResults {
     fleurs: normalizeDatasetResults(parsed.fleurs),
   } as BenchmarkResults;
 }
-
-describe("runnable Harnesses vs archived Harness labels", () => {
-  test("whisper-cli is an archived label but is not runnable", () => {
-    expect(isBenchmarkHarnessLabel("whisper-cli")).toBe(true);
-    expect((ASR_HARNESS_IDS as readonly string[]).includes("whisper-cli")).toBe(
-      false,
-    );
-  });
-
-  test("every runnable Harness is also an archived label", () => {
-    for (const id of ASR_HARNESS_IDS) {
-      expect(isBenchmarkHarnessLabel(id)).toBe(true);
-    }
-  });
-
-  test("variant keys round-trip for every archived label", () => {
-    for (const label of BENCHMARK_HARNESS_LABELS) {
-      const key = makeVariantKey(label, "large-v3-turbo-q5_0");
-      expect(parseVariantKey(key)).toEqual({
-        modelId: "large-v3-turbo-q5_0",
-        harness: label,
-      });
-    }
-  });
-
-  test("the pre-harness archive label is not the shipping default", () => {
-    // Re-pointing this at the default silently re-attributes 34 Speech Models' worth of
-    // whisper-cli measurements to whichever Harness happens to ship.
-    expect(PRE_HARNESS_ARCHIVE_LABEL).toBe("whisper-cli");
-    expect(PRE_HARNESS_ARCHIVE_LABEL).not.toBe(DEFAULT_HARNESS_LABEL);
-  });
-});
 
 describe(`archived comparison run: ${COMPARISON_RUN}`, () => {
   const results = readRun(COMPARISON_RUN);

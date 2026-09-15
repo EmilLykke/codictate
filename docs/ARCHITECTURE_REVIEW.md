@@ -15,6 +15,8 @@ This is a review, not a decision record. Decisions that come out of it belong in
 > Updated after #44: a `test` script and `.github/workflows/ci.yml` now exist, so `bun test`, `lint` and `tsc` gate every push to `main` and every pull request, and the Rust helper checks run on a Windows runner. The line count of untested modules above is unchanged - only the runner landed.
 >
 > Updated after ADR-0005's sequence (#44 - #49, PR #50): **7 test files, 144 tests**, all of which run without a subprocess, a filesystem or a webview. The new coverage is the pure core of the run decision - `dictation-plan.test.ts`, `settings-heal.test.ts`, `parakeet-warmup.test.ts`, `speech-models.test.ts` - and it is the coverage ADR-0005 said its restructuring depended on. `AppConfig.ts`, `setup-recording.ts`, `speech2text.ts`, `keyboard-events.ts` and `rpc.ts` still have none, so the claim above still holds for the glue.
+>
+> Updated 2026-09-15: the original standing condition is now historical. CI remains active, and the default suite covers the AppConfig state transitions, Stats Manager, History Manager, ASR Harness command, shared Preset catalog, model-selection rule, engine process supervision and Windows hook matchers described below. The visual HTML remains a dated snapshot and now links back to this maintained file.
 
 ## Candidates
 
@@ -22,12 +24,24 @@ This is a review, not a decision record. Decisions that come out of it belong in
 | --- | --- | --- |
 | A | Resolve the Dictation once, into a plan | Implemented (PR #50) |
 | B | Make the Dictation run return a result instead of pasting one | Implemented (#52 - #57) |
-| C | Give a Preset one exhaustive definition | Strong |
-| D | Shrink AppConfig's interface to the eight members that carry it | Strong |
-| E | Make the interface the test surface | Strong |
+| C | Give a Preset one exhaustive definition | Partially implemented (2026-09-15) |
+| D | Shrink AppConfig's interface to the eight members that carry it | Partially implemented (2026-09-15) |
+| E | Make the interface the test surface | Implemented (2026-09-15) |
 | F | Retire the whisper-models shim | Implemented (#45, in PR #50) |
-| G | One module resolves Vendor Binaries and Native Helpers | Worth exploring |
-| H | Collapse the tray action modules | Worth exploring |
+| G | One module resolves Vendor Binaries and Native Helpers | Partially implemented (2026-09-15) |
+| H | Collapse the tray action modules | Partially implemented (2026-09-15) |
+
+## Follow-through verification — 2026-09-15
+
+The review was checked against the current runtime before more code changed. A, B and F are present and behave as their ADRs require. The remaining work separated into current defects and broader module-shape proposals; the defects were fixed, while the parts that still need a larger design decision remain labelled partial.
+
+- **C, partial:** `SHORTCUT_PRESETS` is now an exhaustive `Record<ShortcutId, ShortcutOption>` with explicit family, platform support and Windows hold-end metadata. Pickers and hold handling derive those facts from the catalog, rejected optimistic writes restore server state, and Windows active-combo tracking includes Shift. Trigger matchers and the platform-native keycode adapters remain separate because they execute in TypeScript, Swift and Rust; deriving those safely would require a generated cross-language contract.
+- **D, partial:** formatting writes validate a detached next value before one assignment; main and dictionary snapshots persist in call order; every dictionary save restores built-ins; and the retained legacy file can populate only a missing split file, so it cannot overwrite an existing main config while restoring a missing dictionary. These transitions have hermetic tests. `AppConfig` remains broad and still constructs platform availability internally, so the interface-shrinking proposal is not complete.
+- **E, implemented:** the default suite now covers Stats Manager calendar boundaries and streaks, History Manager queue recovery/search/audio cleanup, exact ASR Harness argv, the Preset catalog, model-selection patches, AppConfig state helpers, process deadlines and the pure archive-label schema checks. Windows hook matcher tests compile on every host and execute in the existing Windows CI job.
+- **G, partial:** one tested resolver now owns ordered synchronous/asynchronous candidate lookup and required-binary remediation. All platform providers plus the standalone ASR Harness, microphone and keyboard finders use it, and the keyboard cache keeps the resolved path and kind together. The six binary-specific `PlatformProvider` methods and their platform path tables remain; replacing them with an ID registry needs packaged-app path verification on both shipping platforms.
+- **H, partial:** the tray and React model-selection paths now use one shared rule, and each React selection is one transactional RPC patch rather than two or three writes. The small device and language action modules remain because removing them adds no user-visible behavior by itself.
+
+Additional defects found while testing these seams were fixed: deleting a transcript-only History entry no longer targets the recordings directory; three-month Stats ranges clamp at short-month boundaries; unsupported persisted Presets no longer survive on Windows; a timed-out Speech Engine is terminated and returned as a typed failure; Benchmark Samples record that failure as `timeout` and continue checkpointing; and Parakeet warmup removes its temporary WAV on every exit path.
 
 ### A — Resolve the Dictation once, into a plan
 
@@ -209,8 +223,8 @@ Small, independent, none blocking. Left deliberately rather than scoped into PR 
 
 - **The blocked-Dictation error sound is `dictation-cancel.wav`.** No error asset ships. Isolated to one line in `src/bun/utils/sound/play-sound.ts`, so it is an asset decision, not a code one.
 - **The tray error state self-clears after 20 seconds.** An invented bound, not specified by ADR-0005. Any of the four normal tray states also clears it immediately.
-- **Four pure schema tests no longer gate anything.** #44 moved all of `results-archive.manual.ts` out of the default run because the ticket said to; four of its tests are harness-label round-trips that need no archive and could return to `bun run test` via a file split.
-- **The benchmark spawns a fresh Parakeet helper per utterance** - 213 process starts for a 200-utterance Benchmark Combination, each paying a full model load, where the app keeps one prepared helper. There is also no per-utterance timeout anywhere in `benchmarks/stt/runner.ts`, so a wedged helper still stalls a run indefinitely; it is now at least loud when it exits non-zero.
+- ~~**Four pure schema tests no longer gate anything.**~~ **Closed 2026-09-15:** the Harness-label and variant-key checks now live in the default `results-harness-labels.test.ts`; only archive-dependent assertions remain manual.
+- **The benchmark spawns a fresh Parakeet helper per utterance** - 213 process starts for a 200-utterance Benchmark Combination, each paying a full model load, where the app keeps one prepared helper. ~~There is also no per-utterance timeout anywhere in `benchmarks/stt/runner.ts`.~~ **The timeout half closed 2026-09-15:** each Request carries a duration-aware deadline, a wedged process is terminated with bounded cleanup, the Sample is recorded as `timeout`, and the run checkpoints before continuing. Reusing one helper process still needs a native protocol that supports more than one utterance.
 - **Manual verification still owed on PR #50**: auto-warmup on selecting Parakeet, that a press mid-warmup waits rather than doing nothing, and the four blocked-plan surfaces (delete the Parakeet weights in Finder while the app runs). None of it is reachable from `bun test`. Folded into B's verification pass, which rewrites the same path.
 
 ## Suggested sequence
@@ -218,7 +232,7 @@ Small, independent, none blocking. Left deliberately rather than scoped into PR 
 1. **The four live bugs** (done 2026-08-17) — cheap, independent of any deepening, and they make A and B verifiable.
 2. **E** — costs a `test` script and a CI job; without it nothing below can be verified.
 3. ~~**A**, then **B** — the plan gives `runDictation(plan, audio)` something to accept. **F** folds into A. **A is done (#48)**, and it landed the plan **B** wants to accept.~~ **Both are done**: A in #48, B in #52 - #57.
-4. **C** — touches no file the others touch, so it can go in any order.
-5. **D**, **G**, **H** — independent.
+4. ~~**C** — touches no file the others touch, so it can go in any order.~~ **Its shared catalog, platform validation and Windows Shift gap are done; generated cross-language matcher data remains a separate design.**
+5. **D**, **G**, **H** — their verified data-integrity and duplicated-rule defects are fixed. Their remaining work is structural and still needs the larger interface/packaging decisions described in the follow-through section.
 
-**Where to pick up.** ~~PR #50 carries #44 - #49 plus the Parakeet install fix; ADR-0005's sequence is closed. The next deepening with a plan to accept it is **B**~~. **B is done (#52 - #57)**, and it took the paste out of the run path. What is left is **C**, which touches no file the others touch, then **D**, **G** and **H**, which are independent of each other. **G** has one more argument for it than this review recorded: the Parakeet bug was a binary-and-asset resolution rule written outside the module that owns resolution, and B's engine adapters now resolve a Native Helper and a Vendor Binary in two more places.
+**Where to pick up.** A, B, E and F are implemented. The current defects discovered under C, D, G and H are closed. Remaining architecture work is explicit: generate one cross-language Preset contract if Presets grow again; redesign `AppConfig` construction and public surface as one dedicated change; verify a binary-ID registry inside packaged macOS and Windows builds before removing the per-platform path methods; and decide whether the two one-caller tray action modules are clearer inline. The Parakeet benchmark still pays one process/model load per utterance. The error sound, tray error lifetime and hardware-only blocked-plan/warmup checks remain product or manual-verification work.

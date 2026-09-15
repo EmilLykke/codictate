@@ -23,6 +23,7 @@
  * See docs/adr/0005-no-runtime-fallbacks-for-dictation.md.
  */
 
+import { unlinkSync } from 'node:fs'
 import {
   PARAKEET_ENGINE_ID,
   getSpeechModel,
@@ -32,6 +33,12 @@ import { getPlatform } from '../../platform'
 import { getPlatformCapabilities } from '../../platform/runtime'
 import { modelManager } from './model-manager'
 import { log } from '../logger'
+import { decodeEngineStderr } from './engines/drain-stream'
+import {
+  ENGINE_PROCESS_CLEANUP_GRACE_MS,
+  ENGINE_PROCESS_TIMEOUT_MS,
+  superviseProcess,
+} from './engines/process-supervisor'
 
 /**
  * How long the run path waits for an in-flight preparation before spawning regardless.
@@ -41,7 +48,8 @@ import { log } from '../logger'
  * it the Dictation spawns and does its own loading, which costs one slow Dictation instead
  * of all of them.
  */
-const WARMUP_WAIT_TIMEOUT_MS = 180_000
+const WARMUP_WAIT_TIMEOUT_MS =
+  ENGINE_PROCESS_TIMEOUT_MS + ENGINE_PROCESS_CLEANUP_GRACE_MS
 
 /**
  * Everything the "should we prepare right now" decision depends on, as plain values so the
@@ -203,10 +211,11 @@ export async function awaitParakeetWarmup(): Promise<void> {
  */
 async function runParakeetWarmup(speechModelId: string): Promise<boolean> {
   if (!modelManager.isModelAvailable(speechModelId)) return false
+  let warmupPath: string | undefined
   try {
     const helper = getPlatform().findParakeetHelperBinary()
     const modelDir = modelManager.getParakeetInstallDir(speechModelId)
-    const warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
+    warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
     await Bun.write(warmupPath, createSilentWav())
     log('parakeet', 'starting model warmup', { speechModelId, modelDir })
     // stderr is captured rather than ignored. The helper reports its phases there, and
@@ -217,17 +226,36 @@ async function runParakeetWarmup(speechModelId: string): Promise<boolean> {
       stderr: 'pipe',
       env: { ...process.env, LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
     })
-    const stderr = (await new Response(proc.stderr).text()).trim()
-    await proc.exited
-    const failed = proc.exitCode !== 0
+    const supervised = await superviseProcess(proc, { stderr: proc.stderr })
+    const stderr = decodeEngineStderr(supervised.stderr).trim()
+    const timedOut = supervised.status === 'timed_out'
+    const exitCode = timedOut ? null : supervised.exitCode
+    const failed =
+      timedOut ||
+      (supervised.status === 'exited' &&
+        (!supervised.outputComplete || supervised.exitCode !== 0))
     log('parakeet', failed ? 'model warmup failed' : 'model warmup complete', {
-      exitCode: proc.exitCode,
+      exitCode,
+      ...(timedOut ? { timeoutMs: ENGINE_PROCESS_TIMEOUT_MS } : {}),
       ...(stderr === '' ? {} : { stderr: stderr.slice(-2000) }),
     })
     return !failed
   } catch (err) {
     log('parakeet', 'model warmup error', { err: String(err) })
     return false
+  } finally {
+    if (warmupPath) {
+      try {
+        unlinkSync(warmupPath)
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          log('parakeet', 'could not remove warmup audio', {
+            path: warmupPath,
+            err: String(err),
+          })
+        }
+      }
+    }
   }
 }
 

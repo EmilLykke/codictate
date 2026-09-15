@@ -13,10 +13,10 @@ import { awaitParakeetWarmup } from '../parakeet-warmup'
 import {
   decodeEngineStderr,
   decodeEngineStdout,
-  drainReadableStream,
   stderrTail,
 } from './drain-stream'
 import { parseParakeetFinalText } from './parakeet-output'
+import { superviseProcess } from './process-supervisor'
 import {
   failedTranscription,
   type ParakeetTranscriptionRequest,
@@ -92,22 +92,42 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     }
   )
 
-  const stderrPromise = drainReadableStream(proc.stderr)
-  const stdoutPromise = drainReadableStream(proc.stdout)
-  await proc.exited
-  const stderrText = decodeEngineStderr(await stderrPromise)
-  const stdoutBytes = await stdoutPromise
+  const supervised = await superviseProcess(proc, {
+    stdout: proc.stdout,
+    stderr: proc.stderr,
+    timeoutMs: request.timeoutMs,
+  })
+  const stderrText = decodeEngineStderr(supervised.stderr)
+
+  if (supervised.status === 'timed_out') {
+    log('parakeet', 'helper timed out', { timeoutMs: request.timeoutMs })
+    return failedTranscription(
+      'engine_timed_out',
+      request.speechModelId,
+      `deadline ${request.timeoutMs} ms: ${stderrTail(stderrText)}`
+    )
+  }
+  if (!supervised.outputComplete) {
+    return failedTranscription(
+      'engine_output_unreadable',
+      request.speechModelId,
+      'process exited but its output pipes did not close'
+    )
+  }
+  const stdoutBytes = supervised.stdout
 
   if (stderrText.trim()) {
     log('parakeet', 'helper stderr', { text: stderrText.slice(0, 4000) })
   }
 
-  if (proc.exitCode !== 0) {
-    log('parakeet', 'helper exited non-zero', { exitCode: proc.exitCode })
+  if (supervised.exitCode !== 0) {
+    log('parakeet', 'helper exited non-zero', {
+      exitCode: supervised.exitCode,
+    })
     return failedTranscription(
       'engine_exited_nonzero',
       request.speechModelId,
-      `exit ${proc.exitCode}: ${stderrTail(stderrText)}`
+      `exit ${supervised.exitCode}: ${stderrTail(stderrText)}`
     )
   }
 
@@ -141,7 +161,7 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
   const rawTranscript = text.trim()
 
   log('parakeet', 'transcription complete', {
-    exitCode: proc.exitCode,
+    exitCode: supervised.exitCode,
     transcriptLength: rawTranscript.length,
   })
 

@@ -1,5 +1,9 @@
 import { join } from 'node:path'
 import { getPlatformRuntime } from '../../platform/runtime'
+import {
+  requireBinary,
+  resolveBinaryAsync,
+} from '../../platform/resolve-binary'
 
 const MAC_CANDIDATE_PATHS = [
   join(import.meta.dir, '../native-helpers/MicRecorder'),
@@ -24,16 +28,11 @@ export const findMicRecorderBinary = async (): Promise<string> => {
       ? WINDOWS_CANDIDATE_PATHS
       : MAC_CANDIDATE_PATHS
 
-  for (const candidate of candidatePaths) {
-    if (await Bun.file(candidate).exists()) {
-      resolvedPath = candidate
-      return candidate
-    }
-  }
-
-  throw new Error(
+  resolvedPath = requireBinary(
+    await resolveBinaryAsync(candidatePaths),
     getPlatformRuntime() === 'windows'
       ? 'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so the Windows helper exists, then rebuild the app.'
       : 'MicRecorder not found. Run `bun run build:native` (or `swiftc` per src/scripts/build-swift.sh) so src/bun/utils/audio/MicRecorder exists, then rebuild the app.'
   )
+  return resolvedPath
 }

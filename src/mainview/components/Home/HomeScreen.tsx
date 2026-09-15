@@ -17,9 +17,12 @@ import {
 import { Kbd } from "../Common/Kbd";
 import {
   SPEECH_MODELS,
+  PARAKEET_ENGINE_ID,
+  type SpeechModel,
   getSpeechModel,
   formatModelSize,
 } from "../../../shared/speech-models";
+import { TRANSCRIPTION_LANGUAGE_OPTIONS } from "../../../shared/transcription-languages";
 import { LanguagePicker } from "../Settings/LanguagePicker";
 import { InstantTooltip } from "../Common/InstantTooltip";
 import { HomeHistoryTimeline } from "./HomeHistoryTimeline";
@@ -67,6 +70,35 @@ const TOGGLE_DIMMED =
   "border-overlay/12 bg-surface-1 text-overlay/30 hover:border-overlay/18 hover:text-overlay/45";
 
 const TRANSLATE_DEFAULT_PLACEHOLDER = "__translate_pick__";
+
+function modelOptionLabel(model: SpeechModel): string {
+  const quantization = model.id.match(/-(q\d+_[0-9a-z]+|f16|f32)$/i)?.[1];
+  const precision =
+    model.engine === PARAKEET_ENGINE_ID
+      ? null
+      : (quantization?.toUpperCase() ?? "Full precision");
+  const soleLanguageId = model.id.includes(".en")
+    ? "en"
+    : model.supportedTranscriptionLanguageIds?.length === 1
+      ? model.supportedTranscriptionLanguageIds[0]
+      : null;
+  const soleLanguageLabel = soleLanguageId
+    ? (TRANSCRIPTION_LANGUAGE_OPTIONS.find(
+        (option) => option.id === soleLanguageId,
+      )?.label ?? soleLanguageId.toUpperCase())
+    : null;
+  let label = model.label;
+  if (soleLanguageLabel === "English" && label.endsWith(" English")) {
+    label = label.slice(0, -" English".length);
+  }
+  if (quantization) {
+    label = label.replace(/\s+(?:Q\d+|F\d+)$/i, "");
+  }
+
+  return [label, precision, soleLanguageLabel]
+    .filter((part): part is string => part !== null)
+    .join(" · ");
+}
 
 export function HomeScreen({
   status,
@@ -191,7 +223,7 @@ export function HomeScreen({
               align="start"
               options={availableModels.map((m) => ({
                 value: m.id,
-                label: m.label,
+                label: modelOptionLabel(m),
               }))}
             />
           </div>

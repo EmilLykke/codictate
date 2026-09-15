@@ -11,11 +11,11 @@
  *   ObserverHelper — UI Automation (IUIAutomation) for text observation
  */
 
-import { existsSync } from 'fs'
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import type { PlatformProvider, PermissionType } from '../types'
 import { FORMATTER_MODEL_PATH } from '../runtime'
+import { requireBinary, resolveBinary } from '../resolve-binary'
 
 function llamaBinaryCandidates(): string[] {
   return [
@@ -25,10 +25,7 @@ function llamaBinaryCandidates(): string[] {
 }
 
 function resolveLlamaBinary(): string | null {
-  for (const candidate of llamaBinaryCandidates()) {
-    if (existsSync(candidate)) return candidate
-  }
-  return null
+  return resolveBinary(llamaBinaryCandidates())
 }
 
 const WINDOWS_HELPER_CANDIDATE_PATHS = [
@@ -40,10 +37,7 @@ const WINDOWS_HELPER_CANDIDATE_PATHS = [
 ]
 
 function resolveWindowsHelperBinary(): string | null {
-  for (const candidate of WINDOWS_HELPER_CANDIDATE_PATHS) {
-    if (existsSync(candidate)) return candidate
-  }
-  return null
+  return resolveBinary(WINDOWS_HELPER_CANDIDATE_PATHS)
 }
 
 export class WindowsPlatformProvider implements PlatformProvider {
@@ -80,21 +74,17 @@ export class WindowsPlatformProvider implements PlatformProvider {
   }
 
   findKeyListenerBinary(): string {
-    const found = resolveWindowsHelperBinary()
-    if (!found)
-      throw new Error(
-        'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
-      )
-    return found
+    return requireBinary(
+      resolveWindowsHelperBinary(),
+      'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
+    )
   }
 
   async findMicRecorderBinary(): Promise<string> {
-    const found = resolveWindowsHelperBinary()
-    if (!found)
-      throw new Error(
-        'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
-      )
-    return found
+    return requireBinary(
+      resolveWindowsHelperBinary(),
+      'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
+    )
   }
 
   findWindowHelperBinary(): string | null {
@@ -106,13 +96,10 @@ export class WindowsPlatformProvider implements PlatformProvider {
   }
 
   async findLlamaBinary(): Promise<string> {
-    const found = resolveLlamaBinary()
-    if (!found) {
-      throw new Error(
-        'llama-completion not found. Run `bun scripts/pre-build.ts` to build it.'
-      )
-    }
-    return found
+    return requireBinary(
+      resolveLlamaBinary(),
+      'llama-completion not found. Run `bun scripts/pre-build.ts` to build it.'
+    )
   }
 
   getFormatterModelPath(): string {
@@ -120,11 +107,9 @@ export class WindowsPlatformProvider implements PlatformProvider {
   }
 
   findParakeetHelperBinary(): string {
-    const found = resolveWindowsHelperBinary()
-    if (!found)
-      throw new Error(
-        'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
-      )
-    return found
+    return requireBinary(
+      resolveWindowsHelperBinary(),
+      'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
+    )
   }
 }

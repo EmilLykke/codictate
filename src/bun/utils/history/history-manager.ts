@@ -2,6 +2,7 @@ import { mkdirSync, existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { log } from '../logger'
 import type { HistoryEntry } from '../../../shared/types'
+import { estimateWavDurationMsFromBytes } from '../../../shared/wav-duration'
 
 const INDEX_FILENAME = 'history.json'
 const RECORDINGS_DIR = 'recordings'
@@ -12,39 +13,6 @@ function isSubsequence(needle: string, haystack: string): boolean {
     if (haystack[i] === needle[j]) j++
   }
   return j === needle.length
-}
-
-function estimateWavDurationMs(buf: Buffer): number {
-  if (buf.length < 44) return 0
-  if (buf.subarray(0, 4).toString('ascii') !== 'RIFF') return 0
-  if (buf.subarray(8, 12).toString('ascii') !== 'WAVE') return 0
-
-  let off = 12
-  let sampleRate = 0
-  let channels = 0
-  let bitsPerSample = 0
-  let dataSize = 0
-
-  while (off + 8 <= buf.length) {
-    const chunkId = buf.subarray(off, off + 4).toString('ascii')
-    const chunkSize = buf.readUInt32LE(off + 4)
-    const dataStart = off + 8
-    off += 8 + chunkSize + (chunkSize % 2)
-    if (chunkId === 'fmt ') {
-      if (dataStart + 16 > buf.length) return 0
-      channels = buf.readUInt16LE(dataStart + 2)
-      sampleRate = buf.readUInt32LE(dataStart + 4)
-      bitsPerSample = buf.readUInt16LE(dataStart + 14)
-    } else if (chunkId === 'data') {
-      dataSize = chunkSize
-      break
-    }
-  }
-
-  if (!sampleRate || !channels || !bitsPerSample || !dataSize) return 0
-  const bytesPerFrame = channels * (bitsPerSample / 8)
-  if (!bytesPerFrame || !Number.isInteger(bytesPerFrame)) return 0
-  return Math.floor((dataSize / bytesPerFrame / sampleRate) * 1000)
 }
 
 function generateId(): string {
@@ -123,7 +91,7 @@ export class HistoryManager {
         }
         const audioBuffer = Buffer.from(await sourceFile.arrayBuffer())
         await Bun.write(destPath, audioBuffer)
-        durationMs = estimateWavDurationMs(audioBuffer)
+        durationMs = estimateWavDurationMsFromBytes(audioBuffer) ?? 0
       }
 
       const entry: HistoryEntry = {
@@ -193,14 +161,16 @@ export class HistoryManager {
       const entry = index.entries.find((e) => e.id === id)
       if (!entry) return false
 
-      const audioPath = join(this.recordingsDir, entry.audioFilename)
-      try {
-        if (existsSync(audioPath)) unlinkSync(audioPath)
-      } catch (err) {
-        log('history', 'failed to delete audio file', {
-          id,
-          err: String(err),
-        })
+      if (entry.audioFilename) {
+        const audioPath = join(this.recordingsDir, entry.audioFilename)
+        try {
+          if (existsSync(audioPath)) unlinkSync(audioPath)
+        } catch (err) {
+          log('history', 'failed to delete audio file', {
+            id,
+            err: String(err),
+          })
+        }
       }
 
       index.entries = index.entries.filter((e) => e.id !== id)

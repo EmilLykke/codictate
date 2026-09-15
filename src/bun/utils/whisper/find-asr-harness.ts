@@ -4,6 +4,10 @@ import {
   DEFAULT_ASR_HARNESS,
   type AsrHarnessId,
 } from '../../../shared/asr-harness'
+import {
+  requireBinary,
+  resolveBinaryAsync,
+} from '../../platform/resolve-binary'
 
 /**
  * Where each ASR Harness binary lives, in resolution order: inside the built app
@@ -48,12 +52,10 @@ export async function findAsrHarnessBinary(
   const cached = resolvedPaths.get(harness)
   if (cached) return cached
 
-  for (const candidate of CANDIDATE_PATHS[harness]) {
-    if (await Bun.file(candidate).exists()) {
-      resolvedPaths.set(harness, candidate)
-      return candidate
-    }
-  }
-
-  throw new Error(NOT_FOUND_REMEDIATION[harness])
+  const resolved = requireBinary(
+    await resolveBinaryAsync(CANDIDATE_PATHS[harness]),
+    NOT_FOUND_REMEDIATION[harness]
+  )
+  resolvedPaths.set(harness, resolved)
+  return resolved
 }

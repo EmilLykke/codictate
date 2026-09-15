@@ -5,21 +5,6 @@ import type { PlatformRuntime } from './platform'
 /** Used to group shortcuts in the picker (Option / Fn / Control / Meta). */
 export type ShortcutFamily = 'option' | 'fn' | 'control' | 'meta'
 
-/**
- * A Preset's Shortcut Family comes from its explicit `family` field when it has one,
- * and otherwise from its leading Modifier. Presets involving Command / Win set
- * `family: 'meta'` because the Meta key is what a user scans the picker for, and it
- * is stated per Preset rather than inferred from the id so a future id containing
- * "meta" for another reason cannot silently land in the wrong group.
- */
-export function shortcutFamily(id: ShortcutId): ShortcutFamily {
-  const declared = SHORTCUT_OPTIONS.find((o) => o.id === id)?.family
-  if (declared) return declared
-  if (id.startsWith('control-')) return 'control'
-  if (id.startsWith('fn-')) return 'fn'
-  return 'option'
-}
-
 /** Single source of truth for dictation shortcuts (picker UI + keyboard display). */
 export interface ShortcutOption {
   id: ShortcutId
@@ -27,85 +12,110 @@ export interface ShortcutOption {
   label: string
   windowsKeys?: string[]
   windowsLabel?: string
-  supportedPlatforms?: PlatformRuntime[]
-  /** Overrides the leading-Modifier grouping. See {@link shortcutFamily}. */
-  family?: ShortcutFamily
+  supportedPlatforms: PlatformRuntime[]
+  family: ShortcutFamily
+  /** On Windows, releasing a Modifier ends the hold before the Trigger Key does. */
+  windowsHoldEndsOnModifierRelease: boolean
 }
 
-export const SHORTCUT_OPTIONS: ShortcutOption[] = [
-  {
+/**
+ * The exhaustive Preset catalog. Adding a `ShortcutId` requires its complete metadata here,
+ * and removing one leaves a compile error until the catalog follows.
+ */
+export const SHORTCUT_PRESETS = {
+  'option-space': {
     id: 'option-space',
     keys: ['⌥', 'Space'],
     label: 'Option + Space',
     windowsKeys: ['Alt', 'Space'],
     windowsLabel: 'Alt + Space',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'option',
+    windowsHoldEndsOnModifierRelease: true,
   },
-  {
+  'right-option': {
     id: 'right-option',
     keys: ['Right ⌥'],
     label: 'Right Option',
     windowsKeys: ['Right Alt'],
     windowsLabel: 'Right Alt',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'option',
+    windowsHoldEndsOnModifierRelease: false,
   },
-  {
+  'option-enter': {
     id: 'option-enter',
     keys: ['⌥', 'Enter'],
     label: 'Option + Enter',
     windowsKeys: ['Alt', 'Enter'],
     windowsLabel: 'Alt + Enter',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'option',
+    windowsHoldEndsOnModifierRelease: true,
   },
-  {
+  'fn-space': {
     id: 'fn-space',
     keys: ['Fn', 'Space'],
     label: 'Fn + Space',
     supportedPlatforms: ['macos'],
+    family: 'fn',
+    windowsHoldEndsOnModifierRelease: false,
   },
-  {
+  'fn-f1': {
     id: 'fn-f1',
     keys: ['Fn', 'F1'],
     label: 'Fn + F1',
     supportedPlatforms: ['macos'],
+    family: 'fn',
+    windowsHoldEndsOnModifierRelease: false,
   },
-  {
+  'fn-f2': {
     id: 'fn-f2',
     keys: ['Fn', 'F2'],
     label: 'Fn + F2',
     supportedPlatforms: ['macos'],
+    family: 'fn',
+    windowsHoldEndsOnModifierRelease: false,
   },
-  {
+  'fn-globe': {
     id: 'fn-globe',
     keys: ['Fn'],
     label: 'Fn only (Globe)',
     supportedPlatforms: ['macos'],
+    family: 'fn',
+    windowsHoldEndsOnModifierRelease: false,
   },
-  {
+  'control-space': {
     id: 'control-space',
     keys: ['⌃', 'Space'],
     label: 'Control + Space',
     windowsKeys: ['Ctrl', 'Space'],
     windowsLabel: 'Ctrl + Space',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'control',
+    windowsHoldEndsOnModifierRelease: true,
   },
-  {
+  'control-enter': {
     id: 'control-enter',
     keys: ['⌃', 'Enter'],
     label: 'Control + Enter',
     windowsKeys: ['Ctrl', 'Enter'],
     windowsLabel: 'Ctrl + Enter',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'control',
+    windowsHoldEndsOnModifierRelease: true,
   },
-  {
+  'control-option': {
     id: 'control-option',
     keys: ['⌃', '⌥'],
     label: 'Control + Option',
     windowsKeys: ['Ctrl', 'Alt'],
     windowsLabel: 'Ctrl + Alt',
     supportedPlatforms: ['macos', 'windows'],
+    family: 'control',
+    windowsHoldEndsOnModifierRelease: false,
   },
-  {
+  'control-meta': {
     id: 'control-meta',
     keys: ['⌃', '⌘'],
     label: 'Control + Command',
@@ -113,8 +123,9 @@ export const SHORTCUT_OPTIONS: ShortcutOption[] = [
     windowsLabel: 'Ctrl + Win',
     supportedPlatforms: ['macos', 'windows'],
     family: 'meta',
+    windowsHoldEndsOnModifierRelease: false,
   },
-  {
+  'control-meta-space': {
     id: 'control-meta-space',
     keys: ['⌃', '⌘', 'Space'],
     label: 'Control + Command + Space',
@@ -122,14 +133,41 @@ export const SHORTCUT_OPTIONS: ShortcutOption[] = [
     windowsLabel: 'Ctrl + Win + Space',
     supportedPlatforms: ['macos', 'windows'],
     family: 'meta',
+    windowsHoldEndsOnModifierRelease: true,
   },
-]
+} satisfies Record<ShortcutId, ShortcutOption>
+
+export const SHORTCUT_OPTIONS: ShortcutOption[] =
+  Object.values(SHORTCUT_PRESETS)
+
+export function shortcutFamily(id: ShortcutId): ShortcutFamily {
+  return SHORTCUT_PRESETS[id].family
+}
 
 function optionSupportedOnPlatform(
   option: ShortcutOption,
   platform: PlatformRuntime
 ): boolean {
-  return option.supportedPlatforms?.includes(platform) ?? true
+  return option.supportedPlatforms.includes(platform)
+}
+
+export function shortcutSupportedOnPlatform(
+  id: ShortcutId,
+  platform: PlatformRuntime
+): boolean {
+  return optionSupportedOnPlatform(SHORTCUT_PRESETS[id], platform)
+}
+
+/** Validate an untrusted Shortcut ID and its availability on this runtime. */
+export function isSupportedShortcutId(
+  value: unknown,
+  platform: PlatformRuntime
+): value is ShortcutId {
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(SHORTCUT_PRESETS, value) &&
+    shortcutSupportedOnPlatform(value as ShortcutId, platform)
+  )
 }
 
 function displayShortcutOption(
@@ -149,8 +187,7 @@ export function shortcutOptionById(
   id: ShortcutId,
   platform: PlatformRuntime = 'macos'
 ): ShortcutOption {
-  const option =
-    SHORTCUT_OPTIONS.find((o) => o.id === id) ?? SHORTCUT_OPTIONS[0]
+  const option = SHORTCUT_PRESETS[id] ?? SHORTCUT_OPTIONS[0]
   return displayShortcutOption(option, platform)
 }
 
@@ -270,11 +307,5 @@ export function platformShortcutSupportHint(
  * when the modifier goes up either way.
  */
 export function windowsUsesModifierReleaseHold(id: ShortcutId): boolean {
-  return (
-    id === 'option-space' ||
-    id === 'option-enter' ||
-    id === 'control-space' ||
-    id === 'control-enter' ||
-    id === 'control-meta-space'
-  )
+  return SHORTCUT_PRESETS[id].windowsHoldEndsOnModifierRelease
 }

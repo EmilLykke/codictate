@@ -22,7 +22,7 @@ export interface PlatformProvider {
 
   /**
    * Whether on-device AI formatting is available on this platform —
-   * i.e. the vendored `llama-cli` binary is resolvable. The formatter model
+   * i.e. the vendored `llama-completion` binary is resolvable. The formatter model
    * is a separate, user-downloadable asset (see `getFormatterModelPath`).
    */
   isFormattingAvailable(): boolean
@@ -36,7 +36,7 @@ export interface PlatformProvider {
   findWindowHelperBinary(): string | null
   findObserverHelperBinary(): string | null
   /**
-   * Resolve the vendored llama.cpp `llama-cli` binary used by the formatter.
+   * Resolve the vendored llama.cpp `llama-completion` binary used by the formatter.
    * Throws if not present (build must have run).
    */
   findLlamaBinary(): Promise<string>

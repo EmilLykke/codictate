@@ -74,11 +74,12 @@ struct ActiveComboModifiers {
     alt: bool,
     control: bool,
     meta: bool,
+    shift: bool,
 }
 
 impl ActiveComboModifiers {
     fn any(self) -> bool {
-        self.alt || self.control || self.meta
+        self.alt || self.control || self.meta || self.shift
     }
 }
 
@@ -178,6 +179,7 @@ fn active_combo_from_rule(rule: &SwallowRule) -> Option<ActiveCombo> {
         alt: rule.option,
         control: rule.control,
         meta: rule.command,
+        shift: rule.shift,
     };
     if !modifiers.any() {
         return None;
@@ -196,6 +198,7 @@ fn event_matches_active_combo(combo: ActiveCombo, event: &KeyEventMessage) -> bo
     (combo.modifiers.alt && (event.keycode == 58 || event.keycode == 61))
         || (combo.modifiers.control && (event.keycode == 59 || event.keycode == 62))
         || (combo.modifiers.meta && (event.keycode == 55 || event.keycode == 54))
+        || (combo.modifiers.shift && (event.keycode == 56 || event.keycode == 60))
 }
 
 /// A combo survives only while every modifier it requires is still down.
@@ -203,6 +206,7 @@ fn combo_still_held(combo: ActiveCombo, modifiers: ModifierState) -> bool {
     (!combo.modifiers.alt || modifiers.option())
         && (!combo.modifiers.control || modifiers.control())
         && (!combo.modifiers.meta || modifiers.command())
+        && (!combo.modifiers.shift || modifiers.shift())
 }
 
 pub(crate) fn initialize_hook_state() -> Arc<Mutex<HookState>> {
@@ -302,5 +306,68 @@ pub(crate) unsafe extern "system" fn keyboard_proc(
         1
     } else {
         unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn shift_rule() -> SwallowRule {
+        SwallowRule {
+            keycode: 49,
+            option: false,
+            left_option: None,
+            right_option: None,
+            command: false,
+            control: false,
+            shift: true,
+            function: false,
+        }
+    }
+
+    fn key_event(keycode: i32) -> KeyEventMessage {
+        KeyEventMessage {
+            keycode,
+            option: false,
+            left_option: false,
+            right_option: false,
+            command: false,
+            control: false,
+            shift: true,
+            function: false,
+            key_down: false,
+            is_repeat: false,
+        }
+    }
+
+    #[test]
+    fn shift_rule_tracks_and_matches_both_shift_keys() {
+        let combo = active_combo_from_rule(&shift_rule()).expect("shift is a combo modifier");
+
+        assert!(combo.modifiers.shift);
+        assert!(event_matches_active_combo(combo, &key_event(56)));
+        assert!(event_matches_active_combo(combo, &key_event(60)));
+    }
+
+    #[test]
+    fn shift_combo_ends_only_after_both_shift_keys_are_released() {
+        let combo = active_combo_from_rule(&shift_rule()).expect("shift is a combo modifier");
+
+        assert!(combo_still_held(
+            combo,
+            ModifierState {
+                left_shift: true,
+                ..ModifierState::default()
+            }
+        ));
+        assert!(combo_still_held(
+            combo,
+            ModifierState {
+                right_shift: true,
+                ..ModifierState::default()
+            }
+        ));
+        assert!(!combo_still_held(combo, ModifierState::default()));
     }
 }

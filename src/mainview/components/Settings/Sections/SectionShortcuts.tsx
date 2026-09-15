@@ -10,7 +10,7 @@ import {
   dictationShortcutBehaviorHint,
   platformShortcutSupportHint,
 } from "../../../../shared/shortcut-options";
-import { setShortcut, setShortcutHoldOnly } from "../../../rpc";
+import { fetchSettings, setShortcut, setShortcutHoldOnly } from "../../../rpc";
 import { ShortcutPicker } from "../ShortcutPicker";
 import { HoldOnlyShortcutPicker } from "../HoldOnlyShortcutPicker";
 import { settingsHelperClass } from "../settings-shared";
@@ -37,7 +37,10 @@ export function SectionShortcuts({ settings, status }: Props) {
             ? null
             : settings.shortcutHoldOnlyId,
       });
-      await setShortcut(id);
+      const ok = await setShortcut(id);
+      if (!ok) {
+        queryClient.setQueryData(["settings"], await fetchSettings());
+      }
     },
     [queryClient, settings],
   );
@@ -48,7 +51,10 @@ export function SectionShortcuts({ settings, status }: Props) {
         ...settings,
         shortcutHoldOnlyId: id,
       });
-      await setShortcutHoldOnly(id);
+      const ok = await setShortcutHoldOnly(id);
+      if (!ok) {
+        queryClient.setQueryData(["settings"], await fetchSettings());
+      }
     },
     [queryClient, settings],
   );

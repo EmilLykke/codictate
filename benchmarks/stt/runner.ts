@@ -17,6 +17,7 @@ import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
 import { parakeetTranscribeArgv } from "../../src/bun/utils/whisper/engines/parakeet-engine";
 import { runTranscription } from "../../src/bun/utils/whisper/engines/run-transcription";
+import { engineProcessTimeoutMs } from "../../src/bun/utils/whisper/engines/process-supervisor";
 import type {
   FailedTranscription,
   TranscriptionRequest,
@@ -39,6 +40,7 @@ import {
   type LeafSpeedV2 as SharedLeafSpeedV2,
   type RunPlan,
   type SampleMeasurementV2,
+  type SampleStatus,
 } from "../contract";
 
 /**
@@ -138,7 +140,7 @@ export interface UtteranceResult {
    * the rate survives. `benchmarkModel` counts these into the leaf's `failures`; without
    * the status here that count could not be taken at all.
    */
-  status: TranscriptionResult["status"];
+  status: SampleStatus;
   wallClockMs: number;
   wer: WerResult;
   hypothesis: string;
@@ -171,10 +173,7 @@ export function countTranscriptionFailures(
  * neither. One rule, two adapters onto it.
  *
  * Counts timeouts too, per the pinned failure taxonomy: `failureCount` is every
- * unsuccessful Sample and `timeoutCount` is the subset that timed out. This Harness has
- * no timeout to report - a `TranscriptionResult` is `ok` or `failed` (ADR-0006) - so the
- * subset is always empty here, and that is a fact about this adapter rather than about
- * the run.
+ * unsuccessful Sample and `timeoutCount` is the subset that timed out.
  */
 export function countFailedScoredSamples(
   samples: readonly SampleMeasurementV2[],
@@ -283,11 +282,9 @@ export interface ModelDatasetResult {
    * transcribed badly. `dictation-product-benchmark` emits the same field under the same
    * name on its external-product leaf, so a head-to-head table can print both columns.
    *
-   * No `failuresByStatus` breakdown alongside it, unlike that repo. A
-   * `TranscriptionResult` here is `ok` or `failed` and nothing else (ADR-0006), so a
-   * breakdown could only ever be `{ timeout: 0, failed: n }` - a zero that states a fact
-   * about this union rather than about the run, and which reads as "we never timed out"
-   * when the truth is that this harness has no timeout to report.
+   * The v2 Samples retain whether a failure was an engine deadline as `timeout`. This v1
+   * view keeps its historical aggregate failure count; the run record remains the source
+   * for the per-status distinction.
    *
    * Optional for the same reason `referenceWords` is: this is a read type as well as a
    * write type, and the runs archived before the count existed have no number on disk and
@@ -413,14 +410,17 @@ function transcriptionRequestFor(
   audioPath: string,
   harness: AsrHarnessId,
   language: string | null,
+  audioDurationSec: number,
 ): TranscriptionRequest {
   const speech = getSpeechModel(modelId)!;
+  const timeoutMs = engineProcessTimeoutMs(audioDurationSec * 1000);
 
   if (speech.engine === PARAKEET_ENGINE_ID) {
     return {
       engineId: PARAKEET_ENGINE_ID,
       speechModelId: modelId,
       audioPath,
+      timeoutMs,
       modelDir: modelPath,
     };
   }
@@ -430,6 +430,7 @@ function transcriptionRequestFor(
     engineId: speech.engine,
     speechModelId: modelId,
     audioPath,
+    timeoutMs,
     modelPath,
     languageCode: invocation.language,
     // No Benchmark Combination translates. WER is scored against a reference transcript in
@@ -519,6 +520,7 @@ export function adapterFor(
         entry.audioPath,
         harness,
         entry.language,
+        entry.audioDurationSec,
       ),
     invoke: runTranscription,
   };
@@ -553,6 +555,12 @@ async function measureClip(
 
   if (result.status === "failed") onFailure(result);
   const hypothesis = result.status === "ok" ? result.rawTranscript : "";
+  const sampleStatus: SampleStatus =
+    result.status === "ok"
+      ? "ok"
+      : result.reason === "engine_timed_out"
+        ? "timeout"
+        : "failed";
 
   const wer = computeWer(entry.transcript, hypothesis);
   const cer =
@@ -567,7 +575,7 @@ async function measureClip(
     // `null` on a failure, never zero: a zero would price a failure as an instant
     // transcription in the pooled ratio.
     responseMs: result.status === "ok" ? elapsedMs : null,
-    status: result.status === "ok" ? "ok" : "failed",
+    status: sampleStatus,
     wordErrors: wer.substitutions + wer.insertions + wer.deletions,
     referenceWords: wer.refWords,
     charErrors: cer ? cer.substitutions + cer.insertions + cer.deletions : 0,
@@ -599,7 +607,7 @@ async function measureClip(
       id: entry.id,
       clipId: entry.clipId,
       warmup: isWarmup,
-      status: result.status,
+      status: sampleStatus,
       wallClockMs: elapsedMs,
       wer,
       hypothesis,

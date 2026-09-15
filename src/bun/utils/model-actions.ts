@@ -1,7 +1,5 @@
-import {
-  SPEECH_MODELS,
-  coerceTranscriptionLanguageIdForModel,
-} from '../../shared/speech-models'
+import { SPEECH_MODELS } from '../../shared/speech-models'
+import { speechModelSelectionPatch } from '../../shared/speech-model-selection'
 import { AppConfig } from '../AppConfig/AppConfig'
 import { modelManager } from './whisper/model-manager'
 
@@ -28,18 +26,15 @@ export function handleModelAction(
   if (!action.startsWith(PREFIX)) return
   const id = action.slice(PREFIX.length)
   void (async () => {
-    const nextLang = coerceTranscriptionLanguageIdForModel(
-      id,
-      appConfig.getTranscriptionLanguageId()
+    const patch = speechModelSelectionPatch(
+      {
+        speechModelId: appConfig.getSpeechModelId(),
+        transcriptionLanguageId: appConfig.getTranscriptionLanguageId(),
+        streamMode: appConfig.getStreamMode(),
+      },
+      id
     )
-    // Live Transcription is not switched off here: the heal pass inside
-    // updateTranscriptionSettings does it, and announces it, for every caller at once.
-    const ok = await appConfig.updateTranscriptionSettings({
-      speechModelId: id,
-      ...(nextLang !== appConfig.getTranscriptionLanguageId()
-        ? { transcriptionLanguageId: nextLang }
-        : {}),
-    })
+    const ok = await appConfig.updateTranscriptionSettings(patch)
     if (ok) onSuccess?.()
   })()
 }

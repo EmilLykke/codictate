@@ -1,5 +1,9 @@
 import { join } from 'node:path'
 import { getPlatformRuntime } from '../../platform/runtime'
+import {
+  requireBinary,
+  resolveBinaryAsync,
+} from '../../platform/resolve-binary'
 
 const MAC_CANDIDATE_PATHS = [
   join(import.meta.dir, '../native-helpers/KeyListener'),
@@ -14,7 +18,7 @@ const WINDOWS_CANDIDATE_PATHS = [
   ),
 ]
 
-let resolvedPath: string | null = null
+let resolvedHelper: { path: string; kind: 'macos' | 'windows' } | null = null
 
 export async function findKeyboardHelperBinary(): Promise<{
   path: string
@@ -22,33 +26,17 @@ export async function findKeyboardHelperBinary(): Promise<{
 }> {
   const runtime = getPlatformRuntime()
 
-  if (resolvedPath) {
-    return {
-      path: resolvedPath,
-      kind: runtime === 'windows' ? 'windows' : 'macos',
-    }
-  }
+  if (resolvedHelper) return resolvedHelper
 
   const candidates =
     runtime === 'windows' ? WINDOWS_CANDIDATE_PATHS : MAC_CANDIDATE_PATHS
 
-  for (const candidate of candidates) {
-    if (await Bun.file(candidate).exists()) {
-      resolvedPath = candidate
-      return {
-        path: candidate,
-        kind: runtime === 'windows' ? 'windows' : 'macos',
-      }
-    }
-  }
-
-  if (runtime === 'windows') {
-    throw new Error(
-      'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild the app.'
-    )
-  }
-
-  throw new Error(
-    'KeyListener not found. Run `bun run build:native` so the macOS native helper is built, then rebuild the app.'
+  const path = requireBinary(
+    await resolveBinaryAsync(candidates),
+    runtime === 'windows'
+      ? 'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild the app.'
+      : 'KeyListener not found. Run `bun run build:native` so the macOS native helper is built, then rebuild the app.'
   )
+  resolvedHelper = { path, kind: runtime === 'windows' ? 'windows' : 'macos' }
+  return resolvedHelper
 }

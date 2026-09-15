@@ -18,6 +18,7 @@ import type {
   StatsSummary,
   StreamTranscriptionMode,
   ThemePreference,
+  TranscriptionSettingsPatch,
   UpdateCheckState,
   RecordingIndicatorMode,
   AppStatus,
@@ -136,6 +137,12 @@ export async function fetchSettings(): Promise<AppSettings> {
   return rpc.request.getSettings({})
 }
 
+export async function updateTranscriptionSettings(
+  patch: TranscriptionSettingsPatch
+): Promise<boolean> {
+  return rpc.request.updateTranscriptionSettings({ patch })
+}
+
 export async function setShortcut(shortcutId: ShortcutId): Promise<boolean> {
   return rpc.request.updateGeneralSettings({ patch: { shortcutId } })
 }
@@ -216,9 +223,7 @@ export async function setSoundEffectsEnabled(
 export async function setTranscriptionLanguage(
   transcriptionLanguageId: string
 ): Promise<boolean> {
-  return rpc.request.updateTranscriptionSettings({
-    patch: { transcriptionLanguageId },
-  })
+  return updateTranscriptionSettings({ transcriptionLanguageId })
 }
 
 export async function completeOnboarding(): Promise<boolean> {
@@ -230,9 +235,7 @@ export async function completeOnboarding(): Promise<boolean> {
 export async function setMaxRecordingDuration(
   maxRecordingDuration: number
 ): Promise<boolean> {
-  return rpc.request.updateTranscriptionSettings({
-    patch: { maxRecordingDuration },
-  })
+  return updateTranscriptionSettings({ maxRecordingDuration })
 }
 
 export async function setThemePreference(
@@ -261,39 +264,29 @@ export function copyDebugLog(): void {
 }
 
 export async function setSpeechModel(modelId: string): Promise<boolean> {
-  return rpc.request.updateTranscriptionSettings({
-    patch: { speechModelId: modelId },
-  })
+  return updateTranscriptionSettings({ speechModelId: modelId })
 }
 
 export async function setTranslateToEnglish(
   enabled: boolean
 ): Promise<boolean> {
-  return rpc.request.updateTranscriptionSettings({
-    patch: { translateToEnglish: enabled },
-  })
+  return updateTranscriptionSettings({ translateToEnglish: enabled })
 }
 
 export async function setTranslateDefaultLanguage(
   languageId: string
 ): Promise<boolean> {
-  return rpc.request.updateTranscriptionSettings({
-    patch: { translateDefaultLanguageId: languageId },
-  })
+  return updateTranscriptionSettings({ translateDefaultLanguageId: languageId })
 }
 
 export async function setStreamMode(enabled: boolean): Promise<boolean> {
-  return rpc.request.updateTranscriptionSettings({
-    patch: { streamMode: enabled },
-  })
+  return updateTranscriptionSettings({ streamMode: enabled })
 }
 
 export async function setStreamTranscriptionMode(
   mode: StreamTranscriptionMode
 ): Promise<boolean> {
-  return rpc.request.updateTranscriptionSettings({
-    patch: { streamTranscriptionMode: mode },
-  })
+  return updateTranscriptionSettings({ streamTranscriptionMode: mode })
 }
 
 export async function setFormattingEnabled(enabled: boolean): Promise<boolean> {

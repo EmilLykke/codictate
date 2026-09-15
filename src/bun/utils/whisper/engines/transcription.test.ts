@@ -50,11 +50,12 @@ describe('transcriptionRequestFromPlan', () => {
     const plan = planFor('large-v3-q5_0', { transcriptionLanguageId: 'danish' })
 
     expect(
-      transcriptionRequestFromPlan(plan, '/tmp/capture.wav', locations)
+      transcriptionRequestFromPlan(plan, '/tmp/capture.wav', 180_000, locations)
     ).toEqual({
       engineId: 'whisper_cpp',
       speechModelId: 'large-v3-q5_0',
       audioPath: '/tmp/capture.wav',
+      timeoutMs: 180_000,
       modelPath: '/models/large-v3-q5_0.bin',
       languageCode: plan.languageCode,
       translateToEnglish: false,
@@ -68,7 +69,12 @@ describe('transcriptionRequestFromPlan', () => {
       translateToEnglish: true,
     })
 
-    const request = transcriptionRequestFromPlan(plan, '/tmp/a.wav', locations)
+    const request = transcriptionRequestFromPlan(
+      plan,
+      '/tmp/a.wav',
+      180_000,
+      locations
+    )
     expect(request.engineId).not.toBe(PARAKEET_ENGINE_ID)
     if (request.engineId === PARAKEET_ENGINE_ID) return
     expect(request.translateToEnglish).toBe(true)
@@ -78,7 +84,12 @@ describe('transcriptionRequestFromPlan', () => {
   it('pins the cohere backend an hviske plan carries', () => {
     const plan = planFor('hviske-v5-tiny-q5_0')
 
-    const request = transcriptionRequestFromPlan(plan, '/tmp/a.wav', locations)
+    const request = transcriptionRequestFromPlan(
+      plan,
+      '/tmp/a.wav',
+      180_000,
+      locations
+    )
     expect(request.engineId).toBe('hviske')
     if (request.engineId === PARAKEET_ENGINE_ID) return
     expect(request.crispasrBackend).toBe('cohere')
@@ -89,11 +100,12 @@ describe('transcriptionRequestFromPlan', () => {
     const plan = planFor('parakeet-tdt-0.6b-v3')
 
     expect(
-      transcriptionRequestFromPlan(plan, '/tmp/capture.wav', locations)
+      transcriptionRequestFromPlan(plan, '/tmp/capture.wav', 180_000, locations)
     ).toEqual({
       engineId: PARAKEET_ENGINE_ID,
       speechModelId: 'parakeet-tdt-0.6b-v3',
       audioPath: '/tmp/capture.wav',
+      timeoutMs: 180_000,
       modelDir: '/models/parakeet-tdt-0.6b-v3-coreml',
     })
   })
@@ -102,8 +114,12 @@ describe('transcriptionRequestFromPlan', () => {
     const plan = planFor('large-v3-q5_0')
 
     expect(
-      transcriptionRequestFromPlan(plan, '/samples/fleurs/0001.wav', locations)
-        .audioPath
+      transcriptionRequestFromPlan(
+        plan,
+        '/samples/fleurs/0001.wav',
+        180_000,
+        locations
+      ).audioPath
     ).toBe('/samples/fleurs/0001.wav')
   })
 })
@@ -112,6 +128,7 @@ describe('failedTranscription', () => {
   const reasons: TranscriptionFailureReason[] = [
     'engine_exited_nonzero',
     'engine_runtime_missing',
+    'engine_timed_out',
     'parakeet_no_final_line',
     'engine_output_unreadable',
   ]

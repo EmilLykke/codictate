@@ -145,12 +145,9 @@ export interface V2OnV1Leaf {
   /**
    * **Optional**, and consistent when present: `timeout + failed === failures`.
    *
-   * Not required, because Codictate has no timeout to report - a `TranscriptionResult` is
-   * `ok` or `failed` and nothing else (`docs/adr/0006-dictation-returns-an-outcome.md`) -
-   * so it would have to write `{ timeout: 0, failed: n }`, a zero that states a fact about
-   * a type union rather than about the run and reads as "we never timed out". Not
-   * forbidden either, because the external harness really does time out and suppressing
-   * that breakdown would throw away the only place the distinction is recorded.
+   * Not required because archived producers did not all classify their failures. New
+   * Codictate Samples retain engine deadlines as `timeout`, and external harnesses can
+   * retain the same distinction here when their leaf writer emits the breakdown.
    */
   failuresByStatus?: LeafFailuresByStatus;
   /**

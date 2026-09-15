@@ -1,8 +1,12 @@
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
-import { existsSync } from 'fs'
 import type { PlatformProvider, PermissionType } from '../types'
 import { FORMATTER_MODEL_PATH } from '../runtime'
+import {
+  requireBinary,
+  resolveBinary,
+  resolveBinaryAsync,
+} from '../resolve-binary'
 
 const PERMISSION_URLS: Record<PermissionType, string> = {
   inputMonitoring:
@@ -13,22 +17,6 @@ const PERMISSION_URLS: Record<PermissionType, string> = {
     'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
   documents:
     'x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders',
-}
-
-function resolveBinary(candidates: string[]): string | null {
-  for (const p of candidates) {
-    if (existsSync(p)) return p
-  }
-  return null
-}
-
-async function resolveBinaryAsync(
-  candidates: string[]
-): Promise<string | null> {
-  for (const p of candidates) {
-    if (await Bun.file(p).exists()) return p
-  }
-  return null
 }
 
 export class MacOSPlatformProvider implements PlatformProvider {
@@ -70,12 +58,10 @@ export class MacOSPlatformProvider implements PlatformProvider {
       join(import.meta.dir, '../native-helpers/KeyListener'),
       join(import.meta.dir, '../../utils/keyboard/KeyListener'),
     ]
-    const found = resolveBinary(candidates)
-    if (!found)
-      throw new Error(
-        'KeyListener not found. Run `bun run build:native` so src/bun/utils/keyboard/KeyListener exists, then rebuild.'
-      )
-    return found
+    return requireBinary(
+      resolveBinary(candidates),
+      'KeyListener not found. Run `bun run build:native` so src/bun/utils/keyboard/KeyListener exists, then rebuild.'
+    )
   }
 
   async findMicRecorderBinary(): Promise<string> {
@@ -83,12 +69,10 @@ export class MacOSPlatformProvider implements PlatformProvider {
       join(import.meta.dir, '../native-helpers/MicRecorder'),
       join(import.meta.dir, '../../utils/audio/MicRecorder'),
     ]
-    const found = await resolveBinaryAsync(candidates)
-    if (!found)
-      throw new Error(
-        'MicRecorder not found. Run `bun run build:native` so src/bun/utils/audio/MicRecorder exists, then rebuild.'
-      )
-    return found
+    return requireBinary(
+      await resolveBinaryAsync(candidates),
+      'MicRecorder not found. Run `bun run build:native` so src/bun/utils/audio/MicRecorder exists, then rebuild.'
+    )
   }
 
   findWindowHelperBinary(): string | null {
@@ -108,12 +92,10 @@ export class MacOSPlatformProvider implements PlatformProvider {
   }
 
   async findLlamaBinary(): Promise<string> {
-    const found = await resolveBinaryAsync(this.llamaBinaryCandidates())
-    if (!found)
-      throw new Error(
-        'llama-completion not found. Run `bun scripts/pre-build.ts --llama-only` or `bun scripts/pre-build.ts`.'
-      )
-    return found
+    return requireBinary(
+      await resolveBinaryAsync(this.llamaBinaryCandidates()),
+      'llama-completion not found. Run `bun scripts/pre-build.ts --llama-only` or `bun scripts/pre-build.ts`.'
+    )
   }
 
   getFormatterModelPath(): string {
@@ -125,11 +107,9 @@ export class MacOSPlatformProvider implements PlatformProvider {
       join(import.meta.dir, '../native-helpers/CodictateParakeetHelper'),
       join(process.cwd(), 'vendors/parakeet/CodictateParakeetHelper'),
     ]
-    const found = resolveBinary(candidates)
-    if (!found)
-      throw new Error(
-        'CodictateParakeetHelper not found. Run `scripts/pre-build.ts` to build it.'
-      )
-    return found
+    return requireBinary(
+      resolveBinary(candidates),
+      'CodictateParakeetHelper not found. Run `scripts/pre-build.ts` to build it.'
+    )
   }
 }

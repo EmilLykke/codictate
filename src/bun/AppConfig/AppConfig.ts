@@ -4,7 +4,7 @@ import {
   isValidMaxRecordingDurationSeconds,
   type RecordingDurationPresetSeconds,
 } from '../../shared/recording-duration-presets'
-import { SHORTCUT_OPTIONS } from '../../shared/shortcut-options'
+import { isSupportedShortcutId } from '../../shared/shortcut-options'
 import { isValidTranscriptionLanguageId } from '../../shared/transcription-languages'
 import type {
   AppSettings,
@@ -58,6 +58,13 @@ import {
 import { modelManager } from '../utils/whisper/model-manager'
 import { persistedSpeechModelId } from './persisted-speech-model'
 import {
+  BUILTIN_DICTIONARY_ENTRIES,
+  SerializedSnapshotWriter,
+  formattingSettingsAfterPatch,
+  legacyMigrationPlan,
+  withBuiltinDictionaryEntries,
+} from './state-helpers'
+import {
   detectFormattingAvailable,
   isFormatterModelInstalled,
 } from '../utils/formatting/formatting-availability'
@@ -77,14 +84,6 @@ import {
 } from '../platform/runtime'
 
 const CONFIG_DIR = APP_DATA_DIR
-
-const VALID_SHORTCUT_IDS = new Set<ShortcutId>(
-  SHORTCUT_OPTIONS.map((o) => o.id)
-)
-
-function isValidShortcutId(id: unknown): id is ShortcutId {
-  return typeof id === 'string' && VALID_SHORTCUT_IDS.has(id as ShortcutId)
-}
 
 const RECORDING_INDICATOR_MODES = new Set<RecordingIndicatorMode>([
   'off',
@@ -170,13 +169,9 @@ function defaultAudioDuckingSettings(): AudioDuckingSettings {
   }
 }
 
-const BUILTIN_DICTIONARY_ENTRIES: DictionaryEntry[] = [
-  { kind: 'fuzzy', text: 'Codictate', source: 'manual' },
-]
-
 function defaultDictionarySettings(): DictionarySettings {
   return {
-    entries: [...BUILTIN_DICTIONARY_ENTRIES],
+    entries: BUILTIN_DICTIONARY_ENTRIES.map((entry) => ({ ...entry })),
     autoLearn: true,
     candidates: [],
   }
@@ -212,6 +207,12 @@ interface PersistedMainSettings {
   statsBackfillDone: boolean
   themePreference: ThemePreference
   debugMode: false
+}
+
+interface PersistedDictionarySettings {
+  entries: DictionaryEntry[]
+  autoLearn: boolean
+  candidates: DictionaryCandidate[]
 }
 
 export class AppConfig {
@@ -268,6 +269,18 @@ export class AppConfig {
    * does not trigger the heal pass, because the configuration was runnable. ADR-0006.
    */
   private dictationFailure: DictationFailureNotice | null = null
+  private readonly mainWriter = new SerializedSnapshotWriter<string>(
+    async (snapshot) => {
+      mkdirSync(CONFIG_DIR, { recursive: true })
+      await Bun.write(MAIN_CONFIG_PATH, snapshot)
+    }
+  )
+  private readonly dictionaryWriter = new SerializedSnapshotWriter<string>(
+    async (snapshot) => {
+      mkdirSync(CONFIG_DIR, { recursive: true })
+      await Bun.write(DICTIONARY_CONFIG_PATH, snapshot)
+    }
+  )
 
   /**
    * Wired once at boot. Everything derived from the `(settings, availability)` pair that
@@ -361,27 +374,22 @@ export class AppConfig {
   }
 
   private async saveMain(): Promise<void> {
-    mkdirSync(CONFIG_DIR, { recursive: true })
-    await Bun.write(
-      MAIN_CONFIG_PATH,
-      JSON.stringify(this.getPersistedMainSettings(), null, 2)
-    )
+    const snapshot = JSON.stringify(this.getPersistedMainSettings(), null, 2)
+    await this.mainWriter.write(snapshot)
   }
 
   private async saveDictionary(): Promise<void> {
-    mkdirSync(CONFIG_DIR, { recursive: true })
-    await Bun.write(
-      DICTIONARY_CONFIG_PATH,
-      JSON.stringify(
-        {
-          entries: this.dictionary.entries,
-          autoLearn: this.dictionary.autoLearn,
-          candidates: this.dictionary.candidates,
-        },
-        null,
-        2
-      )
-    )
+    // Every path that persists the dictionary passes through here, including auto-learning
+    // helpers that do not call updateDictionarySettings.
+    this.ensureBuiltinDictionaryEntries()
+    const snapshot: PersistedDictionarySettings = {
+      entries: this.dictionary.entries.map((entry) => ({ ...entry })),
+      autoLearn: this.dictionary.autoLearn,
+      candidates: this.dictionary.candidates.map((candidate) => ({
+        ...candidate,
+      })),
+    }
+    await this.dictionaryWriter.write(JSON.stringify(snapshot, null, 2))
   }
 
   private async saveAll(): Promise<void> {
@@ -389,6 +397,7 @@ export class AppConfig {
   }
 
   private applyPersistedMain(raw: Record<string, unknown>): void {
+    const platform = getPlatformCapabilities().platform
     if (raw.audioDeviceName !== undefined) {
       this.audioDeviceName =
         typeof raw.audioDeviceName === 'string' || raw.audioDeviceName === null
@@ -402,11 +411,13 @@ export class AppConfig {
           : this.audioDeviceId
     }
     if (typeof raw.audioDevice === 'number') this.audioDevice = raw.audioDevice
-    if (isValidShortcutId(raw.shortcutId)) this.shortcutId = raw.shortcutId
+    if (isSupportedShortcutId(raw.shortcutId, platform)) {
+      this.shortcutId = raw.shortcutId
+    }
     if (
       raw.shortcutHoldOnlyId !== undefined &&
       raw.shortcutHoldOnlyId !== null &&
-      isValidShortcutId(raw.shortcutHoldOnlyId)
+      isSupportedShortcutId(raw.shortcutHoldOnlyId, platform)
     ) {
       this.shortcutHoldOnlyId = raw.shortcutHoldOnlyId
     } else if (raw.shortcutHoldOnlyId === null) {
@@ -711,15 +722,12 @@ export class AppConfig {
   }
 
   private ensureBuiltinDictionaryEntries(): void {
-    for (const builtin of BUILTIN_DICTIONARY_ENTRIES) {
-      const exists = this.dictionary.entries.some(
-        (e) => e.text.toLowerCase() === builtin.text.toLowerCase()
-      )
-      if (!exists) this.dictionary.entries.push({ ...builtin })
-    }
+    this.dictionary.entries = withBuiltinDictionaryEntries(
+      this.dictionary.entries
+    )
   }
 
-  private applyLegacySettings(raw: Record<string, unknown>): void {
+  private applyLegacyMainSettings(raw: Record<string, unknown>): void {
     this.applyPersistedMain(raw)
 
     if (typeof raw.formattingEnabled === 'boolean') {
@@ -808,6 +816,9 @@ export class AppConfig {
       this.audioDucking.includeBuiltInSpeakers =
         raw.audioDuckingIncludeBuiltInSpeakers
     }
+  }
+
+  private applyLegacyDictionarySettings(raw: Record<string, unknown>): void {
     if (Array.isArray(raw.dictionaryEntries)) {
       this.dictionary.entries = this.parseDictionaryEntries(
         raw.dictionaryEntries
@@ -816,6 +827,7 @@ export class AppConfig {
     if (typeof raw.dictionaryAutoLearn === 'boolean') {
       this.dictionary.autoLearn = raw.dictionaryAutoLearn
     }
+    this.ensureBuiltinDictionaryEntries()
   }
 
   public async load() {
@@ -836,8 +848,6 @@ export class AppConfig {
         Bun.file(LEGACY_CONFIG_PATH).exists(),
       ])
 
-      let migrated = false
-
       if (hasMain) {
         const raw = (await Bun.file(MAIN_CONFIG_PATH).json()) as Record<
           string,
@@ -853,13 +863,14 @@ export class AppConfig {
         this.applyDictionarySettings(raw)
       }
 
-      if (hasLegacy && (!hasMain || !hasDictionary)) {
+      const migration = legacyMigrationPlan(hasMain, hasDictionary, hasLegacy)
+      if (migration.main || migration.dictionary) {
         const raw = (await Bun.file(LEGACY_CONFIG_PATH).json()) as Record<
           string,
           unknown
         >
-        this.applyLegacySettings(raw)
-        migrated = true
+        if (migration.main) this.applyLegacyMainSettings(raw)
+        if (migration.dictionary) this.applyLegacyDictionarySettings(raw)
       }
 
       if (!hasMain && !hasDictionary && !hasLegacy) {
@@ -871,9 +882,9 @@ export class AppConfig {
         return
       }
 
-      if (migrated) {
-        await this.saveAll()
-      }
+      if (migration.main && migration.dictionary) await this.saveAll()
+      else if (migration.main) await this.saveMain()
+      else if (migration.dictionary) await this.saveDictionary()
 
       log('config', 'loaded app config', {
         shortcutId: this.shortcutId,
@@ -1169,16 +1180,17 @@ export class AppConfig {
   public async updateGeneralSettings(
     patch: GeneralSettingsPatch
   ): Promise<boolean> {
+    const platform = getPlatformCapabilities().platform
     if (
       patch.shortcutId !== undefined &&
-      !VALID_SHORTCUT_IDS.has(patch.shortcutId)
+      !isSupportedShortcutId(patch.shortcutId, platform)
     ) {
       return false
     }
     if (patch.shortcutHoldOnlyId !== undefined) {
       if (
         patch.shortcutHoldOnlyId !== null &&
-        !VALID_SHORTCUT_IDS.has(patch.shortcutHoldOnlyId)
+        !isSupportedShortcutId(patch.shortcutHoldOnlyId, platform)
       ) {
         return false
       }
@@ -1340,92 +1352,15 @@ export class AppConfig {
   public async updateFormattingSettings(
     patch: FormattingSettingsPatch
   ): Promise<boolean> {
-    if (patch.enabled !== undefined) this.formatting.enabled = patch.enabled
-    if (patch.enabledModes !== undefined) {
-      this.formatting.enabledModes = {
-        ...this.formatting.enabledModes,
-        ...Object.fromEntries(
-          Object.entries(patch.enabledModes).filter(
-            ([, value]) => typeof value === 'boolean'
-          )
-        ),
-      }
-    }
-    if (patch.forceModeId !== undefined) {
-      if (
-        patch.forceModeId !== null &&
-        !isValidFormattingModeId(patch.forceModeId)
-      ) {
-        return false
-      }
-      this.formatting.forceModeId = patch.forceModeId
-    }
+    const next = formattingSettingsAfterPatch(this.formatting, patch)
+    if (next === null) return false
     if (patch.formatterModelTier !== undefined) {
-      const validTiers: FormatterModelTier[] = ['fast', 'quality']
-      if (!validTiers.includes(patch.formatterModelTier)) return false
-      this.formatting.formatterModelTier = patch.formatterModelTier
-      this.refreshFormatterModelInstalled()
-    }
-    if (patch.email !== undefined) {
-      if (
-        patch.email.greetingStyle !== undefined &&
-        !isValidEmailGreetingStyle(patch.email.greetingStyle)
-      ) {
-        return false
-      }
-      if (
-        patch.email.closingStyle !== undefined &&
-        !isValidEmailClosingStyle(patch.email.closingStyle)
-      ) {
-        return false
-      }
-      this.formatting.email = {
-        ...this.formatting.email,
-        ...patch.email,
+      next.modelAvailability = {
+        fast: isFormatterModelInstalled('fast'),
+        quality: isFormatterModelInstalled('quality'),
       }
     }
-    if (patch.imessage !== undefined) {
-      if (
-        patch.imessage.tone !== undefined &&
-        !isValidImessageTone(patch.imessage.tone)
-      ) {
-        return false
-      }
-      this.formatting.imessage = {
-        ...this.formatting.imessage,
-        ...patch.imessage,
-      }
-    }
-    if (patch.slack !== undefined) {
-      if (
-        patch.slack.tone !== undefined &&
-        !isValidSlackTone(patch.slack.tone)
-      ) {
-        return false
-      }
-      this.formatting.slack = {
-        ...this.formatting.slack,
-        ...patch.slack,
-      }
-    }
-    if (patch.document !== undefined) {
-      if (
-        patch.document.tone !== undefined &&
-        !isValidDocumentTone(patch.document.tone)
-      ) {
-        return false
-      }
-      if (
-        patch.document.structure !== undefined &&
-        !isValidDocumentStructure(patch.document.structure)
-      ) {
-        return false
-      }
-      this.formatting.document = {
-        ...this.formatting.document,
-        ...patch.document,
-      }
-    }
+    this.formatting = next
     await this.saveMain()
     return true
   }

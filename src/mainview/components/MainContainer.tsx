@@ -16,14 +16,14 @@ import type {
   DevAppPreviewRoute,
   DictationNoticeKind,
   StreamTranscriptionMode,
+  TranscriptionSettingsPatch,
 } from "../../shared/types";
 import { appEvents } from "../app-events";
 import {
-  DEFAULT_MODEL_ID,
   LARGE_V3_Q5_MODEL_ID,
   SPEECH_MODELS,
-  coerceTranscriptionLanguageIdForModel,
 } from "../../shared/speech-models";
+import { speechModelSelectionPatch } from "../../shared/speech-model-selection";
 import {
   cancelModelDownload,
   deleteWhisperModel,
@@ -37,7 +37,7 @@ import {
   setStreamTranscriptionMode,
   setTranslateDefaultLanguage,
   setTranslateToEnglish,
-  setSpeechModel,
+  updateTranscriptionSettings,
 } from "../rpc";
 
 export function MainContainer({
@@ -121,32 +121,17 @@ export function MainContainer({
             // The download was started *for* Translate to English, against the Speech Model
             // the main process named in its readiness. Nothing to re-derive here: select it
             // and ask for the toggle.
-            const current = queryClient.getQueryData<AppSettings>(["settings"]);
-            const sel = current?.speechModelId ?? DEFAULT_MODEL_ID;
-            if (sel !== modelId) {
-              const hadStream = current?.streamMode ?? false;
-              await setSpeechModel(modelId);
-              queryClient.setQueryData(["settings"], (old: AppSettings) => ({
-                ...old,
-                speechModelId: modelId,
-                ...(hadStream ? { streamMode: false } : {}),
-              }));
-              if (hadStream) {
-                const ok = await setStreamMode(false);
-                if (!ok) {
-                  queryClient.setQueryData(["settings"], await fetchSettings());
-                }
-              }
-            }
-            const ok = await setTranslateToEnglish(true);
-            if (ok) {
-              queryClient.setQueryData(["settings"], (old: AppSettings) => ({
-                ...old,
-                translateToEnglish: true,
-              }));
-            } else {
-              const fresh = await fetchSettings();
-              queryClient.setQueryData(["settings"], fresh);
+            const current =
+              queryClient.getQueryData<AppSettings>(["settings"]) ??
+              (await fetchSettings());
+            const patch = {
+              ...speechModelSelectionPatch(current, modelId),
+              translateToEnglish: true,
+            } satisfies TranscriptionSettingsPatch;
+            queryClient.setQueryData(["settings"], { ...current, ...patch });
+            const ok = await updateTranscriptionSettings(patch);
+            if (!ok) {
+              queryClient.setQueryData(["settings"], await fetchSettings());
             }
           }
         }
@@ -158,27 +143,14 @@ export function MainContainer({
             pendingTranslate !== modelId &&
             modelId !== LARGE_V3_Q5_MODEL_ID
           ) {
-            const cur = queryClient.getQueryData<AppSettings>(["settings"]);
-            const hadStream = cur?.streamMode ?? false;
-            const nextLang = coerceTranscriptionLanguageIdForModel(
-              modelId,
-              cur?.transcriptionLanguageId ?? "auto",
-            );
-            await setSpeechModel(modelId);
-            queryClient.setQueryData(["settings"], (old: AppSettings) => ({
-              ...old,
-              speechModelId: modelId,
-              transcriptionLanguageId: nextLang,
-              ...(hadStream ? { streamMode: false } : {}),
-            }));
-            if (nextLang !== cur?.transcriptionLanguageId) {
-              await setTranscriptionLanguage(nextLang);
-            }
-            if (hadStream) {
-              const ok = await setStreamMode(false);
-              if (!ok) {
-                queryClient.setQueryData(["settings"], await fetchSettings());
-              }
+            const current =
+              queryClient.getQueryData<AppSettings>(["settings"]) ??
+              (await fetchSettings());
+            const patch = speechModelSelectionPatch(current, modelId);
+            queryClient.setQueryData(["settings"], { ...current, ...patch });
+            const ok = await updateTranscriptionSettings(patch);
+            if (!ok) {
+              queryClient.setQueryData(["settings"], await fetchSettings());
             }
           }
         }
@@ -190,26 +162,14 @@ export function MainContainer({
   const handleModelSelect = useCallback(
     async (modelId: string) => {
       if (modelId === settings.speechModelId) return;
-      const hadStream = settings.streamMode;
-      const nextLang = coerceTranscriptionLanguageIdForModel(
-        modelId,
-        settings.transcriptionLanguageId,
-      );
+      const patch = speechModelSelectionPatch(settings, modelId);
       queryClient.setQueryData(["settings"], {
         ...settings,
-        speechModelId: modelId,
-        transcriptionLanguageId: nextLang,
-        ...(hadStream ? { streamMode: false } : {}),
+        ...patch,
       });
-      await setSpeechModel(modelId);
-      if (nextLang !== settings.transcriptionLanguageId) {
-        await setTranscriptionLanguage(nextLang);
-      }
-      if (hadStream) {
-        const ok = await setStreamMode(false);
-        if (!ok) {
-          queryClient.setQueryData(["settings"], await fetchSettings());
-        }
+      const ok = await updateTranscriptionSettings(patch);
+      if (!ok) {
+        queryClient.setQueryData(["settings"], await fetchSettings());
       }
     },
     [queryClient, settings],
