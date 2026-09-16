@@ -36,6 +36,7 @@ const buildCopy: Record<string, string> = {
   "src/assets/sounds/dictation-start.wav": "sounds/dictation-start.wav",
   "src/assets/sounds/dictation-stop.wav": "sounds/dictation-stop.wav",
   "src/assets/sounds/dictation-cancel.wav": "sounds/dictation-cancel.wav",
+  "src/assets/sounds/dictation-error.wav": "sounds/dictation-error.wav",
   "src/assets/sounds/funmode-dictation-start.mp3":
     "sounds/funmode-dictation-start.mp3",
   "src/assets/sounds/funmode-dication-end.mp3":

@@ -226,7 +226,7 @@ Three things kept it silent, and all three are now closed:
 
 Small, independent, none blocking. Left deliberately rather than scoped into PR #50.
 
-- **The blocked-Dictation error sound is `dictation-cancel.wav`.** No error asset ships. Isolated to one line in `src/bun/utils/sound/play-sound.ts`, so it is an asset decision, not a code one.
+- ~~**The blocked-Dictation error sound is `dictation-cancel.wav`.**~~ **Closed 2026-09-16:** a dedicated `dictation-error.wav` ships, `playErrorSound` plays it, and `electrobun.config.ts` copies it - that copy list is enumerated per file, so a new asset that is not added there is silently absent from the packaged app.
 - **The tray error state self-clears after 20 seconds.** An invented bound, not specified by ADR-0005. Any of the four normal tray states also clears it immediately.
 - ~~**Four pure schema tests no longer gate anything.**~~ **Closed 2026-09-15:** the Harness-label and variant-key checks now live in the default `results-harness-labels.test.ts`; only archive-dependent assertions remain manual.
 - ~~**The benchmark spawns a fresh Parakeet helper per utterance.**~~ **Closed 2026-09-15:** both Native Helpers implement the persistent `transcribe-session` protocol and the benchmark owns one restartable session per Combination. Startup and recovery happen outside Sample response timers; per-request deadlines, typed failures, checkpoint continuation and bounded teardown remain in force. Ten fresh one-shot helpers are still intentional for the separate peak-RSS sample. Swift and Rust compile checks plus fake-process tests cover the contract, but no model-backed benchmark was run in this follow-through, so the expected runtime reduction remains unmeasured.
