@@ -6,11 +6,12 @@ import {
   handleDeviceAction,
 } from './utils/device-actions'
 import {
-  buildTranscriptionLanguageMenuItems,
-  handleTranscriptionLanguageAction,
-} from './utils/transcription-language-actions'
-import { buildModelMenuItems, handleModelAction } from './utils/model-actions'
-import { speechModelLocksTranscriptionLanguage } from '../shared/speech-models'
+  SPEECH_MODELS,
+  speechModelLocksTranscriptionLanguage,
+} from '../shared/speech-models'
+import { speechModelSelectionPatch } from '../shared/speech-model-selection'
+import { TRANSCRIPTION_LANGUAGE_OPTIONS } from '../shared/transcription-languages'
+import { modelManager } from './utils/whisper/model-manager'
 import { shortcutTrayCompact } from '../shared/shortcut-options'
 import {
   FORMATTING_MODE_ORDER,
@@ -164,6 +165,24 @@ export const setupTray = (
     action: 'open',
   })
 
+  const buildModelMenuItems = (selectedModelId: string) =>
+    SPEECH_MODELS.filter((model) =>
+      modelManager.isModelAvailable(model.id)
+    ).map((model) => ({
+      type: 'normal' as const,
+      label: model.label,
+      action: `set-model:${model.id}`,
+      checked: model.id === selectedModelId,
+    }))
+
+  const buildTranscriptionLanguageMenuItems = (selectedId: string) =>
+    TRANSCRIPTION_LANGUAGE_OPTIONS.map((language) => ({
+      type: 'normal' as const,
+      label: language.label,
+      action: `transcription-lang:${language.id}`,
+      checked: language.id === selectedId,
+    }))
+
   const selectedDeviceLabel = (selectedDevice: number) =>
     buildDeviceMenuItems(currentDevices, selectedDevice).find((d) => d.checked)
       ?.label ?? 'System default'
@@ -277,14 +296,34 @@ export const setupTray = (
       },
       currentDeviceDetails
     )
-    handleTranscriptionLanguageAction(event.data.action, appConfig, () => {
-      tray.setMenu(buildMenu(resolveCurrentDevice()))
-      onTranscriptionLanguageChanged?.()
-    })
-    handleModelAction(event.data.action, appConfig, () => {
-      tray.setMenu(buildMenu(resolveCurrentDevice()))
-      onModelChanged?.()
-    })
+    if (event.data.action.startsWith('transcription-lang:')) {
+      void appConfig
+        .updateTranscriptionSettings({
+          transcriptionLanguageId: event.data.action.slice(
+            'transcription-lang:'.length
+          ),
+        })
+        .then((ok) => {
+          if (!ok) return
+          tray.setMenu(buildMenu(resolveCurrentDevice()))
+          onTranscriptionLanguageChanged?.()
+        })
+    }
+    if (event.data.action.startsWith('set-model:')) {
+      const patch = speechModelSelectionPatch(
+        {
+          speechModelId: appConfig.getSpeechModelId(),
+          transcriptionLanguageId: appConfig.getTranscriptionLanguageId(),
+          streamMode: appConfig.getStreamMode(),
+        },
+        event.data.action.slice('set-model:'.length)
+      )
+      void appConfig.updateTranscriptionSettings(patch).then((ok) => {
+        if (!ok) return
+        tray.setMenu(buildMenu(resolveCurrentDevice()))
+        onModelChanged?.()
+      })
+    }
     if (event.data.action.startsWith('set-formatting-force-')) {
       const suffix = event.data.action.replace('set-formatting-force-', '')
       void (async () => {

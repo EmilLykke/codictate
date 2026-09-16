@@ -1,5 +1,5 @@
+import { findBinary } from '../../platform/binaries'
 import { log } from '../logger'
-import { getPlatform } from '../../platform'
 import { extractCorrections } from '../dictionary/apply-dictionary'
 import type { DictionaryEntry } from '../../../shared/types'
 
@@ -101,7 +101,7 @@ export function startObserverHelper(
   isAutoLearnEnabled: () => boolean,
   _getDictionaryEntries: () => DictionaryEntry[]
 ) {
-  const binaryPath = getPlatform().findObserverHelperBinary()
+  const binaryPath = findBinary('observer')
   if (!binaryPath) {
     log(
       'observer',

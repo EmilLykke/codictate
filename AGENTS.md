@@ -47,7 +47,7 @@ Run both with `bun run test:manual`, or one with `bun test ./benchmarks/stt/resu
 
 `.github/workflows/ci.yml` runs `test`, `lint` and `tsc` on every push to `main` and every pull request, and runs `check:native:windows-helper` (which includes `cargo test` for the Rust matchers) on a Windows runner. The opt-in suites are not in CI by design.
 
-New tests go in a `*.test.ts` beside the module they cover. Default tests must be hermetic: pure functions are preferred; durable filesystem adapters may read committed fixtures and use isolated temporary fixtures that are removed after the suite. They may not spawn processes, access the network or webview, read user state, or mutate repository state. See `docs/ARCHITECTURE_REVIEW.md` candidate E for the interfaces still waiting for coverage.
+New tests go in a `*.test.ts` beside the module they cover. Default tests must be hermetic: pure functions are preferred; durable filesystem adapters may read committed fixtures and use isolated temporary fixtures that are removed after the suite. They may not spawn processes, access the network or webview, read user state, or mutate repository state.
 
 ## Project structure
 
@@ -214,7 +214,3 @@ The five canonical triage roles, using their default label strings. See `docs/ag
 ### Domain docs
 
 Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
-
-## Architecture review
-
-`docs/ARCHITECTURE_REVIEW.md` (2026-08-17) records eight deepening opportunities, labelled A-H, with file:line evidence and a suggested order. Read it before proposing a refactor in the transcription path, the Dictation Shortcut Presets, `AppConfig`, or the benchmark - the friction is already mapped there.

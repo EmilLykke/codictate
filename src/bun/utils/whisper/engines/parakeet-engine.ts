@@ -1,3 +1,4 @@
+import { requireRuntimeBinary } from '../../../platform/binaries'
 /**
  * The Parakeet Speech Engine Adapter: one batch transcription on the Parakeet Native Helper.
  *
@@ -7,7 +8,6 @@
  */
 
 import { existsSync } from 'node:fs'
-import { getPlatform } from '../../../platform'
 import { log } from '../../logger'
 import { awaitParakeetWarmup } from '../parakeet-warmup'
 import {
@@ -52,7 +52,7 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
   // when the plan was built; what a race can change is whether it is there at all.
   let helper: string
   try {
-    helper = getPlatform().findParakeetHelperBinary()
+    helper = requireRuntimeBinary('parakeet')
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
     log('parakeet', 'helper binary missing at spawn time', { err: detail })

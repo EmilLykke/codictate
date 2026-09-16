@@ -1,3 +1,4 @@
+import { requireRuntimeBinary } from "../../src/bun/platform/binaries";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MODELS_DIR } from "../../src/bun/platform/runtime";
@@ -24,7 +25,6 @@ import type {
   TranscriptionResult,
 } from "../../src/bun/utils/whisper/engines/transcription";
 import { failedTranscription } from "../../src/bun/utils/whisper/engines/transcription";
-import { getPlatform } from "../../src/bun/platform";
 import { computeWer, computeCer, type WerResult } from "./wer";
 import { computeRtf } from "./rtf";
 import { measurePeakRss } from "./memory";
@@ -530,7 +530,7 @@ export function adapterFor(
     const session = new ParakeetBenchmarkSession({
       speechModelId: modelId,
       modelDir: modelPath,
-      resolveHelperBinary: () => getPlatform().findParakeetHelperBinary(),
+      resolveHelperBinary: () => requireRuntimeBinary("parakeet"),
     });
     return {
       start: () => session.start(),
@@ -1024,7 +1024,7 @@ async function measureModelMemory(
     // The adapter's argv, not a second copy of it: peak RSS has to be measured on the
     // command the Benchmark Run actually transcribed with.
     command = parakeetTranscribeArgv(
-      getPlatform().findParakeetHelperBinary(),
+      requireRuntimeBinary("parakeet"),
       sampleEntry.audioPath,
       modelPath,
     );

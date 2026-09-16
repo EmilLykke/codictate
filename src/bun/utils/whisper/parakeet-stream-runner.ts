@@ -1,3 +1,4 @@
+import { requireRuntimeBinary } from '../../platform/binaries'
 // Parakeet stream mode: spawn the platform Parakeet helper. The helper captures mic,
 // runs the model, and pastes — nothing is read from stdout.
 //
@@ -10,7 +11,6 @@ import {
   type BlockedDictationPlan,
   type RunnableDictationPlan,
 } from '../../../shared/dictation-plan'
-import { getPlatform } from '../../platform'
 import { modelManager } from './model-manager'
 import { awaitParakeetWarmup } from './parakeet-warmup'
 import { log } from '../logger'
@@ -62,7 +62,7 @@ function checkParakeetStreamRuntimeReady(
   plan: RunnableDictationPlan
 ): BlockedDictationPlan | null {
   try {
-    getPlatform().findParakeetHelperBinary()
+    requireRuntimeBinary('parakeet')
   } catch {
     return blockedDictationPlan(
       'live',
@@ -99,7 +99,7 @@ export async function startParakeetStream(
   // have done nothing at all.
   await awaitParakeetWarmup()
 
-  const binary = getPlatform().findParakeetHelperBinary()
+  const binary = requireRuntimeBinary('parakeet')
   const modelDir = modelManager.getParakeetInstallDir(plan.speechModelId)
   const modeArg = streamTranscriptionMode === 'vad' ? 'vad' : 'live'
   const args = [binary, 'stream', modeArg, modelDir]

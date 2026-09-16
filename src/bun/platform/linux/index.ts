@@ -2,7 +2,7 @@
  * Linux platform implementation.
  *
  * CONTRIBUTING: To add Linux support, implement the native helper binaries
- * listed below and update the `find*Binary` methods to resolve them.
+ * listed below and register their artifacts in src/shared/binary-manifest.ts.
  * Each helper must speak the same line-delimited JSON protocol on stdin/stdout
  * as the macOS Swift equivalents — see src/bun/platform/types.ts.
  *
@@ -17,18 +17,6 @@ import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import type { PlatformProvider, PermissionType } from '../types'
 import { FORMATTER_MODEL_PATH } from '../runtime'
-import { requireBinary, resolveBinary } from '../resolve-binary'
-
-function llamaBinaryCandidates(): string[] {
-  return [
-    join(import.meta.dir, '../native-helpers/llama-completion'),
-    join(process.cwd(), 'vendors/llama/llama-completion'),
-  ]
-}
-
-function resolveLlamaBinary(): string | null {
-  return resolveBinary(llamaBinaryCandidates())
-}
 
 export class LinuxPlatformProvider implements PlatformProvider {
   getDataDir(): string {
@@ -62,35 +50,7 @@ export class LinuxPlatformProvider implements PlatformProvider {
     return null
   }
 
-  isFormattingAvailable(): boolean {
-    return resolveLlamaBinary() !== null
-  }
-
-  // ── Unimplemented native helpers ──────────────────────────────────────────
-
-  findWindowHelperBinary(): string | null {
-    return null
-  }
-
-  findObserverHelperBinary(): string | null {
-    return null
-  }
-
-  async findLlamaBinary(): Promise<string> {
-    return requireBinary(
-      resolveLlamaBinary(),
-      'llama-completion not found. Run `bun scripts/pre-build.ts` to build it.'
-    )
-  }
-
   getFormatterModelPath(): string {
     return FORMATTER_MODEL_PATH
-  }
-
-  findParakeetHelperBinary(): string {
-    throw new Error(
-      '[Linux] CodictateParakeetHelper (Core ML) is macOS-only.\n' +
-        'Live transcription is not available on Linux.'
-    )
   }
 }

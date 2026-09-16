@@ -1,5 +1,5 @@
+import { findBinary } from '../../platform/binaries'
 import type { AppStatus, ThemePreference } from '../../../shared/types'
-import { getPlatform } from '../../platform'
 import { getPlatformRuntime } from '../../platform/runtime'
 
 type MoveEvent = { type: 'move'; x?: number; y?: number }
@@ -32,7 +32,7 @@ export type NativeIndicatorHelper = {
 export function createNativeIndicatorHelper(
   onMove?: (x: number, y: number) => void
 ): NativeIndicatorHelper | null {
-  const helperPath = getPlatform().findWindowHelperBinary()
+  const helperPath = findBinary('window')
   if (!helperPath) return null
 
   const args =

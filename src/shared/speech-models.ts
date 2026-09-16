@@ -699,6 +699,9 @@ export function transcriptionLanguageAllowedForModel(
  * load deletes that directory and retries once (`DownloadUtils.loadModels`), so a mismatch
  * costs a fresh 461 MB fetch on every single attempt, with nothing on stdout to say so.
  *
+ * On every FluidAudio upgrade, recheck `ModelNames.swift`'s `folderName` against this
+ * rule before trusting the pinned tests: the upstream path can change without a type error.
+ *
  * macOS only. The Windows helper is ONNX and reads the directory it is given.
  */
 export function fluidAudioModelFolderName(artifactName: string): string {

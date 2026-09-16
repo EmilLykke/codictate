@@ -1,10 +1,10 @@
+import { requireRuntimeBinary } from '../../platform/binaries'
 // Spawns the vendored `llama-completion` binary with constrained JSON output.
 // Drops in as the replacement for the Swift `CodictateFormatterHelper`.
 //
 // Standard llama.cpp (llama-completion binary) with --json-schema constrained decoding.
 
 import { existsSync } from 'fs'
-import { getPlatform } from '../../platform'
 import { getFormatterModelConfig } from '../../platform/runtime'
 import type { FormatterModelTier } from '../../../shared/types'
 import { log } from '../logger'
@@ -58,12 +58,11 @@ export interface RunLlamaFormatterOptions {
 export async function runLlamaFormatter<T extends object>(
   opts: RunLlamaFormatterOptions
 ): Promise<T> {
-  const platform = getPlatform()
   const modelConfig = getFormatterModelConfig(opts.modelTier)
 
   let binary: string
   try {
-    binary = await platform.findLlamaBinary()
+    binary = await requireRuntimeBinary('llama')
   } catch (err) {
     throw new FormatterBinaryNotFoundError(String(err))
   }

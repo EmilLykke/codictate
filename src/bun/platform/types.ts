@@ -21,28 +21,9 @@ export interface PlatformProvider {
   getPermissionSettingsUrl(type: PermissionType): string | null
 
   /**
-   * Whether on-device AI formatting is available on this platform —
-   * i.e. the vendored `llama-completion` binary is resolvable. The formatter model
-   * is a separate, user-downloadable asset (see `getFormatterModelPath`).
-   */
-  isFormattingAvailable(): boolean
-
-  // ── Native helper binary resolution ──────────────────────────────────────
-  // Required helpers throw if the binary is missing.
-  // Optional helpers return null — the feature gracefully degrades.
-
-  findWindowHelperBinary(): string | null
-  findObserverHelperBinary(): string | null
-  /**
-   * Resolve the vendored llama.cpp `llama-completion` binary used by the formatter.
-   * Throws if not present (build must have run).
-   */
-  findLlamaBinary(): Promise<string>
-  /**
    * Absolute path the formatter model should live at (user app-data dir).
    * File is only present if the user has downloaded it; callers must
    * check `existsSync(path)` before use.
    */
   getFormatterModelPath(): string
-  findParakeetHelperBinary(): string
 }

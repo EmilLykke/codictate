@@ -1,4 +1,16 @@
 import {
+  getShortcutDefinition as buildShortcutDefinition,
+  Key,
+  KeyCode,
+  MODIFIER_KEYCODES,
+  FN_PHYSICAL_KEYCODES,
+  isWindowsModifierReleaseEvent as matchesModifierRelease,
+  isWindowsComboTriggerReleaseEvent as matchesTriggerRelease,
+  type KeyEvent,
+} from '../shared/shortcut-matching'
+import { isModifierChord } from '../shared/shortcut-options'
+
+import {
   startRecording,
   stopRecording,
   type CaptureResult,
@@ -17,14 +29,8 @@ import type {
 } from '../shared/dictation-plan'
 import {
   finishObservedCorrection,
-  FN_PHYSICAL_KEYCODES,
-  getShortcutDefinition,
-  Key,
-  KeyCode,
   pasteTranscript,
-  SHORTCUTS,
   startKeyboardListener,
-  type KeyEvent,
   type PermissionStatus,
 } from './utils/keyboard/keyboard-events'
 import {
@@ -46,36 +52,24 @@ import { log } from './utils/logger'
 import { startObserverHelper } from './utils/keyboard/observer-helper'
 import { getPlatformRuntime } from './platform/runtime'
 
+const getShortcutDefinition = (
+  id: ShortcutId,
+  options?: { requireLeftOption?: boolean }
+) => buildShortcutDefinition(id, { ...options, platform: getPlatformRuntime() })
+
 /** Keycodes that should not cancel "wait for Fn chord" when main is fn-globe + hold is fn-* (non-globe). */
-const FN_GLOBE_DEFER_CANCEL_SUPPRESS = new Set<number>([
-  Key.shift,
-  Key.rightShift,
-  Key.command,
-  Key.rightCommand,
-  Key.option,
-  Key.rightOption,
-  Key.control,
-  Key.rightControl,
-  ...FN_PHYSICAL_KEYCODES,
-])
+const FN_GLOBE_DEFER_CANCEL_SUPPRESS = new Set<number>(
+  Object.values(MODIFIER_KEYCODES).flat()
+)
 
 function holdFnChordConflictsWithFnGlobeMain(
   hybridId: ShortcutId,
   holdId: ShortcutId | null
 ): holdId is ShortcutId {
   return (
-    hybridId === 'fn-globe' &&
-    holdId !== null &&
-    holdId.startsWith('fn-') &&
-    holdId !== 'fn-globe'
+    hybridId === 'fn-globe' && holdId !== null && isModifierChord(holdId, 'fn')
   )
 }
-
-/** Main shortcuts that use ⌥ + a trigger key. */
-const OPTION_CHORD_MAIN_IDS = new Set<ShortcutId>([
-  'option-space',
-  'option-enter',
-])
 
 function mergeSwallowRules(a: KeyEvent[], b: KeyEvent[]): KeyEvent[] {
   const seen = new Set<string>()
@@ -187,7 +181,7 @@ export const setupRecording = (
 
   const mainShortcutUsesLeftOptionOnly = () =>
     appConfig.getShortcutHoldOnlyId() === 'right-option' &&
-    OPTION_CHORD_MAIN_IDS.has(appConfig.getShortcutId())
+    isModifierChord(appConfig.getShortcutId(), 'option')
 
   const getHybridShortcut = () =>
     getShortcutDefinition(appConfig.getShortcutId(), {
@@ -239,33 +233,12 @@ export const setupRecording = (
     keyEvent: KeyEvent
   ): boolean => {
     if (!usesWindowsModifierReleaseHold(shortcutId)) return true
-    switch (shortcutId) {
-      case 'option-space':
-      case 'option-enter':
-        return (
-          !keyEvent.keyDown &&
-          (keyEvent.keycode === Key.option ||
-            keyEvent.keycode === Key.rightOption)
-        )
-      case 'control-space':
-      case 'control-enter':
-        return (
-          !keyEvent.keyDown &&
-          (keyEvent.keycode === Key.control ||
-            keyEvent.keycode === Key.rightControl)
-        )
-      case 'control-meta-space':
-        // Either modifier of the Ctrl + Win prefix going up ends the hold.
-        return (
-          !keyEvent.keyDown &&
-          (keyEvent.keycode === Key.control ||
-            keyEvent.keycode === Key.rightControl ||
-            keyEvent.keycode === Key.command ||
-            keyEvent.keycode === Key.rightCommand)
-        )
-      default:
-        return true
-    }
+    return matchesModifierRelease(
+      shortcutId,
+      keyEvent,
+      mainShortcutUsesLeftOptionOnly() &&
+        shortcutId === appConfig.getShortcutId()
+    )
   }
 
   const isWindowsComboTriggerReleaseEvent = (
@@ -273,10 +246,7 @@ export const setupRecording = (
     keyEvent: KeyEvent
   ): boolean => {
     if (!usesWindowsModifierReleaseHold(shortcutId)) return false
-    return (
-      !keyEvent.keyDown &&
-      (keyEvent.keycode === Key.space || keyEvent.keycode === Key.enter)
-    )
+    return matchesTriggerRelease(shortcutId, keyEvent)
   }
 
   const keyEventDebug = (e: KeyEvent) => ({
@@ -814,7 +784,7 @@ export const setupRecording = (
     const hybridId = appConfig.getShortcutId()
     const holdId = appConfig.getShortcutHoldOnlyId()
 
-    const fnGlobeDef = SHORTCUTS['fn-globe']
+    const fnGlobeDef = getShortcutDefinition('fn-globe')
     const deferFnGlobeForFnChord =
       holdOnly !== null && holdFnChordConflictsWithFnGlobeMain(hybridId, holdId)
 

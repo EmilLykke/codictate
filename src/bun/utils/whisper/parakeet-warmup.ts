@@ -1,3 +1,4 @@
+import { requireRuntimeBinary } from '../../platform/binaries'
 /**
  * Parakeet's one-time on-device preparation, and the single place that decides when it runs.
  *
@@ -213,7 +214,7 @@ async function runParakeetWarmup(speechModelId: string): Promise<boolean> {
   if (!modelManager.isModelAvailable(speechModelId)) return false
   let warmupPath: string | undefined
   try {
-    const helper = getPlatform().findParakeetHelperBinary()
+    const helper = requireRuntimeBinary('parakeet')
     const modelDir = modelManager.getParakeetInstallDir(speechModelId)
     warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
     await Bun.write(warmupPath, createSilentWav())

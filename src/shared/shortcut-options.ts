@@ -5,6 +5,17 @@ import type { PlatformRuntime } from './platform'
 /** Used to group shortcuts in the picker (Option / Fn / Control / Meta). */
 export type ShortcutFamily = 'option' | 'fn' | 'control' | 'meta'
 
+export type ShortcutModifier = 'option' | 'control' | 'command' | 'shift' | 'fn'
+export type ShortcutBinding =
+  | {
+      kind: 'trigger'
+      key: 'space' | 'enter' | 'f1' | 'f2'
+      modifiers: ShortcutModifier[]
+      swallowPrefix?: ShortcutModifier[]
+    }
+  | { kind: 'modifiers'; modifiers: ShortcutModifier[] }
+  | { kind: 'physical'; key: 'rightOption' | 'fn'; modifier: ShortcutModifier }
+
 /** Single source of truth for dictation shortcuts (picker UI + keyboard display). */
 export interface ShortcutOption {
   id: ShortcutId
@@ -14,6 +25,7 @@ export interface ShortcutOption {
   windowsLabel?: string
   supportedPlatforms: PlatformRuntime[]
   family: ShortcutFamily
+  binding: ShortcutBinding
   /** On Windows, releasing a Modifier ends the hold before the Trigger Key does. */
   windowsHoldEndsOnModifierRelease: boolean
 }
@@ -25,6 +37,7 @@ export interface ShortcutOption {
 export const SHORTCUT_PRESETS = {
   'option-space': {
     id: 'option-space',
+    binding: { kind: 'trigger', key: 'space', modifiers: ['option'] },
     keys: ['⌥', 'Space'],
     label: 'Option + Space',
     windowsKeys: ['Alt', 'Space'],
@@ -35,6 +48,7 @@ export const SHORTCUT_PRESETS = {
   },
   'right-option': {
     id: 'right-option',
+    binding: { kind: 'physical', key: 'rightOption', modifier: 'option' },
     keys: ['Right ⌥'],
     label: 'Right Option',
     windowsKeys: ['Right Alt'],
@@ -45,6 +59,7 @@ export const SHORTCUT_PRESETS = {
   },
   'option-enter': {
     id: 'option-enter',
+    binding: { kind: 'trigger', key: 'enter', modifiers: ['option'] },
     keys: ['⌥', 'Enter'],
     label: 'Option + Enter',
     windowsKeys: ['Alt', 'Enter'],
@@ -55,6 +70,7 @@ export const SHORTCUT_PRESETS = {
   },
   'fn-space': {
     id: 'fn-space',
+    binding: { kind: 'trigger', key: 'space', modifiers: ['fn'] },
     keys: ['Fn', 'Space'],
     label: 'Fn + Space',
     supportedPlatforms: ['macos'],
@@ -63,6 +79,7 @@ export const SHORTCUT_PRESETS = {
   },
   'fn-f1': {
     id: 'fn-f1',
+    binding: { kind: 'trigger', key: 'f1', modifiers: ['fn'] },
     keys: ['Fn', 'F1'],
     label: 'Fn + F1',
     supportedPlatforms: ['macos'],
@@ -71,6 +88,7 @@ export const SHORTCUT_PRESETS = {
   },
   'fn-f2': {
     id: 'fn-f2',
+    binding: { kind: 'trigger', key: 'f2', modifiers: ['fn'] },
     keys: ['Fn', 'F2'],
     label: 'Fn + F2',
     supportedPlatforms: ['macos'],
@@ -79,6 +97,7 @@ export const SHORTCUT_PRESETS = {
   },
   'fn-globe': {
     id: 'fn-globe',
+    binding: { kind: 'physical', key: 'fn', modifier: 'fn' },
     keys: ['Fn'],
     label: 'Fn only (Globe)',
     supportedPlatforms: ['macos'],
@@ -87,6 +106,7 @@ export const SHORTCUT_PRESETS = {
   },
   'control-space': {
     id: 'control-space',
+    binding: { kind: 'trigger', key: 'space', modifiers: ['control'] },
     keys: ['⌃', 'Space'],
     label: 'Control + Space',
     windowsKeys: ['Ctrl', 'Space'],
@@ -97,6 +117,7 @@ export const SHORTCUT_PRESETS = {
   },
   'control-enter': {
     id: 'control-enter',
+    binding: { kind: 'trigger', key: 'enter', modifiers: ['control'] },
     keys: ['⌃', 'Enter'],
     label: 'Control + Enter',
     windowsKeys: ['Ctrl', 'Enter'],
@@ -107,6 +128,7 @@ export const SHORTCUT_PRESETS = {
   },
   'control-option': {
     id: 'control-option',
+    binding: { kind: 'modifiers', modifiers: ['control', 'option'] },
     keys: ['⌃', '⌥'],
     label: 'Control + Option',
     windowsKeys: ['Ctrl', 'Alt'],
@@ -117,6 +139,7 @@ export const SHORTCUT_PRESETS = {
   },
   'control-meta': {
     id: 'control-meta',
+    binding: { kind: 'modifiers', modifiers: ['control', 'command'] },
     keys: ['⌃', '⌘'],
     label: 'Control + Command',
     windowsKeys: ['Ctrl', 'Win'],
@@ -127,6 +150,12 @@ export const SHORTCUT_PRESETS = {
   },
   'control-meta-space': {
     id: 'control-meta-space',
+    binding: {
+      kind: 'trigger',
+      key: 'space',
+      modifiers: ['control', 'command'],
+      swallowPrefix: ['command'],
+    },
     keys: ['⌃', '⌘', 'Space'],
     label: 'Control + Command + Space',
     windowsKeys: ['Ctrl', 'Win', 'Space'],
@@ -308,4 +337,12 @@ export function platformShortcutSupportHint(
  */
 export function windowsUsesModifierReleaseHold(id: ShortcutId): boolean {
   return SHORTCUT_PRESETS[id].windowsHoldEndsOnModifierRelease
+}
+
+export function isModifierChord(
+  id: ShortcutId,
+  modifier: ShortcutModifier
+): boolean {
+  const binding: ShortcutBinding = SHORTCUT_PRESETS[id].binding
+  return binding.kind === 'trigger' && binding.modifiers.includes(modifier)
 }

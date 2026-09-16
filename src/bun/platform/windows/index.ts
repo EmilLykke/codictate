@@ -15,30 +15,6 @@ import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import type { PlatformProvider, PermissionType } from '../types'
 import { FORMATTER_MODEL_PATH } from '../runtime'
-import { requireBinary, resolveBinary } from '../resolve-binary'
-
-function llamaBinaryCandidates(): string[] {
-  return [
-    join(import.meta.dir, '../native-helpers/llama-completion.exe'),
-    join(process.cwd(), 'vendors/llama/llama-completion.exe'),
-  ]
-}
-
-function resolveLlamaBinary(): string | null {
-  return resolveBinary(llamaBinaryCandidates())
-}
-
-const WINDOWS_HELPER_CANDIDATE_PATHS = [
-  join(import.meta.dir, '../native-helpers/CodictateWindowsHelper.exe'),
-  join(
-    process.cwd(),
-    'native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe'
-  ),
-]
-
-function resolveWindowsHelperBinary(): string | null {
-  return resolveBinary(WINDOWS_HELPER_CANDIDATE_PATHS)
-}
 
 export class WindowsPlatformProvider implements PlatformProvider {
   getDataDir(): string {
@@ -69,33 +45,7 @@ export class WindowsPlatformProvider implements PlatformProvider {
     return null
   }
 
-  isFormattingAvailable(): boolean {
-    return resolveLlamaBinary() !== null
-  }
-
-  findWindowHelperBinary(): string | null {
-    return resolveWindowsHelperBinary()
-  }
-
-  findObserverHelperBinary(): string | null {
-    return null
-  }
-
-  async findLlamaBinary(): Promise<string> {
-    return requireBinary(
-      resolveLlamaBinary(),
-      'llama-completion not found. Run `bun scripts/pre-build.ts` to build it.'
-    )
-  }
-
   getFormatterModelPath(): string {
     return FORMATTER_MODEL_PATH
-  }
-
-  findParakeetHelperBinary(): string {
-    return requireBinary(
-      resolveWindowsHelperBinary(),
-      'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper` so native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe exists, then rebuild.'
-    )
   }
 }
