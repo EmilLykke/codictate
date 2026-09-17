@@ -48,13 +48,7 @@ import { appEvents } from "../../../app-events";
 import { settingsHelperClass } from "../settings-shared";
 import { platformDisplayName } from "../../../../shared/platform";
 import { Switch } from "../../Common/Switch";
-
-type TileOption<T extends string> = {
-  value: T;
-  label: string;
-  sublabel?: string;
-  preview?: string;
-};
+import { TileGroup, type TileOption } from "../../Common/TileGroup";
 
 const EMAIL_GREETING_OPTIONS: TileOption<FormattingEmailGreetingStyle>[] = [
   { value: "auto", label: "Auto", sublabel: "Let Codictate pick" },
@@ -75,58 +69,66 @@ const EMAIL_CLOSING_OPTIONS: TileOption<FormattingEmailClosingStyle>[] = [
 
 const IMESSAGE_TONE_OPTIONS: TileOption<FormattingImessageTone>[] = [
   {
-    value: "formal",
-    label: "Formal.",
-    sublabel: "Caps + Punctuation",
+    value: "casual",
+    label: "very casual",
+    sublabel: "No Caps + Less punctuation",
+    previewVariant: "bubble",
     preview:
-      "Hey, are you free for lunch tomorrow? Let's do 12 if that works for you.",
+      "hey are you free for lunch tomorrow? let's do 12 if that works for you",
   },
   {
     value: "neutral",
     label: "Casual",
     sublabel: "Caps + Less punctuation",
+    previewVariant: "bubble",
     preview:
       "Hey are you free for lunch tomorrow? Let's do 12 if that works for you",
   },
   {
-    value: "casual",
-    label: "very casual",
-    sublabel: "No Caps + Less punctuation",
+    value: "formal",
+    label: "Formal.",
+    labelFont: "serif",
+    sublabel: "Caps + Punctuation",
+    previewVariant: "bubble",
     preview:
-      "hey are you free for lunch tomorrow? let's do 12 if that works for you",
+      "Hey, are you free for lunch tomorrow? Let's do 12 if that works for you.",
   },
 ];
 
 const SLACK_TONE_OPTIONS: TileOption<FormattingSlackTone>[] = [
   {
-    value: "professional",
-    label: "Formal.",
-    sublabel: "Caps + Full punctuation",
-    preview: "Heads up: the new build is live. Please flag any regressions.",
+    value: "casual",
+    label: "very casual",
+    sublabel: "No Caps + Relaxed",
+    previewVariant: "bubble",
+    preview:
+      "quick update -- the new build is out, let me know if anything breaks",
   },
   {
     value: "neutral",
     label: "Casual",
     sublabel: "Caps + Light punctuation",
+    previewVariant: "bubble",
     preview:
       "Heads up, the new build is live. Let me know if anything looks off",
   },
   {
-    value: "casual",
-    label: "very casual",
-    sublabel: "No Caps + Relaxed",
-    preview:
-      "quick update -- the new build is out, let me know if anything breaks",
+    value: "professional",
+    label: "Formal.",
+    labelFont: "serif",
+    sublabel: "Caps + Full punctuation",
+    previewVariant: "bubble",
+    preview: "Heads up: the new build is live. Please flag any regressions.",
   },
 ];
 
 const DOCUMENT_TONE_OPTIONS: TileOption<FormattingDocumentTone>[] = [
   {
-    value: "formal",
-    label: "Formal.",
-    sublabel: "Polished writing",
+    value: "casual",
+    label: "very casual",
+    sublabel: "Relaxed prose",
     preview:
-      "This document outlines the outcome of the discussion and next steps.",
+      "So here's where we landed after the chat -- a few things to lock in.",
   },
   {
     value: "neutral",
@@ -135,11 +137,12 @@ const DOCUMENT_TONE_OPTIONS: TileOption<FormattingDocumentTone>[] = [
     preview: "Summary of the discussion and the action items we agreed on.",
   },
   {
-    value: "casual",
-    label: "very casual",
-    sublabel: "Relaxed prose",
+    value: "formal",
+    label: "Formal.",
+    labelFont: "serif",
+    sublabel: "Polished writing",
     preview:
-      "So here's where we landed after the chat -- a few things to lock in.",
+      "This document outlines the outcome of the discussion and next steps.",
   },
 ];
 
@@ -163,16 +166,33 @@ const DOCUMENT_STRUCTURE_OPTIONS: TileOption<FormattingDocumentStructure>[] = [
 const S1_STYLING_OPTIONS: TileOption<S1Styling>[] = [
   {
     value: "casual",
-    label: "Casual",
+    label: "casual",
     sublabel: "Lowercase, keeps colloquialisms",
+    preview:
+      "i think we should ship friday, can you double check the release notes",
   },
-  { value: "semi-casual", label: "Natural", sublabel: "Keeps your phrasing" },
+  {
+    value: "semi-casual",
+    label: "Natural",
+    sublabel: "Keeps your phrasing",
+    preview:
+      "I think we should ship Friday — can you double check the release notes?",
+  },
   {
     value: "semi-formal",
     label: "Standard",
     sublabel: "Written English, contractions kept",
+    preview:
+      "I think we should ship on Friday. Can you double-check the release notes?",
   },
-  { value: "formal", label: "Formal", sublabel: "Expands contractions" },
+  {
+    value: "formal",
+    label: "Formal.",
+    labelFont: "serif",
+    sublabel: "Expands contractions",
+    preview:
+      "I think we should ship on Friday. Could you please double-check the release notes?",
+  },
 ];
 
 const LIGHT_AI_LOCKED_HINT =
@@ -906,19 +926,16 @@ export function SectionFormatting({ settings }: Props) {
           <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
             S1-mini defaults
           </h2>
-          <div className="flex flex-col gap-4 rounded-xl border border-overlay/11 bg-surface-1 p-4">
-            <div>
-              <span className="mb-2 block text-[13px] text-overlay/44">
-                Writing style
-              </span>
-              <DropdownPicker
-                value={formatting.s1.styling}
-                onChange={(styling) => void handleS1ControlsChange({ styling })}
-                options={S1_STYLING_OPTIONS}
-                ariaLabel="S1-mini writing style"
-              />
-            </div>
-          </div>
+          <span className="mb-2 block text-[13px] text-overlay/44">
+            Writing style
+          </span>
+          <TileGroup
+            value={formatting.s1.styling}
+            onChange={(styling) => void handleS1ControlsChange({ styling })}
+            options={S1_STYLING_OPTIONS}
+            maxColumns={4}
+            ariaLabel="S1-mini writing style"
+          />
           <p className={settingsHelperClass}>
             Clear lists with at least three items can become bullets; other
             dictation stays in paragraphs. Uncertain auto-detected languages
@@ -1111,15 +1128,13 @@ function S1PresetSettings({
   if (modeId === "imessage") {
     return (
       <div>
-        <span className="mb-2 block text-[13px] text-overlay/44">
-          Writing style
-        </span>
+        <span className="mb-2 block text-[13px] text-overlay/44">Tone</span>
         <TileGroup
           value={formatting.imessage.tone}
           onChange={(tone) => void setFormattingImessageTone(tone)}
           options={IMESSAGE_TONE_OPTIONS}
-          columns={3}
-          ariaLabel="Messages S1-mini writing style"
+          maxColumns={3}
+          ariaLabel="Messages tone"
         />
       </div>
     );
@@ -1131,8 +1146,8 @@ function S1PresetSettings({
           value={formatting.slack.tone}
           onChange={(tone) => void setFormattingSlackTone(tone)}
           options={SLACK_TONE_OPTIONS}
-          columns={3}
-          ariaLabel="Slack S1-mini writing style"
+          maxColumns={3}
+          ariaLabel="Slack tone"
         />
       </div>
     );
@@ -1143,8 +1158,8 @@ function S1PresetSettings({
         value={formatting.document.tone}
         onChange={(tone) => void setFormattingDocumentTone(tone)}
         options={DOCUMENT_TONE_OPTIONS}
-        columns={3}
-        ariaLabel="Document S1-mini writing style"
+        maxColumns={3}
+        ariaLabel="Document tone"
       />
     </div>
   );
@@ -1278,7 +1293,7 @@ function ImessageSettings({
           value={formatting.imessage.tone}
           onChange={onToneChange}
           options={IMESSAGE_TONE_OPTIONS}
-          columns={3}
+          maxColumns={3}
           ariaLabel="Messages tone"
         />
       </div>
@@ -1336,7 +1351,7 @@ function SlackSettings({
           value={formatting.slack.tone}
           onChange={onToneChange}
           options={SLACK_TONE_OPTIONS}
-          columns={3}
+          maxColumns={3}
           ariaLabel="Slack tone"
         />
       </div>
@@ -1401,7 +1416,7 @@ function DocumentSettings({
           value={formatting.document.tone}
           onChange={onToneChange}
           options={DOCUMENT_TONE_OPTIONS}
-          columns={3}
+          maxColumns={3}
           ariaLabel="Document tone"
         />
       </div>
@@ -1428,7 +1443,7 @@ function DocumentSettings({
             value={formatting.document.structure}
             onChange={onStructureChange}
             options={DOCUMENT_STRUCTURE_OPTIONS}
-            columns={2}
+            maxColumns={2}
             ariaLabel="Document structure"
           />
         </div>
@@ -1600,87 +1615,6 @@ function DropdownPicker<T extends string>({
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </div>
-  );
-}
-
-const TILE_GRID_COLS: Record<number, string> = {
-  2: "grid-cols-1 xl:grid-cols-2",
-  3: "grid-cols-1 xl:grid-cols-3",
-  4: "grid-cols-1 min-[520px]:grid-cols-2 xl:grid-cols-4",
-  5: "grid-cols-1 min-[520px]:grid-cols-2 xl:grid-cols-5",
-};
-
-function TileGroup<T extends string>({
-  value,
-  onChange,
-  options,
-  columns,
-  ariaLabel,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: TileOption<T>[];
-  columns: number;
-  ariaLabel?: string;
-}) {
-  const gridClass = TILE_GRID_COLS[columns] ?? "grid-cols-3";
-  return (
-    <div
-      role="radiogroup"
-      aria-label={ariaLabel}
-      className={`grid ${gridClass} gap-4`}
-    >
-      {options.map((opt) => {
-        const selected = opt.value === value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(opt.value)}
-            className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden hover:opacity-90 hover:border-overlay/16 hover:bg-surface-2 ${
-              selected
-                ? "border-overlay/22 bg-surface-3"
-                : "border-overlay/8 bg-surface-1 opacity-65"
-            }`}
-          >
-            <div className="p-5 pb-2">
-              <span
-                className={`block text-[26px] tracking-tight ${
-                  opt.label === "Formal." ? "font-serif" : "font-sans"
-                } ${selected ? "text-white" : "text-overlay/80"}`}
-              >
-                {opt.label}
-              </span>
-              {opt.sublabel && (
-                <span
-                  className={`mt-1 block text-[13px] font-medium ${
-                    selected ? "text-overlay/60" : "text-overlay/40"
-                  }`}
-                >
-                  {opt.sublabel}
-                </span>
-              )}
-            </div>
-
-            {opt.preview && (
-              <div className="px-4 pb-5 mt-auto pt-6">
-                <div
-                  className={`rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed whitespace-pre-wrap relative ${
-                    selected
-                      ? "bg-accent-blue/20 text-blue-50"
-                      : "bg-surface-1 text-overlay/70"
-                  }`}
-                >
-                  {opt.preview}
-                </div>
-              </div>
-            )}
-          </button>
-        );
-      })}
     </div>
   );
 }

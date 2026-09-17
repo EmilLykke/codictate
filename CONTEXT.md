@@ -60,6 +60,10 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Formatting Model** - the model the user selects to rewrite a transcript, such as Qwen or S1-mini by Superwhisper. Distinct from the Formatting Mode, which describes the requested writing behaviour, and the Speech Model, which recognises speech.
 
+**Tone** - how casual or formal the rewritten text should read, chosen separately for each Formatting Mode (Messages, Slack, Document). Onboarding asks for one overall Tone and seeds each mode's Tone from it; the user can diverge per mode afterwards. Distinct from Writing Style.
+
+**Writing Style** - the single, global casual-to-formal setting for the S1-mini Formatting Model. Applies across all Formatting Modes and has its own scale, so it is not interchangeable with a Tone.
+
 ## Distribution
 
 **Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`crispasr`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).

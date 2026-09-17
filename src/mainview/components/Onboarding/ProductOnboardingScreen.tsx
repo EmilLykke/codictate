@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { Switch } from "../Common/Switch";
+import { TileGroup, type TileOption } from "../Common/TileGroup";
 import type {
   AppSettings,
   AppStatus,
@@ -50,34 +51,33 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
-const WRITING_STYLE_OPTIONS: readonly {
-  id: OnboardingWritingStyle;
-  label: string;
-  sublabel: string;
-  preview: string;
-}[] = [
+const WRITING_STYLE_OPTIONS: TileOption<OnboardingWritingStyle>[] = [
   {
-    id: "formal",
-    label: "Formal.",
-    sublabel: "Caps + Punctuation",
+    value: "casual",
+    label: "very casual",
+    sublabel: "No Caps + Less punctuation",
+    previewVariant: "bubble",
     preview:
-      "Hey, are you free for lunch tomorrow? Let's do 12 if that works for you.",
+      "hey are you free for lunch tomorrow? let's do 12 if that works for you",
   },
   {
-    id: "natural",
+    value: "natural",
     label: "Casual",
     sublabel: "Caps + Less punctuation",
+    previewVariant: "bubble",
     preview:
       "Hey are you free for lunch tomorrow? Let's do 12 if that works for you",
   },
   {
-    id: "casual",
-    label: "very casual",
-    sublabel: "No Caps + Less punctuation",
+    value: "formal",
+    label: "Formal.",
+    labelFont: "serif",
+    sublabel: "Caps + Punctuation",
+    previewVariant: "bubble",
     preview:
-      "hey are you free for lunch tomorrow? let's do 12 if that works for you",
+      "Hey, are you free for lunch tomorrow? Let's do 12 if that works for you.",
   },
-] as const;
+];
 
 const INDICATOR_ONBOARDING_OPTIONS: readonly {
   mode: RecordingIndicatorMode;
@@ -607,62 +607,15 @@ export function ProductOnboardingScreen({
               </p>
 
               <h2 className="mb-2 text-left text-[14px] font-medium uppercase tracking-wider text-overlay/48">
-                Writing style
+                Overall tone
               </h2>
-              <div
-                role="radiogroup"
-                aria-label="Default writing style for auto-polish"
-                className="grid w-full grid-cols-1 gap-4 min-[600px]:grid-cols-3"
-              >
-                {WRITING_STYLE_OPTIONS.map(
-                  ({ id, label, sublabel, preview }) => {
-                    const selected = writingStyleDraft === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        onClick={() => setWritingStyleDraft(id)}
-                        className={`flex h-full min-h-[220px] w-full flex-col text-left rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
-                          selected
-                            ? "border-accent-blue/60 bg-surface-3 ring-1 ring-accent-blue/40 shadow-lg shadow-blue-500/10"
-                            : "border-overlay/11 bg-surface-1 hover:border-overlay/20 hover:bg-surface-2"
-                        }`}
-                      >
-                        <div className="p-5 pb-2">
-                          <span
-                            className={`block text-[26px] tracking-tight ${
-                              id === "formal" ? "font-serif" : "font-sans"
-                            } ${selected ? "text-white" : "text-overlay/80"}`}
-                          >
-                            {label}
-                          </span>
-                          <span
-                            className={`mt-1 block text-[13px] font-medium ${
-                              selected ? "text-overlay/60" : "text-overlay/40"
-                            }`}
-                          >
-                            {sublabel}
-                          </span>
-                        </div>
-
-                        <div className="px-4 pb-5 mt-auto pt-6">
-                          <div
-                            className={`rounded-2xl rounded-br-sm p-4 text-[15px] leading-relaxed whitespace-pre-wrap relative ${
-                              selected
-                                ? "bg-accent-blue/20 text-blue-50"
-                                : "bg-surface-1 text-overlay/70"
-                            }`}
-                          >
-                            {preview}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  },
-                )}
-              </div>
+              <TileGroup
+                value={writingStyleDraft}
+                onChange={setWritingStyleDraft}
+                options={WRITING_STYLE_OPTIONS}
+                maxColumns={3}
+                ariaLabel="Default overall tone for auto-polish"
+              />
 
               <div className="mt-6 w-full rounded-xl border border-overlay/11 bg-surface-1 px-4 py-3.5">
                 <div className="flex items-center gap-3">
