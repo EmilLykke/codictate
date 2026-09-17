@@ -27,6 +27,9 @@ The pinned llama-completion runtime strips a trailing newline from ordinary prom
 Upstream model documentation: https://huggingface.co/superwhisper/s1-mini-GGUF
 
 Model license and attribution: `docs/licenses/s1-mini/`, copied into the app as `licenses/s1-mini/`.
+The Apache 2.0 license carries an additional term: the model must keep the name
+"S1-mini" by "Superwhisper", with that exact capitalization, wherever it is used.
+Upstream citation: `docs/licenses/s1-mini/CITATION.bib`.
 
 ## Verification
 
