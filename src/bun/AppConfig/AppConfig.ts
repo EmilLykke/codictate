@@ -135,6 +135,7 @@ function defaultFormattingSettings(
     formatterModelTier: 'fast',
     available,
     modelAvailability,
+    s1: { styling: 'semi-formal', structure: 'lists' },
     email: {
       includeSenderName: false,
       greetingStyle: 'auto',
@@ -327,6 +328,7 @@ export class AppConfig {
       {
         fast: this.dependencies.isFormatterModelInstalled('fast'),
         quality: this.dependencies.isFormatterModelInstalled('quality'),
+        's1-mini': this.dependencies.isFormatterModelInstalled('s1-mini'),
       }
     )
     this.audioDucking = defaultAudioDuckingSettings()
@@ -366,6 +368,7 @@ export class AppConfig {
         enabledModes: { ...this.formatting.enabledModes },
         forceModeId: this.formatting.forceModeId,
         formatterModelTier: this.formatting.formatterModelTier,
+        s1: { ...this.formatting.s1 },
         email: { ...this.formatting.email },
         imessage: { ...this.formatting.imessage },
         slack: { ...this.formatting.slack },
@@ -532,12 +535,26 @@ export class AppConfig {
       } else if (isValidFormattingModeId(formatting.forceModeId)) {
         this.formatting.forceModeId = formatting.forceModeId
       }
-      const validTiers: FormatterModelTier[] = ['fast', 'quality']
+      const validTiers: FormatterModelTier[] = ['fast', 'quality', 's1-mini']
       if (
         validTiers.includes(formatting.formatterModelTier as FormatterModelTier)
       ) {
         this.formatting.formatterModelTier =
           formatting.formatterModelTier as FormatterModelTier
+      }
+      if (formatting.s1 && typeof formatting.s1 === 'object') {
+        const s1 = formatting.s1 as Record<string, unknown>
+        if (
+          s1.styling === 'casual' ||
+          s1.styling === 'semi-casual' ||
+          s1.styling === 'semi-formal' ||
+          s1.styling === 'formal'
+        ) {
+          this.formatting.s1.styling = s1.styling
+        }
+        if (s1.structure === 'prose' || s1.structure === 'lists') {
+          this.formatting.s1.structure = s1.structure
+        }
       }
       if (
         formatting.enabledModes &&
@@ -1172,6 +1189,7 @@ export class AppConfig {
       transcriptionLanguageId: this.transcriptionLanguageId,
       userDisplayName: this.userDisplayName,
       formatterModelTier: this.formatting.formatterModelTier,
+      s1: { ...this.formatting.s1 },
       email: { ...this.formatting.email },
       imessage: { ...this.formatting.imessage },
       slack: { ...this.formatting.slack },
@@ -1184,6 +1202,7 @@ export class AppConfig {
     this.formatting.modelAvailability = {
       fast: this.dependencies.isFormatterModelInstalled('fast'),
       quality: this.dependencies.isFormatterModelInstalled('quality'),
+      's1-mini': this.dependencies.isFormatterModelInstalled('s1-mini'),
     }
   }
 
@@ -1368,6 +1387,7 @@ export class AppConfig {
       next.modelAvailability = {
         fast: this.dependencies.isFormatterModelInstalled('fast'),
         quality: this.dependencies.isFormatterModelInstalled('quality'),
+        's1-mini': this.dependencies.isFormatterModelInstalled('s1-mini'),
       }
     }
     this.formatting = next

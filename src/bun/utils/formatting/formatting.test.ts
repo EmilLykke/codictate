@@ -6,7 +6,13 @@ import {
   buildEmailUserPrompt,
   buildSlackInstructions,
 } from './prompts'
+import type { FormattingRuntimeSettings } from '../../../shared/types'
 import type { FormatterRequest } from './resolve-formatting-request'
+import {
+  buildS1FormatterRequest,
+  isEnglishTranscriptEligible,
+  parseWindowsFocusedAppContext,
+} from './resolve-formatting-request'
 
 const baseRequest: FormatterRequest = {
   formattingEnabled: true,
@@ -17,6 +23,9 @@ const baseRequest: FormatterRequest = {
   transcriptionLanguage: 'auto',
   userDisplayName: 'Emil',
   formatterModelTier: 'fast',
+  s1Styling: 'semi-formal',
+  s1Structure: 'prose',
+  s1Context: 'email',
   emailIncludeSenderName: true,
   emailGreetingStyle: 'auto',
   emailClosingStyle: 'auto',
@@ -90,6 +99,238 @@ describe('applyFormatting', () => {
     })
 
     expect(result).toBe('quick update deploy is live')
+  })
+})
+
+describe('S1-mini English eligibility', () => {
+  test('accepts short English self-corrections in automatic mode', () => {
+    for (const transcript of [
+      'lets meet at 6, no wait make that 8.',
+      "Let's meet at 6, no wait make that 8",
+      'Let’s meet at 6, no wait make that 8',
+      'lets meet at six, no wait make that eight',
+      "So let me test let's meet at 6, no 8.",
+      "let's meet at 6, no 8.",
+      'I need to send the report by Thursday',
+    ]) {
+      expect(isEnglishTranscriptEligible(transcript, 'auto')).toBe(true)
+    }
+  })
+
+  test('trusts the effective fixed output language', () => {
+    expect(isEnglishTranscriptEligible('hello', 'en')).toBe(true)
+    expect(isEnglishTranscriptEligible('hello', 'en-us')).toBe(true)
+    expect(
+      isEnglishTranscriptEligible(
+        'This happens to contain English words but the configured output is Danish.',
+        'da'
+      )
+    ).toBe(false)
+  })
+
+  test('accepts confident English and rejects non-English automatic detection', () => {
+    expect(
+      isEnglishTranscriptEligible(
+        'This is a clear English dictation about sending the report tomorrow morning.',
+        'auto'
+      )
+    ).toBe(true)
+    expect(
+      isEnglishTranscriptEligible(
+        'The meeting starts at nine and the design team will present three options.',
+        'auto'
+      )
+    ).toBe(true)
+    expect(
+      isEnglishTranscriptEligible(
+        'Dette er en tydelig dansk diktat om at sende rapporten i morgen tidlig.',
+        'auto'
+      )
+    ).toBe(false)
+  })
+
+  test('preserves short and mixed automatic-language transcripts as uncertain', () => {
+    expect(isEnglishTranscriptEligible('Please send it', 'auto')).toBe(false)
+    expect(
+      isEnglishTranscriptEligible(
+        'Please send rapporten til kunden tomorrow morning when it is ready.',
+        'auto'
+      )
+    ).toBe(false)
+  })
+})
+
+const s1RuntimeSettings: FormattingRuntimeSettings = {
+  enabled: true,
+  enabledModes: {
+    email: false,
+    imessage: false,
+    slack: false,
+    document: false,
+  },
+  forceModeId: null,
+  modelInstalled: false,
+  transcriptionLanguageId: 'en',
+  userDisplayName: 'Emil',
+  formatterModelTier: 's1-mini',
+  s1: { styling: 'semi-formal', structure: 'prose' },
+  email: {
+    includeSenderName: true,
+    greetingStyle: 'custom',
+    closingStyle: 'custom',
+    customGreeting: 'Hello',
+    customClosing: 'Cheers',
+  },
+  imessage: { tone: 'neutral', allowEmoji: true, lightweight: true },
+  slack: {
+    tone: 'casual',
+    allowEmoji: true,
+    useMarkdown: true,
+    lightweight: true,
+  },
+  document: { tone: 'formal', structure: 'bulleted', lightweight: true },
+}
+
+describe('S1-mini routing', () => {
+  test('always allows automatic lists, including saved prose presets', () => {
+    for (const forceModeId of [
+      null,
+      'email',
+      'imessage',
+      'slack',
+      'document',
+    ] as const) {
+      const request = buildS1FormatterRequest(
+        'Please send the updated report tomorrow morning.',
+        {
+          ...s1RuntimeSettings,
+          forceModeId,
+          slack: { ...s1RuntimeSettings.slack, useMarkdown: false },
+          document: { ...s1RuntimeSettings.document, structure: 'prose' },
+        },
+        null
+      )
+      expect(request?.s1Structure).toBe('lists')
+    }
+  })
+
+  test('uses general controls in an unmatched app even when the model is missing', () => {
+    const request = buildS1FormatterRequest(
+      'Please send the updated report tomorrow morning.',
+      s1RuntimeSettings,
+      {
+        appName: 'Terminal',
+        bundleIdentifier: 'com.apple.Terminal',
+        windowTitle: null,
+      }
+    )
+
+    expect(request).not.toBeNull()
+    expect(request?.formatterModelInstalled).toBe(false)
+    expect(request?.s1Styling).toBe('semi-formal')
+    expect(request?.s1Structure).toBe('lists')
+    expect(request?.s1Context).toBe('general')
+  })
+
+  test('an enabled matching preset refines only supported S1-mini controls', () => {
+    const request = buildS1FormatterRequest(
+      'Please send the updated report tomorrow morning.',
+      {
+        ...s1RuntimeSettings,
+        enabledModes: { ...s1RuntimeSettings.enabledModes, slack: true },
+      },
+      {
+        appName: 'Slack',
+        bundleIdentifier: 'com.tinyspeck.slackmacgap',
+        windowTitle: null,
+      }
+    )
+
+    expect(request?.s1Styling).toBe('casual')
+    expect(request?.s1Structure).toBe('lists')
+    expect(request?.s1Context).toBe('general')
+  })
+
+  test('a forced preset refines S1-mini only while the master switch is on', () => {
+    const forced = { ...s1RuntimeSettings, forceModeId: 'email' as const }
+    expect(
+      buildS1FormatterRequest(
+        'Please send the updated report tomorrow morning.',
+        forced,
+        null
+      )?.s1Context
+    ).toBe('email')
+    expect(
+      buildS1FormatterRequest(
+        'Please send the updated report tomorrow morning.',
+        { ...forced, enabled: false },
+        null
+      )
+    ).toBeNull()
+  })
+})
+
+describe('Windows focused-app mapping', () => {
+  test('maps native Windows process names to existing formatting presets', () => {
+    expect(
+      parseWindowsFocusedAppContext(
+        JSON.stringify({ processName: 'OUTLOOK.EXE', windowTitle: 'Inbox' })
+      )
+    ).toEqual({
+      appName: 'Microsoft Outlook',
+      bundleIdentifier: null,
+      windowTitle: 'Inbox',
+    })
+    expect(
+      parseWindowsFocusedAppContext(
+        JSON.stringify({ processName: 'WINWORD', windowTitle: 'Draft.docx' })
+      )?.appName
+    ).toBe('Microsoft Word')
+    expect(
+      parseWindowsFocusedAppContext(
+        JSON.stringify({ processName: 'slack', windowTitle: 'engineering' })
+      )?.appName
+    ).toBe('Slack')
+  })
+
+  test('recognises supported web apps from browser titles', () => {
+    expect(
+      parseWindowsFocusedAppContext(
+        JSON.stringify({
+          processName: 'msedge',
+          windowTitle: 'Roadmap - Google Docs - Microsoft Edge',
+        })
+      )?.appName
+    ).toBe('Google Docs')
+  })
+
+  test('does not treat app names in non-browser titles as web apps', () => {
+    expect(
+      parseWindowsFocusedAppContext(
+        JSON.stringify({
+          processName: 'Code',
+          windowTitle: 'resolve-slack.ts — Codictate — Visual Studio Code',
+        })
+      )?.appName
+    ).toBe('Code')
+  })
+
+  test('keeps unknown processes useful and rejects malformed responses', () => {
+    expect(
+      parseWindowsFocusedAppContext(
+        JSON.stringify({ processName: 'Obsidian', windowTitle: '' })
+      )
+    ).toEqual({
+      appName: 'Obsidian',
+      bundleIdentifier: null,
+      windowTitle: null,
+    })
+    expect(parseWindowsFocusedAppContext('not json')).toBeNull()
+    expect(
+      parseWindowsFocusedAppContext(
+        JSON.stringify({ windowTitle: 'No process' })
+      )
+    ).toBeNull()
   })
 })
 

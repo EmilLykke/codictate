@@ -89,6 +89,8 @@ export interface FormatterModelConfig {
   readonly sizeLabel: string
   /** When true, /no_think is prepended to user prompt to disable reasoning mode (Qwen3). */
   readonly noThink: boolean
+  /** SHA-256 required before a downloaded model is installed. */
+  readonly sha256?: string
 }
 
 export const FORMATTER_MODELS: Record<
@@ -114,6 +116,17 @@ export const FORMATTER_MODELS: Record<
     expectedSizeBytes: 2_600_000_000,
     sizeLabel: '~2.5 GB',
     noThink: true,
+  },
+  's1-mini': {
+    tier: 's1-mini',
+    displayName: 'S1-mini by Superwhisper',
+    filename: 's1-mini-q4_k_m.gguf',
+    path: join(MODELS_DIR, 's1-mini-q4_k_m.gguf'),
+    url: 'https://huggingface.co/superwhisper/s1-mini-GGUF/resolve/34add00a48a2e5d24e5a4ee5405a99620a3a240c/s1-mini-q4_k_m.gguf',
+    expectedSizeBytes: 484_219_808,
+    sizeLabel: '~484 MB',
+    noThink: true,
+    sha256: '3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634',
   },
 }
 

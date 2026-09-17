@@ -60,18 +60,28 @@ export interface FormattingDocumentSettings {
   lightweight: boolean
 }
 
-export type FormatterModelTier = 'fast' | 'quality'
+export type FormatterModelTier = 'fast' | 'quality' | 's1-mini'
+
+export type S1Styling = 'casual' | 'semi-casual' | 'semi-formal' | 'formal'
+export type S1Structure = 'prose' | 'lists'
+
+export interface S1FormattingSettings {
+  styling: S1Styling
+  structure: S1Structure
+}
 
 export interface FormattingSettings {
   enabled: boolean
   enabledModes: FormattingEnabledModes
   forceModeId: FormattingModeId | null
-  /** Which formatter model tier the user has selected ('fast' = Qwen2.5 3B, 'quality' = Qwen3 4B). */
+  /** Selected Formatting Model: either Qwen tier or S1-mini by Superwhisper. */
   formatterModelTier: FormatterModelTier
   /** Platform supports running the formatter at all (vendored llama-cli present). */
   available: boolean
   /** Per-tier availability: true when that tier's GGUF exists on disk. */
   modelAvailability: Record<FormatterModelTier, boolean>
+  /** General S1-mini controls. Matching enabled app presets may refine these per Dictation. */
+  s1: S1FormattingSettings
   email: FormattingEmailSettings
   imessage: FormattingImessageSettings
   slack: FormattingSlackSettings
@@ -138,6 +148,7 @@ export interface FormattingRuntimeSettings {
   transcriptionLanguageId: string
   userDisplayName: string
   formatterModelTier: FormatterModelTier
+  s1: S1FormattingSettings
   email: FormattingEmailSettings
   imessage: FormattingImessageSettings
   slack: FormattingSlackSettings
@@ -352,6 +363,7 @@ export interface FormattingSettingsPatch {
   enabledModes?: Partial<FormattingEnabledModes>
   forceModeId?: FormattingModeId | null
   formatterModelTier?: FormatterModelTier
+  s1?: Partial<S1FormattingSettings>
   email?: Partial<FormattingEmailSettings>
   imessage?: Partial<FormattingImessageSettings>
   slack?: Partial<FormattingSlackSettings>

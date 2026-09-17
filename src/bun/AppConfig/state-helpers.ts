@@ -51,7 +51,24 @@ export function formattingSettingsAfterPatch(
   if (
     patch.formatterModelTier !== undefined &&
     patch.formatterModelTier !== 'fast' &&
-    patch.formatterModelTier !== 'quality'
+    patch.formatterModelTier !== 'quality' &&
+    patch.formatterModelTier !== 's1-mini'
+  ) {
+    return null
+  }
+  if (
+    patch.s1?.styling !== undefined &&
+    patch.s1.styling !== 'casual' &&
+    patch.s1.styling !== 'semi-casual' &&
+    patch.s1.styling !== 'semi-formal' &&
+    patch.s1.styling !== 'formal'
+  ) {
+    return null
+  }
+  if (
+    patch.s1?.structure !== undefined &&
+    patch.s1.structure !== 'prose' &&
+    patch.s1.structure !== 'lists'
   ) {
     return null
   }
@@ -97,6 +114,7 @@ export function formattingSettingsAfterPatch(
     imessage: { ...current.imessage },
     slack: { ...current.slack },
     document: { ...current.document },
+    s1: { ...current.s1 },
   }
 
   if (patch.enabled !== undefined) next.enabled = patch.enabled
@@ -114,6 +132,7 @@ export function formattingSettingsAfterPatch(
   if (patch.formatterModelTier !== undefined) {
     next.formatterModelTier = patch.formatterModelTier
   }
+  if (patch.s1 !== undefined) next.s1 = { ...next.s1, ...patch.s1 }
   if (patch.email !== undefined) next.email = { ...next.email, ...patch.email }
   if (patch.imessage !== undefined) {
     next.imessage = { ...next.imessage, ...patch.imessage }

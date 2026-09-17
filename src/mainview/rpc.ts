@@ -310,6 +310,12 @@ export async function setFormattingForceModeId(
   })
 }
 
+export async function setS1FormattingControls(
+  s1: Partial<AppSettings['formatting']['s1']>
+): Promise<boolean> {
+  return rpc.request.updateFormattingSettings({ patch: { s1 } })
+}
+
 export async function setUserDisplayName(
   userDisplayName: string
 ): Promise<boolean> {

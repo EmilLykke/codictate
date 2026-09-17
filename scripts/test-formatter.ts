@@ -26,6 +26,9 @@ const baseRequest: Omit<FormatterRequest, 'modeId' | 'transcript'> = {
   documentStructure: 'prose',
   documentLightweight: false,
   formatterModelTier: 'fast',
+  s1Styling: 'semi-formal',
+  s1Structure: 'prose',
+  s1Context: 'general',
   focusedApp: null,
 }
 

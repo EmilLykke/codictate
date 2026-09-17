@@ -1,5 +1,5 @@
 // Downloads and removes GGUF models used by the cross-platform formatter.
-// Supports two tiers: 'fast' (Qwen2.5 3B) and 'quality' (Qwen3 4B).
+// Supports the two Qwen tiers and S1-mini by Superwhisper.
 
 import {
   mkdirSync,
@@ -9,6 +9,7 @@ import {
   createWriteStream,
 } from 'fs'
 import { dirname } from 'path'
+import { createHash } from 'node:crypto'
 import { getFormatterModelConfig } from '../../platform/runtime'
 import type { FormatterModelTier } from '../../../shared/types'
 import { log } from '../logger'
@@ -91,6 +92,7 @@ class FormatterModelManager {
 
       const reader = response.body.getReader()
       const writeStream = createWriteStream(tempPath)
+      const hash = createHash('sha256')
       let received = 0
 
       while (true) {
@@ -102,6 +104,7 @@ class FormatterModelManager {
             else resolve()
           })
         })
+        hash.update(value)
         received += value.length
         this.currentFraction = Math.min(1, received / contentLength)
         onProgress(this.currentFraction, false)
@@ -113,6 +116,13 @@ class FormatterModelManager {
           else resolve()
         })
       })
+
+      const digest = hash.digest('hex')
+      if (config.sha256 && digest !== config.sha256) {
+        throw new Error(
+          `Checksum mismatch for ${config.displayName}: expected ${config.sha256}, received ${digest}`
+        )
+      }
 
       renameSync(tempPath, config.path)
       log('formatter-model-manager', 'download complete', { path: config.path })

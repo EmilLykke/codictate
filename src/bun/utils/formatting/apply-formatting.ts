@@ -16,6 +16,8 @@ import {
   buildSlackUserPrompt,
 } from './prompts'
 import type { FormatterRequest } from './resolve-formatting-request'
+import { getFormatterModelConfig } from '../../platform/runtime'
+import { runS1Formatter } from './s1-runner'
 import {
   documentSchema,
   emailSchema,
@@ -67,6 +69,7 @@ function applyDeterministicChatStyle(
 }
 
 function shouldUseLightFormatting(request: FormatterRequest): boolean {
+  if (request.formatterModelTier === 's1-mini') return false
   if (!request.formatterModelInstalled) return true
   return (
     (request.modeId === 'imessage' && request.imessageLightweight) ||
@@ -207,6 +210,22 @@ export async function applyFormatting(
       modeId: request.modeId,
       focusedApp: request.focusedApp?.appName,
     })
+
+    if (request.formatterModelTier === 's1-mini') {
+      const formatted = await runS1Formatter({
+        transcript: request.transcript,
+        styling: request.s1Styling,
+        structure: request.s1Structure,
+        context: request.s1Context,
+        modelPath: getFormatterModelConfig('s1-mini').path,
+      })
+      log('formatter', 'S1-mini cleanup complete', {
+        originalLength: request.transcript.length,
+        formattedLength: formatted.length,
+      })
+      // Empty is a valid S1-mini result for filler-only or noise-only input.
+      return formatted
+    }
 
     const rawOutput = await runModelForMode(request)
     const formatted = applyDeterministicChatStyle(rawOutput, request)

@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -16,6 +16,7 @@ import type {
   FormattingModeId,
   FormattingSettingsPatch,
   FormattingSlackTone,
+  S1Styling,
 } from "../../../../shared/types";
 import {
   cancelFormatterModelDownload,
@@ -31,6 +32,7 @@ import {
   setFormattingEmailCustomGreeting,
   setFormattingEmailGreetingStyle,
   setFormattingEmailIncludeSenderName,
+  setFormattingEnabled,
   setFormattingForceModeId,
   setFormattingImessageAllowEmoji,
   setFormattingImessageLightweight,
@@ -40,6 +42,7 @@ import {
   setFormattingSlackLightweight,
   setFormattingSlackTone,
   setFormattingSlackUseMarkdown,
+  setS1FormattingControls,
 } from "../../../rpc";
 import { appEvents } from "../../../app-events";
 import { settingsHelperClass } from "../settings-shared";
@@ -155,6 +158,21 @@ const DOCUMENT_STRUCTURE_OPTIONS: TileOption<FormattingDocumentStructure>[] = [
     preview:
       "- Design: UI pass this week\n- Engineering: API wrap-up\n- Review Friday",
   },
+];
+
+const S1_STYLING_OPTIONS: TileOption<S1Styling>[] = [
+  {
+    value: "casual",
+    label: "Casual",
+    sublabel: "Lowercase, keeps colloquialisms",
+  },
+  { value: "semi-casual", label: "Natural", sublabel: "Keeps your phrasing" },
+  {
+    value: "semi-formal",
+    label: "Standard",
+    sublabel: "Written English, contractions kept",
+  },
+  { value: "formal", label: "Formal", sublabel: "Expands contractions" },
 ];
 
 const LIGHT_AI_LOCKED_HINT =
@@ -321,6 +339,7 @@ export function SectionFormatting({ settings }: Props) {
   >({
     fast: { inFlight: false, fraction: 0 },
     quality: { inFlight: false, fraction: 0 },
+    "s1-mini": { inFlight: false, fraction: 0 },
   });
 
   useEffect(() => {
@@ -352,6 +371,7 @@ export function SectionFormatting({ settings }: Props) {
     setTierDownloads({
       fast: { inFlight: false, fraction: 0 },
       quality: { inFlight: false, fraction: 0 },
+      "s1-mini": { inFlight: false, fraction: 0 },
     });
   }, []);
 
@@ -385,6 +405,7 @@ export function SectionFormatting({ settings }: Props) {
         ...(patch.forceModeId !== undefined
           ? { forceModeId: patch.forceModeId }
           : {}),
+        ...(patch.s1 ? { s1: { ...old.formatting.s1, ...patch.s1 } } : {}),
         ...(patch.enabledModes
           ? {
               enabledModes: {
@@ -411,6 +432,16 @@ export function SectionFormatting({ settings }: Props) {
     [],
   );
 
+  const formattingToggle = useMutation({
+    mutationFn: setFormattingEnabled,
+    onMutate: (enabled: boolean) => {
+      queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+        old ? mergeFormatting(old, { enabled }) : old,
+      );
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["settings"] }),
+  });
+
   const handleFormattingModeToggle = useCallback(
     async (modeId: FormattingModeId) => {
       const current = formatting.enabledModes[modeId] ?? false;
@@ -426,6 +457,17 @@ export function SectionFormatting({ settings }: Props) {
       }
     },
     [formatting.enabledModes, mergeFormatting, queryClient],
+  );
+
+  const handleS1ControlsChange = useCallback(
+    async (patch: Partial<AppSettings["formatting"]["s1"]>) => {
+      queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+        old ? mergeFormatting(old, { s1: patch }) : old,
+      );
+      const ok = await setS1FormattingControls(patch);
+      if (!ok) queryClient.setQueryData(["settings"], await fetchSettings());
+    },
+    [mergeFormatting, queryClient],
   );
 
   const handleClearFormattingForce = useCallback(async () => {
@@ -614,11 +656,26 @@ export function SectionFormatting({ settings }: Props) {
   return (
     <>
       <div className="mb-6">
-        <h2 className="text-[28px] tracking-tight text-overlay/90">
-          Auto-polish
-        </h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-[28px] tracking-tight text-overlay/90">
+            Auto-polish
+          </h2>
+          <div className="flex items-center gap-3">
+            <span className="text-[14px] text-overlay/60">
+              {formatting.enabled ? "On" : "Off"}
+            </span>
+            <Switch
+              checked={formatting.enabled}
+              onCheckedChange={(enabled) => formattingToggle.mutate(enabled)}
+              disabled={formattingToggle.isPending}
+              aria-label="Enable Auto-polish"
+            />
+          </div>
+        </div>
         <p className="mt-3 text-[14px] text-overlay/44 leading-relaxed font-sans font-normal">
-          Automatically cleans up your dictation based on which app you're in.
+          {formatting.formatterModelTier === "s1-mini"
+            ? "Cleans up completed English dictation in every app. Enabled app presets refine the result."
+            : "Automatically cleans up your dictation based on which app you're in."}
         </p>
       </div>
 
@@ -671,8 +728,9 @@ export function SectionFormatting({ settings }: Props) {
                 <span className="font-medium text-accent-amber/90">
                   {formattingModeLabel(formatting.forceModeId)}
                 </span>{" "}
-                -- always applied, even if auto-polish is off or the format is
-                disabled below. Clear to return to auto-detection.
+                {formatting.formatterModelTier === "s1-mini"
+                  ? " -- refines S1-mini while Auto-polish is on. Clear to return to app matching."
+                  : " -- always applied, even if auto-polish is off or the format is disabled below. Clear to return to auto-detection."}
               </span>
               <button
                 onClick={() => void handleClearFormattingForce()}
@@ -707,6 +765,13 @@ export function SectionFormatting({ settings }: Props) {
                   model: "Qwen3 4B",
                   size: "~2.5 GB",
                   desc: "Best results, bit slower",
+                },
+                {
+                  tier: "s1-mini" as FormatterModelTier,
+                  label: "Everyday cleanup",
+                  model: "S1-mini by Superwhisper",
+                  size: "~484 MB",
+                  desc: "English dictation cleanup in every app",
                 },
               ] as const
             ).map(({ tier, label, model, size, desc }) => {
@@ -829,8 +894,35 @@ export function SectionFormatting({ settings }: Props) {
           </div>
 
           <p className={settingsHelperClass}>
-            The on-device model that rewrites your dictation. Set once; the
-            active tier applies to all formats below.
+            The on-device model that rewrites your dictation. S1-mini supports
+            English Batch Dictation and runs in every app while Auto-polish is
+            on.
+          </p>
+        </div>
+      )}
+
+      {formatting.available && formatting.formatterModelTier === "s1-mini" && (
+        <div className="mb-8">
+          <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
+            S1-mini defaults
+          </h2>
+          <div className="flex flex-col gap-4 rounded-xl border border-overlay/11 bg-surface-1 p-4">
+            <div>
+              <span className="mb-2 block text-[13px] text-overlay/44">
+                Writing style
+              </span>
+              <DropdownPicker
+                value={formatting.s1.styling}
+                onChange={(styling) => void handleS1ControlsChange({ styling })}
+                options={S1_STYLING_OPTIONS}
+                ariaLabel="S1-mini writing style"
+              />
+            </div>
+          </div>
+          <p className={settingsHelperClass}>
+            Clear lists with at least three items can become bullets; other
+            dictation stays in paragraphs. Uncertain auto-detected languages
+            stay unchanged.
           </p>
         </div>
       )}
@@ -838,16 +930,19 @@ export function SectionFormatting({ settings }: Props) {
       {/* Modes accordion */}
       <div className="mb-8">
         <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
-          Formats
+          {formatting.formatterModelTier === "s1-mini"
+            ? "App refinements"
+            : "Formats"}
         </h2>
         <div className="flex flex-col gap-2">
           {FORMATTING_MODES.map((mode) => {
             const enabled = formatting.enabledModes[mode.id] ?? false;
             const isExpanded = expandedMode === mode.id;
             const isLightweight =
-              (mode.id === "imessage" && formatting.imessage.lightweight) ||
-              (mode.id === "slack" && formatting.slack.lightweight) ||
-              (mode.id === "document" && formatting.document.lightweight);
+              formatting.formatterModelTier !== "s1-mini" &&
+              ((mode.id === "imessage" && formatting.imessage.lightweight) ||
+                (mode.id === "slack" && formatting.slack.lightweight) ||
+                (mode.id === "document" && formatting.document.lightweight));
 
             return (
               <div
@@ -928,7 +1023,12 @@ export function SectionFormatting({ settings }: Props) {
                       transition={{ duration: 0.2, overflow: { delay: 0.2 } }}
                     >
                       <div className="border-t border-overlay/8 px-4 pt-3 pb-4">
-                        {mode.id === "email" && (
+                        {formatting.formatterModelTier === "s1-mini" ? (
+                          <S1PresetSettings
+                            modeId={mode.id}
+                            formatting={formatting}
+                          />
+                        ) : mode.id === "email" ? (
                           <EmailSettings
                             formatting={formatting}
                             customGreetingDraft={customGreetingDraft}
@@ -945,8 +1045,7 @@ export function SectionFormatting({ settings }: Props) {
                               handleFormattingEmailIncludeSenderNameToggle
                             }
                           />
-                        )}
-                        {mode.id === "imessage" && (
+                        ) : mode.id === "imessage" ? (
                           <ImessageSettings
                             formatting={formatting}
                             onToneChange={handleImessageToneChange}
@@ -957,8 +1056,7 @@ export function SectionFormatting({ settings }: Props) {
                               handleFormattingImessageAllowEmojiToggle
                             }
                           />
-                        )}
-                        {mode.id === "slack" && (
+                        ) : mode.id === "slack" ? (
                           <SlackSettings
                             formatting={formatting}
                             onToneChange={handleSlackToneChange}
@@ -972,8 +1070,7 @@ export function SectionFormatting({ settings }: Props) {
                               handleFormattingSlackAllowEmojiToggle
                             }
                           />
-                        )}
-                        {mode.id === "document" && (
+                        ) : mode.id === "document" ? (
                           <DocumentSettings
                             formatting={formatting}
                             onToneChange={handleDocumentToneChange}
@@ -982,7 +1079,7 @@ export function SectionFormatting({ settings }: Props) {
                               handleFormattingDocumentLightweightToggle
                             }
                           />
-                        )}
+                        ) : null}
                       </div>
                     </motion.div>
                   )}
@@ -993,6 +1090,63 @@ export function SectionFormatting({ settings }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+function S1PresetSettings({
+  modeId,
+  formatting,
+}: {
+  modeId: FormattingModeId;
+  formatting: AppSettings["formatting"];
+}) {
+  if (modeId === "email") {
+    return (
+      <p className={`${settingsHelperClass} !mt-0`}>
+        Uses S1-mini&apos;s email layout while keeping the general writing
+        style. Greeting and sign-off text come from the dictation.
+      </p>
+    );
+  }
+  if (modeId === "imessage") {
+    return (
+      <div>
+        <span className="mb-2 block text-[13px] text-overlay/44">
+          Writing style
+        </span>
+        <TileGroup
+          value={formatting.imessage.tone}
+          onChange={(tone) => void setFormattingImessageTone(tone)}
+          options={IMESSAGE_TONE_OPTIONS}
+          columns={3}
+          ariaLabel="Messages S1-mini writing style"
+        />
+      </div>
+    );
+  }
+  if (modeId === "slack") {
+    return (
+      <div className="flex flex-col gap-4">
+        <TileGroup
+          value={formatting.slack.tone}
+          onChange={(tone) => void setFormattingSlackTone(tone)}
+          options={SLACK_TONE_OPTIONS}
+          columns={3}
+          ariaLabel="Slack S1-mini writing style"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      <TileGroup
+        value={formatting.document.tone}
+        onChange={(tone) => void setFormattingDocumentTone(tone)}
+        options={DOCUMENT_TONE_OPTIONS}
+        columns={3}
+        ariaLabel="Document S1-mini writing style"
+      />
+    </div>
   );
 }
 

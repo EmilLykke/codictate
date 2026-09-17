@@ -133,10 +133,13 @@ export async function runDictation(
   }
 
   const raw = transcript
-  const formatterRequest = await buildFormatterRequest(
-    transcript,
-    request.formattingSettings
-  )
+  const formatterRequest = await buildFormatterRequest(transcript, {
+    ...request.formattingSettings,
+    // Translate mode's output is English even though the plan language names its source.
+    transcriptionLanguageId: plan.translateToEnglish
+      ? 'en'
+      : plan.transcriptionLanguageId,
+  })
   if (formatterRequest === null) return outcome(raw, raw, false)
 
   // A Formatting Backend failure degrades to the Raw Transcript rather than failing the

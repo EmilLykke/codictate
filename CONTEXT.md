@@ -58,6 +58,8 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Formatting Backend** - what executes a Formatting Mode: llama.cpp running a local model, or Apple Intelligence on macOS 26+.
 
+**Formatting Model** - the model the user selects to rewrite a transcript, such as Qwen or S1-mini by Superwhisper. Distinct from the Formatting Mode, which describes the requested writing behaviour, and the Speech Model, which recognises speech.
+
 ## Distribution
 
 **Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`crispasr`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).

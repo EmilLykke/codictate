@@ -31,6 +31,8 @@ const WINDOWS_VC_RUNTIME_DLLS = [
 ];
 
 const buildCopy: Record<string, string> = {
+  "docs/licenses/s1-mini": "licenses/s1-mini",
+  "docs/licenses/tinyld": "licenses/tinyld",
   ...binaryBuildCopy(isWindowsHost ? "windows" : "macos"),
   "dist/index.html": "views/mainview/index.html",
   "dist/assets": "views/mainview/assets",
