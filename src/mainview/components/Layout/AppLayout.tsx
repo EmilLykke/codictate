@@ -4,6 +4,7 @@ import {
   wordmarkCodictateTypographyClass,
 } from "../Brand/WordmarkCodictate";
 import { WindowTitleBar } from "../Common/WindowTitleBar";
+import { SidebarUpdateButton } from "./SidebarUpdateButton";
 import type { PlatformRuntime as Platform } from "../../../shared/platform";
 import { openExternalUrl } from "../../rpc";
 
@@ -250,6 +251,7 @@ export function AppLayout({
               </div>
               Help
             </button>
+            <SidebarUpdateButton />
           </div>
         </div>
       </div>
