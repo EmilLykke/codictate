@@ -1,0 +1,242 @@
+{
+  "description": "Clips 401 to end of da_dk, 5 Danish-pinned hviske models",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.6.2"
+  },
+  "runDate": "2026-09-18T05:02:07.773Z",
+  "config": {
+    "sampleSize": 527,
+    "sampleSizeBasis": "pooled-v2",
+    "warmupCount": 3,
+    "normalization": "whisper-basic",
+    "sampleSelection": {
+      "mode": "target",
+      "requested": 927
+    }
+  },
+  "librispeech": {},
+  "fleurs": {
+    "da_dk": {
+      "crispasr": {
+        "hviske-v5-tiny-f16": {
+          "wer": 0.11474690762347574,
+          "referenceWords": 11399,
+          "wordErrors": 1308,
+          "meanRTF": 0.02111872869133766,
+          "peakRSS_MB": {
+            "min": 643,
+            "avg": 651,
+            "max": 660
+          },
+          "utteranceCount": 527,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 21.11872869133766,
+            "responseMs": 129223.81136399995,
+            "audioDurationSec": 6118.920000000005,
+            "wallRtf": 0.02111872869133766,
+            "medianResponseMs": 241.24412499999744,
+            "p90ResponseMs": 287.83520800000406,
+            "attemptedCount": 527,
+            "respondedCount": 527,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 527,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 527
+          },
+          "totalAudioSec": 6118.920000000005,
+          "totalWallSec": 129.22381136399994,
+          "cer": 0.06955106809078772,
+          "referenceChars": 71904,
+          "charErrors": 5001,
+          "sampleRange": {
+            "startIndex": 400,
+            "endIndex": 927,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        },
+        "hviske-v5-tiny-q8_0": {
+          "wer": 0.11483463461707168,
+          "referenceWords": 11399,
+          "wordErrors": 1309,
+          "meanRTF": 0.01830862359648437,
+          "peakRSS_MB": {
+            "min": 408,
+            "avg": 417,
+            "max": 425
+          },
+          "utteranceCount": 527,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 18.308623596484374,
+            "responseMs": 112029.00309700024,
+            "audioDurationSec": 6118.920000000005,
+            "wallRtf": 0.018308623596484375,
+            "medianResponseMs": 208.96924999999464,
+            "p90ResponseMs": 246.28724999999395,
+            "attemptedCount": 527,
+            "respondedCount": 527,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 527,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 527
+          },
+          "totalAudioSec": 6118.920000000005,
+          "totalWallSec": 112.02900309700021,
+          "cer": 0.06948153093012906,
+          "referenceChars": 71904,
+          "charErrors": 4996,
+          "sampleRange": {
+            "startIndex": 400,
+            "endIndex": 927,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        },
+        "hviske-v5-tiny-q6_k": {
+          "wer": 0.11597508553381876,
+          "referenceWords": 11399,
+          "wordErrors": 1322,
+          "meanRTF": 0.017734784694030992,
+          "peakRSS_MB": {
+            "min": 372,
+            "avg": 380,
+            "max": 389
+          },
+          "utteranceCount": 527,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 17.734784694030978,
+            "responseMs": 108517.72876000011,
+            "audioDurationSec": 6118.920000000005,
+            "wallRtf": 0.01773478469403098,
+            "medianResponseMs": 202.84920799999963,
+            "p90ResponseMs": 241.65000000002328,
+            "attemptedCount": 527,
+            "respondedCount": 527,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 527,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 527
+          },
+          "totalAudioSec": 6118.920000000005,
+          "totalWallSec": 108.5177287600002,
+          "cer": 0.06980140186915888,
+          "referenceChars": 71904,
+          "charErrors": 5019,
+          "sampleRange": {
+            "startIndex": 400,
+            "endIndex": 927,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        },
+        "hviske-v5-tiny-q5_0": {
+          "wer": 0.11483463461707168,
+          "referenceWords": 11399,
+          "wordErrors": 1309,
+          "meanRTF": 0.017536307570616826,
+          "peakRSS_MB": {
+            "min": 321,
+            "avg": 330,
+            "max": 339
+          },
+          "utteranceCount": 527,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 17.536307570616838,
+            "responseMs": 107303.26311999885,
+            "audioDurationSec": 6118.920000000005,
+            "wallRtf": 0.01753630757061684,
+            "medianResponseMs": 198.73554199998034,
+            "p90ResponseMs": 240.56329199997708,
+            "attemptedCount": 527,
+            "respondedCount": 527,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 527,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 527
+          },
+          "totalAudioSec": 6118.920000000005,
+          "totalWallSec": 107.30326311999879,
+          "cer": 0.0696345126835781,
+          "referenceChars": 71904,
+          "charErrors": 5007,
+          "sampleRange": {
+            "startIndex": 400,
+            "endIndex": 927,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        },
+        "hviske-v5-tiny-q4_k": {
+          "wer": 0.11483463461707168,
+          "referenceWords": 11399,
+          "wordErrors": 1309,
+          "meanRTF": 0.016590574336974594,
+          "peakRSS_MB": {
+            "min": 293,
+            "avg": 301,
+            "max": 310
+          },
+          "utteranceCount": 527,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 16.59057433697459,
+            "responseMs": 101516.39712200064,
+            "audioDurationSec": 6118.920000000005,
+            "wallRtf": 0.01659057433697459,
+            "medianResponseMs": 189.19195899995975,
+            "p90ResponseMs": 223.20524999999907,
+            "attemptedCount": 527,
+            "respondedCount": 527,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 527,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 527
+          },
+          "totalAudioSec": 6118.920000000005,
+          "totalWallSec": 101.51639712200067,
+          "cer": 0.0700795505117935,
+          "referenceChars": 71904,
+          "charErrors": 5039,
+          "sampleRange": {
+            "startIndex": 400,
+            "endIndex": 927,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        }
+      }
+    }
+  }
+}
