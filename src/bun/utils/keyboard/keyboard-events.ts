@@ -4,6 +4,7 @@ import {
   type KeyEvent,
 } from '../../../shared/shortcut-matching'
 import type { WindowsHelperCommand } from '../../../shared/windows-helper-protocol'
+import type { DesktopBinding } from '../../../shared/shortcut-conflicts'
 import {
   bindNativePasteboardWriter,
   unbindNativePasteboardWriter,
@@ -18,6 +19,34 @@ export interface PermissionStatus {
   accessibility: boolean
 }
 
+/**
+ * Linux only: whether the desktop can carry the Dictation Shortcut and the paste. The Linux
+ * Native Helper registers shortcuts with Hyprland itself, so any other desktop is
+ * `unavailable` (docs/adr/0008-linux-shortcuts-through-hyprland.md).
+ */
+export type ShortcutBackend = 'hyprland' | 'unavailable'
+
+export interface DesktopShortcutEvents {
+  onShortcutBackend?: (backend: ShortcutBackend) => void
+  onDesktopBindings?: (bindings: DesktopBinding[]) => void
+}
+
+function parseDesktopBindings(value: unknown): DesktopBinding[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { modmask, key, description } = entry as Record<string, unknown>
+    if (typeof modmask !== 'number' || typeof key !== 'string') return []
+    return [
+      {
+        modmask,
+        key,
+        description: typeof description === 'string' ? description : '',
+      },
+    ]
+  })
+}
+
 /** NSPasteboard + Cmd+V — Unicode-safe in bundled apps (no pbcopy / shell locale). */
 let keyListenerPasteText: ((text: string) => void) | null = null
 let keyListenerReplaceText:
@@ -26,23 +55,31 @@ let keyListenerReplaceText:
 export function startKeyboardListener(
   onKeyEvent: (event: KeyEvent) => void,
   swallowRules: KeyEvent[] = [],
-  onPermissions?: (status: PermissionStatus) => void
+  onPermissions?: (status: PermissionStatus) => void,
+  desktopEvents: DesktopShortcutEvents = {}
 ) {
   let procAlive = true
   let proc: ReturnType<typeof Bun.spawn> | null = null
 
   const pendingStart = findKeyboardHelperBinary().then((helper) => {
-    const args =
-      helper.kind === 'windows' ? [helper.path, 'keyboard-hook'] : [helper.path]
+    // Windows and Linux run the same Rust Native Helper and speak its protocol.
+    const rustHelper = helper.kind !== 'macos'
+    const args = rustHelper ? [helper.path, 'keyboard-hook'] : [helper.path]
     const startedProc = Bun.spawn(args, { stdout: 'pipe', stdin: 'pipe' })
     proc = startedProc
 
-    if (helper.kind === 'windows') {
+    if (rustHelper) {
       const payload: WindowsHelperCommand = {
         command: 'configure',
         swallow: swallowRules.map(serializeSwallowRule),
       }
       startedProc.stdin.write(JSON.stringify(payload) + '\n')
+      if (helper.kind === 'linux') {
+        const listBindings: WindowsHelperCommand = {
+          command: 'list_desktop_bindings',
+        }
+        startedProc.stdin.write(JSON.stringify(listBindings) + '\n')
+      }
     } else {
       startedProc.stdin.write(
         JSON.stringify({ swallow: swallowRules.map(serializeSwallowRule) }) +
@@ -55,9 +92,9 @@ export function startKeyboardListener(
       procAlive = false
       if (code !== 0 && code !== 143 && code !== 137) {
         console.error(
-          helper.kind === 'windows'
+          rustHelper
             ? `[CodictateWindowsHelper] exited with code ${code}.\n` +
-                `If shortcuts are not working, rebuild the Windows helper and verify it can start.`
+                `If shortcuts are not working, rebuild the ${helper.kind === 'linux' ? 'Linux' : 'Windows'} helper and verify it can start.`
             : `[KeyListener] exited with code ${code}.\n` +
                 `If shortcuts are not working, grant Input Monitoring permission:\n` +
                 `System Settings > Privacy & Security > Input Monitoring → add this app, then restart.`
@@ -154,6 +191,16 @@ export function startKeyboardListener(
                 accessibility: parsed.accessibility === true,
               }
               onPermissions?.(lastPermissions)
+              if (
+                parsed.shortcutBackend === 'hyprland' ||
+                parsed.shortcutBackend === 'unavailable'
+              ) {
+                desktopEvents.onShortcutBackend?.(parsed.shortcutBackend)
+              }
+            } else if (parsed.type === 'desktop_bindings') {
+              desktopEvents.onDesktopBindings?.(
+                parseDesktopBindings(parsed.bindings)
+              )
             } else if (parsed.type === 'permissions') {
               lastPermissions = {
                 inputMonitoring:

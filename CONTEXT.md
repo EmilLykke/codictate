@@ -14,6 +14,8 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Preset** - one of the fixed, named key combinations Codictate offers in the shortcut picker. Codictate does not let a user invent arbitrary combinations; the offered set is curated. See `docs/adr/0003-shortcut-presets-over-capture.md`.
 
+**Shortcut Conflict** - a Preset whose key combination the desktop itself already binds to something else. A conflicting Preset is not offered, and a saved Dictation Shortcut that becomes conflicting is healed to a free one with a note, never registered alongside the desktop's binding.
+
 **Trigger Key** - the non-modifier key in a Preset (Space, Enter, F1). A Preset may have no Trigger Key, in which case the combination is modifier-only (Right Option alone, Fn alone, Ctrl+Win).
 
 **Modifier** - Option/Alt, Control, Shift, Command/Win, or Fn. Left and right variants of the same Modifier are distinguishable and are never mixed within one Preset.
@@ -65,6 +67,10 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 **Writing Style** - the single, global casual-to-formal setting for the S1-mini Formatting Model. Applies across all Formatting Modes and has its own scale, so it is not interchangeable with a Tone.
 
 ## Distribution
+
+**Supported Platform** - an operating system Codictate keeps at full feature maturity, where every feature ships in the same change as on the others: macOS and Windows.
+
+**Preview Platform** - an operating system Codictate runs on with openly declared gaps: a feature it cannot run there is not offered, rather than offered and broken. Linux is a Preview Platform, with Omarchy (Hyprland on Wayland) as its first target. A Preview Platform becomes a Supported Platform by decision, not by drift.
 
 **Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`crispasr`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).
 

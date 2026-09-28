@@ -4,6 +4,10 @@ import type { PlatformCapabilities } from './platform'
 import type { BlockedDictationPlan, DictationReadiness } from './dictation-plan'
 import type { SettingsHealAnnouncement } from './settings-heal'
 import type {
+  ShortcutConflicts,
+  ShortcutHealAnnouncement,
+} from './shortcut-conflicts'
+import type {
   FormattingModeId,
   FormattingEmailGreetingStyle,
   FormattingEmailClosingStyle,
@@ -196,6 +200,11 @@ export type ShortcutId =
 
 export interface AppSettings {
   capabilities: PlatformCapabilities
+  /**
+   * Presets the desktop already binds, each with the sentence saying why it is not offered
+   * (Shortcut Conflict). Only Linux reports desktop bindings, so it is empty elsewhere.
+   */
+  shortcutConflicts: ShortcutConflicts
   /** Tap-or-hold smart shortcut (500ms gate + second press to stop). */
   shortcutId: ShortcutId
   /** Optional push-to-talk only; release always ends recording. Must differ from `shortcutId`. */
@@ -257,7 +266,7 @@ export interface AppSettings {
    * Translate to English, Live Transcription. Empty almost always. The main process decides
    * what to say and the window only renders it.
    */
-  healAnnouncements: SettingsHealAnnouncement[]
+  healAnnouncements: (SettingsHealAnnouncement | ShortcutHealAnnouncement)[]
   /**
    * What can run right now: Translate to English and Live Transcription, each with the
    * sentence to show when it cannot. Decided in the main process from the settings plus the

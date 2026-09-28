@@ -62,7 +62,11 @@ function resolveAppDataRoot(): string {
   if (platform === 'macos') {
     return join(homedir(), 'Library', 'Application Support')
   }
-  return process.env.XDG_STATE_HOME || join(homedir(), '.local', 'state')
+  // Speech Models are multi-GB, so they belong under XDG data, not config or state.
+  const xdgDataHome = process.env.XDG_DATA_HOME
+  return xdgDataHome && xdgDataHome.startsWith('/')
+    ? xdgDataHome
+    : join(homedir(), '.local', 'share')
 }
 
 export const APP_DATA_DIR = join(resolveAppDataRoot(), 'codictate')

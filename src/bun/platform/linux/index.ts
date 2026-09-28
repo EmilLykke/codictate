@@ -13,16 +13,14 @@
  *   ObserverHelper — AT-SPI2 (libatspi) for accessibility text observation
  */
 
-import { homedir, tmpdir } from 'os'
+import { tmpdir } from 'os'
 import { join } from 'path'
 import type { PlatformProvider, PermissionType } from '../types'
-import { FORMATTER_MODEL_PATH } from '../runtime'
+import { APP_DATA_DIR, FORMATTER_MODEL_PATH } from '../runtime'
 
 export class LinuxPlatformProvider implements PlatformProvider {
   getDataDir(): string {
-    const xdg = process.env.XDG_CONFIG_HOME
-    const base = xdg && xdg.startsWith('/') ? xdg : join(homedir(), '.config')
-    return join(base, 'codictate')
+    return APP_DATA_DIR
   }
 
   getTempPath(filename: string): string {

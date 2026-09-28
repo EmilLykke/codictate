@@ -1,6 +1,8 @@
 pub(crate) mod capture;
 mod com;
 mod devices;
+#[cfg(not(windows))]
+mod pulse;
 pub(crate) mod resample;
 mod wav;
 

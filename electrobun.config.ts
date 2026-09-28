@@ -1,9 +1,12 @@
 import { binaryBuildCopy } from "./src/shared/binary-manifest";
 import type { ElectrobunConfig } from "electrobun";
+import type { PlatformRuntime } from "./src/shared/platform";
 import {
   CRISPASR_BUNDLE_SUBDIR,
+  CRISPASR_LINUX_SHARED_LIBS,
   CRISPASR_MACOS_DYLIBS,
   CRISPASR_WINDOWS_DLLS,
+  LLAMA_LINUX_SHARED_LIBS,
   LLAMA_MACOS_DYLIBS,
   LLAMA_WINDOWS_DLLS,
 } from "./scripts/vendor-manifest";
@@ -22,7 +25,12 @@ const appIdentifier =
  *  (see getMacOSBundleDisplayName in Electrobun). Putting the channel in `name`
  *  would yield broken names like "Codictate Canary-canary". */
 const APP_NAME = "Codictate";
-const isWindowsHost = process.platform === "win32";
+const hostPlatform: PlatformRuntime =
+  process.platform === "win32"
+    ? "windows"
+    : process.platform === "linux"
+      ? "linux"
+      : "macos";
 const WINDOWS_VC_RUNTIME_DLLS = [
   "msvcp140.dll",
   "msvcp140_1.dll",
@@ -33,7 +41,7 @@ const WINDOWS_VC_RUNTIME_DLLS = [
 const buildCopy: Record<string, string> = {
   "docs/licenses/s1-mini": "licenses/s1-mini",
   "docs/licenses/tinyld": "licenses/tinyld",
-  ...binaryBuildCopy(isWindowsHost ? "windows" : "macos"),
+  ...binaryBuildCopy(hostPlatform),
   "dist/index.html": "views/mainview/index.html",
   "dist/assets": "views/mainview/assets",
   // -- Sounds (src/assets/sounds -> app/sounds)
@@ -47,7 +55,7 @@ const buildCopy: Record<string, string> = {
     "sounds/funmode-dication-end.mp3",
 };
 
-if (isWindowsHost) {
+if (hostPlatform === "windows") {
   buildCopy["native/CodictateWindowsHelper/target/release/DirectML.dll"] =
     "native-helpers/DirectML.dll";
   // Prebuilt llama is shared-library based, so its ggml/llama DLLs ship alongside it.
@@ -65,6 +73,22 @@ if (isWindowsHost) {
   for (const dll of WINDOWS_VC_RUNTIME_DLLS) {
     buildCopy[`vendors/windows/vc-runtime/${dll}`] = `native-helpers/${dll}`;
   }
+} else if (hostPlatform === "linux") {
+  // Prebuilt llama resolves these through RUNPATH = $ORIGIN, and libggml loads its
+  // Vulkan / CPU backends from the executable's directory, so all of them must sit
+  // in the same directory as the binary.
+  for (const lib of LLAMA_LINUX_SHARED_LIBS) {
+    buildCopy[`vendors/llama/${lib}`] = `native-helpers/${lib}`;
+  }
+  for (const lib of CRISPASR_LINUX_SHARED_LIBS) {
+    buildCopy[`vendors/crispasr/${lib}`] =
+      `native-helpers/${CRISPASR_BUNDLE_SUBDIR}/${lib}`;
+  }
+  buildCopy["vendors/whisper/ggml-large-v3-turbo-q5_0.bin"] =
+    "native-helpers/ggml-large-v3-turbo-q5_0.bin";
+  // White-on-transparent: the tray sits on a dark bar and is not a template image.
+  buildCopy["src/assets/images/LinuxTrayIcon.png"] = "images/LinuxTrayIcon.png";
+  buildCopy["src/assets/images/MacDocIcon.png"] = "images/MacDocIcon.png";
 } else {
   // Prebuilt llama resolves these through @rpath = @loader_path, so they must sit
   // in the same directory as the binary.

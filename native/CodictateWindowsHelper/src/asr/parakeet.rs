@@ -3,7 +3,9 @@ use crate::audio::resample::{RECORDING_SAMPLE_RATE, StreamingResampler};
 use crate::ipc::emit_json;
 use crate::keyboard::inject;
 use arboard::Clipboard;
-use parakeet_rs::{ExecutionConfig, ExecutionProvider, ParakeetTDT, TimestampMode, Transcriber};
+#[cfg(windows)]
+use parakeet_rs::ExecutionProvider;
+use parakeet_rs::{ExecutionConfig, ParakeetTDT, TimestampMode, Transcriber};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::io::{self, BufRead, Write};
@@ -112,6 +114,14 @@ fn base_execution_config() -> ExecutionConfig {
         .with_inter_threads(1)
 }
 
+#[cfg(not(windows))]
+fn load_model(model_dir: &str) -> Result<ParakeetTDT, String> {
+    log_phase("loading ONNX Parakeet TDT model on CPU...");
+    ParakeetTDT::from_pretrained(model_dir, Some(base_execution_config()))
+        .map_err(|err| format!("failed to load Parakeet ONNX model: {err}"))
+}
+
+#[cfg(windows)]
 fn load_model(model_dir: &str) -> Result<ParakeetTDT, String> {
     log_phase("loading ONNX Parakeet TDT model with DirectML...");
     let directml_config =

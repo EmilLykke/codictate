@@ -42,7 +42,7 @@ export const SHORTCUT_PRESETS = {
     label: 'Option + Space',
     windowsKeys: ['Alt', 'Space'],
     windowsLabel: 'Alt + Space',
-    supportedPlatforms: ['macos', 'windows'],
+    supportedPlatforms: ['macos', 'windows', 'linux'],
     family: 'option',
     windowsHoldEndsOnModifierRelease: true,
   },
@@ -64,7 +64,7 @@ export const SHORTCUT_PRESETS = {
     label: 'Option + Enter',
     windowsKeys: ['Alt', 'Enter'],
     windowsLabel: 'Alt + Enter',
-    supportedPlatforms: ['macos', 'windows'],
+    supportedPlatforms: ['macos', 'windows', 'linux'],
     family: 'option',
     windowsHoldEndsOnModifierRelease: true,
   },
@@ -111,7 +111,7 @@ export const SHORTCUT_PRESETS = {
     label: 'Control + Space',
     windowsKeys: ['Ctrl', 'Space'],
     windowsLabel: 'Ctrl + Space',
-    supportedPlatforms: ['macos', 'windows'],
+    supportedPlatforms: ['macos', 'windows', 'linux'],
     family: 'control',
     windowsHoldEndsOnModifierRelease: true,
   },
@@ -122,7 +122,7 @@ export const SHORTCUT_PRESETS = {
     label: 'Control + Enter',
     windowsKeys: ['Ctrl', 'Enter'],
     windowsLabel: 'Ctrl + Enter',
-    supportedPlatforms: ['macos', 'windows'],
+    supportedPlatforms: ['macos', 'windows', 'linux'],
     family: 'control',
     windowsHoldEndsOnModifierRelease: true,
   },
@@ -199,15 +199,21 @@ export function isSupportedShortcutId(
   )
 }
 
+/** Linux names the Meta key Super; every other PC key label is the Windows one. */
+const linuxKeyLabel = (key: string): string => (key === 'Win' ? 'Super' : key)
+
 function displayShortcutOption(
   option: ShortcutOption,
   platform: PlatformRuntime
 ): ShortcutOption {
-  if (platform !== 'windows') return option
+  if (platform === 'macos') return option
+  const keys = option.windowsKeys ?? option.keys
+  const label = option.windowsLabel ?? option.label
+  if (platform === 'windows') return { ...option, keys, label }
   return {
     ...option,
-    keys: option.windowsKeys ?? option.keys,
-    label: option.windowsLabel ?? option.label,
+    keys: keys.map(linuxKeyLabel),
+    label: label.split(' + ').map(linuxKeyLabel).join(' + '),
   }
 }
 
@@ -236,6 +242,17 @@ const WINDOWS_FAMILY_LABEL: Record<ShortcutFamily, string> = {
   meta: 'Windows (Win)',
 }
 
+const LINUX_FAMILY_LABEL: Record<ShortcutFamily, string> = {
+  ...WINDOWS_FAMILY_LABEL,
+  meta: 'Super',
+}
+
+const FAMILY_LABELS: Record<PlatformRuntime, Record<ShortcutFamily, string>> = {
+  macos: FAMILY_LABEL,
+  windows: WINDOWS_FAMILY_LABEL,
+  linux: LINUX_FAMILY_LABEL,
+}
+
 export function shortcutOptionsGrouped(): {
   family: ShortcutFamily
   title: string
@@ -261,10 +278,7 @@ export function shortcutOptionsGroupedForPlatform(platform: PlatformRuntime): {
   }
   return FAMILY_ORDER.map((family) => ({
     family,
-    title:
-      platform === 'windows'
-        ? WINDOWS_FAMILY_LABEL[family]
-        : FAMILY_LABEL[family],
+    title: FAMILY_LABELS[platform][family],
     options: byFamily[family],
   })).filter((group) => group.options.length > 0)
 }
@@ -326,8 +340,11 @@ export function dictationHoldOnlyShortcutHint(): string {
 export function platformShortcutSupportHint(
   platform: PlatformRuntime
 ): string | null {
-  if (platform !== 'windows') return null
-  return 'Windows supports Alt, Ctrl and Win shortcuts. Fn / Globe shortcuts are coming soon.'
+  if (platform === 'windows')
+    return 'Windows supports Alt, Ctrl and Win shortcuts. Fn / Globe shortcuts are coming soon.'
+  if (platform === 'linux')
+    return 'Linux (preview) supports Alt and Ctrl shortcuts on Hyprland. Modifier-only shortcuts are coming later.'
+  return null
 }
 
 /**

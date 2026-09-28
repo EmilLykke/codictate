@@ -14,7 +14,8 @@ jobs:
   # The TypeScript suite, ESLint and tsc are platform-independent: the default `bun test`
   # run covers pure functions only (no spawn, no filesystem, no webview), so it runs on the
   # cheapest runner rather than on macOS. Platform-specific code is covered by the
-  # windows-helper job below and by the build-macos / build-windows workflows.
+  # windows-helper and linux-helper jobs below and by the build-macos / build-windows
+  # workflows.
   checks:
     name: Tests, lint and typecheck
     runs-on: ubuntu-latest
@@ -71,3 +72,39 @@ jobs:
 
       - name: Check native helper (fmt, check, clippy, test)
         run: bun run check:native:windows-helper
+
+  # Linux parity: the same Rust helper, built for Linux (no `.exe`). cpal needs the ALSA
+  # headers through pkg-config; the xkbcommon / wayland / udev headers cover the Linux
+  # keyboard and clipboard backends (arboard's wayland-data-control).
+  linux-helper:
+    name: Linux native helper (Rust)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libasound2-dev libxkbcommon-dev libwayland-dev libudev-dev
+
+      - name: Cache cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/CodictateWindowsHelper/target
+          key: linux-cargo-${{ hashFiles('native/CodictateWindowsHelper/Cargo.lock') }}
+          restore-keys: |
+            linux-cargo-
+
+      - name: Check native helper (fmt, check, clippy, test)
+        run: bun run check:native:linux-helper

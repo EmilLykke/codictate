@@ -69,6 +69,7 @@ export function SectionShortcuts({ settings, status }: Props) {
           value={settings.shortcutId}
           onChange={handleShortcutChange}
           platform={settings.capabilities.platform}
+          conflicts={settings.shortcutConflicts}
           disabled={busy}
         />
         <p className={settingsHelperClass}>{dictationShortcutBehaviorHint()}</p>
@@ -88,6 +89,7 @@ export function SectionShortcuts({ settings, status }: Props) {
           mainShortcutId={settings.shortcutId}
           onChange={handleHoldOnlyShortcutChange}
           platform={settings.capabilities.platform}
+          conflicts={settings.shortcutConflicts}
           disabled={busy}
         />
         <p className={settingsHelperClass}>{dictationHoldOnlyShortcutHint()}</p>

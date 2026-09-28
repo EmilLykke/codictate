@@ -20,6 +20,7 @@ import {
   type FormattingModeId,
 } from '../shared/formatting-modes'
 import { getPlatformRuntime } from './platform/runtime'
+import type { PlatformRuntime } from '../shared/platform'
 import type { AudioDeviceDetails } from '../shared/types'
 
 export type TrayHandlers = {
@@ -51,10 +52,18 @@ export type TrayHandlers = {
 /** How long the blocked reason stays on the tray before it goes back to Ready. */
 const TRAY_ERROR_CLEAR_MS = 20_000
 
-const trayIconPath =
-  getPlatformRuntime() === 'windows'
-    ? join(import.meta.dir, '../images/TrayIcon.ico')
-    : join(import.meta.dir, '../images/MacTrayIcon.svg')
+const TRAY_ICON_FILE: Record<PlatformRuntime, string> = {
+  macos: 'MacTrayIcon.svg',
+  windows: 'TrayIcon.ico',
+  // A light icon: Linux bars are usually dark and have no template-image inversion.
+  linux: 'LinuxTrayIcon.png',
+}
+
+const trayIconPath = join(
+  import.meta.dir,
+  '../images',
+  TRAY_ICON_FILE[getPlatformRuntime()]
+)
 
 export const setupTray = (
   getOrCreateWindow: (onAction?: () => void) => BrowserWindow,
@@ -78,7 +87,7 @@ export const setupTray = (
     // template: true renders the icon as a macOS template image — it
     // automatically inverts for light/dark mode. Requires a black + transparent
     // PNG. Set to false if the icon uses colours.
-    template: getPlatformRuntime() !== 'windows',
+    template: getPlatformRuntime() === 'macos',
     width: 16,
     height: 16,
   })

@@ -20,6 +20,7 @@ import { setOnAutoDisable, log } from './utils/logger'
 import { HistoryManager } from './utils/history/history-manager'
 import { StatsManager } from './utils/stats/stats-manager'
 import { RECORDING_PATH } from './platform/runtime'
+import { getPlatform } from './platform'
 import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
 import {
@@ -246,7 +247,7 @@ const win = setupWindow({
       if (keyboard.isAlive) {
         keyboard.requestInputMonitoringPrompt()
       }
-      Bun.spawn(['open', INPUT_MONITORING_PREFS_URL])
+      getPlatform().openUrl(INPUT_MONITORING_PREFS_URL)
       return
     }
     if (pane === 'documents') {
@@ -483,6 +484,32 @@ function notifyBlockedDictation(plan: BlockedDictationPlan): void {
   }
 }
 
+let shortcutBackendReported = false
+
+/**
+ * Linux only. The Dictation Shortcut is carried by Hyprland (ADR-0008), so on any other
+ * desktop no press ever reaches Codictate and there is no Dictation Plan to block. Said once
+ * per run instead, on the surfaces a press would have used: tray and notification.
+ */
+function reportShortcutBackend(backend: 'hyprland' | 'unavailable'): void {
+  log('shortcut', 'desktop shortcut backend', { backend })
+  if (backend !== 'unavailable' || shortcutBackendReported) return
+  shortcutBackendReported = true
+  const message =
+    'The Linux preview of Codictate needs Hyprland: on this desktop the Dictation Shortcut cannot be registered, so it will not start a Dictation.'
+  trayHandlers.setTrayError(message)
+  try {
+    Utils.showNotification({
+      title: 'Dictation Shortcut unavailable',
+      body: message,
+    })
+  } catch (err) {
+    log('shortcut', 'shortcut backend notification failed', {
+      err: String(err),
+    })
+  }
+}
+
 /** The same, for a Dictation that failed after it started. */
 function notifyFailedDictation(failure: FailedTranscription): void {
   try {
@@ -656,7 +683,30 @@ function startKeyboard() {
       }
     },
     reportDictationPlan,
-    reportFailedDictation
+    reportFailedDictation,
+    {
+      onShortcutBackend: reportShortcutBackend,
+      onDesktopBindings: (bindings) => {
+        void (async () => {
+          const moved = await UserAppConfig.applyDesktopBindings(bindings)
+          if (!moved) {
+            win.send.updateSettings(UserAppConfig.getSettings())
+            return
+          }
+          // The Dictation Shortcut moved off a combination Hyprland now owns: the helper has
+          // to bind the new one. Restarted outside this callback, which the old helper runs.
+          setTimeout(() => {
+            void (async () => {
+              await keyboard.stopActiveParakeetStream()
+              keyboard.stop()
+              keyboard = startKeyboard()
+              win.send.updateSettings(UserAppConfig.getSettings())
+              trayHandlers.refreshTrayShortcutTitle()
+            })()
+          }, 0)
+        })()
+      },
+    }
   )
 }
 

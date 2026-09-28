@@ -164,7 +164,8 @@ export const startRecording = async (
     ],
     {
       stderr: 'pipe',
-      stdin: getPlatformRuntime() === 'windows' ? 'pipe' : 'ignore',
+      // The Rust Native Helper (Windows and Linux) finalises its WAV on a `stop` line.
+      stdin: getPlatformRuntime() === 'macos' ? 'ignore' : 'pipe',
       async onExit(proc, exitCode) {
         let stderrText = ''
         try {
@@ -206,7 +207,7 @@ export const startRecording = async (
 }
 
 export const stopRecording = async (recorder: ReturnType<typeof Bun.spawn>) => {
-  if (getPlatformRuntime() === 'windows') {
+  if (getPlatformRuntime() !== 'macos') {
     const stdin = recorder.stdin
     if (stdin && typeof stdin !== 'number') {
       try {

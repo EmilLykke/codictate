@@ -23,6 +23,14 @@ const windowsHelper: BinaryArtifact = {
     'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper`, then rebuild the app.',
 }
 
+/** The same Rust helper, built for Linux: no `.exe`, one binary for every role it covers. */
+const linuxHelper: BinaryArtifact = {
+  source: 'native/CodictateWindowsHelper/target/release/CodictateWindowsHelper',
+  destination: 'native-helpers/CodictateWindowsHelper',
+  remediation:
+    'CodictateWindowsHelper not found. Run `bun run build:native:linux-helper`, then rebuild the app.',
+}
+
 const macos: Record<BinaryId, BinaryArtifact> = {
   keyboard: {
     source: 'src/bun/utils/keyboard/KeyListener',
@@ -93,8 +101,8 @@ export const BINARY_MANIFEST: Record<
   macos,
   windows,
   linux: {
-    keyboard: null,
-    microphone: null,
+    keyboard: linuxHelper,
+    microphone: linuxHelper,
     window: null,
     observer: null,
     parakeet: null,

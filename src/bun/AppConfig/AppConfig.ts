@@ -6,6 +6,16 @@ import {
   type RecordingDurationPresetSeconds,
 } from '../../shared/recording-duration-presets'
 import { isSupportedShortcutId } from '../../shared/shortcut-options'
+import {
+  findShortcutConflicts,
+  healShortcutConflicts,
+  type DesktopBinding,
+  type ShortcutConflicts,
+  type ShortcutHealAnnouncement,
+} from '../../shared/shortcut-conflicts'
+
+/** Everything the banner can say about a correction the app made on its own. */
+type HealAnnouncement = SettingsHealAnnouncement | ShortcutHealAnnouncement
 import { isValidTranscriptionLanguageId } from '../../shared/transcription-languages'
 import type {
   AppSettings,
@@ -258,7 +268,10 @@ export class AppConfig {
    * payload so the window can say it out loud. In memory only: an announcement describes one
    * moment, and replaying it after a restart would be a lie.
    */
-  private healAnnouncements: SettingsHealAnnouncement[] = []
+  private healAnnouncements: HealAnnouncement[] = []
+
+  /** Presets the desktop owns right now. In memory only: the desktop reports them on every start. */
+  private shortcutConflicts: ShortcutConflicts = {}
 
   /**
    * The last Dictation that refused to start, carried in the same settings payload for the
@@ -985,6 +998,7 @@ export class AppConfig {
       themePreference: this.themePreference,
       modelAvailability: this.dependencies.getModelAvailability(),
       healAnnouncements: this.getHealAnnouncements(),
+      shortcutConflicts: { ...this.shortcutConflicts },
       dictationReadiness: this.getDictationReadiness(),
       blockedDictation: this.getBlockedDictation(),
       dictationFailure: this.getDictationFailure(),
@@ -1025,9 +1039,7 @@ export class AppConfig {
     this.parakeetCoreMlReady = next.parakeetCoreMlReady
   }
 
-  private recordHealAnnouncements(
-    announcements: SettingsHealAnnouncement[]
-  ): void {
+  private recordHealAnnouncements(announcements: HealAnnouncement[]): void {
     if (announcements.length === 0) return
     this.healAnnouncements = announcements
     for (const announcement of announcements) {
@@ -1169,13 +1181,41 @@ export class AppConfig {
    * Retire a correction because the user said they had read it. Returns true when there was
    * one to retire, so the caller only pushes settings when something actually changed.
    */
+  /**
+   * The desktop's own key bindings changed (or were reported for the first time): record which
+   * Presets they take, and heal a saved Dictation Shortcut off any of them. Returns true when
+   * a shortcut moved, so the caller can restart the keyboard helper with the new combination.
+   */
+  public async applyDesktopBindings(
+    bindings: readonly DesktopBinding[]
+  ): Promise<boolean> {
+    this.shortcutConflicts = findShortcutConflicts(bindings)
+    const result = healShortcutConflicts(
+      {
+        shortcutId: this.shortcutId,
+        shortcutHoldOnlyId: this.shortcutHoldOnlyId,
+      },
+      this.shortcutConflicts,
+      this.dependencies.getPlatformCapabilities().platform
+    )
+    if (result.unchanged) return false
+    this.shortcutId = result.selection.shortcutId
+    this.shortcutHoldOnlyId = result.selection.shortcutHoldOnlyId
+    this.recordHealAnnouncements([
+      ...this.healAnnouncements,
+      ...result.announcements,
+    ])
+    await this.saveMain()
+    return true
+  }
+
   public dismissHealAnnouncements(): boolean {
     if (this.healAnnouncements.length === 0) return false
     this.healAnnouncements = []
     return true
   }
 
-  private getHealAnnouncements(): SettingsHealAnnouncement[] {
+  private getHealAnnouncements(): HealAnnouncement[] {
     return this.healAnnouncements.map((announcement) => ({ ...announcement }))
   }
 
@@ -1212,14 +1252,16 @@ export class AppConfig {
     const platform = this.dependencies.getPlatformCapabilities().platform
     if (
       patch.shortcutId !== undefined &&
-      !isSupportedShortcutId(patch.shortcutId, platform)
+      (!isSupportedShortcutId(patch.shortcutId, platform) ||
+        this.shortcutConflicts[patch.shortcutId] !== undefined)
     ) {
       return false
     }
     if (patch.shortcutHoldOnlyId !== undefined) {
       if (
         patch.shortcutHoldOnlyId !== null &&
-        !isSupportedShortcutId(patch.shortcutHoldOnlyId, platform)
+        (!isSupportedShortcutId(patch.shortcutHoldOnlyId, platform) ||
+          this.shortcutConflicts[patch.shortcutHoldOnlyId] !== undefined)
       ) {
         return false
       }

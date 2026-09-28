@@ -4,7 +4,7 @@
 
 Codictate is a local-first dictation app. The user presses a global keyboard shortcut, speaks into their microphone, and the transcribed (and optionally formatted) text is pasted wherever the cursor is. Everything runs on-device - no cloud services, no accounts, no analytics.
 
-Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 10+).
+Supported Platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 10+). Preview Platform: Linux (x64), on Hyprland only, with Omarchy as the first target. See "Platform parity" below and `docs/LINUX.md`.
 
 ## Tech stack
 
@@ -17,7 +17,7 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | Data fetching | @tanstack/react-query |
 | Speech-to-text | Whisper and Danish hviske (both via the `crispasr` ASR Harness) and Parakeet (FluidAudio/FluidInference via CodictateParakeetHelper) |
 | Formatting | llama.cpp running Qwen2.5 3B / Qwen3 4B, or Apple Intelligence (macOS 26+) |
-| Native helpers | Swift (macOS), Rust (Windows) |
+| Native helpers | Swift (macOS), Rust (Windows and Linux: one crate) |
 
 ## Quick reference
 
@@ -26,11 +26,13 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | `bun run start` | Dev mode (macOS) |
 | `bun run dev:hmr` | Dev with HMR (macOS) |
 | `bun run start:windows` | Dev mode (Windows) |
+| `bun run start:linux` | Dev mode (Linux, Hyprland) |
 | `bun run lint:fix` | ESLint fix |
 | `bun run tsc` | Type-check both tsconfigs |
 | `bun run test` | Run the hermetic test suite |
 | `bun run test:manual` | Run the two opt-in suites (network, Benchmark Run archive) |
 | `bun run check:native:windows-helper` | Rust helper fmt / check / clippy / test (Windows host) |
+| `bun run check:native:linux-helper` | The same Rust helper checked on a Linux host |
 
 ## Tests and CI
 
@@ -60,7 +62,7 @@ src/
     platform/                   # Platform-specific code
       macos/                    #   macOS implementations
       windows/                  #   Windows implementations
-      linux/                    #   Linux implementations (planned)
+      linux/                    #   Linux implementations (Preview Platform)
     setup-indicator-window.ts   # Recording indicator lifecycle
     setup-menu.ts               # App menu
     setup-recording.ts          # Dictation recording orchestration
@@ -102,7 +104,7 @@ native/
   CodictateWindowHelper/        # macOS: recording HUD (AppKit NSPanel)
   CodictateParakeetHelper/      # macOS: Parakeet ASR (FluidAudio engine)
   CodictateObserverHelper/      # macOS: correction observer
-  CodictateWindowsHelper/       # Windows: keyboard hook + mic + indicator (Rust)
+  CodictateWindowsHelper/       # Windows: keyboard hook + mic + indicator; Linux: Hyprland shortcuts + paste + mic (Rust, one crate)
 
 scripts/
   pre-build.ts                  # Downloads vendor binaries + Whisper model
@@ -180,7 +182,9 @@ Raw transcription can be reformatted before pasting (e.g. turning spoken words i
 
 macOS and Windows are kept at equal feature maturity. Build every feature for both platforms in the same change: native helper (Swift and Rust), vendor binary (pick the equivalent Windows release asset), settings, and key labels. "Windows part comes later" means the task is unfinished, not that it shipped.
 
-Key labels follow the host platform: Windows shows Ctrl / Alt / Win / Shift, never ⌘ or ⌥. Pre-existing gaps (Fn shortcuts on Windows) are exceptions to close, not precedents to copy.
+Key labels follow the host platform: Windows shows Ctrl / Alt / Win / Shift, never ⌘ or ⌥; Linux shows Ctrl / Alt / Super / Shift. Pre-existing gaps (Fn shortcuts on Windows) are exceptions to close, not precedents to copy.
+
+Linux is a **Preview Platform**, not a Supported Platform: the parity rule above does not bind it yet. It runs with openly declared gaps, and each gap is a capability flag or an unoffered option, never a broken one (ADR-0005). The current gaps are listed in `docs/LINUX.md`. Shortcuts and paste go through Hyprland rather than a keyboard hook; see `docs/adr/0008-linux-shortcuts-through-hyprland.md`. Linux becomes a Supported Platform by decision, and from then on the parity rule covers it.
 
 ## Domain language
 

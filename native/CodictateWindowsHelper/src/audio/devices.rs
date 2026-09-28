@@ -10,7 +10,22 @@ pub struct ListedInputDevice {
     pub id: Option<String>,
 }
 
+#[cfg(windows)]
 pub fn default_input_available() -> bool {
+    cpal_default_input_available()
+}
+
+/// A microphone exists: a PipeWire capture source, or, without a PulseAudio
+/// server to ask, an input on the ALSA default device.
+#[cfg(not(windows))]
+pub fn default_input_available() -> bool {
+    match super::pulse::list_capture_sources() {
+        Ok(sources) => !sources.is_empty(),
+        Err(_) => cpal_default_input_available(),
+    }
+}
+
+fn cpal_default_input_available() -> bool {
     let host = cpal::default_host();
     let Some(device) = host.default_input_device() else {
         return false;
@@ -25,10 +40,22 @@ pub fn list_input_device_map() -> Result<BTreeMap<String, ListedInputDevice>, St
         .collect())
 }
 
-fn list_input_devices() -> Result<Vec<ListedInputDevice>, String> {
+#[cfg(windows)]
+pub(crate) fn list_input_devices() -> Result<Vec<ListedInputDevice>, String> {
     match list_core_audio_capture_devices() {
         Ok(devices) if !devices.is_empty() => Ok(devices),
         Ok(_) | Err(_) => list_cpal_input_devices(),
+    }
+}
+
+/// Linux: when PipeWire answers, its capture sources are the whole truth, so
+/// no microphone means an empty list rather than a list of ALSA PCM names.
+/// The ALSA list is only the fallback for a system without a PulseAudio API.
+#[cfg(not(windows))]
+pub(crate) fn list_input_devices() -> Result<Vec<ListedInputDevice>, String> {
+    match list_core_audio_capture_devices() {
+        Ok(devices) => Ok(devices),
+        Err(_) => list_cpal_input_devices(),
     }
 }
 
@@ -40,12 +67,18 @@ fn list_cpal_input_devices() -> Result<Vec<ListedInputDevice>, String> {
 
     Ok(devices
         .enumerate()
-        .map(|(index, device)| ListedInputDevice {
-            index,
-            name: device
+        .map(|(index, device)| {
+            let name = device
                 .name()
-                .unwrap_or_else(|_| format!("Input device {index}")),
-            id: None,
+                .unwrap_or_else(|_| format!("Input device {index}"));
+            // Linux has no endpoint id to fall back to; the ALSA PCM name is
+            // what `record` resolves.
+            let id = if cfg!(windows) {
+                None
+            } else {
+                Some(name.clone())
+            };
+            ListedInputDevice { index, name, id }
         })
         .collect())
 }
@@ -107,7 +140,17 @@ fn list_core_audio_capture_devices() -> Result<Vec<ListedInputDevice>, String> {
     Ok(devices)
 }
 
+/// Linux: PipeWire capture sources, named by their description and
+/// identified by their source name (what `record` accepts as a device ref).
 #[cfg(not(windows))]
 fn list_core_audio_capture_devices() -> Result<Vec<ListedInputDevice>, String> {
-    Ok(Vec::new())
+    Ok(super::pulse::list_capture_sources()?
+        .into_iter()
+        .enumerate()
+        .map(|(index, source)| ListedInputDevice {
+            index,
+            name: source.description,
+            id: Some(source.name),
+        })
+        .collect())
 }

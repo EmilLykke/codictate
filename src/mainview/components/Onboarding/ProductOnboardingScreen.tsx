@@ -419,6 +419,7 @@ export function ProductOnboardingScreen({
                 value={shortcutDraft}
                 onChange={setShortcutDraft}
                 platform={settings.capabilities.platform}
+                conflicts={settings.shortcutConflicts}
               />
               <button
                 type="button"

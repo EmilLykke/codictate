@@ -7,3 +7,5 @@ export type WindowsHelperCommand =
   | { command: 'request_input_monitoring' }
   | { command: 'prompt_accessibility' }
   | { command: 'request_microphone' }
+  /** Linux only: ask for the desktop's own key bindings (answered by `desktop_bindings`). */
+  | { command: 'list_desktop_bindings' }

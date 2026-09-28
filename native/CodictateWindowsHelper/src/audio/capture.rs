@@ -222,6 +222,7 @@ fn write_frames_u16(data: &[u16], channels: usize, sender: &Sender<Vec<f32>>) {
     send_mono_chunk(sender, chunk);
 }
 
+#[cfg(windows)]
 fn cpal_input_device_by_index(device_index: usize) -> Result<Device, String> {
     let host = cpal::default_host();
     let devices = host
@@ -297,11 +298,17 @@ pub fn open_input_sample_stream(device_ref: Option<&str>) -> Result<InputSampleS
     if device_ref.eq_ignore_ascii_case("default") {
         return open_default_input_sample_stream();
     }
-    if let Ok(device_index) = device_ref.parse::<usize>() {
-        return open_cpal_index_input_sample_stream(device_index);
-    }
+    #[cfg(not(windows))]
+    return open_cpal_input_sample_stream(linux_input_device(device_ref)?);
 
-    open_wasapi_endpoint_sample_stream(device_ref)
+    #[cfg(windows)]
+    {
+        if let Ok(device_index) = device_ref.parse::<usize>() {
+            return open_cpal_index_input_sample_stream(device_index);
+        }
+
+        open_wasapi_endpoint_sample_stream(device_ref)
+    }
 }
 
 pub fn open_default_input_sample_stream() -> Result<InputSampleStream, String> {
@@ -312,6 +319,7 @@ pub fn open_default_input_sample_stream() -> Result<InputSampleStream, String> {
     open_cpal_input_sample_stream(device)
 }
 
+#[cfg(windows)]
 fn open_cpal_index_input_sample_stream(device_index: usize) -> Result<InputSampleStream, String> {
     open_cpal_input_sample_stream(cpal_input_device_by_index(device_index)?)
 }
@@ -393,11 +401,51 @@ fn open_wasapi_endpoint_sample_stream(endpoint_id: &str) -> Result<InputSampleSt
     }
 }
 
+/// Resolves a Linux `record` / `stream` device ref to a cpal ALSA device:
+/// empty or `default` is the ALSA default (PipeWire's default source), a
+/// number is an index into `--list-devices`, and anything else is an id from
+/// it: an ALSA PCM name, or a PipeWire source name reached through ALSA's
+/// `pulse` PCM with `PULSE_SOURCE`.
 #[cfg(not(windows))]
-fn open_wasapi_endpoint_sample_stream(_endpoint_id: &str) -> Result<InputSampleStream, String> {
-    Err("WASAPI endpoint streaming is only available on Windows".to_string())
+fn linux_input_device(device_ref: &str) -> Result<Device, String> {
+    let device_ref = device_ref.trim();
+    let host = cpal::default_host();
+    if device_ref.is_empty() || device_ref.eq_ignore_ascii_case("default") {
+        return host
+            .default_input_device()
+            .ok_or_else(|| "no default input device".to_string());
+    }
+
+    let id = match device_ref.parse::<usize>() {
+        Ok(index) => {
+            let devices = super::devices::list_input_devices()?;
+            let Some(device) = devices.into_iter().find(|device| device.index == index) else {
+                return Err("device index out of range".to_string());
+            };
+            device.id.unwrap_or(device.name)
+        }
+        Err(_) => device_ref.to_string(),
+    };
+
+    let find = |name: &str| -> Result<Option<Device>, String> {
+        Ok(host
+            .input_devices()
+            .map_err(|err| format!("input_devices failed: {err}"))?
+            .find(|device| device.name().is_ok_and(|device_name| device_name == name)))
+    };
+    if let Some(device) = find(&id)? {
+        return Ok(device);
+    }
+
+    // SAFETY: called while opening the device, before this process starts
+    // any audio thread; nothing else reads or writes the environment then.
+    unsafe { std::env::set_var("PULSE_SOURCE", &id) };
+    find("pulse")?.ok_or_else(|| {
+        format!("input device '{id}' not found (ALSA has no 'pulse' PCM to reach PipeWire)")
+    })
 }
 
+#[cfg(windows)]
 pub fn record_to_wav(path: &str, device_ref: &str, max_seconds: u64) -> Result<(), String> {
     if let Ok(device_index) = device_ref.parse::<usize>() {
         return record_cpal_index_to_wav(path, device_index, max_seconds);
@@ -406,15 +454,37 @@ pub fn record_to_wav(path: &str, device_ref: &str, max_seconds: u64) -> Result<(
     record_wasapi_endpoint_to_wav(path, device_ref, max_seconds)
 }
 
+/// Linux: stops on a `stop` line, stdin EOF, `maxSeconds`, SIGINT or SIGTERM,
+/// and finalizes the WAV in every case.
+#[cfg(not(windows))]
+pub fn record_to_wav(path: &str, device_ref: &str, max_seconds: u64) -> Result<(), String> {
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
+        signal_hook::flag::register(signal, stop_flag.clone())
+            .map_err(|err| format!("signal handler setup failed: {err}"))?;
+    }
+    let device = linux_input_device(device_ref)?;
+    record_cpal_device_to_wav(path, device, max_seconds, stop_flag)
+}
+
+#[cfg(windows)]
 fn record_cpal_index_to_wav(
     path: &str,
     device_index: usize,
     max_seconds: u64,
 ) -> Result<(), String> {
     let device = cpal_input_device_by_index(device_index)?;
+    record_cpal_device_to_wav(path, device, max_seconds, Arc::new(AtomicBool::new(false)))
+}
+
+fn record_cpal_device_to_wav(
+    path: &str,
+    device: Device,
+    max_seconds: u64,
+    stop_flag: Arc<AtomicBool>,
+) -> Result<(), String> {
     let (config, sample_format) = pick_record_config(&device)?;
     let (sample_tx, sample_worker) = spawn_recording_worker(path, config.sample_rate.0);
-    let stop_flag = Arc::new(AtomicBool::new(false));
     let _stdin_thread = spawn_stdin_stop_thread(stop_flag.clone());
     let stream = build_cpal_input_stream(
         &device,
@@ -759,13 +829,4 @@ fn record_wasapi_endpoint_to_wav(
     let _ = unsafe { capture.audio_client.Stop() };
     stop_flag.store(true, Ordering::SeqCst);
     finish_recording_worker(sample_tx, sample_worker)
-}
-
-#[cfg(not(windows))]
-fn record_wasapi_endpoint_to_wav(
-    _path: &str,
-    _endpoint_id: &str,
-    _max_seconds: u64,
-) -> Result<(), String> {
-    Err("WASAPI endpoint recording is only available on Windows".to_string())
 }

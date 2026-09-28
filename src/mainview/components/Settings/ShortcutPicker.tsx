@@ -3,6 +3,7 @@ import * as Select from "@radix-ui/react-select";
 import { motion } from "motion/react";
 import type { ShortcutId } from "../../../shared/types";
 import type { PlatformRuntime } from "../../../shared/platform";
+import type { ShortcutConflicts } from "../../../shared/shortcut-conflicts";
 import {
   shortcutOptionById,
   shortcutOptionsGroupedForPlatform,
@@ -14,11 +15,14 @@ export function ShortcutPicker({
   value,
   onChange,
   platform,
+  conflicts = {},
   disabled = false,
 }: {
   value: ShortcutId;
   onChange: (id: ShortcutId) => void;
   platform: PlatformRuntime;
+  /** Presets the desktop already binds (Shortcut Conflict): shown, but not selectable. */
+  conflicts?: ShortcutConflicts;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -93,12 +97,15 @@ export function ShortcutPicker({
                     <div className="flex flex-col gap-1">
                       {options.map((opt) => {
                         const isActive = opt.id === value;
+                        const conflict = conflicts[opt.id];
                         return (
                           <Select.Item
                             key={opt.id}
                             value={opt.id}
                             textValue={opt.label}
-                            className={`relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 outline-none transition-colors duration-200 ${
+                            disabled={conflict !== undefined}
+                            title={conflict}
+                            className={`relative flex cursor-pointer items-center data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 gap-3 rounded-xl border px-4 py-3 outline-none transition-colors duration-200 ${
                               isActive
                                 ? "border-overlay/26 bg-surface-2 data-[highlighted]:bg-surface-3"
                                 : "border-overlay/11 bg-surface-1 data-[highlighted]:border-overlay/16 data-[highlighted]:bg-surface-2"
@@ -147,7 +154,9 @@ export function ShortcutPicker({
                                 isActive ? "text-overlay/72" : "text-overlay/56"
                               }`}
                             >
-                              {opt.label}
+                              {conflict !== undefined
+                                ? "In use by Hyprland"
+                                : opt.label}
                             </span>
                           </Select.Item>
                         );

@@ -22,7 +22,7 @@ const location = (
 })
 
 describe('packaging and runtime binary contract', () => {
-  for (const platform of ['macos', 'windows'] as const) {
+  for (const platform of ['macos', 'windows', 'linux'] as const) {
     test(`${platform}: resolves every shipped role from package without a source checkout`, () => {
       const copy = binaryBuildCopy(platform)
       const files = Object.values(copy).map((destination) =>
@@ -85,6 +85,29 @@ describe('packaging and runtime binary contract', () => {
     expect(binaryBuildCopy('macos')['vendors/llama/llama-completion']).toBe(
       'native-helpers/llama-completion'
     )
+  })
+
+  test('Linux keyboard and microphone share the Rust helper built without .exe', () => {
+    expect(binaryBuildCopy('linux')).toEqual({
+      'native/CodictateWindowsHelper/target/release/CodictateWindowsHelper':
+        'native-helpers/CodictateWindowsHelper',
+      'vendors/llama/llama-completion': 'native-helpers/llama-completion',
+      'vendors/crispasr/crispasr': 'native-helpers/crispasr/crispasr',
+    })
+    const paths = location('linux', [
+      '/package/Resources/native-helpers/CodictateWindowsHelper',
+    ])
+    for (const id of ['keyboard', 'microphone'] as const) {
+      expect(requireRuntimeBinary(id, paths)).toBe(
+        '/package/Resources/native-helpers/CodictateWindowsHelper'
+      )
+    }
+    for (const id of ['window', 'observer', 'parakeet'] as const) {
+      expect(findBinary(id, paths)).toBeNull()
+    }
+    expect(() =>
+      requireRuntimeBinary('keyboard', location('linux', []))
+    ).toThrow('build:native:linux-helper')
   })
 
   test('unsupported helpers stay unavailable even if another platform binary exists', () => {

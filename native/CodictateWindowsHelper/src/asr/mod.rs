@@ -1,4 +1,4 @@
-//! Windows ASR backends.
+//! ONNX Parakeet ASR backends (DirectML on Windows, CPU elsewhere).
 
 use std::process::ExitCode;
 

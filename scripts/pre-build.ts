@@ -7,26 +7,31 @@
 // - CodictateParakeetHelper: Swift + FluidAudio + NeMo ITN (text-processing-rs static lib)
 // - ggml-large-v3-turbo-q5_0.bin: Whisper multilingual model from Hugging Face
 //
-// Prebuilt vs source build rationale: docs/adr/0001-vendor-binary-sourcing.md
+// Both Vendor Binaries are pinned prebuilt archives on every supported host (macOS
+// arm64, Windows x64, Linux x64); nothing is built from source and there is no
+// fallback build. Rationale: docs/adr/0001-vendor-binary-sourcing.md
 //
-// Dev setup: brew install cmake, Xcode + swift for the Parakeet helper.
+// Dev setup: Xcode + swift for the macOS helpers; cargo for the Parakeet ITN lib.
 
-import { availableParallelism } from "os";
 import { join } from "path";
-import { existsSync, mkdirSync, chmodSync, copyFileSync, rmSync, readdirSync, readFileSync, writeFileSync, realpathSync } from "fs";
+import { existsSync, mkdirSync, chmodSync, copyFileSync, rmSync, readFileSync, writeFileSync, realpathSync } from "fs";
 import {
   LLAMA_VERSION,
   LLAMA_RELEASE_BASE,
   LLAMA_MACOS_ARM64_ARCHIVE,
   LLAMA_WINDOWS_ARCHIVE,
+  LLAMA_LINUX_X64_ARCHIVE,
   LLAMA_MACOS_DYLIBS,
   LLAMA_WINDOWS_DLLS,
+  LLAMA_LINUX_SHARED_LIBS,
   CRISPASR_VERSION,
   CRISPASR_RELEASE_BASE,
   CRISPASR_MACOS_ARCHIVE,
   CRISPASR_WINDOWS_ARCHIVE,
+  CRISPASR_LINUX_X64_ARCHIVE,
   CRISPASR_MACOS_DYLIBS,
   CRISPASR_WINDOWS_DLLS,
+  CRISPASR_LINUX_SHARED_LIBS,
   type VendorArchive,
 } from "./vendor-manifest";
 
@@ -44,9 +49,43 @@ const WINDOWS_VC_RUNTIME_DLLS = [
   "vcruntime140.dll",
   "vcruntime140_1.dll",
 ];
+/** A pinned prebuilt archive and the files Codictate ships out of it for one host. */
+interface VendorTarget {
+  archive: VendorArchive;
+  /** Shared libraries shipped next to the binary, from `vendor-manifest.ts`. */
+  libraries: string[];
+}
+
+const HOST = `${process.platform}-${process.arch}`;
+
+/**
+ * The prebuilt asset for this host, or a loud failure. There is no source build to
+ * fall back to: a host without a pinned asset cannot vendor this binary at all.
+ */
+function hostVendorTarget(
+  label: string,
+  targets: Partial<Record<string, VendorTarget>>,
+): VendorTarget {
+  const target = targets[HOST];
+  if (!target) {
+    throw new Error(
+      `[pre-build] No pinned ${label} asset for ${HOST}. Supported hosts: ${Object.keys(targets).join(", ")}. See docs/adr/0001-vendor-binary-sourcing.md.`,
+    );
+  }
+  return target;
+}
+
+function buildStamp(version: string, archive: VendorArchive): string {
+  return [
+    `version=${version}`,
+    `platform=${process.platform}`,
+    `arch=${process.arch}`,
+    `asset=${archive.asset}`,
+    `sha256=${archive.sha256}`,
+  ].join("\n");
+}
+
 // Upstream llama.cpp (https://github.com/ggml-org/llama.cpp), pinned by build tag.
-// Downloaded prebuilt on macOS arm64 and Windows x64; source build remains the fallback
-// for platforms the release does not cover.
 //
 // Codictate previously used the PrismML fork for GGML_TYPE_Q2_0 ternary weights
 // (Ternary-Bonsai-1.7B-Q2_0). Nothing shipping loads Q2_0, since both formatter models are
@@ -55,35 +94,21 @@ const WINDOWS_VC_RUNTIME_DLLS = [
 // mean revisiting docs/adr/0001-vendor-binary-sourcing.md.
 const LLAMA_DIR = join(VENDORS_DIR, "llama");
 const LLAMA_BINARY_NAME = process.platform === "win32" ? "llama-completion.exe" : "llama-completion";
-const LLAMA_BINARY = join(LLAMA_DIR, LLAMA_BINARY_NAME);
-const LLAMA_BUILD_STAMP = join(LLAMA_DIR, "build-stamp.txt");
-const LLAMA_HAS_PREBUILT =
-  (process.platform === "darwin" && process.arch === "arm64") ||
-  (process.platform === "win32" && process.arch === "x64");
-const LLAMA_BUILD_SIGNATURE = [
-  `version=${LLAMA_VERSION}`,
-  `platform=${process.platform}`,
-  `arch=${process.arch}`,
-  `source=${LLAMA_HAS_PREBUILT ? "prebuilt" : "cmake"}`,
-  `shared=${LLAMA_HAS_PREBUILT ? "on" : "off"}`,
-  `native=${process.platform === "win32" ? "off" : "default"}`,
-  `metal=${process.platform === "darwin" ? "on" : "off"}`,
-  `vulkan=${process.platform === "win32" ? "on" : "off"}`,
-].join("\n");
+const LLAMA_TARGETS: Partial<Record<string, VendorTarget>> = {
+  "darwin-arm64": { archive: LLAMA_MACOS_ARM64_ARCHIVE, libraries: LLAMA_MACOS_DYLIBS },
+  "win32-x64": { archive: LLAMA_WINDOWS_ARCHIVE, libraries: LLAMA_WINDOWS_DLLS },
+  "linux-x64": { archive: LLAMA_LINUX_X64_ARCHIVE, libraries: LLAMA_LINUX_SHARED_LIBS },
+};
 
-// crispasr, the second ASR Harness (docs/adr/0002-asr-harness-abstraction.md).
-// Prebuilt only: there is no source build path, and the macOS asset is a single
-// arm64 binary plus libc2pa_c.dylib.
+// crispasr, the only ASR Harness (docs/adr/0002-asr-harness-abstraction.md).
+// Prebuilt only: there is no source build path.
 const CRISPASR_DIR = join(VENDORS_DIR, "crispasr");
 const CRISPASR_BINARY_NAME = process.platform === "win32" ? "crispasr.exe" : "crispasr";
-const CRISPASR_BINARY = join(CRISPASR_DIR, CRISPASR_BINARY_NAME);
-const CRISPASR_BUILD_STAMP = join(CRISPASR_DIR, "build-stamp.txt");
-const CRISPASR_BUILD_SIGNATURE = [
-  `version=${CRISPASR_VERSION}`,
-  `platform=${process.platform}`,
-  `arch=${process.arch}`,
-  `variant=${process.platform === "win32" ? "vulkan" : "macos-arm64"}`,
-].join("\n");
+const CRISPASR_TARGETS: Partial<Record<string, VendorTarget>> = {
+  "darwin-arm64": { archive: CRISPASR_MACOS_ARCHIVE, libraries: CRISPASR_MACOS_DYLIBS },
+  "win32-x64": { archive: CRISPASR_WINDOWS_ARCHIVE, libraries: CRISPASR_WINDOWS_DLLS },
+  "linux-x64": { archive: CRISPASR_LINUX_X64_ARCHIVE, libraries: CRISPASR_LINUX_SHARED_LIBS },
+};
 
 const PARAKEET_PKG = join(import.meta.dir, "..", "native", "CodictateParakeetHelper");
 const PARAKEET_DIR = join(VENDORS_DIR, "parakeet");
@@ -149,59 +174,6 @@ function resolveCargoExecutable(): string {
   throw new Error(
     "[pre-build] cargo not found. Install Rust: https://rustup.rs",
   );
-}
-
-function commandExists(command: string): boolean {
-  const checker = process.platform === "win32" ? "where" : "which";
-  return Bun.spawnSync([checker, command], { stdout: "pipe", stderr: "pipe" }).exitCode === 0;
-}
-
-function resolveWindowsMasmCompiler(): string | null {
-  if (process.platform !== "win32") return null;
-
-  const where = Bun.spawnSync(["where", "ml64.exe"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (where.exitCode === 0) {
-    const path = where.stdout.toString().split(/\r?\n/)[0]?.trim();
-    if (path && existsSync(path)) return path;
-  }
-
-  const programFilesX86 = process.env["ProgramFiles(x86)"];
-  const vswherePath = programFilesX86
-    ? join(programFilesX86, "Microsoft Visual Studio", "Installer", "vswhere.exe")
-    : null;
-  if (!vswherePath || !existsSync(vswherePath)) return null;
-
-  const result = Bun.spawnSync(
-    [
-      vswherePath,
-      "-latest",
-      "-products",
-      "*",
-      "-requires",
-      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-      "-find",
-      "VC\\Tools\\MSVC\\**\\bin\\Hostx64\\x64\\ml64.exe",
-    ],
-    { stdout: "pipe", stderr: "pipe" },
-  );
-  if (result.exitCode !== 0) return null;
-
-  const path = result.stdout.toString().split(/\r?\n/)[0]?.trim();
-  return path && existsSync(path) ? path : null;
-}
-
-function windowsMasmCmakeArgs(): string[] {
-  if (process.platform !== "win32") return [];
-  const compiler = resolveWindowsMasmCompiler();
-  if (!compiler) {
-    throw new Error(
-      "[pre-build] ml64.exe not found. Install the MSVC x64/x86 build tools including MASM, then reopen the terminal.",
-    );
-  }
-  return [`-DCMAKE_ASM_COMPILER=${compiler}`];
 }
 
 function syncMacAppIconArtifacts() {
@@ -347,7 +319,8 @@ async function downloadAndVerify(
 
 /**
  * Download a pinned release archive and unpack it into a fresh directory.
- * `tar -xf` handles both .tar.gz and .zip (bsdtar ships with macOS and Windows 10+).
+ * `tar -xf` handles both .tar.gz and .zip (bsdtar ships with macOS and Windows 10+;
+ * the Linux assets are all .tar.gz, which GNU tar reads).
  */
 async function fetchVendorArchive(
   releaseBase: string,
@@ -400,216 +373,68 @@ function copyVendorFiles(
   }
 }
 
+/**
+ * Fetch the pinned prebuilt `binaryName` plus the shared libraries it loads at runtime
+ * into `destDir`, unless a stamp for the same asset is already there.
+ */
+async function vendorPrebuilt(options: {
+  label: string;
+  version: string;
+  releaseBase: string;
+  targets: Partial<Record<string, VendorTarget>>;
+  destDir: string;
+  binaryName: string;
+}): Promise<void> {
+  const { label, version, releaseBase, targets, destDir, binaryName } = options;
+  const { archive, libraries } = hostVendorTarget(label, targets);
+  const binary = join(destDir, binaryName);
+  const stampPath = join(destDir, "build-stamp.txt");
+  const stamp = buildStamp(version, archive);
+  if (
+    existsSync(binary) &&
+    existsSync(stampPath) &&
+    readFileSync(stampPath, "utf8") === stamp
+  ) {
+    console.log(`[pre-build] ${label} already vendored, skipping`);
+    return;
+  }
+
+  rmSync(destDir, { recursive: true, force: true });
+  const workDir = join(VENDORS_DIR, `.${label}-download`);
+  rmSync(workDir, { recursive: true, force: true });
+
+  try {
+    const sourceDir = await fetchVendorArchive(releaseBase, archive, workDir);
+    copyVendorFiles(sourceDir, destDir, [binaryName, ...libraries], label);
+    if (process.platform !== "win32") chmodSync(binary, 0o755);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+
+  writeFileSync(stampPath, stamp);
+  console.log(`[pre-build] ${label} ${version} vendored from the prebuilt release (${archive.asset})`);
+}
+
 async function vendorLlamaBinaries() {
-  if (
-    existsSync(LLAMA_BINARY) &&
-    existsSync(LLAMA_BUILD_STAMP) &&
-    readFileSync(LLAMA_BUILD_STAMP, "utf8") === LLAMA_BUILD_SIGNATURE
-  ) {
-    console.log("[pre-build] llama-completion already vendored, skipping");
-    return;
-  }
-
-  if (LLAMA_HAS_PREBUILT) {
-    await downloadLlamaPrebuilt();
-    return;
-  }
-
-  console.log(
-    `[pre-build] No prebuilt llama-completion for ${process.platform}-${process.arch}, building from source`,
-  );
-  await buildLlamaFromSource();
+  await vendorPrebuilt({
+    label: "llama-completion",
+    version: LLAMA_VERSION,
+    releaseBase: LLAMA_RELEASE_BASE,
+    targets: LLAMA_TARGETS,
+    destDir: LLAMA_DIR,
+    binaryName: LLAMA_BINARY_NAME,
+  });
 }
 
-/** Fetch the pinned prebuilt llama-completion plus the shared libraries it loads at runtime. */
-async function downloadLlamaPrebuilt() {
-  rmSync(LLAMA_DIR, { recursive: true, force: true });
-  const workDir = join(VENDORS_DIR, ".llama-download");
-  rmSync(workDir, { recursive: true, force: true });
-
-  try {
-    const isMac = process.platform === "darwin";
-    const sourceDir = await fetchVendorArchive(
-      LLAMA_RELEASE_BASE,
-      isMac ? LLAMA_MACOS_ARM64_ARCHIVE : LLAMA_WINDOWS_ARCHIVE,
-      workDir,
-    );
-    copyVendorFiles(
-      sourceDir,
-      LLAMA_DIR,
-      [
-        LLAMA_BINARY_NAME,
-        ...(isMac ? LLAMA_MACOS_DYLIBS : LLAMA_WINDOWS_DLLS),
-      ],
-      "llama-completion",
-    );
-    if (isMac) chmodSync(LLAMA_BINARY, 0o755);
-  } finally {
-    rmSync(workDir, { recursive: true, force: true });
-  }
-
-  writeFileSync(LLAMA_BUILD_STAMP, LLAMA_BUILD_SIGNATURE);
-  console.log(`[pre-build] llama-completion ${LLAMA_VERSION} vendored from the prebuilt release`);
-}
-
-/** Fetch the pinned prebuilt crispasr binary plus the libraries it loads at runtime. */
 async function vendorCrispasrBinaries() {
-  if (
-    existsSync(CRISPASR_BINARY) &&
-    existsSync(CRISPASR_BUILD_STAMP) &&
-    readFileSync(CRISPASR_BUILD_STAMP, "utf8") === CRISPASR_BUILD_SIGNATURE
-  ) {
-    console.log("[pre-build] crispasr already vendored, skipping");
-    return;
-  }
-
-  if (process.platform !== "darwin" && process.platform !== "win32") {
-    console.log(
-      `[pre-build] No crispasr asset for ${process.platform}, skipping (that platform has no ASR Harness and cannot transcribe)`,
-    );
-    return;
-  }
-
-  rmSync(CRISPASR_DIR, { recursive: true, force: true });
-  const workDir = join(VENDORS_DIR, ".crispasr-download");
-  rmSync(workDir, { recursive: true, force: true });
-
-  try {
-    const isMac = process.platform === "darwin";
-    const sourceDir = await fetchVendorArchive(
-      CRISPASR_RELEASE_BASE,
-      isMac ? CRISPASR_MACOS_ARCHIVE : CRISPASR_WINDOWS_ARCHIVE,
-      workDir,
-    );
-    copyVendorFiles(
-      sourceDir,
-      CRISPASR_DIR,
-      [
-        CRISPASR_BINARY_NAME,
-        ...(isMac ? CRISPASR_MACOS_DYLIBS : CRISPASR_WINDOWS_DLLS),
-      ],
-      "crispasr",
-    );
-    if (isMac) chmodSync(CRISPASR_BINARY, 0o755);
-  } finally {
-    rmSync(workDir, { recursive: true, force: true });
-  }
-
-  writeFileSync(CRISPASR_BUILD_STAMP, CRISPASR_BUILD_SIGNATURE);
-  console.log(`[pre-build] crispasr ${CRISPASR_VERSION} vendored from the prebuilt release`);
-}
-
-async function buildLlamaFromSource() {
-  const cmakeCheck = Bun.spawnSync(["cmake", "--version"], { stdout: "pipe" });
-  if (cmakeCheck.exitCode !== 0) {
-    throw new Error(
-      process.platform === "win32"
-        ? "[pre-build] cmake not found. Install it and ensure `cmake` is on PATH."
-        : "[pre-build] cmake not found. Install it with: brew install cmake",
-    );
-  }
-
-  if (process.platform === "win32" && !commandExists("glslc")) {
-    throw new Error(
-      "[pre-build] Vulkan GPU build requires the Vulkan SDK shader compiler (`glslc`). Install the LunarG Vulkan SDK and reopen your terminal so `glslc` is on PATH.",
-    );
-  }
-
-  mkdirSync(LLAMA_DIR, { recursive: true });
-
-  const sourceUrl = `https://github.com/ggml-org/llama.cpp/archive/refs/tags/${LLAMA_VERSION}.tar.gz`;
-  const tarPath = join(LLAMA_DIR, "llama-src.tar.gz");
-  const srcDir = join(LLAMA_DIR, "llama-src");
-  const buildDir = join(LLAMA_DIR, "llama-build");
-
-  console.log(`[pre-build] Downloading llama.cpp ${LLAMA_VERSION} source...`);
-  const response = await fetch(sourceUrl);
-  if (!response.ok) {
-    throw new Error(`[pre-build] Failed to download llama.cpp source (HTTP ${response.status})`);
-  }
-  await Bun.write(tarPath, response);
-
-  mkdirSync(srcDir, { recursive: true });
-  Bun.spawnSync(["tar", "-xf", tarPath, "-C", srcDir, "--strip-components=1"], {
-    stdio: ["ignore", "inherit", "inherit"],
+  await vendorPrebuilt({
+    label: "crispasr",
+    version: CRISPASR_VERSION,
+    releaseBase: CRISPASR_RELEASE_BASE,
+    targets: CRISPASR_TARGETS,
+    destDir: CRISPASR_DIR,
+    binaryName: CRISPASR_BINARY_NAME,
   });
-  rmSync(tarPath, { force: true });
-
-  console.log("[pre-build] Configuring llama-completion (static, release)...");
-  // llama-completion lives under tools/completion/. LLAMA_BUILD_TOOLS must be
-  // ON so the whole tools/ subtree is included. LLAMA_CURL=OFF avoids a system
-  // curl dependency. (The deprecated tools/cli/ also exists but is not llama-completion.)
-  const configureArgs: string[] = [
-    "cmake",
-    "-S", srcDir,
-    "-B", buildDir,
-    ...(process.platform === "win32" ? ["-A", "x64"] : []),
-    ...windowsMasmCmakeArgs(),
-    "-DCMAKE_BUILD_TYPE=Release",
-    "-DBUILD_SHARED_LIBS=OFF",
-    ...(process.platform === "win32" ? ["-DGGML_NATIVE=OFF"] : []),
-    "-DLLAMA_BUILD_TESTS=OFF",
-    "-DLLAMA_BUILD_EXAMPLES=OFF",
-    "-DLLAMA_BUILD_TOOLS=ON",
-    "-DLLAMA_BUILD_SERVER=OFF",
-    "-DLLAMA_BUILD_COMMON=ON",
-    "-DLLAMA_CURL=OFF",
-    // Block cpp-httplib from auto-linking the system OpenSSL (Homebrew on macOS).
-    // Otherwise the resulting binary depends on /opt/homebrew/opt/openssl@3/...
-    // which fails to load inside the packaged .app (Team ID mismatch).
-    "-DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=TRUE",
-  ];
-  if (process.platform === "darwin") {
-    configureArgs.push("-DGGML_METAL=ON", "-DGGML_METAL_EMBED_LIBRARY=ON");
-  } else if (process.platform === "win32") {
-    configureArgs.push("-DGGML_VULKAN=ON");
-  }
-
-  const configure = Bun.spawnSync(configureArgs, {
-    stdio: ["ignore", "inherit", "inherit"],
-  });
-  if (configure.exitCode !== 0) {
-    rmSync(srcDir, { recursive: true, force: true });
-    rmSync(buildDir, { recursive: true, force: true });
-    throw new Error("[pre-build] cmake configure (llama.cpp) failed");
-  }
-
-  const jobs = String(Math.max(1, availableParallelism?.() ?? 4));
-
-  console.log(
-    `[pre-build] Building llama-completion (${jobs} cores, ~5-10 min first time)...`,
-  );
-  const buildArgs = ["cmake", "--build", buildDir, "--config", "Release"];
-  if (process.platform !== "win32") {
-    buildArgs.push("--target", "llama-completion", "-j", jobs);
-  } else {
-    buildArgs.push("--target", "llama-completion");
-  }
-  const build = Bun.spawnSync(buildArgs, {
-    stdio: ["ignore", "inherit", "inherit"],
-  });
-  if (build.exitCode !== 0) {
-    rmSync(srcDir, { recursive: true, force: true });
-    rmSync(buildDir, { recursive: true, force: true });
-    throw new Error("[pre-build] llama-completion build failed");
-  }
-
-  const cliPath = findFileRecursively(buildDir, LLAMA_BINARY_NAME);
-  if (!cliPath) {
-    rmSync(srcDir, { recursive: true, force: true });
-    rmSync(buildDir, { recursive: true, force: true });
-    throw new Error("[pre-build] llama-completion binary not found after build");
-  }
-
-  copyFileSync(cliPath, LLAMA_BINARY);
-  if (process.platform !== "win32") {
-    chmodSync(LLAMA_BINARY, 0o755);
-  }
-  writeFileSync(LLAMA_BUILD_STAMP, LLAMA_BUILD_SIGNATURE);
-  console.log("[pre-build] llama-completion built and vendored successfully");
-
-  rmSync(srcDir, { recursive: true, force: true });
-  rmSync(buildDir, { recursive: true, force: true });
 }
 
 function ensureWindowsTrayIcon() {
@@ -669,23 +494,6 @@ function ensureWindowsVcRuntimeDlls() {
   }
 
   console.log("[pre-build] Windows VC runtime DLLs vendored successfully");
-}
-
-function findFileRecursively(root: string, fileName: string): string | null {
-  const stack = [root];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current) continue;
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const fullPath = join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-      } else if (entry.isFile() && entry.name === fileName) {
-        return fullPath;
-      }
-    }
-  }
-  return null;
 }
 
 function parakeetVendoredBinaryLooksExecutable(path: string): boolean {
@@ -952,8 +760,6 @@ if (process.platform === "win32") {
 
 if (process.platform === "linux") {
   await vendorLlamaBinaries();
-  // Prints the "no crispasr asset" skip rather than leaving a Linux build silently
-  // without any ASR Harness now that the whisper.cpp source build is gone.
   await vendorCrispasrBinaries();
   await vendorWhisperModel();
   console.log("[pre-build] Linux dependencies ready");

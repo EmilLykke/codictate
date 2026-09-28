@@ -1,5 +1,5 @@
 import type { BlockedDictationPlan } from "../../../shared/dictation-plan";
-import type { SettingsHealAnnouncement } from "../../../shared/settings-heal";
+import type { AppSettings } from "../../../shared/types";
 import type {
   DictationFailureNotice,
   DictationNoticeKind,
@@ -29,7 +29,7 @@ export function HealNotices({
   failed = null,
   onDismiss,
 }: {
-  announcements: SettingsHealAnnouncement[];
+  announcements: AppSettings["healAnnouncements"];
   blocked?: BlockedDictationPlan | null;
   failed?: DictationFailureNotice | null;
   onDismiss: (notice: DictationNoticeKind) => void;

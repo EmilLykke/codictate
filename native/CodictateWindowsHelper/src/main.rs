@@ -3,6 +3,7 @@ use std::process::ExitCode;
 
 mod asr;
 mod audio;
+#[cfg(windows)]
 mod indicator;
 mod ipc;
 mod keyboard;
@@ -35,6 +36,7 @@ fn main() -> ExitCode {
         }
         Some("--list-devices") => audio::handle_list_devices(),
         Some("--mic-authorization") => audio::handle_mic_authorization(),
+        #[cfg(windows)]
         Some("indicator") => indicator::handle_indicator(),
         Some("keyboard-hook") => keyboard::handle_keyboard_hook(),
         Some("record") => audio::handle_record(&args),

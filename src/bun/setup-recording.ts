@@ -31,6 +31,7 @@ import {
   finishObservedCorrection,
   pasteTranscript,
   startKeyboardListener,
+  type DesktopShortcutEvents,
   type PermissionStatus,
 } from './utils/keyboard/keyboard-events'
 import {
@@ -114,7 +115,9 @@ export const setupRecording = (
    * blocked plan gets - notification or banner - and deliberately not the third: no heal
    * pass. See `reportFailedDictation` below.
    */
-  onDictationFailed?: (failure: FailedTranscription) => Promise<void>
+  onDictationFailed?: (failure: FailedTranscription) => Promise<void>,
+  /** Linux only: what the desktop says about the shortcut backend and its own key bindings. */
+  desktopEvents?: DesktopShortcutEvents
 ) => {
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null
   let recordingSession: RecordingSession | null = null
@@ -897,7 +900,8 @@ export const setupRecording = (
       void handleKeyEvent(keyEvent)
     },
     getMergedSwallowRules(),
-    relayPermissions
+    relayPermissions,
+    desktopEvents
   )
 
   const stopActiveParakeetStream = async () => {

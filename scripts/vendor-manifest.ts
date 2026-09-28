@@ -11,7 +11,7 @@
 // docs/adr/0002-asr-harness-abstraction.md for crispasr being the only ASR Harness.
 
 /**
- * Upstream llama.cpp. Publishes `llama-completion` for both target platforms, and
+ * Upstream llama.cpp. Publishes `llama-completion` for every target platform, and
  * loads the Q4_K_M formatter weights Codictate actually ships. Codictate used the
  * PrismML fork for its Q2_0 ternary support; nothing shipping needs Q2_0, so this
  * is back on upstream. See docs/adr/0001-vendor-binary-sourcing.md.
@@ -51,6 +51,18 @@ export const LLAMA_MACOS_ARM64_ARCHIVE: VendorArchive = {
 export const LLAMA_WINDOWS_ARCHIVE: VendorArchive = {
   asset: `llama-${LLAMA_VERSION}-bin-win-vulkan-x64.zip`,
   sha256: "2e89637b30e0e2f90d4ed486118e8642f60625b1dbebb9ba3a30bc4100306fc9",
+};
+
+/**
+ * Ubuntu Vulkan build. Built on Ubuntu 22.04 (GCC 11), so it runs on any glibc
+ * at least that new. Beyond glibc and libstdc++, it needs `libvulkan.so.1`,
+ * `libgomp.so.1` and OpenSSL 3 (`libssl.so.3`, `libcrypto.so.3`) from the host;
+ * the archive does not carry them.
+ */
+export const LLAMA_LINUX_X64_ARCHIVE: VendorArchive = {
+  asset: `llama-${LLAMA_VERSION}-bin-ubuntu-vulkan-x64.tar.gz`,
+  sha256: "21f765c89d87c9a7822cde1af199face8b927b099d28a853c53fb01604fcff6b",
+  stripPrefix: `llama-${LLAMA_VERSION}`,
 };
 
 /**
@@ -102,12 +114,44 @@ export const LLAMA_WINDOWS_DLLS = [
   "ggml-cpu-zen4.dll",
 ];
 
+/**
+ * `llama-completion`'s DT_NEEDED closure inside the archive (RUNPATH `$ORIGIN`,
+ * verified with `readelf -d` and `ldd`), plus the backends `libggml.so.0` loads
+ * with `dlopen` from the executable's directory rather than linking:
+ * `libggml-vulkan.so`, `libggml-rpc.so`, and one `libggml-cpu-*.so` picked at
+ * runtime from the host CPU. Every CPU variant ships, as on Windows. In the
+ * archive the versioned names are symlinks; vendoring resolves them to files.
+ */
+export const LLAMA_LINUX_SHARED_LIBS = [
+  "libllama-completion-impl.so",
+  "libllama-common.so.0",
+  "libllama.so.0",
+  "libggml.so.0",
+  "libggml-base.so.0",
+  "libggml-rpc.so",
+  "libggml-vulkan.so",
+  "libggml-cpu-alderlake.so",
+  "libggml-cpu-cannonlake.so",
+  "libggml-cpu-cascadelake.so",
+  "libggml-cpu-cooperlake.so",
+  "libggml-cpu-haswell.so",
+  "libggml-cpu-icelake.so",
+  "libggml-cpu-ivybridge.so",
+  "libggml-cpu-piledriver.so",
+  "libggml-cpu-sandybridge.so",
+  "libggml-cpu-sapphirerapids.so",
+  "libggml-cpu-skylakex.so",
+  "libggml-cpu-sse42.so",
+  "libggml-cpu-x64.so",
+  "libggml-cpu-zen4.so",
+];
+
 // -- crispasr ----------------------------------------------------------------
 
 /**
  * crispasr ships its own `ggml.dll` / `ggml-base.dll` / `ggml-vulkan.dll`, which
  * collide by name with llama's. It therefore lands in its own subdirectory of
- * `native-helpers/` on both platforms rather than next to llama-completion.
+ * `native-helpers/` on every platform rather than next to llama-completion.
  */
 export const CRISPASR_BUNDLE_SUBDIR = "crispasr";
 
@@ -124,6 +168,17 @@ export const CRISPASR_WINDOWS_ARCHIVE: VendorArchive = {
   stripPrefix: "crispasr-windows-x86_64-vulkan",
 };
 
+/**
+ * Vulkan variant, matching the Vulkan build of llama-completion. ggml is linked
+ * statically into `crispasr`, so the only shared libraries are the ones below;
+ * `libvulkan.so.1`, libstdc++ and glibc come from the host.
+ */
+export const CRISPASR_LINUX_X64_ARCHIVE: VendorArchive = {
+  asset: "crispasr-linux-x86_64-vulkan.tar.gz",
+  sha256: "74906231768a8e96cf5e21a37bd983bd85aeab47c928d08391eb1ab753fd12b7",
+  stripPrefix: "crispasr-linux-x86_64-vulkan",
+};
+
 /** The single `@rpath` dylib `crispasr` links against (C2PA content credentials). */
 export const CRISPASR_MACOS_DYLIBS = ["libc2pa_c.dylib"];
 
@@ -134,4 +189,17 @@ export const CRISPASR_WINDOWS_DLLS = [
   "ggml-base.dll",
   "ggml-cpu.dll",
   "ggml-vulkan.dll",
+];
+
+/**
+ * `crispasr`'s DT_NEEDED closure inside the archive, verified with `readelf -d`
+ * and `ldd`: every file has RUNPATH `$ORIGIN`, so they sit next to the binary.
+ * `libopenblas.so.0` pulls in `libgfortran.so.5`, which pulls in `libquadmath.so.0`.
+ */
+export const CRISPASR_LINUX_SHARED_LIBS = [
+  "libc2pa_c.so",
+  "libopenblas.so.0",
+  "libgomp.so.1",
+  "libgfortran.so.5",
+  "libquadmath.so.0",
 ];
