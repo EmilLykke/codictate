@@ -44,6 +44,8 @@ bun run check:native:linux-helper
 CODICTATE_CHANNEL=dev bunx electrobun build --env=dev   # build/dev-linux-x64/
 ```
 
+The dev scripts set `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Without it, WebKitGTK's DMA-BUF renderer fails on the NVIDIA proprietary driver (`Failed to create GBM buffer`) and the window stays blank white. It has to be in the environment before the app starts: Electrobun's launcher initialises GTK and WebKit before any Codictate code runs, so the app cannot set it for itself. An installed build needs it in the `Exec` line of its `.desktop` entry.
+
 If `hyprctl` or the app cannot find Hyprland from a shell outside the session, export `XDG_RUNTIME_DIR=/run/user/$(id -u)` and `HYPRLAND_INSTANCE_SIGNATURE=$(ls -t $XDG_RUNTIME_DIR/hypr | head -1)`.
 
 ## Testing without a microphone
