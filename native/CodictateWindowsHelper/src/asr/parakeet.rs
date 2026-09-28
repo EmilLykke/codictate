@@ -11,6 +11,8 @@ use std::cmp::Ordering;
 use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::process::ExitCode;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use std::thread;
 use std::time::Duration;
 
@@ -397,7 +399,36 @@ pub fn handle_stream(args: &[String]) -> ExitCode {
     }
 }
 
+/// Set when the main process asks a stream to stop. On Linux the stop is SIGINT/SIGTERM and the
+/// stream pastes what it has heard so far before exiting, so the last words are not lost. On
+/// Windows the same signal ends the process outright, as it always has, so this never flips.
+#[cfg(not(windows))]
+fn stream_stop_flag() -> Result<Arc<AtomicBool>, String> {
+    let stop = Arc::new(AtomicBool::new(false));
+    for signal in [signal_hook::consts::SIGINT, signal_hook::consts::SIGTERM] {
+        signal_hook::flag::register(signal, stop.clone())
+            .map_err(|err| format!("signal handler setup failed: {err}"))?;
+    }
+    Ok(stop)
+}
+
+#[cfg(windows)]
+fn stream_stop_flag() -> Result<Arc<AtomicBool>, String> {
+    Ok(Arc::new(AtomicBool::new(false)))
+}
+
+/// A Wayland selection lives only as long as the client that owns it. Keep the process alive
+/// long enough for the focused app to read the last paste before exiting.
+#[cfg(not(windows))]
+fn linger_for_last_paste() {
+    thread::sleep(Duration::from_millis(500));
+}
+
+#[cfg(windows)]
+fn linger_for_last_paste() {}
+
 fn run_vad_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), String> {
+    let stop = stream_stop_flag()?;
     let mut model = load_model(model_dir)?;
     let mut injector = TextInjector::new()?;
     let input = open_input_sample_stream(device_ref)?;
@@ -414,6 +445,9 @@ fn run_vad_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), Strin
     let mut silence_accum = 0usize;
 
     loop {
+        if stop.load(AtomicOrdering::Relaxed) {
+            break;
+        }
         let input_chunk = match input.recv_timeout(STREAM_RECV_TIMEOUT) {
             Ok(chunk) => chunk,
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => continue,
@@ -461,10 +495,23 @@ fn run_vad_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), Strin
         })?;
     }
 
+    if stop.load(AtomicOrdering::Relaxed) {
+        log_phase("stream [vad]: stop requested, pasting the pending utterance");
+        if in_speech
+            && utterance.len() >= MIN_UTTERANCE
+            && let Some(text) = transcribe_for_stream(&mut model, &utterance)
+            && !text.is_empty()
+        {
+            injector.paste_text(&(text + " "))?;
+        }
+        linger_for_last_paste();
+    }
+
     Ok(())
 }
 
 fn run_live_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), String> {
+    let stop = stream_stop_flag()?;
     let mut model = load_model(model_dir)?;
     let mut injector = TextInjector::new()?;
     let input = open_input_sample_stream(device_ref)?;
@@ -486,6 +533,9 @@ fn run_live_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), Stri
     let mut typed_utterance = String::new();
 
     loop {
+        if stop.load(AtomicOrdering::Relaxed) {
+            break;
+        }
         let input_chunk = match input.recv_timeout(STREAM_RECV_TIMEOUT) {
             Ok(chunk) => chunk,
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => continue,
@@ -567,6 +617,20 @@ fn run_live_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), Stri
             }
             Ok(())
         })?;
+    }
+
+    if stop.load(AtomicOrdering::Relaxed) {
+        log_phase("stream [live]: stop requested, committing the pending utterance");
+        if in_speech && (utterance.len() >= MIN_UTTERANCE || !typed_utterance.is_empty()) {
+            commit_live_utterance(
+                &mut model,
+                &mut injector,
+                &mut typed_utterance,
+                &utterance,
+                &last_partial_text,
+            )?;
+        }
+        linger_for_last_paste();
     }
 
     Ok(())

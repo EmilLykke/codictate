@@ -97,12 +97,12 @@ describe('packaging and runtime binary contract', () => {
     const paths = location('linux', [
       '/package/Resources/native-helpers/CodictateWindowsHelper',
     ])
-    for (const id of ['keyboard', 'microphone'] as const) {
+    for (const id of ['keyboard', 'microphone', 'parakeet'] as const) {
       expect(requireRuntimeBinary(id, paths)).toBe(
         '/package/Resources/native-helpers/CodictateWindowsHelper'
       )
     }
-    for (const id of ['window', 'observer', 'parakeet'] as const) {
+    for (const id of ['window', 'observer'] as const) {
       expect(findBinary(id, paths)).toBeNull()
     }
     expect(() =>
@@ -112,10 +112,10 @@ describe('packaging and runtime binary contract', () => {
 
   test('unsupported helpers stay unavailable even if another platform binary exists', () => {
     const linux = location('linux', [
-      '/package/Resources/native-helpers/CodictateParakeetHelper',
+      '/package/Resources/native-helpers/CodictateObserverHelper',
     ])
-    expect(findBinary('parakeet', linux)).toBeNull()
-    expect(() => requireRuntimeBinary('parakeet', linux)).toThrow(
+    expect(findBinary('observer', linux)).toBeNull()
+    expect(() => requireRuntimeBinary('observer', linux)).toThrow(
       'not supported on linux'
     )
     expect(findBinary('observer', location('windows', []))).toBeNull()

@@ -105,7 +105,7 @@ export const BINARY_MANIFEST: Record<
     microphone: linuxHelper,
     window: null,
     observer: null,
-    parakeet: null,
+    parakeet: linuxHelper,
     llama: macos.llama,
     crispasr: macos.crispasr,
   },

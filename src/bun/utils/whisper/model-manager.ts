@@ -71,14 +71,32 @@ function httpDownloadErrorMessage(
   return `HTTP ${status} ${statusText}`
 }
 
-const WINDOWS_PARAKEET_ONNX_REPO_ID = 'istupakov/parakeet-tdt-0.6b-v3-onnx'
-const WINDOWS_PARAKEET_ONNX_ARTIFACT_NAME = 'parakeet-tdt-0.6b-v3-onnx'
+const PARAKEET_ONNX_REPO_ID = 'istupakov/parakeet-tdt-0.6b-v3-onnx'
+const PARAKEET_ONNX_ARTIFACT_NAME = 'parakeet-tdt-0.6b-v3-onnx'
+/** Windows runs the full-precision weights, on DirectML where it can. */
 const WINDOWS_PARAKEET_ONNX_REQUIRED_FILES = [
   'encoder-model.onnx',
   'encoder-model.onnx.data',
   'decoder_joint-model.onnx',
   'vocab.txt',
 ] as const
+/** Linux runs Parakeet on the CPU, where int8 is a quarter of the download and faster. */
+const LINUX_PARAKEET_ONNX_REQUIRED_FILES = [
+  'encoder-model.int8.onnx',
+  'decoder_joint-model.int8.onnx',
+  'vocab.txt',
+] as const
+
+/** Windows and Linux run Parakeet as ONNX in the Rust Native Helper; macOS runs Core ML. */
+function usesParakeetOnnx(): boolean {
+  return getPlatformRuntime() !== 'macos'
+}
+
+function parakeetOnnxRequiredFiles(): readonly string[] {
+  return getPlatformRuntime() === 'linux'
+    ? LINUX_PARAKEET_ONNX_REQUIRED_FILES
+    : WINDOWS_PARAKEET_ONNX_REQUIRED_FILES
+}
 
 const MACOS_PARAKEET_COREML_REQUIRED_DIRS = [
   'Preprocessor.mlmodelc',
@@ -93,11 +111,7 @@ const MACOS_PARAKEET_COREML_REQUIRED_FILES = [
 ] as const
 
 function shouldDownloadParakeetFile(path: string): boolean {
-  if (getPlatformRuntime() === 'windows') {
-    return (WINDOWS_PARAKEET_ONNX_REQUIRED_FILES as readonly string[]).includes(
-      path
-    )
-  }
+  if (usesParakeetOnnx()) return parakeetOnnxRequiredFiles().includes(path)
   if (
     (MACOS_PARAKEET_COREML_REQUIRED_FILES as readonly string[]).includes(path)
   )
@@ -116,7 +130,7 @@ function isRequiredCoreMlEntry(name: string): boolean {
 }
 
 function cleanupParakeetCoreMlInstall(dir: string): void {
-  if (getPlatformRuntime() === 'windows') return
+  if (usesParakeetOnnx()) return
   try {
     for (const entry of readdirSync(dir)) {
       if (!isRequiredCoreMlEntry(entry)) {
@@ -155,14 +169,12 @@ function parakeetOnnxInstallComplete(dir: string): boolean {
 }
 
 function parakeetInstallComplete(dir: string): boolean {
-  if (getPlatformRuntime() === 'windows')
-    return parakeetOnnxInstallComplete(dir)
+  if (usesParakeetOnnx()) return parakeetOnnxInstallComplete(dir)
   return parakeetCoreMlInstallComplete(dir)
 }
 
 function parakeetArtifactName(model: SpeechModel): string {
-  if (getPlatformRuntime() === 'windows')
-    return WINDOWS_PARAKEET_ONNX_ARTIFACT_NAME
+  if (usesParakeetOnnx()) return PARAKEET_ONNX_ARTIFACT_NAME
   return fluidAudioModelFolderName(model.artifactName)
 }
 
@@ -172,7 +184,7 @@ function parakeetArtifactName(model: SpeechModel): string {
  * the two names agree and there is nothing to migrate.
  */
 function legacyParakeetInstallDir(model: SpeechModel): string | null {
-  if (getPlatformRuntime() === 'windows') return null
+  if (usesParakeetOnnx()) return null
   const legacy = join(MODELS_DIR, model.artifactName)
   const current = join(MODELS_DIR, parakeetArtifactName(model))
   return legacy === current ? null : legacy
@@ -214,7 +226,7 @@ function migrateLegacyParakeetInstall(model: SpeechModel): void {
 }
 
 function parakeetRepoId(model: SpeechModel): string | undefined {
-  if (getPlatformRuntime() === 'windows') return WINDOWS_PARAKEET_ONNX_REPO_ID
+  if (usesParakeetOnnx()) return PARAKEET_ONNX_REPO_ID
   return model.huggingFaceRepoId
 }
 
@@ -388,9 +400,9 @@ class ModelManager {
       }
     }
 
-    if (getPlatformRuntime() === 'windows') {
+    if (usesParakeetOnnx()) {
       const found = new Set(entries.map((entry) => entry.path))
-      for (const required of WINDOWS_PARAKEET_ONNX_REQUIRED_FILES) {
+      for (const required of parakeetOnnxRequiredFiles()) {
         if (!found.has(required)) {
           throw new Error(
             `Parakeet ONNX repo missing required file: ${required}`

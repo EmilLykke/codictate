@@ -138,7 +138,8 @@ export const setupRecording = (
   let streamDebugSeq = 0
 
   const resolveStreamDeviceRef = async (): Promise<string | undefined> => {
-    if (getPlatformRuntime() !== 'windows') return undefined
+    // macOS's Parakeet helper records from the default input; the Rust helper takes a device.
+    if (getPlatformRuntime() === 'macos') return undefined
 
     let currentSnapshot = getAudioDevices?.() ?? { devices: {}, details: {} }
     if (Object.keys(currentSnapshot.devices).length === 0) {
