@@ -520,7 +520,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
   // ── hviske (Danish) ─────────────────────────────────────────────────
   //
   // One entry per Quantization the Mirror carries, because different Quantizations of
-  // the same weights are separate Speech Models with separate Model IDs (CONTEXT.md).
+  // the same weights are separate Speech Models with separate Model IDs (GLOSSARY.md).
   // The set is complete so the user picks a size/speed trade-off instead of being handed
   // one.
   //

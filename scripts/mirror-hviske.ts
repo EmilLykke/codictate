@@ -2,7 +2,7 @@
 //
 // WHY THIS EXISTS
 // `syvai/hviske-v5-tiny` is `gated: manual`, so end users cannot download from it
-// inside the app. A Mirror (see CONTEXT.md) is a copy Codictate hosts itself.
+// inside the app. A Mirror (see GLOSSARY.md) is a copy Codictate hosts itself.
 // CC BY-NC 4.0 permits non-commercial redistribution with attribution, which is why
 // the destination README keeps the licence unchanged and credits syvai. This is not
 // legal advice, and syvai gated the repo deliberately, so ask them first.

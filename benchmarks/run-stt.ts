@@ -2354,7 +2354,7 @@ async function startNewRun(flags: ReturnType<typeof parseArgs>): Promise<void> {
   //
   // One runnable Harness makes that a one-element dimension today, and it stays a
   // dimension on purpose. Harness is a domain dimension rather than a property of the
-  // current binary (CONTEXT.md, docs/adr/0002), the result files and every read path are
+  // current binary (GLOSSARY.md, docs/adr/0002), the result files and every read path are
   // permanently multi-Harness because the archive is, and the last Harness swap was
   // decided by exactly this loop running two of them over identical samples.
   console.log("--- Running benchmarks ---");

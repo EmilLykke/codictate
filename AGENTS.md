@@ -184,7 +184,7 @@ Key labels follow the host platform: Windows shows Ctrl / Alt / Win / Shift, nev
 
 ## Domain language
 
-`CONTEXT.md` is the glossary for Codictate's domain terms (Dictation Shortcut, Speech Engine, ASR Harness, Formatting Mode, Vendor Binary, and so on). Use those terms in code and docs. Architectural decisions and their rejected alternatives live in `docs/adr/`.
+`GLOSSARY.md` is the glossary for Codictate's domain terms (Dictation Shortcut, Speech Engine, ASR Harness, Formatting Mode, Vendor Binary, and so on). Use those terms in code and docs. Architectural decisions and their rejected alternatives live in `docs/adr/`.
 
 ## Frontend theme
 
@@ -213,4 +213,4 @@ The five canonical triage roles, using their default label strings. See `docs/ag
 
 ### Domain docs
 
-Single-context — `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

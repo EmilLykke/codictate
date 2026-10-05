@@ -12,7 +12,7 @@
  * a one-line addition here plus its candidate paths. Harness is internal and never exposed
  * to end users - there is deliberately no picker and no env override.
  *
- * See docs/adr/0002-asr-harness-abstraction.md and CONTEXT.md.
+ * See docs/adr/0002-asr-harness-abstraction.md and GLOSSARY.md.
  */
 
 export const ASR_HARNESS_IDS = ['crispasr'] as const
