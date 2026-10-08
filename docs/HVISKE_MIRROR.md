@@ -119,9 +119,9 @@ device selection and output quality are unobserved. Anyone with a Windows machin
 close that gap with a single Danish Dictation on an hviske Speech Model.
 
 The weights are Danish-only, so an hviske run pins the Transcription Language to Danish
-rather than taking the user's setting. Translate to English is not refused: it resolves
-away to a translate-capable Whisper Speech Model, which inherits neither the `cohere`
-backend nor the Danish pin.
+rather than taking the user's setting. Translate to English is unavailable while an hviske
+Speech Model is selected: the settings write is refused and the heal pass turns it off,
+rather than running a different Speech Model (`docs/adr/0005-no-runtime-fallbacks-for-dictation.md`).
 
 ## Re-running the mirror script
 
