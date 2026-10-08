@@ -118,7 +118,7 @@ class FormatterModelManager {
       })
 
       const digest = hash.digest('hex')
-      if (config.sha256 && digest !== config.sha256) {
+      if (digest !== config.sha256) {
         throw new Error(
           `Checksum mismatch for ${config.displayName}: expected ${config.sha256}, received ${digest}`
         )

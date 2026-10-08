@@ -29,6 +29,7 @@ import {
   CRISPASR_WINDOWS_DLLS,
   type VendorArchive,
 } from "./vendor-manifest";
+import { SPEECH_MODELS, whisperModelDownloadUrl } from "../src/shared/speech-models";
 
 const VENDORS_DIR = "./vendors";
 
@@ -880,34 +881,15 @@ async function vendorWhisperModel() {
     return;
   }
 
-  mkdirSync(WHISPER_DIR, { recursive: true });
-
-  const url = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`;
-
-  console.log(
-    `[pre-build] Downloading ${MODEL_NAME} (~547 MB)...`,
-  );
-
-  const result = Bun.spawnSync(
-    [
-      "curl",
-      "--location",
-      "--fail",
-      "--retry", "3",
-      "--retry-delay", "5",
-      "--connect-timeout", "30",
-      "--max-time", "600",
-      "--progress-bar",
-      "--output", MODEL_PATH,
-      url,
-    ],
-    { stdio: ["ignore", "inherit", "inherit"] },
-  );
-
-  if (result.exitCode !== 0) {
-    if (existsSync(MODEL_PATH)) rmSync(MODEL_PATH, { force: true });
-    throw new Error(`[pre-build] Failed to download ${MODEL_NAME}`);
+  // The catalog entry carries the pinned revision's sha256, so the bundled copy is checked
+  // against the same bytes a user download of this Speech Model is.
+  const sha256 = SPEECH_MODELS.find((model) => model.artifactName === MODEL_NAME)?.sha256;
+  if (!sha256) {
+    throw new Error(`[pre-build] No sha256 for ${MODEL_NAME} in src/shared/speech-models.ts`);
   }
+
+  mkdirSync(WHISPER_DIR, { recursive: true });
+  await downloadAndVerify(whisperModelDownloadUrl(MODEL_NAME), MODEL_PATH, sha256, MODEL_NAME);
 
   console.log(`[pre-build] ${MODEL_NAME} vendored successfully`);
 }
