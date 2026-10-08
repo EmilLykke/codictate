@@ -6,7 +6,7 @@
  * flaky connection, in an offline CI job and behind a proxy, and it never imports
  * `model-manager.ts`: no bug in `downloadModel` can make it fail. What it does check is
  * real and worth checking on purpose - that the URLs the app builds still resolve and
- * that the hviske Mirror still carries every Quantization.
+ * that the hviske and Edda Mirrors still carry every Quantization.
  *
  * Run it deliberately:
  *
@@ -24,37 +24,22 @@ import { describe, test, expect } from 'bun:test'
 import { listFiles, downloadFile } from '@huggingface/hub'
 import {
   SPEECH_MODELS,
-  hviskeMirrorFileUrl,
-  whisperModelDownloadUrl,
+  singleFileModelDownloadUrl,
 } from '../../../shared/speech-models'
 
 const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter((m) => !m.bundled)
 
 describe('model downloads', () => {
   for (const model of DOWNLOADABLE_MODELS) {
-    if (model.engine === 'whisper_cpp') {
+    // Every single-file Speech Model, checked at the exact URL the app builds: the
+    // whisper.cpp repo for stock Whisper, the Mirror for hviske and Edda. This also catches
+    // a Mirror that lost a Quantization: the repo-level checks below would still pass with
+    // four of five files present.
+    if (model.engine === 'whisper_cpp' || model.engine === 'hviske') {
       test(
-        `${model.id}: whisper.cpp download is accessible`,
+        `${model.id}: single-file download is accessible`,
         async () => {
-          const url = whisperModelDownloadUrl(model.artifactName)
-          const res = await fetch(url, { method: 'HEAD' })
-          expect(res.status).toBe(200)
-          const size = Number(res.headers.get('Content-Length') ?? '0')
-          expect(size).toBeGreaterThan(0)
-        },
-        { timeout: 15_000 }
-      )
-    }
-
-    // hviske downloads by direct Mirror URL rather than through the whisper.cpp repo, so
-    // the exact per-Quantization URL the app builds is what has to be reachable. This also
-    // catches a Mirror that lost a Quantization: the repo-level checks below would still
-    // pass with four of five files present.
-    if (model.engine === 'hviske') {
-      test(
-        `${model.id}: hviske Mirror download is accessible`,
-        async () => {
-          const url = hviskeMirrorFileUrl(model.artifactName)
+          const url = singleFileModelDownloadUrl(model)
           const res = await fetch(url, { method: 'HEAD' })
           expect(res.status).toBe(200)
           const size = Number(res.headers.get('Content-Length') ?? '0')

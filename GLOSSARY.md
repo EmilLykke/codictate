@@ -30,6 +30,8 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **hviske** - the Danish-only Speech Engine, running the mirrored `syvai/hviske-v5-tiny` weights. A Speech Engine in its own right rather than a Whisper Speech Model, because its weights, its backend and its language support all differ. See `docs/adr/0004-hviske-danish-ungated.md`.
 
+**Edda** - a Danish-only Whisper Speech Model: `danish-foundation-models/edda-v0.2`, a fine-tune of large-v3-turbo, converted to GGML by Codictate and served from a Mirror. Unlike hviske it is not its own Speech Engine, because its weights load on the default crispasr backend like any other Whisper Speech Model; only its language is pinned. See `docs/EDDA_MIRROR.md`.
+
 **ASR Harness** - the specific binary and CLI contract used to execute a Speech Engine. There is one Harness, `crispasr`, and it executes both Whisper and hviske. Harness is an internal concept and is never exposed to end users. See `docs/adr/0002-asr-harness-abstraction.md`.
 
 **Speech Engine Adapter** - the uniform way Codictate asks any Speech Engine for a transcription, so that a caller does not need to know whether the answer comes from an ASR Harness or from a Native Helper. Covers Batch Dictation only: Live Transcription is a session rather than a question, so it is not asked through an Adapter.
@@ -68,7 +70,7 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`crispasr`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).
 
-**Mirror** - a copy of a third-party Speech Model that Codictate hosts itself, because the upstream repository is access-gated and end users cannot download from it directly.
+**Mirror** - a copy of a third-party Speech Model that Codictate hosts itself, because end users cannot download a usable file from upstream directly: the repository is access-gated (hviske), or it ships a format no ASR Harness reads, so the Mirror carries Codictate's conversion (Edda).
 
 ## Benchmarking
 

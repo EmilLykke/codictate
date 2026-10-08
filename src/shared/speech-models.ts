@@ -1,6 +1,7 @@
 /**
- * Speech model catalog: whisper.cpp GGML files, Parakeet TDT v3 (Core ML on macOS,
- * ONNX on Windows) and hviske (Danish, crispasr cohere backend).
+ * Speech model catalog: whisper.cpp GGML files (stock Whisper and the Danish Edda),
+ * Parakeet TDT v3 (Core ML on macOS, ONNX on Windows) and hviske (Danish, crispasr cohere
+ * backend).
  * `engine: 'whisperkit'` is the historical Parakeet engine label.
  */
 
@@ -86,6 +87,17 @@ export const HVISKE_MIRROR_REPO_ID = 'emillykkegrann/hviske-v5-tiny-GGUF'
 /** hviske is Danish-only, so a run pins `--language da` rather than auto-detecting. */
 export const HVISKE_TRANSCRIPTION_LANGUAGE_ID = 'da'
 
+/**
+ * Mirror repo for the Edda v0.2 GGML weights. `danish-foundation-models/edda-v0.2` ships
+ * fp16 safetensors only, which no ASR Harness reads, so Codictate converts them and hosts
+ * the result. Re-mirroring is a maintainer job: `scripts/mirror-edda.ts`, see
+ * docs/EDDA_MIRROR.md.
+ */
+export const EDDA_MIRROR_REPO_ID = 'emillykkegrann/edda-v0.2-GGML'
+
+/** Edda v0.2 is a Danish fine-tune, so a run pins `--language da` like hviske. */
+export const EDDA_TRANSCRIPTION_LANGUAGE_ID = 'da'
+
 export interface SpeechModel {
   id: string
   engine: SpeechEngineId
@@ -100,8 +112,18 @@ export interface SpeechModel {
   /** Always visible in the model picker (not just browse modal). */
   curated?: boolean
   translationSupport: boolean
-  /** Hugging Face repo for downloadable models (not used for bundled whisper ggml) */
+  /**
+   * Hugging Face repo for downloadable models. Unset for the stock whisper.cpp weights,
+   * which come from `ggerganov/whisper.cpp`; set on a single-file Speech Model it names the
+   * Mirror the file downloads from instead.
+   */
   huggingFaceRepoId?: string
+  /**
+   * Expected sha256 of the downloaded file, lowercase hex. Set where Codictate produced
+   * the artifact itself (Edda), so a download that differs from what was mirrored is
+   * refused rather than installed.
+   */
+  sha256?: string
   /** Transcription language ids (from transcription-languages) Parakeet v3 supports; empty = use Whisper rules */
   supportedTranscriptionLanguageIds?: readonly string[]
 }
@@ -609,6 +631,69 @@ export const SPEECH_MODELS: SpeechModel[] = [
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
   },
+
+  // ── Edda v0.2 (Danish) ──────────────────────────────────────────────
+  //
+  // A Danish full fine-tune of large-v3-turbo with the architecture unchanged, so these
+  // are ordinary whisper.cpp GGML files on the default crispasr backend: `engine:
+  // 'whisper_cpp'`, unlike hviske. What sets them apart from the stock Whisper entries is
+  // the Mirror (`huggingFaceRepoId`), the Danish pin (`supportedTranscriptionLanguageIds`,
+  // read by `pinnedTranscriptionLanguageId`) and a sha256 per file, because Codictate
+  // converted and quantized these itself rather than copying someone else's bytes.
+  //
+  // Not `curated`, for the same reason as hviske: a Danish-only model belongs in the browse
+  // modal, which takes every non-curated whisper_cpp entry already.
+  //
+  // `peakRamMB` is the average peak RSS from the Benchmark Run
+  // `2026-10-08_06-42-10_edda-v0-2-danish` (all 927 FLEURS `da_dk` clips, Apple M4 Max), and
+  // `downloadSizeMB` the exact Mirror file size in MiB. That run measured 7.51 / 7.52 / 7.53
+  // WER for f16 / q8_0 / q5_0, against 11.29 for hviske q5_0 and 13.9 for large-v3-turbo-q5_0
+  // on the same clips: the Quantization does not move accuracy, so size and speed decide.
+  {
+    id: 'edda-v0.2-f16',
+    engine: 'whisper_cpp',
+    modeSupport: 'normal',
+    artifactName: 'ggml-edda-v0.2-f16.bin',
+    downloadSizeMB: 1549,
+    peakRamMB: 1884,
+    label: 'Edda V0.2 F16',
+    description:
+      'Danish model · Danish only, full precision, largest and slowest, 7.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: EDDA_MIRROR_REPO_ID,
+    sha256: '5a2b2ccf98e3bd45b70b7aa46457d910f5788fcb2bc2f0ef643487cc5ce629d9',
+    supportedTranscriptionLanguageIds: [EDDA_TRANSCRIPTION_LANGUAGE_ID],
+  },
+  {
+    id: 'edda-v0.2-q8_0',
+    engine: 'whisper_cpp',
+    modeSupport: 'normal',
+    artifactName: 'ggml-edda-v0.2-q8_0.bin',
+    downloadSizeMB: 834,
+    peakRamMB: 1098,
+    label: 'Edda V0.2 Q8',
+    description:
+      'Danish model · Danish only, Q8 quantized, about half the size of F16, 7.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: EDDA_MIRROR_REPO_ID,
+    sha256: '93b2a5650900275fce1a6bb1443623648e504ca6a2583453589b679d8330b716',
+    supportedTranscriptionLanguageIds: [EDDA_TRANSCRIPTION_LANGUAGE_ID],
+  },
+  {
+    id: 'edda-v0.2-q5_0',
+    engine: 'whisper_cpp',
+    modeSupport: 'normal',
+    artifactName: 'ggml-edda-v0.2-q5_0.bin',
+    downloadSizeMB: 547,
+    peakRamMB: 787,
+    label: 'Edda V0.2 Q5',
+    description:
+      'Danish model · Danish only, Q5 quantized, smallest and fastest, 7.5 WER',
+    translationSupport: false,
+    huggingFaceRepoId: EDDA_MIRROR_REPO_ID,
+    sha256: '75bd9abd0d328872cacb0f36e9444775cc46d9976bf64f69443e74265ac0add1',
+    supportedTranscriptionLanguageIds: [EDDA_TRANSCRIPTION_LANGUAGE_ID],
+  },
 ]
 
 export const DEFAULT_MODEL_ID = 'large-v3-turbo-q5_0'
@@ -653,17 +738,35 @@ export function isHviskeSpeechModelId(id: string): boolean {
   return getSpeechModel(id)?.engine === 'hviske'
 }
 
-/** Upstream ggml weights for every `whisper_cpp` Speech Model, keyed by `artifactName`. */
+/**
+ * The one Transcription Language a Speech Model's weights can produce, which a run pins
+ * instead of taking the user's setting, or `null` when the setting decides.
+ *
+ * hviske and Edda declare Danish alone. Parakeet declares 25, and the stock Whisper entries
+ * declare nothing - the English-only ones predate the field and transcribe whatever
+ * language they are told, which is why `.en` is not read here.
+ */
+export function pinnedTranscriptionLanguageId(id: string): string | null {
+  const languageIds = getSpeechModel(id)?.supportedTranscriptionLanguageIds
+  return languageIds?.length === 1 ? languageIds[0] : null
+}
+
+/** Upstream ggml weights for every stock `whisper_cpp` Speech Model, keyed by `artifactName`. */
 export function whisperModelDownloadUrl(artifactName: string): string {
   return `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${artifactName}`
 }
 
 /**
- * Direct file URL in the hviske Mirror. Used instead of `whisperModelDownloadUrl`,
- * which points at `ggerganov/whisper.cpp` and has no hviske weights.
+ * Direct file URL for a single-file Speech Model (whisper.cpp GGML, hviske GGUF).
+ *
+ * A model naming a Mirror (`huggingFaceRepoId`: hviske, Edda) downloads from it; the stock
+ * Whisper weights come from `ggerganov/whisper.cpp`, which has neither.
  */
-export function hviskeMirrorFileUrl(artifactName: string): string {
-  return `https://huggingface.co/${HVISKE_MIRROR_REPO_ID}/resolve/main/${artifactName}`
+export function singleFileModelDownloadUrl(model: SpeechModel): string {
+  if (model.huggingFaceRepoId) {
+    return `https://huggingface.co/${model.huggingFaceRepoId}/resolve/main/${model.artifactName}`
+  }
+  return whisperModelDownloadUrl(model.artifactName)
 }
 
 /** Parakeet (Core ML) has no fixed-language setting; the UI locks transcription language to automatic. */
@@ -768,7 +871,8 @@ export const CURATED_SPEECH_MODELS = SPEECH_MODELS.filter((m) => m.curated)
  * Everything the browse ("download more") modal offers: the Speech Models a user has to go
  * looking for rather than the curated few the main Settings list shows.
  *
- * That is every non-curated whisper.cpp Quantization plus all five hviske Quantizations.
+ * That is every non-curated whisper.cpp Quantization (Edda's included) plus all five hviske
+ * Quantizations.
  * hviske is named by engine instead of riding the `!curated` test, because it is not a
  * `whisper_cpp` model and no hviske entry is ever curated - a Danish-only model does not
  * belong in the list every user scans, but it does belong somewhere reachable.

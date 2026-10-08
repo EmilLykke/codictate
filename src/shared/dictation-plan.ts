@@ -25,16 +25,19 @@
 import { HVISKE_CRISPASR_BACKEND, type CrispasrBackendId } from './asr-harness'
 import {
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
-  HVISKE_TRANSCRIPTION_LANGUAGE_ID,
   PARAKEET_ENGINE_ID,
   SPEECH_MODELS,
   getSpeechModel,
   isHviskeSpeechModelId,
   parakeetSupportsTranscriptionLanguageId,
+  pinnedTranscriptionLanguageId,
   supportsStreamMode,
   type SpeechEngineId,
 } from './speech-models'
-import { whisperCodeForTranscriptionId } from './transcription-languages'
+import {
+  TRANSCRIPTION_LANGUAGE_OPTIONS,
+  whisperCodeForTranscriptionId,
+} from './transcription-languages'
 
 /**
  * Everything outside the settings object that decides whether a Dictation can run: which
@@ -57,7 +60,7 @@ export interface DictationAvailability {
 
 /**
  * Speech Models that support the `-tr` (translate to English) flag, in catalog order.
- * English-only and turbo Whisper models cannot, and neither Parakeet nor hviske can.
+ * English-only and turbo Whisper models cannot, and neither can Parakeet, hviske or Edda.
  */
 export const TRANSLATE_CAPABLE_MODEL_IDS: string[] = SPEECH_MODELS.filter(
   (m) => m.engine === 'whisper_cpp' && m.translationSupport
@@ -135,8 +138,8 @@ export interface DictationReadinessInput {
  * cannot arrive without `tsc` demanding a sentence for it.
  */
 export type TranslateReadinessReason =
-  /** hviske is selected: Danish-only GGUF weights that cannot translate at all. */
-  | 'hviske_selected'
+  /** A single-language Speech Model is selected (hviske, Edda): its weights cannot translate. */
+  | 'single_language_selected'
   /** A turbo, English-only or Parakeet selection: translation is not in the weights. */
   | 'model_cannot_translate'
   /** The selection could translate, but its weights are not on disk. */
@@ -218,14 +221,19 @@ function translateReadiness(
   const selected = input.speechModelId
   const selectedLabel = modelLabel(selected)
 
-  // hviske before the general capability check, because "Danish-only weights" is a better
-  // sentence than "cannot translate" and because this is the combination ADR-0005 stops
-  // offering. It used to appear to work by loading a Whisper model the user never chose.
-  if (isHviskeSpeechModelId(selected)) {
+  // A single-language selection before the general capability check, because "Danish
+  // weights" is a better sentence than "cannot translate" and because this is the
+  // combination ADR-0005 stops offering. It used to appear to work for hviske by loading a
+  // Whisper model the user never chose.
+  const pinnedLanguageId = pinnedTranscriptionLanguageId(selected)
+  if (pinnedLanguageId !== null) {
+    const languageLabel =
+      TRANSCRIPTION_LANGUAGE_OPTIONS.find((o) => o.id === pinnedLanguageId)
+        ?.label ?? pinnedLanguageId
     return {
       ready: false,
-      reason: 'hviske_selected',
-      message: `Translate to English is unavailable while ${selectedLabel} is selected: its Danish weights cannot translate. Switch to a Whisper Small or Large Speech Model.`,
+      reason: 'single_language_selected',
+      message: `Translate to English is unavailable while ${selectedLabel} is selected: its ${languageLabel} weights cannot translate. Switch to a Whisper Small or Large Speech Model.`,
       downloadModelId: null,
     }
   }
@@ -408,7 +416,7 @@ export interface DictationPlanInput {
 export type DictationBlockedReason =
   /** The selected Speech Model's weights are not on disk, or the id is not in the catalog. */
   | 'speech_model_not_installed'
-  /** Translate to English is on and the selection cannot translate: turbo, English-only, Parakeet or hviske. */
+  /** Translate to English is on and the selection cannot translate: turbo, English-only, Parakeet, hviske or Edda. */
   | 'model_cannot_translate'
   /** Translate to English is on with automatic detection on both language settings. */
   | 'no_translate_source_language'
@@ -437,7 +445,7 @@ export interface RunnableDictationPlan {
   crispasrBackend: CrispasrBackendId | null
   /**
    * The Transcription Language the run actually uses, which is what stats record. Not always
-   * the setting: an hviske run is pinned to Danish, and a translate run from automatic
+   * the setting: an hviske or Edda run is pinned to Danish, and a translate run from automatic
    * detection uses the translate default as its source language.
    */
   transcriptionLanguageId: string
@@ -599,21 +607,22 @@ export function buildDictationPlan(
     }
   }
 
-  // hviske GGUF weights load under the crispasr `cohere` backend alone and are Danish only,
-  // so both are pinned to the Speech Model rather than taken from the user's Transcription
-  // Language. With the translate swap gone, the Speech Model that runs is always the one
-  // selected, so nothing can inherit a pin that belongs to a different Speech Model.
-  const isHviskeRun = isHviskeSpeechModelId(selected)
-  const transcriptionLanguageId = isHviskeRun
-    ? HVISKE_TRANSCRIPTION_LANGUAGE_ID
-    : runTranscriptionLanguageId(input)
+  // A single-language Speech Model (hviske, Edda) is pinned to its language rather than
+  // taking the user's Transcription Language, and hviske GGUF weights load under the
+  // crispasr `cohere` backend alone, so that is pinned too. With the translate swap gone,
+  // the Speech Model that runs is always the one selected, so nothing can inherit a pin
+  // that belongs to a different Speech Model.
+  const transcriptionLanguageId =
+    pinnedTranscriptionLanguageId(selected) ?? runTranscriptionLanguageId(input)
 
   return {
     status: 'runnable',
     mode,
     speechModelId: selected,
     engineId: model.engine,
-    crispasrBackend: isHviskeRun ? HVISKE_CRISPASR_BACKEND : null,
+    crispasrBackend: isHviskeSpeechModelId(selected)
+      ? HVISKE_CRISPASR_BACKEND
+      : null,
     transcriptionLanguageId,
     languageCode:
       model.engine === PARAKEET_ENGINE_ID

@@ -1,0 +1,15 @@
+Edda v0.2 (GGML conversion)
+
+Edda v0.2 by the Alexandra Institute, trained within the CoRal project and
+released by Danish Foundation Models:
+https://huggingface.co/danish-foundation-models/edda-v0.2
+Source revision: 98ec5eee028b111a19733890fe32ea65267b662b
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Edda v0.2 is a fine-tune of openai/whisper-large-v3-turbo,
+Copyright (c) 2022 OpenAI, licensed under the MIT License (see LICENSE-whisper).
+
+Modifications: Codictate converted the original fp16 safetensors weights to
+whisper.cpp GGML format with CrispASR v0.8.29's models/convert-h5-to-ggml.py,
+and quantized them to q8_0 and q5_0 with CrispASR's legacy Whisper quantizer.
+The weights were not retrained or otherwise changed.

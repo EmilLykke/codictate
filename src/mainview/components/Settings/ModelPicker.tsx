@@ -27,6 +27,14 @@ const SHORT_DESC: Record<string, string> = {
   "hviske-v5-tiny-q6_k": "Danish only, balanced. 332 MB RAM.",
   "hviske-v5-tiny-q5_0": "Danish only, compact. 282 MB RAM.",
   "hviske-v5-tiny-q4_k": "Danish only, smallest and fastest. 253 MB RAM.",
+  // Edda's three Quantizations measured 7.51 to 7.53 Danish WER on all 927 FLEURS da_dk
+  // clips (Benchmark Run 2026-10-08_06-42-10_edda-v0-2-danish), so again size and speed are
+  // the whole trade-off. RAM is that run's average peak RSS.
+  "edda-v0.2-f16":
+    "Danish only, most accurate Danish, full precision. 1.9 GB RAM.",
+  "edda-v0.2-q8_0":
+    "Danish only, most accurate Danish, near-full precision. 1.1 GB RAM.",
+  "edda-v0.2-q5_0": "Danish only, most accurate Danish, compact. 787 MB RAM.",
 };
 
 function StatBar({
@@ -87,7 +95,7 @@ export function ModelPicker({
         const isDeletable = isAvailable && !model.bundled;
         const isPendingDelete = confirmDelete === model.id;
         const stats = MODEL_RATINGS[model.id];
-        // SHORT_DESC covers the curated models and the hviske Quantizations. Anything else
+        // SHORT_DESC covers the curated models and the hviske and Edda Quantizations. Anything else
         // reaching this picker is an extra Quantization downloaded from the browse modal, and
         // falls back to its catalog description rather than rendering a blank line. The two
         // are written in different registers (catalog descriptions carry an engine prefix),

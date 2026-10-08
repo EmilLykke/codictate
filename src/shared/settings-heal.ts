@@ -148,7 +148,7 @@ export function healDictationSettings(
 
   // The same readiness the webview is shipped, asked here about the *corrected* settings.
   // One definition of "can this run", so the heal pass and the UI cannot disagree about the
-  // hviske combination or about anything else. What differs is only the tense: readiness
+  // single-language combination or about anything else. What differs is only the tense: readiness
   // says why an option is unavailable, an announcement says what was switched off.
   const readiness = getDictationReadiness(next, availability)
 
@@ -156,7 +156,7 @@ export function healDictationSettings(
   if (next.translateToEnglish && !translate.ready) {
     next.translateToEnglish = false
     switch (translate.reason) {
-      case 'hviske_selected':
+      case 'single_language_selected':
       case 'model_cannot_translate':
         announce(
           'translate_to_english',

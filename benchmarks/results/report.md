@@ -2,12 +2,12 @@
 
 **Description:** Aggregated results from all benchmark runs
 
-- **Date:** 2026-09-23T05:14:57.254Z
+- **Date:** 2026-10-08T07:15:13.898Z
 - **Hardware:** Apple M4 Max / 36 GB / macOS 26.6.2
 - **Pooled unique scored clips per dataset:** 2936
 - **Warmup utterances:** 3
 - **ASR Harnesses:** crispasr (untagged rows), whisper-cli (rows tagged `[whisper-cli]`)
-- **Combinations tested:** 53
+- **Combinations tested:** 56
 
 > Response times are not measured the same way for both products: Codictate is timed at the direct adapter call boundary, Wispr Flow is timed from the UI-observed paste.
 
@@ -25,9 +25,12 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 78 MB | 243 MB | 247 MB | 259 MB | 58 ms (legacy) | 30.6% | 92.0% | -4.2% | 92.4% | 91.8% | 3.2% | -7.9% | -10.9% | N/A | 0 (+5 leafs not counted) |
 | Base full en [whisper-cli] | 142 MB | 330 MB | 333 MB | 340 MB | 59 ms (legacy) | 37.8% | 92.3% | -5.3% | 93.1% | 91.8% | 0.8% | -7.0% | -13.8% | N/A | 0 (+5 leafs not counted) |
 | Base full [whisper-cli] | 142 MB | 330 MB | 334 MB | 343 MB | 57 ms (legacy) | 70.4% | 91.1% | 58.8% | 91.8% | 90.6% | 88.4% | 39.5% | 35.3% | N/A | 0 (+5 leafs not counted) |
+| Edda V0.2 F16 full | 1.5 GB | 1.9 GB | 1.9 GB | 1.9 GB | 74 ms | 92.5% | - | **92.5%** | - | - | - | **92.5%** | - | 95.6% | 0 |
+| Edda V0.2 Q5 q5_0 | 547 MB | 786 MB | 787 MB | 789 MB | 53 ms | 92.5% | - | 92.5% | - | - | - | 92.5% | - | 95.6% | 0 |
+| Edda V0.2 Q8 q8_0 | 834 MB | 1.1 GB | 1.1 GB | 1.1 GB | 57 ms | 92.5% | - | 92.5% | - | - | - | 92.5% | - | 95.6% | 0 |
 | Hviske V5 Tiny F16 full | 503 MB | 634 MB | 647 MB | 660 MB | 22 ms | 88.6% | - | 88.6% | - | - | - | 88.6% | - | 93.2% | 0 |
 | Hviske V5 Tiny Q4 full | 153 MB | 289 MB | 298 MB | 310 MB | 18 ms | 88.6% | - | 88.6% | - | - | - | 88.6% | - | 93.1% | 0 |
-| Hviske V5 Tiny Q5 q5_0 | 181 MB | 317 MB | 327 MB | 339 MB | 18 ms | 88.7% | - | 88.7% | - | - | - | **88.7%** | - | 93.2% | 0 |
+| Hviske V5 Tiny Q5 q5_0 | 181 MB | 317 MB | 327 MB | 339 MB | 18 ms | 88.7% | - | 88.7% | - | - | - | 88.7% | - | 93.2% | 0 |
 | Hviske V5 Tiny Q6 full | 232 MB | 368 MB | 377 MB | 389 MB | 19 ms | 88.6% | - | 88.6% | - | - | - | 88.6% | - | 93.2% | 0 |
 | Hviske V5 Tiny Q8 q8_0 | 268 MB | 400 MB | 413 MB | 425 MB | 19 ms | 88.6% | - | 88.6% | - | - | - | 88.6% | - | 93.2% | 0 |
 | Large V1 full | 2.9 GB | 3.5 GB | 3.5 GB | 3.5 GB | 165 ms | 91.9% | 95.1% | 86.2% | 96.5% | 93.6% | 96.3% | 82.1% | 77.3% | 94.4% | 0 |
@@ -47,7 +50,7 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Large V3 Turbo q8_0 | 834 MB | 1.1 GB | 1.1 GB | 1.1 GB | 73 ms | 93.6% | 95.9% | 89.6% | 97.0% | 94.8% | 96.7% | 86.5% | 83.4% | 95.7% | 0 |
 | Large V3 Turbo q8_0 [whisper-cli] | 834 MB | 1.1 GB | 1.1 GB | 1.1 GB | 108 ms (legacy) | 90.2% | 95.1% | 85.4% | 95.5% | 94.8% | 96.7% | 83.2% | 87.5% | N/A | 0 (+5 leafs not counted) |
 | Large V3 Turbo full [whisper-cli] | 1.5 GB | 1.9 GB | 1.9 GB | 1.9 GB | 109 ms (legacy) | 91.1% | 95.0% | 83.2% | 95.4% | 94.7% | 96.7% | 83.2% | 87.4% | N/A | 0 (+5 leafs not counted) |
-| Large V3 full [whisper-cli] | 2.9 GB | 4.0 GB | 4.0 GB | 4.0 GB | 183 ms (legacy) | 92.3% | 93.8% | **91.8%** | 96.3% | 93.8% | 96.5% | 87.3% | **89.5%** | N/A | 0 (+5 leafs not counted) |
+| Large V3 full [whisper-cli] | 2.9 GB | 4.0 GB | 4.0 GB | 4.0 GB | 183 ms (legacy) | 92.3% | 93.8% | 91.8% | 96.3% | 93.8% | 96.5% | 87.3% | **89.5%** | N/A | 0 (+5 leafs not counted) |
 | Medium full | 1.5 GB | 1.9 GB | 1.9 GB | 1.9 GB | 93 ms | 90.8% | 94.8% | 83.9% | 96.4% | 93.2% | 96.1% | 78.8% | 73.2% | 93.7% | 0 |
 | Medium q5_0 | 514 MB | 872 MB | 878 MB | 882 MB | 65 ms | 90.8% | 94.8% | 83.7% | 96.4% | 93.2% | 96.1% | 78.5% | 72.8% | 93.6% | 0 |
 | Medium q5_0 [whisper-cli] | 514 MB | 1.1 GB | 1.1 GB | 1.1 GB | 99 ms (legacy) | 88.3% | 94.1% | 85.0% | 95.3% | 93.3% | 95.2% | 77.1% | 78.2% | N/A | 0 (+5 leafs not counted) |
@@ -83,6 +86,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 9 | 1 (9 en) | 1 |
 | Base full en [whisper-cli] | 8 | 1 (9 en) | 1 |
 | Base full [whisper-cli] | 9 | 5 | 10 |
+| Edda V0.2 F16 full | 8 | 9 | 1 |
+| Edda V0.2 Q5 q5_0 | 9 | 9 | 1 |
+| Edda V0.2 Q8 q8_0 | 9 | 9 | 1 |
 | Hviske V5 Tiny F16 full | 9 | 9 | 1 |
 | Hviske V5 Tiny Q4 full | 10 | 9 | 1 |
 | Hviske V5 Tiny Q5 q5_0 | 10 | 9 | 1 |
@@ -153,6 +159,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 92.4% |
 | Base full en [whisper-cli] | 93.1% |
 | Base full [whisper-cli] | 91.8% |
+| Edda V0.2 F16 full | - |
+| Edda V0.2 Q5 q5_0 | - |
+| Edda V0.2 Q8 q8_0 | - |
 | Hviske V5 Tiny F16 full | - |
 | Hviske V5 Tiny Q4 full | - |
 | Hviske V5 Tiny Q5 q5_0 | - |
@@ -211,6 +220,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 91.8% |
 | Base full en [whisper-cli] | 91.8% |
 | Base full [whisper-cli] | 90.6% |
+| Edda V0.2 F16 full | - |
+| Edda V0.2 Q5 q5_0 | - |
+| Edda V0.2 Q8 q8_0 | - |
 | Hviske V5 Tiny F16 full | - |
 | Hviske V5 Tiny Q4 full | - |
 | Hviske V5 Tiny Q5 q5_0 | - |
@@ -269,6 +281,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 3.2% | N/A |
 | Base full en [whisper-cli] | 0.8% | N/A |
 | Base full [whisper-cli] | 88.4% | N/A |
+| Edda V0.2 F16 full | - | N/A |
+| Edda V0.2 Q5 q5_0 | - | N/A |
+| Edda V0.2 Q8 q8_0 | - | N/A |
 | Hviske V5 Tiny F16 full | - | N/A |
 | Hviske V5 Tiny Q4 full | - | N/A |
 | Hviske V5 Tiny Q5 q5_0 | - | N/A |
@@ -327,6 +342,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | -7.9% | N/A |
 | Base full en [whisper-cli] | -7.0% | N/A |
 | Base full [whisper-cli] | 39.5% | N/A |
+| Edda V0.2 F16 full | 92.5% | 95.6% |
+| Edda V0.2 Q5 q5_0 | 92.5% | 95.6% |
+| Edda V0.2 Q8 q8_0 | 92.5% | 95.6% |
 | Hviske V5 Tiny F16 full | 88.6% | 93.2% |
 | Hviske V5 Tiny Q4 full | 88.6% | 93.1% |
 | Hviske V5 Tiny Q5 q5_0 | 88.7% | 93.2% |
@@ -385,6 +403,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | -10.9% | N/A |
 | Base full en [whisper-cli] | -13.8% | N/A |
 | Base full [whisper-cli] | 35.3% | N/A |
+| Edda V0.2 F16 full | - | N/A |
+| Edda V0.2 Q5 q5_0 | - | N/A |
+| Edda V0.2 Q8 q8_0 | - | N/A |
 | Hviske V5 Tiny F16 full | - | N/A |
 | Hviske V5 Tiny Q4 full | - | N/A |
 | Hviske V5 Tiny Q5 q5_0 | - | N/A |
@@ -445,6 +466,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 120 ms (legacy) |
 | Base full en [whisper-cli] | 120 ms (legacy) |
 | Base full [whisper-cli] | 120 ms (legacy) |
+| Edda V0.2 F16 full | - |
+| Edda V0.2 Q5 q5_0 | - |
+| Edda V0.2 Q8 q8_0 | - |
 | Hviske V5 Tiny F16 full | - |
 | Hviske V5 Tiny Q4 full | - |
 | Hviske V5 Tiny Q5 q5_0 | - |
@@ -503,6 +527,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 63 ms (legacy) |
 | Base full en [whisper-cli] | 63 ms (legacy) |
 | Base full [whisper-cli] | 63 ms (legacy) |
+| Edda V0.2 F16 full | - |
+| Edda V0.2 Q5 q5_0 | - |
+| Edda V0.2 Q8 q8_0 | - |
 | Hviske V5 Tiny F16 full | - |
 | Hviske V5 Tiny Q4 full | - |
 | Hviske V5 Tiny Q5 q5_0 | - |
@@ -561,6 +588,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 45 ms (legacy) |
 | Base full en [whisper-cli] | 45 ms (legacy) |
 | Base full [whisper-cli] | 44 ms (legacy) |
+| Edda V0.2 F16 full | - |
+| Edda V0.2 Q5 q5_0 | - |
+| Edda V0.2 Q8 q8_0 | - |
 | Hviske V5 Tiny F16 full | - |
 | Hviske V5 Tiny Q4 full | - |
 | Hviske V5 Tiny Q5 q5_0 | - |
@@ -619,6 +649,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 53 ms (legacy) |
 | Base full en [whisper-cli] | 55 ms (legacy) |
 | Base full [whisper-cli] | 52 ms (legacy) |
+| Edda V0.2 F16 full | 74 ms |
+| Edda V0.2 Q5 q5_0 | 53 ms |
+| Edda V0.2 Q8 q8_0 | 57 ms |
 | Hviske V5 Tiny F16 full | 22 ms |
 | Hviske V5 Tiny Q4 full | 18 ms |
 | Hviske V5 Tiny Q5 q5_0 | 18 ms |
@@ -677,6 +710,9 @@ Speed comes from `speedV2` - the provenance-filtered v2 measurement - and a leaf
 | Base q8_0 en [whisper-cli] | 48 ms (legacy) |
 | Base full en [whisper-cli] | 50 ms (legacy) |
 | Base full [whisper-cli] | 47 ms (legacy) |
+| Edda V0.2 F16 full | - |
+| Edda V0.2 Q5 q5_0 | - |
+| Edda V0.2 Q8 q8_0 | - |
 | Hviske V5 Tiny F16 full | - |
 | Hviske V5 Tiny Q4 full | - |
 | Hviske V5 Tiny Q5 q5_0 | - |

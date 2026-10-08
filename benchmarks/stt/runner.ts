@@ -5,7 +5,7 @@ import { MODELS_DIR } from "../../src/bun/platform/runtime";
 import {
   getSpeechModel,
   isHviskeSpeechModelId,
-  HVISKE_TRANSCRIPTION_LANGUAGE_ID,
+  pinnedTranscriptionLanguageId,
   PARAKEET_ENGINE_ID,
 } from "../../src/shared/speech-models";
 import {
@@ -368,10 +368,10 @@ export interface PartialProgress {
  * reported as an hviske result. `harnessBucketForModel` files their results under the
  * same forced Harness, so what the report says produced a number is what produced it.
  *
- * Language is pinned for the same reason. hviske is Danish-only and the app always
- * sends `--language da` (`buildDictationPlan` in `src/shared/dictation-plan.ts` decides
- * it once, per ADR-0005), so a benchmark that passed the dataset's own language would be
- * measuring an invocation no user can produce.
+ * Language is pinned for the same reason. hviske and Edda are Danish-only and the app
+ * always sends `--language da` for them (`buildDictationPlan` in
+ * `src/shared/dictation-plan.ts` decides it once, per ADR-0005), so a benchmark that passed
+ * the dataset's own language would be measuring an invocation no user can produce.
  */
 function harnessInvocationFor(
   modelId: string,
@@ -382,14 +382,15 @@ function harnessInvocationFor(
   language: string | null;
   crispasrBackend?: typeof HVISKE_CRISPASR_BACKEND;
 } {
+  const pinnedLanguage = pinnedTranscriptionLanguageId(modelId);
   if (isHviskeSpeechModelId(modelId)) {
     return {
       harness: HVISKE_ASR_HARNESS,
-      language: HVISKE_TRANSCRIPTION_LANGUAGE_ID,
+      language: pinnedLanguage,
       crispasrBackend: HVISKE_CRISPASR_BACKEND,
     };
   }
-  return { harness, language };
+  return { harness, language: pinnedLanguage ?? language };
 }
 
 /**
@@ -403,7 +404,7 @@ function harnessInvocationFor(
  *
  * The Request carries no ASR Harness because there is one (ADR-0002) and the adapter resolves
  * it. `harnessInvocationFor` is still asked, for the two things that do vary per Speech Model
- * - hviske's forced language and its forced crispasr backend - and if a second Harness is ever
+ * - the forced language of hviske and Edda, and hviske's forced crispasr backend - and if a second Harness is ever
  * added, the Harness belongs in the Request rather than back in a second argv builder here.
  */
 function transcriptionRequestFor(

@@ -15,7 +15,7 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | Frontend | React 19, Vite, Tailwind CSS v4 |
 | Animation | Motion (Framer Motion) |
 | Data fetching | @tanstack/react-query |
-| Speech-to-text | Whisper and Danish hviske (both via the `crispasr` ASR Harness) and Parakeet (FluidAudio/FluidInference via CodictateParakeetHelper) |
+| Speech-to-text | Whisper (including the Danish Edda), Danish hviske (both via the `crispasr` ASR Harness) and Parakeet (FluidAudio/FluidInference via CodictateParakeetHelper) |
 | Formatting | llama.cpp running Qwen2.5 3B / Qwen3 4B, or Apple Intelligence (macOS 26+) |
 | Native helpers | Swift (macOS), Rust (Windows) |
 
@@ -109,6 +109,7 @@ scripts/
   post-build.ts                 # App bundle patching + codesign
   vendor-manifest.ts            # Pinned vendor releases + the file lists shipped from them
   mirror-hviske.ts              # Maintainer-run: mirror the hviske GGUF weights
+  mirror-edda.ts                # Maintainer-run: convert and mirror the Edda GGML weights
   release.sh                    # Version bump + tag push
 
 entitlements/                   # Per-helper macOS entitlements plists (codesigning)
@@ -120,6 +121,7 @@ docs/
   RECORDING_INDICATOR.md        # Recording HUD architecture
   MACOS_SIGNING_AND_NOTARIZATION.md
   HVISKE_MIRROR.md              # The published Danish hviske Mirror
+  EDDA_MIRROR.md                # The Danish Edda Mirror (Codictate's own GGML conversion)
   AEROSPACE.md                  # AeroSpace window rule
   adr/                          # Architecture decision records
 
@@ -151,6 +153,7 @@ See `docs/RECORDING_INDICATOR.md` for full details.
 ### Speech engines
 
 - **Whisper**: the default engine. Runs under the single **ASR Harness**, `crispasr`, a prebuilt binary pinned and sha256-verified. `whisper-cli` is retired: it is gone from the harness list, the app bundle and the build, along with the `CODICTATE_ASR_HARNESS` override. There is no fallback harness, so an unresolvable `crispasr` binary fails dictation loudly. Harness stays internal and is never exposed to users. See `docs/adr/0002-asr-harness-abstraction.md`.
+- **Edda**: Danish only, `danish-foundation-models/edda-v0.2` (a large-v3-turbo fine-tune) converted to GGML by `scripts/mirror-edda.ts` and served from a Mirror. It is a Whisper Speech Model (`engine: 'whisper_cpp'`) on the default crispasr backend, not its own engine; what differs is the Mirror URL (`huggingFaceRepoId`), a sha256 checked on download, and the Danish pin, which `pinnedTranscriptionLanguageId` applies to hviske and Edda alike. Three Quantizations (f16, q8_0, q5_0) live in the browse modal, none curated. See `docs/EDDA_MIRROR.md`.
 - **Parakeet**: runs via `CodictateParakeetHelper` on macOS and Windows; Linux has no helper yet (`getPlatformCapabilities().supportsStreamMode` in `src/bun/platform/runtime.ts` is the live answer). The engine ID in code is `whisperkit` but the actual engine is **FluidAudio** (FluidInference), not WhisperKit; compare against the exported `PARAKEET_ENGINE_ID` rather than re-typing the literal.
 - **hviske**: Danish only, the mirrored `syvai/hviske-v5-tiny` GGUF weights. Runs on the same `crispasr` binary with `--backend cohere`, which is the only runtime that can read those weights. Ungated: no env var, no source-checkout requirement. All five Quantizations live in the browse modal ("Browse more models" in Settings) and none is curated, because a Danish-only model does not belong in the main list. Danish WER is measured now: the Benchmark Run `2026-08-18_08-17-28_hviske-vs-main-models` puts all five between 11.29 and 11.67 WER on FLEURS `da_dk`, which confirms syvai's identical-WER claim and beats every Whisper Speech Model ever measured on Danish, including Large V3 at 2.9 GB (12.67). `q5_0` is the recommended one in documentation, with `q4_k` for the smallest download; the old `f16` recommendation existed only to hedge the unverified claim and that reason is gone. Built for both platforms. The `cohere` backend is confirmed present in the shipped Windows binary (verified in the pinned `crispasr-windows-x86_64-vulkan.zip` for v0.8.29: `--backend` help lists `cohere`, and `CohereBackend` / `cohere_transcribe_ex` / `llm_build_cohere2_iswa` symbols are in `crispasr.exe` and `crispasr.dll`). What is still unverified is narrower: **no hviske Dictation has been run on Windows hardware**, so the end-to-end GGUF load, Vulkan device selection and output quality are unobserved. Do not upgrade that to a Windows support claim until someone runs it. See `docs/adr/0004-hviske-danish-ungated.md` and `docs/HVISKE_MIRROR.md`.
 

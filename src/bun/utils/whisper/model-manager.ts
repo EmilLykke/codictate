@@ -10,13 +10,13 @@ import {
 } from 'fs'
 import { pipeline } from 'stream/promises'
 import { Readable } from 'node:stream'
+import { createHash } from 'node:crypto'
 import { downloadFile, listFiles } from '@huggingface/hub'
 import {
   PARAKEET_ENGINE_ID,
   SPEECH_MODELS,
   getSpeechModel,
-  hviskeMirrorFileUrl,
-  whisperModelDownloadUrl,
+  singleFileModelDownloadUrl,
   fluidAudioModelFolderName,
   type SpeechModel,
 } from '../../../shared/speech-models'
@@ -40,21 +40,13 @@ function downloadErrorMessage(err: unknown): string {
   return 'Download failed'
 }
 
-/** Single-file Speech Models (whisper.cpp GGML, hviske GGUF) download straight from a URL. */
-function singleFileModelDownloadUrl(model: SpeechModel): string {
-  if (model.engine === 'hviske') {
-    return hviskeMirrorFileUrl(model.artifactName)
-  }
-  return whisperModelDownloadUrl(model.artifactName)
-}
-
 /**
  * A failed model download, in words the user can act on.
  *
- * hviske downloads come from a Mirror rather than from `ggerganov/whisper.cpp`, so a
- * refusal names the repo: it is the one detail that distinguishes "this download is broken"
- * from "your network is broken" when the Mirror itself is the problem. See
- * docs/HVISKE_MIRROR.md.
+ * hviske and Edda downloads come from a Mirror rather than from `ggerganov/whisper.cpp`, so
+ * a refusal names the repo: it is the one detail that distinguishes "this download is
+ * broken" from "your network is broken" when the Mirror itself is the problem. See
+ * docs/HVISKE_MIRROR.md and docs/EDDA_MIRROR.md.
  */
 function httpDownloadErrorMessage(
   model: SpeechModel,
@@ -62,7 +54,7 @@ function httpDownloadErrorMessage(
   status: number,
   statusText: string
 ): string {
-  if (model.engine === 'hviske' && [401, 403, 404].includes(status)) {
+  if (model.huggingFaceRepoId && [401, 403, 404].includes(status)) {
     return (
       `Could not download this model from ${model.huggingFaceRepoId} ` +
       `(HTTP ${status} for ${url}). Check your connection and try again.`
@@ -338,11 +330,14 @@ class ModelManager {
     const contentLength = Number(response.headers.get('Content-Length') ?? '0')
     const reader = response.body.getReader()
     const writeStream = createWriteStream(tempPath)
+    // Hashed while it streams, so checking a 1.5 GB file costs no second read.
+    const hash = model.sha256 ? createHash('sha256') : null
     let received = 0
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
+      hash?.update(value)
       await new Promise<void>((resolve, reject) => {
         writeStream.write(value, (err) => {
           if (err) reject(err)
@@ -361,6 +356,22 @@ class ModelManager {
         else resolve()
       })
     })
+
+    // Thrown before the rename, so the caller deletes the temp file and nothing that
+    // differs from what was mirrored is ever installed.
+    if (hash && model.sha256) {
+      const actual = hash.digest('hex')
+      if (actual !== model.sha256) {
+        log('model-manager', 'sha256 mismatch', {
+          modelId: model.id,
+          expected: model.sha256,
+          actual,
+        })
+        throw new Error(
+          'The downloaded file did not match the expected checksum. Try the download again.'
+        )
+      }
+    }
   }
 
   private async downloadParakeetModel(

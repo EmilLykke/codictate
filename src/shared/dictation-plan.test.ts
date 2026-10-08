@@ -45,6 +45,7 @@ const TRANSLATE_CAPABLE_LATER_IN_CATALOG = 'large-v3-q5_0'
 const TRANSCRIBE_ONLY = 'large-v3-turbo-q5_0'
 const ENGLISH_ONLY = 'small.en-q5_1'
 const HVISKE = 'hviske-v5-tiny-f16'
+const EDDA = 'edda-v0.2-q5_0'
 const PARAKEET = DEFAULT_STREAM_CAPABLE_MODEL_ID
 
 const installed =
@@ -181,7 +182,18 @@ describe('getDictationReadiness - Translate to English', () => {
       available(HVISKE, TRANSLATE_CAPABLE)
     )
     expect(readiness.ready).toBe(false)
-    expect(readiness.reason).toBe('hviske_selected')
+    expect(readiness.reason).toBe('single_language_selected')
+    expect(readiness.downloadModelId).toBeNull()
+  })
+
+  test('is unavailable under an Edda selection, naming its Danish weights', () => {
+    const readiness = translate(
+      input({ speechModelId: EDDA, transcriptionLanguageId: 'da' }),
+      available(EDDA, TRANSLATE_CAPABLE)
+    )
+    expect(readiness.ready).toBe(false)
+    expect(readiness.reason).toBe('single_language_selected')
+    expect(readiness.message).toContain('Danish weights cannot translate')
     expect(readiness.downloadModelId).toBeNull()
   })
 
@@ -190,7 +202,7 @@ describe('getDictationReadiness - Translate to English', () => {
       input({ speechModelId: HVISKE, transcriptionLanguageId: 'da' }),
       available(HVISKE)
     )
-    expect(readiness.reason).toBe('hviske_selected')
+    expect(readiness.reason).toBe('single_language_selected')
     expect(readiness.downloadModelId).toBeNull()
   })
 
@@ -428,10 +440,10 @@ describe('getDictationReadiness - the copy', () => {
     }
 
     expect([...translateMessages.keys()].sort()).toEqual([
-      'hviske_selected',
       'model_cannot_translate',
       'model_not_installed',
       'needs_source_language',
+      'single_language_selected',
     ])
     expect([...liveMessages.keys()].sort()).toEqual([
       'language_not_supported',
@@ -520,6 +532,36 @@ describe('buildDictationPlan - batch Dictation', () => {
     expect(plan.crispasrBackend).toBe('cohere')
     expect(plan.transcriptionLanguageId).toBe('da')
     expect(plan.languageCode).toBe('da')
+  })
+
+  /**
+   * Edda is whisper.cpp GGML on the default backend, so only the language is pinned, and
+   * it wins over whatever Transcription Language is stored.
+   */
+  test('an Edda run pins Danish on the default backend', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: EDDA, transcriptionLanguageId: 'en' }),
+      available(EDDA)
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.engineId).toBe('whisper_cpp')
+    expect(plan.crispasrBackend).toBeNull()
+    expect(plan.transcriptionLanguageId).toBe('da')
+    expect(plan.languageCode).toBe('da')
+  })
+
+  test('blocks Translate to English under an Edda selection', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: EDDA,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      available(EDDA, TRANSLATE_CAPABLE)
+    )
+    expect(plan.status).toBe('blocked')
+    if (plan.status !== 'blocked') return
+    expect(plan.reason).toBe('model_cannot_translate')
   })
 
   test('a Parakeet batch run carries no language: the engine detects it', () => {
