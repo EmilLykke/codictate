@@ -51,7 +51,7 @@ describe('model downloads', () => {
 
     if (model.huggingFaceRepoId) {
       const repoId = model.huggingFaceRepoId
-      // The pinned commit where there is one (Parakeet Core ML), `main` otherwise.
+      // The pinned commit where there is one (Parakeet Core ML, hviske), `main` otherwise.
       const revision = model.huggingFaceRevision
 
       test(

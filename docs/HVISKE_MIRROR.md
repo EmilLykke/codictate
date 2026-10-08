@@ -32,15 +32,23 @@ copies.
 
 ## Contents
 
-Byte sizes as published by the Hugging Face API:
+Byte sizes and LFS sha256 as published by the Hugging Face API at Mirror commit
+`146389ba4a6b3731d7a4463d6a4c3e4353d77651`:
 
-| File | Bytes | Size |
-| --- | --- | --- |
-| `hviske-v5-tiny-f16.gguf` | 527156128 | 502.7 MiB |
-| `hviske-v5-tiny-q8_0.gguf` | 281273056 | 268.2 MiB |
-| `hviske-v5-tiny-q6_k.gguf` | 243307232 | 232.0 MiB |
-| `hviske-v5-tiny-q5_0.gguf` | 190292704 | 181.5 MiB |
-| `hviske-v5-tiny-q4_k.gguf` | 159965920 | 152.5 MiB |
+| File | Bytes | Size | sha256 |
+| --- | --- | --- | --- |
+| `hviske-v5-tiny-f16.gguf` | 527156128 | 502.7 MiB | `922611f9…f85fff` |
+| `hviske-v5-tiny-q8_0.gguf` | 281273056 | 268.2 MiB | `2b1191aa…344efa` |
+| `hviske-v5-tiny-q6_k.gguf` | 243307232 | 232.0 MiB | `4cdbe939…6a5792` |
+| `hviske-v5-tiny-q5_0.gguf` | 190292704 | 181.5 MiB | `f3301e8d…a7df49` |
+| `hviske-v5-tiny-q4_k.gguf` | 159965920 | 152.5 MiB | `1b54da8b…b33bb7` |
+
+The app downloads from that commit (`HVISKE_MIRROR_REVISION`), not from `main`, and
+`model-manager.ts` checks each download against the full hashes pinned in
+`src/shared/speech-models.ts` before installing it. The Mirror was copied from the source
+repo at revision `361051e8ed732798d68fcd5d5ec64fd4e39da40b`, its head on 2026-08-17; the
+source's own LFS hashes are hidden behind the gate, so the source-side check is the
+mirror script's (below).
 
 The five files total 1401995040 bytes, roughly 1.3 GiB, so a full mirroring run is not a
 quick download.
@@ -127,3 +135,8 @@ bun run scripts/mirror-hviske.ts --print-readme   # review the model card
 bun run scripts/mirror-hviske.ts --dry-run        # download and stage, upload nothing
 bun run scripts/mirror-hviske.ts                  # create the repo and upload
 ```
+
+The script downloads from the source at its pinned `SOURCE_REVISION`, not `main`, and
+stops if any file differs from the sha256 the catalog pins. An upload makes a new Mirror
+commit, so move `HVISKE_MIRROR_REVISION` to it in the same change. Different bytes are a
+new model, not a refresh: update `sha256` and `downloadSizeMB` and re-benchmark.

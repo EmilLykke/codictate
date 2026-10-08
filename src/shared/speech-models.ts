@@ -84,6 +84,13 @@ const PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS = [
  */
 export const HVISKE_MIRROR_REPO_ID = 'emillykkegrann/hviske-v5-tiny-GGUF'
 
+/**
+ * The Mirror commit hviske downloads from, rather than `main`: its head on 2026-08-17, a
+ * README edit on top of the commit that uploaded all five Quantizations. Each entry's
+ * `sha256` is the LFS hash at this commit. Moving it means re-reading all five.
+ */
+export const HVISKE_MIRROR_REVISION = '146389ba4a6b3731d7a4463d6a4c3e4353d77651'
+
 /** hviske is Danish-only, so a run pins `--language da` rather than auto-detecting. */
 export const HVISKE_TRANSCRIPTION_LANGUAGE_ID = 'da'
 
@@ -119,16 +126,19 @@ export interface SpeechModel {
    */
   huggingFaceRepoId?: string
   /**
-   * Hugging Face commit a multi-file download (Parakeet Core ML) is fetched from, rather than
-   * `main`. The commit id names the whole file tree, so it pins a directory of weights the way
-   * `sha256` pins a single file: nothing pushed to the repo later can reach a download.
+   * Hugging Face commit the download is fetched from, rather than `main`: the Parakeet Core
+   * ML tree on macOS, and the hviske Mirror file. The commit id names the whole file tree, so
+   * nothing pushed to the repo later can reach a download. A revision alone is not trusted:
+   * the hviske files carry `sha256` too, and every Parakeet Core ML file is checked against
+   * `MACOS_PARAKEET_COREML_SHA256` in model-manager.ts, which has to move with this.
    */
   huggingFaceRevision?: string
   /**
    * Expected sha256 of the downloaded file, lowercase hex, so a download that differs from
-   * the pinned bytes is refused rather than installed. Set on Edda, which Codictate
-   * produced itself, and on the stock Whisper weights, read from the LFS metadata of
-   * `WHISPER_CPP_MODELS_REVISION`.
+   * the pinned bytes is refused rather than installed. Set on every single-file Speech
+   * Model: Edda, which Codictate produced itself; hviske, read from the Mirror's LFS
+   * metadata at `HVISKE_MIRROR_REVISION`; and the stock Whisper weights, read from the LFS
+   * metadata of `WHISPER_CPP_MODELS_REVISION`.
    */
   sha256?: string
   /** Transcription language ids (from transcription-languages) Parakeet v3 supports; empty = use Whisper rules */
@@ -617,6 +627,8 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, full precision, largest and slowest, 11.5 WER',
     translationSupport: false,
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    huggingFaceRevision: HVISKE_MIRROR_REVISION,
+    sha256: '922611f98f59c43bd8849e3b649a9e62246e4fdc08ed9d64219189932cf85fff',
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
   },
   {
@@ -631,6 +643,8 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, Q8 quantized, about half the size of F16, 11.5 WER',
     translationSupport: false,
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    huggingFaceRevision: HVISKE_MIRROR_REVISION,
+    sha256: '2b1191aaba12dcd81901d6933b2a9e592d89372da271fe2887ba3e87e2344efa',
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
   },
   {
@@ -645,6 +659,8 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, Q6 quantized, a little smaller than Q8, 11.7 WER',
     translationSupport: false,
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    huggingFaceRevision: HVISKE_MIRROR_REVISION,
+    sha256: '4cdbe9397f17e3bb63ba45e12567f07286332e0b8e9b5ce0c370a16afa6a5792',
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
   },
   {
@@ -659,6 +675,8 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, Q5 quantized, smaller than Q6, 11.3 WER',
     translationSupport: false,
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    huggingFaceRevision: HVISKE_MIRROR_REVISION,
+    sha256: 'f3301e8d10cc0a0ce3ffb519a6441404fd25aa47fb7d8f66de056f33b6a7df49',
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
   },
   {
@@ -673,6 +691,8 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, Q4 quantized, smallest and fastest, 11.4 WER',
     translationSupport: false,
     huggingFaceRepoId: HVISKE_MIRROR_REPO_ID,
+    huggingFaceRevision: HVISKE_MIRROR_REVISION,
+    sha256: '1b54da8b90b7a00bb3a827315c766df1524650021dc574214e2b10e677b33bb7',
     supportedTranscriptionLanguageIds: [HVISKE_TRANSCRIPTION_LANGUAGE_ID],
   },
 
@@ -811,12 +831,14 @@ export function whisperModelDownloadUrl(artifactName: string): string {
 /**
  * Direct file URL for a single-file Speech Model (whisper.cpp GGML, hviske GGUF).
  *
- * A model naming a Mirror (`huggingFaceRepoId`: hviske, Edda) downloads from it; the stock
- * Whisper weights come from `ggerganov/whisper.cpp`, which has neither.
+ * A model naming a Mirror (`huggingFaceRepoId`: hviske, Edda) downloads from it, at its
+ * `huggingFaceRevision` where it has one; the stock Whisper weights come from
+ * `ggerganov/whisper.cpp` at `WHISPER_CPP_MODELS_REVISION`.
  */
 export function singleFileModelDownloadUrl(model: SpeechModel): string {
   if (model.huggingFaceRepoId) {
-    return `https://huggingface.co/${model.huggingFaceRepoId}/resolve/main/${model.artifactName}`
+    const revision = model.huggingFaceRevision ?? 'main'
+    return `https://huggingface.co/${model.huggingFaceRepoId}/resolve/${revision}/${model.artifactName}`
   }
   return whisperModelDownloadUrl(model.artifactName)
 }

@@ -19,10 +19,19 @@
 // Neither token is printed, logged, or passed on a command line: both are handed to
 // the `hf` CLI through its environment only.
 
-import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
+import { SPEECH_MODELS } from '../src/shared/speech-models'
 
 const SOURCE_REPO = 'syvai/hviske-v5-tiny'
+/**
+ * The source commit the Mirror was built from on 2026-08-17: the head then (last changed
+ * 2026-08-14), and still the head when this was pinned. The five GGUFs last changed in
+ * 70d7a1620b0a, the rename to hviske-v5-tiny. Pinned so a later push to the source cannot
+ * reach a rebuilt Mirror unnoticed; the sha256 check below would refuse it anyway.
+ */
+const SOURCE_REVISION = '361051e8ed732798d68fcd5d5ec64fd4e39da40b'
 const SOURCE_URL = `https://huggingface.co/${SOURCE_REPO}`
 /** Override with HVISKE_MIRROR_REPO to publish under a different account. */
 const DEST_REPO =
@@ -118,6 +127,12 @@ function runHf(
   return { ok: proc.exitCode === 0, stderr: proc.stderr.toString() }
 }
 
+async function sha256Of(path: string): Promise<string> {
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(path)) hash.update(chunk)
+  return hash.digest('hex')
+}
+
 function buildReadme(): string {
   // The Quantization the README points a first-time reader at. `q5_0` rather than
   // `FILES[0]` (f16, largest first): the Benchmark Run measured the lowest WER of the five
@@ -141,7 +156,7 @@ language:
 # hviske-v5-tiny GGUF (mirror)
 
 This is an **unmodified mirror** of all ${FILES.length} GGUF conversions of
-[\`${SOURCE_REPO}\`](${SOURCE_URL}), created by
+[\`${SOURCE_REPO}\`](${SOURCE_URL}) at revision \`${SOURCE_REVISION}\`, created by
 [syvai](https://huggingface.co/syvai). All credit for the model belongs to them.
 
 The original repository is gated, which means applications cannot download from it
@@ -195,7 +210,7 @@ async function main() {
   }
 
   console.log('=== Mirror hviske-v5-tiny GGUF ===')
-  console.log(`Source:      ${SOURCE_REPO} (gated, ${LICENSE_ID})`)
+  console.log(`Source:      ${SOURCE_REPO} @ ${SOURCE_REVISION} (gated, ${LICENSE_ID})`)
   console.log(`Destination: ${DEST_REPO}`)
   console.log(`Files:       ${FILES.map((f) => f.name).join(', ')}`)
   if (dryRun) console.log('Mode:        DRY RUN (nothing is uploaded)')
@@ -244,6 +259,8 @@ async function main() {
         'download',
         SOURCE_REPO,
         file.sourcePath,
+        '--revision',
+        SOURCE_REVISION,
         '--local-dir',
         WORK_DIR,
       ],
@@ -264,13 +281,27 @@ async function main() {
     }
   }
 
+  // A Mirror is a byte copy, so every file must match the sha256 the app checks its
+  // download against. A mismatch means the source moved, not a mirror refresh.
+  console.log('--- Verifying sha256 against src/shared/speech-models.ts ---')
   for (const file of FILES) {
     const localPath = join(WORK_DIR, file.name)
     if (!existsSync(localPath)) {
       fail(`Expected ${localPath} after download, but it is missing.`)
     }
+    const expected = SPEECH_MODELS.find((m) => m.artifactName === file.name)?.sha256
+    if (!expected) fail(`${file.name} has no sha256 in the Speech Model catalog`)
+    const actual = await sha256Of(localPath)
     const mb = Math.round(statSync(localPath).size / 1024 / 1024)
-    console.log(`  ${file.name}: ${mb} MB on disk`)
+    console.log(`  ${file.name}: ${mb} MB on disk, ${actual}`)
+    if (actual !== expected) {
+      fail(
+        `${file.name} does not match the catalog.\n` +
+          `  expected ${expected}\n  actual   ${actual}\n` +
+          '  If the change is intended, update sha256 (and downloadSizeMB) in\n' +
+          '  src/shared/speech-models.ts in the same change, and re-benchmark.',
+      )
+    }
   }
   console.log('')
 
