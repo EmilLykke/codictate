@@ -84,12 +84,14 @@ function StatBar({
   max?: number;
 }) {
   const pct = Math.round((value / max) * 100);
+  // Label at its natural width and the bar taking the rest, so a longer label such as
+  // `accuracy (da)` shortens its own bar instead of pushing the row past its column.
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[11px] text-overlay/40 w-18 text-right whitespace-nowrap">
+    <div className="flex min-w-0 items-center gap-1.5">
+      <span className="shrink-0 text-[11px] text-overlay/40 whitespace-nowrap">
         {label}
       </span>
-      <div className="h-[4px] w-14 rounded-full bg-overlay/10 overflow-hidden">
+      <div className="h-[4px] min-w-6 flex-1 rounded-full bg-overlay/10 overflow-hidden">
         <div
           className="h-full rounded-full bg-accent-blue/50 transition-all duration-300"
           style={{ width: `${pct}%` }}
@@ -170,16 +172,14 @@ export function ModelBrowseModal({
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                 className="fixed inset-0 z-[60] m-auto flex max-h-[80vh] w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-overlay/10 bg-surface-elevated shadow-2xl"
               >
-                <Dialog.Title className="sr-only">
-                  Browse Whisper Models
-                </Dialog.Title>
+                <Dialog.Title className="sr-only">Browse Models</Dialog.Title>
                 <Dialog.Description className="sr-only">
-                  Search and download additional Whisper speech-to-text models
+                  Search and download additional speech-to-text models
                 </Dialog.Description>
 
                 <div className="flex items-center justify-between px-6 pt-5 pb-3">
                   <h2 className="text-[18px] font-semibold text-overlay/90">
-                    Browse Whisper Models
+                    Browse Models
                   </h2>
                   <Dialog.Close asChild>
                     <button
@@ -214,7 +214,7 @@ export function ModelBrowseModal({
                   />
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-6 pb-5 [scrollbar-gutter:stable]">
+                <div className="flex-1 overflow-y-auto px-6 pb-5">
                   {filtered.length === 0 && (
                     <p className="py-8 text-center text-[14px] text-overlay/40">
                       No models match your search.
@@ -235,32 +235,19 @@ export function ModelBrowseModal({
                           key={model.id}
                           className="rounded-xl border border-overlay/8 bg-surface-1 px-4 py-3 transition-colors hover:border-overlay/14 hover:bg-surface-2"
                         >
+                          {/* Title line and actions share a row; the stats get the full
+                              width below, so they can never run under the button. */}
                           <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[15px] font-medium text-overlay/80">
-                                  {model.label}
-                                </span>
-                                {tags.map((tag) => (
-                                  <TagBadge key={tag}>{tag}</TagBadge>
-                                ))}
-                                <TagBadge>
-                                  {formatRamSize(model.peakRamMB)}
-                                </TagBadge>
-                              </div>
-                              {stats && (
-                                <div className="flex gap-3 mt-1.5">
-                                  <StatBar
-                                    label={accuracyStatLabel(model)}
-                                    value={stats.accuracy}
-                                  />
-                                  <StatBar label="speed" value={stats.speed} />
-                                  <StatBar
-                                    label="languages"
-                                    value={stats.languages}
-                                  />
-                                </div>
-                              )}
+                            <div className="flex min-w-0 flex-1 items-center gap-2 flex-wrap">
+                              <span className="text-[15px] font-medium text-overlay/80">
+                                {model.label}
+                              </span>
+                              {tags.map((tag) => (
+                                <TagBadge key={tag}>{tag}</TagBadge>
+                              ))}
+                              <TagBadge>
+                                {formatRamSize(model.peakRamMB)}
+                              </TagBadge>
                             </div>
 
                             <div className="flex items-center gap-2.5 shrink-0">
@@ -277,13 +264,27 @@ export function ModelBrowseModal({
                               {!isAvailable && !isDownloading && (
                                 <button
                                   onClick={() => onDownload(model.id)}
-                                  className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-surface-1 hover:bg-surface-3 text-overlay/48 hover:text-overlay/68 transition-colors duration-200 cursor-pointer"
+                                  className="px-2.5 py-1 rounded-lg text-[12px] font-medium border border-overlay/12 hover:border-overlay/22 bg-surface-1 hover:bg-surface-3 text-overlay/48 hover:text-overlay/68 transition-[color,background-color,border-color,scale] duration-150 active:scale-[0.96] cursor-pointer"
                                 >
                                   Download
                                 </button>
                               )}
                             </div>
                           </div>
+
+                          {stats && (
+                            <div className="mt-2 grid grid-cols-3 gap-4">
+                              <StatBar
+                                label={accuracyStatLabel(model)}
+                                value={stats.accuracy}
+                              />
+                              <StatBar label="speed" value={stats.speed} />
+                              <StatBar
+                                label="languages"
+                                value={stats.languages}
+                              />
+                            </div>
+                          )}
 
                           {isDownloading && (
                             <div className="mt-2">
