@@ -75,9 +75,10 @@ Model (`engine: 'whisper_cpp'`) and needs no backend pin. What is pinned is the 
 `--language da` whatever the user's setting, and `translationSupport: false` keeps Translate
 to English unavailable while an Edda model is selected.
 
-**Windows: not run yet.** The Windows crispasr binary runs the same Whisper backend every
-stock Whisper Speech Model uses there, but no Edda Dictation has been run on Windows
-hardware. Do not claim Windows support until someone has.
+**Windows: tested by hand.** The maintainer ran Edda on Windows hardware on 2026-10-08 and
+reported it working. That was a manual check, not a Benchmark Run, so there are no Windows
+speed or memory figures. The Windows crispasr binary runs the same Whisper backend every
+stock Whisper Speech Model uses there.
 
 ## Licence position
 
