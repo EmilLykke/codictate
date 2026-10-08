@@ -102,6 +102,12 @@ export const HVISKE_TRANSCRIPTION_LANGUAGE_ID = 'da'
  */
 export const EDDA_MIRROR_REPO_ID = 'emillykkegrann/edda-v0.2-GGML'
 
+/**
+ * The Mirror commit Edda downloads from, rather than `main`: its head on 2026-10-08. Each
+ * entry's `sha256` is the LFS hash at this commit. Moving it means re-reading all three.
+ */
+export const EDDA_MIRROR_REVISION = 'a0b269db8f95e94a483a913e36ae1420e58d6819'
+
 /** Edda v0.2 is a Danish fine-tune, so a run pins `--language da` like hviske. */
 export const EDDA_TRANSCRIPTION_LANGUAGE_ID = 'da'
 
@@ -725,6 +731,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, full precision, largest and slowest, 7.5 WER',
     translationSupport: false,
     huggingFaceRepoId: EDDA_MIRROR_REPO_ID,
+    huggingFaceRevision: EDDA_MIRROR_REVISION,
     sha256: '5a2b2ccf98e3bd45b70b7aa46457d910f5788fcb2bc2f0ef643487cc5ce629d9',
     supportedTranscriptionLanguageIds: [EDDA_TRANSCRIPTION_LANGUAGE_ID],
   },
@@ -740,6 +747,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, Q8 quantized, about half the size of F16, 7.5 WER',
     translationSupport: false,
     huggingFaceRepoId: EDDA_MIRROR_REPO_ID,
+    huggingFaceRevision: EDDA_MIRROR_REVISION,
     sha256: '93b2a5650900275fce1a6bb1443623648e504ca6a2583453589b679d8330b716',
     supportedTranscriptionLanguageIds: [EDDA_TRANSCRIPTION_LANGUAGE_ID],
   },
@@ -755,6 +763,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
       'Danish model · Danish only, Q5 quantized, smallest and fastest, 7.5 WER',
     translationSupport: false,
     huggingFaceRepoId: EDDA_MIRROR_REPO_ID,
+    huggingFaceRevision: EDDA_MIRROR_REVISION,
     sha256: '75bd9abd0d328872cacb0f36e9444775cc46d9976bf64f69443e74265ac0add1',
     supportedTranscriptionLanguageIds: [EDDA_TRANSCRIPTION_LANGUAGE_ID],
   },

@@ -21,8 +21,10 @@ rebuilt.
 | `ggml-edda-v0.2-q8_0.bin` | 874208239 | 834 MiB | `93b2a565…30b716` |
 | `ggml-edda-v0.2-q5_0.bin` | 574061359 | 547 MiB | `75bd9abd…0add1` |
 
-The full hashes are pinned in `src/shared/speech-models.ts`, and `model-manager.ts` checks
-each download against them before installing it. The Mirror also carries the Apache-2.0
+The app downloads from Mirror commit `a0b269db8f95e94a483a913e36ae1420e58d6819`
+(`EDDA_MIRROR_REVISION`), not from `main`. The full hashes are pinned in
+`src/shared/speech-models.ts`, and `model-manager.ts` checks each download against them
+before installing it. The Mirror also carries the Apache-2.0
 `LICENSE`, Whisper's MIT notice as `LICENSE-whisper`, and a `NOTICE` with the attribution
 and the modification statement (the same files as `docs/licenses/edda/`).
 
@@ -104,4 +106,5 @@ bun run scripts/mirror-edda.ts                  # create the repo and upload
 
 The script stops if any artifact differs from the sha256 the catalog pins. A rebuild that
 produces different bytes is a new conversion: update `sha256` and `downloadSizeMB` in
-`src/shared/speech-models.ts` and re-benchmark in the same change.
+`src/shared/speech-models.ts` and re-benchmark in the same change. An upload makes a new Mirror commit, so move
+`EDDA_MIRROR_REVISION` to it in the same change.
