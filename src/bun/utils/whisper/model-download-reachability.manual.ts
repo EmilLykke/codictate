@@ -59,7 +59,11 @@ describe('model downloads', () => {
         async () => {
           const repo = { type: 'model' as const, name: repoId }
           const files: string[] = []
-          for await (const entry of listFiles({ repo, revision, recursive: true })) {
+          for await (const entry of listFiles({
+            repo,
+            revision,
+            recursive: true,
+          })) {
             if (entry.type === 'file' && entry.path !== '.gitattributes') {
               files.push(entry.path)
             }
@@ -75,7 +79,11 @@ describe('model downloads', () => {
         async () => {
           const repo = { type: 'model' as const, name: repoId }
           let firstFile: string | null = null
-          for await (const entry of listFiles({ repo, revision, recursive: true })) {
+          for await (const entry of listFiles({
+            repo,
+            revision,
+            recursive: true,
+          })) {
             if (
               entry.type === 'file' &&
               entry.path !== '.gitattributes' &&

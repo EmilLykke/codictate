@@ -91,6 +91,11 @@ const url = await getMainViewUrl()
 // `isModelAvailable` is a pure question now, so this is the boot half of the write work it
 // used to do on the way to its answer (the other half runs when a download finishes).
 modelManager.reconcileInstalls()
+// Same reason, for the one write that needs the network: a Parakeet install made before the
+// FluidAudio 0.17.7 upgrade lacks one Core ML model, and fetching just that (12.6 MB) has to
+// finish before the heal pass reads the install as missing. Bounded so a dead network delays
+// boot by at most this much; past it the top-up counts as a failed download.
+await modelManager.topUpInstalls(30_000)
 
 export const UserAppConfig = createProductionAppConfig()
 await UserAppConfig.load()

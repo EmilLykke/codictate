@@ -7,6 +7,9 @@ import {
   createWriteStream,
   readdirSync,
   rmSync,
+  linkSync,
+  createReadStream,
+  statSync,
 } from 'fs'
 import { pipeline } from 'stream/promises'
 import { Readable } from 'node:stream'
@@ -124,6 +127,68 @@ function cleanupParakeetCoreMlInstall(dir: string): void {
   } catch {
     // non-critical — stale files just waste disk space
   }
+}
+
+/**
+ * Directories a Parakeet install can be missing and still be completed by fetching only
+ * them, at boot, without the user doing anything.
+ *
+ * `JointDecisionv3.mlmodelc` is what FluidAudio 0.14.1 added to v3. Every install Codictate
+ * made before the 0.17.7 upgrade lacks it, and everything else those installs hold is
+ * byte-identical to the pinned revision (Preprocessor, Encoder, Decoder and
+ * `parakeet_vocab.json` have the same tree ids at every repo revision since 2025-09-25, and
+ * the download re-verifies each file against the pinned revision anyway). So a 12.6 MB
+ * fetch makes them complete, where reading them as missing would cost a 483 MB download and
+ * a heal pass that switches the user's Speech Model away.
+ */
+const MACOS_PARAKEET_COREML_TOP_UP_DIRS = ['JointDecisionv3.mlmodelc'] as const
+
+/** An install that `parakeetCoreMlInstallComplete` refuses only for want of a top-up. */
+function parakeetCoreMlNeedsTopUp(dir: string): boolean {
+  if (!existsSync(join(dir, 'parakeet_vocab.json'))) return false
+  const missing = MACOS_PARAKEET_COREML_REQUIRED_DIRS.filter(
+    (name) => !existsSync(join(dir, name))
+  )
+  return (
+    missing.length > 0 &&
+    missing.every((name) =>
+      (MACOS_PARAKEET_COREML_TOP_UP_DIRS as readonly string[]).includes(name)
+    )
+  )
+}
+
+interface ParakeetRepoFile {
+  path: string
+  size: number
+  /** Git blob id, for a file stored in the repo itself. */
+  gitOid?: string
+  /** sha256 of the content, for a file stored in LFS. */
+  lfsSha256?: string
+}
+
+/**
+ * Whether a file already installed is byte-for-byte the one the pinned revision lists, so
+ * the download can keep it instead of fetching it again. Checked by content, not size: a
+ * re-exported Core ML weight file can keep its size and change every value in it.
+ */
+async function installedFileMatches(
+  path: string,
+  file: ParakeetRepoFile
+): Promise<boolean> {
+  if (!existsSync(path) || statSync(path).size !== file.size) return false
+  let hash
+  let expected
+  if (file.lfsSha256) {
+    hash = createHash('sha256')
+    expected = file.lfsSha256
+  } else if (file.gitOid) {
+    hash = createHash('sha1').update(`blob ${file.size}\0`)
+    expected = file.gitOid
+  } else {
+    return false
+  }
+  for await (const chunk of createReadStream(path)) hash.update(chunk)
+  return hash.digest('hex') === expected
 }
 
 /**
@@ -397,7 +462,7 @@ class ModelManager {
 
     const repo = { type: 'model' as const, name: repoId }
     const revision = parakeetRevision(model)
-    const entries: { path: string; size: number }[] = []
+    const entries: ParakeetRepoFile[] = []
 
     for await (const e of listFiles({ repo, revision, recursive: true })) {
       controller.signal.throwIfAborted()
@@ -406,8 +471,12 @@ class ModelManager {
         e.path !== '.gitattributes' &&
         shouldDownloadParakeetFile(e.path)
       ) {
-        const size = e.lfs?.size ?? e.size
-        entries.push({ path: e.path, size })
+        entries.push({
+          path: e.path,
+          size: e.lfs?.size ?? e.size,
+          gitOid: e.lfs ? undefined : e.oid,
+          lfsSha256: e.lfs?.oid,
+        })
       }
     }
 
@@ -446,12 +515,30 @@ class ModelManager {
 
     mkdirSync(tempDir, { recursive: true })
 
+    // A file the current install already holds at the pinned revision is linked into the new
+    // install instead of fetched, which is what makes a top-up cost only what is missing.
+    // macOS only: the Windows ONNX download is left exactly as it was.
+    const reuseInstalled =
+      getPlatformRuntime() !== 'windows' && existsSync(destDir)
+
     const CONCURRENCY = 6
     let nextIdx = 0
     const downloadOne = async () => {
       while (nextIdx < entries.length) {
         controller.signal.throwIfAborted()
         const ent = entries[nextIdx++]
+        const installedPath = join(destDir, ent.path)
+        if (
+          reuseInstalled &&
+          (await installedFileMatches(installedPath, ent))
+        ) {
+          const outPath = join(tempDir, ent.path)
+          mkdirSync(dirname(outPath), { recursive: true })
+          linkSync(installedPath, outPath)
+          received += ent.size
+          onProgress(Math.min(1, received / totalBytes), false)
+          continue
+        }
         const blob = await downloadFile({ repo, revision, path: ent.path })
         if (blob === null) continue
 
@@ -480,6 +567,51 @@ class ModelManager {
       rmSync(destDir, { recursive: true, force: true })
     }
     renameSync(tempDir, destDir)
+  }
+
+  /**
+   * Complete, at boot, a Parakeet install that is only missing what a FluidAudio upgrade
+   * added (`MACOS_PARAKEET_COREML_TOP_UP_DIRS`), before anything reads availability.
+   *
+   * It has to run there, between `reconcileInstalls()` and `AppConfig.load()`: the heal pass
+   * in `load()` switches the Speech Model away from anything that reads as not installed, so
+   * fetching later - on the next Parakeet use, or from the install check, which is a
+   * question and never a write - would land after the switch it exists to avoid. Boot waits
+   * for it, bounded by `timeoutMs`, and it is the ordinary `downloadModel` underneath, so a
+   * failure is logged and handled exactly like any other failed download: the install stays
+   * incomplete, the heal pass switches and announces as it does for missing weights, and
+   * Download in Settings retries the same top-up.
+   */
+  async topUpInstalls(timeoutMs: number): Promise<void> {
+    if (getPlatformRuntime() === 'windows') return
+    for (const model of SPEECH_MODELS) {
+      if (model.engine !== PARAKEET_ENGINE_ID) continue
+      const dir = this.getParakeetInstallDir(model.id)
+      if (!parakeetCoreMlNeedsTopUp(dir)) continue
+      log('model-manager', 'topping up Parakeet install', {
+        modelId: model.id,
+        dir,
+        revision: model.huggingFaceRevision,
+      })
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const finished = new Promise<void>((resolve) => {
+        void this.downloadModel(model.id, (_fraction, done) => {
+          if (done) resolve()
+        })
+      })
+      const timedOut = new Promise<void>((resolve) => {
+        timer = setTimeout(() => {
+          log('model-manager', 'Parakeet top-up timed out', {
+            modelId: model.id,
+            timeoutMs,
+          })
+          this.cancelDownload(model.id)
+          resolve()
+        }, timeoutMs)
+      })
+      await Promise.race([finished, timedOut])
+      clearTimeout(timer)
+    }
   }
 
   async downloadModel(
