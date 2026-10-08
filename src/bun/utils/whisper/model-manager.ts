@@ -72,6 +72,36 @@ const WINDOWS_PARAKEET_ONNX_REQUIRED_FILES = [
   'vocab.txt',
 ] as const
 
+/**
+ * The commit of the ONNX repo a Windows install downloads, not `main`, so an upstream
+ * re-upload cannot change the weights under a helper built and checked against these ones.
+ * Move it on purpose, together with the hashes below.
+ */
+const WINDOWS_PARAKEET_ONNX_REVISION =
+  '8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce'
+
+/**
+ * sha256 of each required file at `WINDOWS_PARAKEET_ONNX_REVISION`, checked while it
+ * streams to disk. The four LFS hashes are the ones Hugging Face lists at that commit;
+ * `vocab.txt` is a plain git file, hashed from a download whose git blob id matched.
+ */
+const WINDOWS_PARAKEET_ONNX_SHA256: Record<
+  (typeof WINDOWS_PARAKEET_ONNX_REQUIRED_FILES)[number],
+  string
+> = {
+  'encoder-model.onnx':
+    '98a74b21b4cc0017c1e7030319a4a96f4a9506e50f0708f3a516d02a77c96bb1',
+  'encoder-model.onnx.data':
+    '9a22d372c51455c34f13405da2520baefb7125bd16981397561423ed32d24f36',
+  'decoder_joint-model.onnx':
+    'e978ddf6688527182c10fde2eb4b83068421648985ef23f7a86be732be8706c1',
+  'vocab.txt':
+    'd58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d',
+}
+
+const CHECKSUM_MISMATCH_MESSAGE =
+  'The downloaded file did not match the expected checksum. Try the download again.'
+
 const MACOS_PARAKEET_COREML_REQUIRED_DIRS = [
   'Preprocessor.mlmodelc',
   'Encoder.mlmodelc',
@@ -208,6 +238,17 @@ function migrateLegacyParakeetInstall(model: SpeechModel): void {
 function parakeetRepoId(model: SpeechModel): string | undefined {
   if (getPlatformRuntime() === 'windows') return WINDOWS_PARAKEET_ONNX_REPO_ID
   return model.huggingFaceRepoId
+}
+
+/** The pinned commit to download from, or undefined for the repo's default branch. */
+function parakeetRevision(): string | undefined {
+  if (getPlatformRuntime() === 'windows') return WINDOWS_PARAKEET_ONNX_REVISION
+  return undefined
+}
+
+function parakeetFileSha256(path: string): string | undefined {
+  if (getPlatformRuntime() !== 'windows') return undefined
+  return (WINDOWS_PARAKEET_ONNX_SHA256 as Record<string, string>)[path]
 }
 
 class ModelManager {
@@ -367,9 +408,7 @@ class ModelManager {
           expected: model.sha256,
           actual,
         })
-        throw new Error(
-          'The downloaded file did not match the expected checksum. Try the download again.'
-        )
+        throw new Error(CHECKSUM_MISMATCH_MESSAGE)
       }
     }
   }
@@ -385,9 +424,10 @@ class ModelManager {
     if (!repoId) throw new Error('Parakeet model missing huggingFaceRepoId')
 
     const repo = { type: 'model' as const, name: repoId }
+    const revision = parakeetRevision()
     const entries: { path: string; size: number }[] = []
 
-    for await (const e of listFiles({ repo, recursive: true })) {
+    for await (const e of listFiles({ repo, revision, recursive: true })) {
       controller.signal.throwIfAborted()
       if (
         e.type === 'file' &&
@@ -421,7 +461,7 @@ class ModelManager {
       while (nextIdx < entries.length) {
         controller.signal.throwIfAborted()
         const ent = entries[nextIdx++]
-        const blob = await downloadFile({ repo, path: ent.path })
+        const blob = await downloadFile({ repo, revision, path: ent.path })
         if (blob === null) continue
 
         controller.signal.throwIfAborted()
@@ -431,9 +471,33 @@ class ModelManager {
         const nodeReadable = Readable.fromWeb(
           blob.stream() as import('stream/web').ReadableStream
         )
-        await pipeline(nodeReadable, writeStream, {
-          signal: controller.signal,
-        })
+        // Hashed while it streams, as in `downloadSingleFileModel`. A mismatch throws before
+        // the temp directory is renamed, so the caller deletes it and nothing is installed.
+        const expectedSha256 = parakeetFileSha256(ent.path)
+        const hash = expectedSha256 ? createHash('sha256') : null
+        await pipeline(
+          nodeReadable,
+          async function* (source: AsyncIterable<Buffer>) {
+            for await (const chunk of source) {
+              hash?.update(chunk)
+              yield chunk
+            }
+          },
+          writeStream,
+          { signal: controller.signal }
+        )
+        if (hash && expectedSha256) {
+          const actual = hash.digest('hex')
+          if (actual !== expectedSha256) {
+            log('model-manager', 'sha256 mismatch', {
+              modelId: model.id,
+              path: ent.path,
+              expected: expectedSha256,
+              actual,
+            })
+            throw new Error(CHECKSUM_MISMATCH_MESSAGE)
+          }
+        }
 
         received += ent.size
         onProgress(Math.min(1, received / totalBytes), false)
