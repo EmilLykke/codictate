@@ -1,5 +1,5 @@
 # Windows check for the Danish models map (issue #72).
-# Does onnxruntime-node (ekko-pnc) and sherpa-onnx-offline (ekko-v1-tiny) run on
+# Does onnxruntime-node (ekko-pnc) and parakeet.cpp's parakeet-cli (ekko-v1-tiny) run on
 # Windows x64 under the Bun Codictate ships (Electrobun 1.18.1 -> Bun 1.3.13 baseline)?
 #
 # Run from a PowerShell prompt:
@@ -20,10 +20,9 @@ $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
 
 $BunVersion = "1.3.13"
-$SherpaVersion = "1.13.8"
-$SherpaAsset = "sherpa-onnx-v$SherpaVersion-win-x64-static-MT-Release-no-tts"
+$ParakeetVersion = "0.6.1"
 $PncRepo = "https://huggingface.co/RyeAI/ekko-pnc/resolve/main"
-$TinyRepo = "https://huggingface.co/RyeAI/ekko-v1-tiny/resolve/main/onnx-sherpa"
+$TinyRepo = "https://huggingface.co/RyeAI/ekko-v1-tiny/resolve/main/gguf-parakeet.cpp"
 
 New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
 $Report = Join-Path $WorkDir "report.md"
@@ -97,46 +96,39 @@ try {
 	Run-Pnc "web" 3 "onnxruntime-web WASM, 1 thread (fallback candidate, no native addon)"
 } finally { Pop-Location }
 
-# --- 3-4. ekko-v1-tiny via sherpa-onnx-offline ------------------------------
-Log "## ekko-v1-tiny (sherpa-onnx-offline $SherpaVersion, static MT)`n"
+# --- 3-4. ekko-v1-tiny via parakeet.cpp ------------------------------------
+Log "## ekko-v1-tiny (parakeet.cpp $ParakeetVersion)`n"
 $Tiny = Join-Path $WorkDir "tiny-test"
 New-Item -ItemType Directory -Force -Path $Tiny | Out-Null
-$Tarball = Join-Path $Tiny "$SherpaAsset.tar.bz2"
-Fetch "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$SherpaVersion/$SherpaAsset.tar.bz2" $Tarball
-if (-not (Test-Path (Join-Path $Tiny $SherpaAsset))) { tar -xjf $Tarball -C $Tiny }
-if (-not (Test-Path (Join-Path $Tiny "$SherpaAsset\bin\sherpa-onnx-offline.exe"))) { throw "tar could not extract $Tarball; extract it into $Tiny with 7-Zip and re-run" }
-$SherpaBin = Join-Path $Tiny "$SherpaAsset\bin"
-Log "bin/ contents: $((Get-ChildItem $SherpaBin | ForEach-Object { "$($_.Name) ($([math]::Round($_.Length / 1MB, 1)) MB)" }) -join ', ')`n"
+foreach ($q in "q5_0", "q8_0") { Fetch "$TinyRepo/ekko-v1-tiny-$q.gguf" (Join-Path $Tiny "ekko-v1-tiny-$q.gguf") }
 
-# Prove which DLLs it needs: run the exe alone in an otherwise empty folder.
-$Lonely = Join-Path $Tiny "exe-alone"
-New-Item -ItemType Directory -Force -Path $Lonely | Out-Null
-Copy-Item (Join-Path $SherpaBin "sherpa-onnx-offline.exe") $Lonely -Force
-$Exe = Join-Path $Lonely "sherpa-onnx-offline.exe"
+foreach ($build in "cpu", "vulkan") {
+	$Asset = "parakeet-v$ParakeetVersion-bin-win-$build-x64"
+	$Zip = Join-Path $Tiny "$Asset.zip"
+	Fetch "https://github.com/mudler/parakeet.cpp/releases/download/v$ParakeetVersion/$Asset.zip" $Zip
+	if (-not (Test-Path (Join-Path $Tiny $Asset))) { Expand-Archive -Path $Zip -DestinationPath $Tiny -Force }
 
-foreach ($f in "encoder.onnx", "decoder.onnx", "joiner.onnx", "encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt") {
-	Fetch "$TinyRepo/$f" (Join-Path $Tiny $f)
-}
+	# The zip holds no DLLs; run the exe alone in an empty folder to prove it needs none.
+	$Lonely = Join-Path $Tiny "$build-exe-alone"
+	New-Item -ItemType Directory -Force -Path $Lonely | Out-Null
+	Copy-Item (Join-Path $Tiny "$Asset\parakeet-cli.exe") $Lonely -Force
+	$Exe = Join-Path $Lonely "parakeet-cli.exe"
+	$Stderr = Join-Path $Lonely "stderr.txt"
 
-foreach ($variant in @(@{ Name = "fp32"; Suffix = "" }, @{ Name = "int8"; Suffix = ".int8" })) {
-	Log "### $($variant.Name)`n"
-	for ($i = 1; $i -le 3; $i++) {
-		$sw = [Diagnostics.Stopwatch]::StartNew()
-		$out = & $Exe `
-			"--encoder=$(Join-Path $Tiny "encoder$($variant.Suffix).onnx")" `
-			"--decoder=$(Join-Path $Tiny "decoder$($variant.Suffix).onnx")" `
-			"--joiner=$(Join-Path $Tiny "joiner$($variant.Suffix).onnx")" `
-			"--tokens=$(Join-Path $Tiny "tokens.txt")" `
-			"--model-type=nemo_transducer" `
-			"$Wav" 2>&1 | Out-String
-		$sw.Stop()
-		$code = $LASTEXITCODE
-		$elapsed = ($out -split "`n" | Where-Object { $_ -like "Elapsed seconds*" -or $_ -like "Real time factor*" }) -join " | "
-		$text = if ($out -match '"text": "([^"]*)"') { $Matches[1] } else { "<no text>" }
-		Log "- run $i exit=$code wall=$([math]::Round($sw.Elapsed.TotalSeconds, 2))s $($elapsed.Trim()) text=`"$text`""
-		if ($code -ne 0) { Log ('  ```' + "`n" + $out.Trim() + "`n" + '  ```') }
+	foreach ($q in "q5_0", "q8_0") {
+		Log "### $build build, $q`n"
+		for ($i = 1; $i -le 3; $i++) {
+			$sw = [Diagnostics.Stopwatch]::StartNew()
+			$out = & $Exe transcribe --model (Join-Path $Tiny "ekko-v1-tiny-$q.gguf") --input $Wav 2> $Stderr | Out-String
+			$sw.Stop()
+			$code = $LASTEXITCODE
+			$err = Get-Content $Stderr -Raw
+			$device = if ($err -match 'using device: (\S+)') { $Matches[1] } else { "?" }
+			Log "- run $i exit=$code wall=$([math]::Round($sw.Elapsed.TotalSeconds, 2))s device=$device text=`"$("$out".Trim())`""
+			if ($code -ne 0) { Log ('  ```' + "`n" + "$err".Trim() + "`n" + '  ```') }
+		}
+		Log ""
 	}
-	Log ""
 }
 
 Log "Done. Paste report.md into the ticket: $Report"
