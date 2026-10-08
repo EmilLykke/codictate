@@ -29,6 +29,7 @@ import {
   CRISPASR_WINDOWS_DLLS,
   type VendorArchive,
 } from "./vendor-manifest";
+import { SPEECH_MODELS, whisperModelDownloadUrl } from "../src/shared/speech-models";
 
 const VENDORS_DIR = "./vendors";
 
@@ -130,6 +131,10 @@ const OBSERVER_PKG = join(import.meta.dir, "..", "native", "CodictateObserverHel
 const OBSERVER_DIR = join(VENDORS_DIR, "observer");
 const OBSERVER_BINARY = join(OBSERVER_DIR, "CodictateObserverHelper");
 const TEXT_PROCESSING_RS_DIR = join(import.meta.dir, "..", "vendors", "text-processing-rs");
+// Pinned like every other vendored dependency: a clone of HEAD builds whatever upstream
+// pushed last. v0.2.2 is the version the Parakeet helper has been linking.
+const TEXT_PROCESSING_RS_TAG = "v0.2.2";
+const TEXT_PROCESSING_RS_COMMIT = "34a9b62d64d95844d1916774054909fccee88f9a";
 const NEMO_STATIC_LIB = join(
   PARAKEET_PKG,
   "Vendor",
@@ -701,6 +706,16 @@ function parakeetVendoredBinaryLooksExecutable(path: string): boolean {
   );
 }
 
+/** The commit `vendors/text-processing-rs` has checked out, or null when it is not a git checkout. */
+function textProcessingRsCheckoutCommit(): string | null {
+  const head = Bun.spawnSync(["git", "rev-parse", "HEAD"], {
+    cwd: TEXT_PROCESSING_RS_DIR,
+    stdout: "pipe",
+    stderr: "ignore",
+  });
+  return head.exitCode === 0 ? head.stdout.toString().trim() : null;
+}
+
 /** Build FluidInference/text-processing-rs (NeMo ITN FFI) and place the static lib where Swift links it. */
 async function vendorNemoTextProcessingStaticLib() {
   const cargo = resolveCargoExecutable();
@@ -711,9 +726,21 @@ async function vendorNemoTextProcessingStaticLib() {
 
   mkdirSync(join(import.meta.dir, "..", "vendors"), { recursive: true });
 
+  // A checkout at any other commit (including an older unpinned clone of HEAD) is replaced,
+  // so every machine links the same ITN code.
+  if (
+    existsSync(TEXT_PROCESSING_RS_DIR) &&
+    textProcessingRsCheckoutCommit() !== TEXT_PROCESSING_RS_COMMIT
+  ) {
+    console.log(
+      `[pre-build] text-processing-rs is not at ${TEXT_PROCESSING_RS_TAG}, re-cloning`,
+    );
+    rmSync(TEXT_PROCESSING_RS_DIR, { recursive: true, force: true });
+  }
+
   if (!existsSync(join(TEXT_PROCESSING_RS_DIR, "Cargo.toml"))) {
     console.log(
-      "[pre-build] Cloning FluidInference/text-processing-rs (NeMo inverse text normalization)…",
+      `[pre-build] Cloning FluidInference/text-processing-rs ${TEXT_PROCESSING_RS_TAG} (NeMo inverse text normalization)…`,
     );
     const clone = Bun.spawnSync(
       [
@@ -721,6 +748,8 @@ async function vendorNemoTextProcessingStaticLib() {
         "clone",
         "--depth",
         "1",
+        "--branch",
+        TEXT_PROCESSING_RS_TAG,
         "https://github.com/FluidInference/text-processing-rs.git",
         TEXT_PROCESSING_RS_DIR,
       ],
@@ -728,6 +757,12 @@ async function vendorNemoTextProcessingStaticLib() {
     );
     if (clone.exitCode !== 0) {
       throw new Error("[pre-build] git clone text-processing-rs failed");
+    }
+    // A tag can be moved upstream; the commit is what is pinned.
+    if (textProcessingRsCheckoutCommit() !== TEXT_PROCESSING_RS_COMMIT) {
+      throw new Error(
+        `[pre-build] text-processing-rs ${TEXT_PROCESSING_RS_TAG} no longer points at ${TEXT_PROCESSING_RS_COMMIT}`,
+      );
     }
   }
 
@@ -880,34 +915,15 @@ async function vendorWhisperModel() {
     return;
   }
 
-  mkdirSync(WHISPER_DIR, { recursive: true });
-
-  const url = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_NAME}`;
-
-  console.log(
-    `[pre-build] Downloading ${MODEL_NAME} (~547 MB)...`,
-  );
-
-  const result = Bun.spawnSync(
-    [
-      "curl",
-      "--location",
-      "--fail",
-      "--retry", "3",
-      "--retry-delay", "5",
-      "--connect-timeout", "30",
-      "--max-time", "600",
-      "--progress-bar",
-      "--output", MODEL_PATH,
-      url,
-    ],
-    { stdio: ["ignore", "inherit", "inherit"] },
-  );
-
-  if (result.exitCode !== 0) {
-    if (existsSync(MODEL_PATH)) rmSync(MODEL_PATH, { force: true });
-    throw new Error(`[pre-build] Failed to download ${MODEL_NAME}`);
+  // The catalog entry carries the pinned revision's sha256, so the bundled copy is checked
+  // against the same bytes a user download of this Speech Model is.
+  const sha256 = SPEECH_MODELS.find((model) => model.artifactName === MODEL_NAME)?.sha256;
+  if (!sha256) {
+    throw new Error(`[pre-build] No sha256 for ${MODEL_NAME} in src/shared/speech-models.ts`);
   }
+
+  mkdirSync(WHISPER_DIR, { recursive: true });
+  await downloadAndVerify(whisperModelDownloadUrl(MODEL_NAME), MODEL_PATH, sha256, MODEL_NAME);
 
   console.log(`[pre-build] ${MODEL_NAME} vendored successfully`);
 }

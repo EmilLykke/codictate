@@ -89,8 +89,11 @@ export interface FormatterModelConfig {
   readonly sizeLabel: string
   /** When true, /no_think is prepended to user prompt to disable reasoning mode (Qwen3). */
   readonly noThink: boolean
-  /** SHA-256 required before a downloaded model is installed. */
-  readonly sha256?: string
+  /**
+   * SHA-256 required before a downloaded model is installed. Every `url` resolves a fixed
+   * Hugging Face commit, so this is that commit's LFS oid for the file.
+   */
+  readonly sha256: string
 }
 
 export const FORMATTER_MODELS: Record<
@@ -102,20 +105,22 @@ export const FORMATTER_MODELS: Record<
     displayName: 'Qwen2.5 3B',
     filename: 'Qwen2.5-3B-Instruct-Q4_K_M.gguf',
     path: join(MODELS_DIR, 'Qwen2.5-3B-Instruct-Q4_K_M.gguf'),
-    url: 'https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf',
-    expectedSizeBytes: 2_020_000_000,
+    url: 'https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/f302c64a2269a69fb27b2f9473b362f5bb8e78d8/Qwen2.5-3B-Instruct-Q4_K_M.gguf',
+    expectedSizeBytes: 1_929_903_264,
     sizeLabel: '~2 GB',
     noThink: false,
+    sha256: '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94',
   },
   quality: {
     tier: 'quality',
     displayName: 'Qwen3 4B',
     filename: 'Qwen3-4B-Q4_K_M.gguf',
     path: join(MODELS_DIR, 'Qwen3-4B-Q4_K_M.gguf'),
-    url: 'https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf',
-    expectedSizeBytes: 2_600_000_000,
+    url: 'https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/22c9fc8a8c7700b76a1789366280a6a5a1ad1120/Qwen3-4B-Q4_K_M.gguf',
+    expectedSizeBytes: 2_497_281_312,
     sizeLabel: '~2.5 GB',
     noThink: true,
+    sha256: 'f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a',
   },
   's1-mini': {
     tier: 's1-mini',

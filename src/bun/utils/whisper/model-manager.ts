@@ -76,6 +76,36 @@ const WINDOWS_PARAKEET_ONNX_REQUIRED_FILES = [
 ] as const
 
 /**
+ * The commit of the ONNX repo a Windows install downloads, not `main`, so an upstream
+ * re-upload cannot change the weights under a helper built and checked against these ones.
+ * Move it on purpose, together with the hashes below.
+ */
+const WINDOWS_PARAKEET_ONNX_REVISION =
+  '8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce'
+
+/**
+ * sha256 of each required file at `WINDOWS_PARAKEET_ONNX_REVISION`, checked while it
+ * streams to disk. The four LFS hashes are the ones Hugging Face lists at that commit;
+ * `vocab.txt` is a plain git file, hashed from a download whose git blob id matched.
+ */
+const WINDOWS_PARAKEET_ONNX_SHA256: Record<
+  (typeof WINDOWS_PARAKEET_ONNX_REQUIRED_FILES)[number],
+  string
+> = {
+  'encoder-model.onnx':
+    '98a74b21b4cc0017c1e7030319a4a96f4a9506e50f0708f3a516d02a77c96bb1',
+  'encoder-model.onnx.data':
+    '9a22d372c51455c34f13405da2520baefb7125bd16981397561423ed32d24f36',
+  'decoder_joint-model.onnx':
+    'e978ddf6688527182c10fde2eb4b83068421648985ef23f7a86be732be8706c1',
+  'vocab.txt':
+    'd58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d',
+}
+
+const CHECKSUM_MISMATCH_MESSAGE =
+  'The downloaded file did not match the expected checksum. Try the download again.'
+
+/**
  * What `CodictateParakeetHelper` loads for v3 (FluidAudio 0.17.7,
  * `ModelNames.ASR.requiredModelsV3()` at the default `.int8` precision). It reads this exact
  * directory and downloads nothing, so every entry has to be here.
@@ -280,10 +310,18 @@ function parakeetRepoId(model: SpeechModel): string | undefined {
   return model.huggingFaceRepoId
 }
 
-/** The catalog's pinned commit names a commit in the Core ML repo, so it is macOS only. */
+/**
+ * The pinned commit to download from: the ONNX repo's on Windows, the catalog's Core ML
+ * commit on macOS. Neither falls back to `main`.
+ */
 function parakeetRevision(model: SpeechModel): string | undefined {
-  if (getPlatformRuntime() === 'windows') return undefined
+  if (getPlatformRuntime() === 'windows') return WINDOWS_PARAKEET_ONNX_REVISION
   return model.huggingFaceRevision
+}
+
+function parakeetFileSha256(path: string): string | undefined {
+  if (getPlatformRuntime() !== 'windows') return undefined
+  return (WINDOWS_PARAKEET_ONNX_SHA256 as Record<string, string>)[path]
 }
 
 class ModelManager {
@@ -443,9 +481,7 @@ class ModelManager {
           expected: model.sha256,
           actual,
         })
-        throw new Error(
-          'The downloaded file did not match the expected checksum. Try the download again.'
-        )
+        throw new Error(CHECKSUM_MISMATCH_MESSAGE)
       }
     }
   }
@@ -517,7 +553,8 @@ class ModelManager {
 
     // A file the current install already holds at the pinned revision is linked into the new
     // install instead of fetched, which is what makes a top-up cost only what is missing.
-    // macOS only: the Windows ONNX download is left exactly as it was.
+    // macOS only: on Windows every ONNX file is fetched, so none can skip the pinned sha256
+    // check below.
     const reuseInstalled =
       getPlatformRuntime() !== 'windows' && existsSync(destDir)
 
@@ -549,9 +586,33 @@ class ModelManager {
         const nodeReadable = Readable.fromWeb(
           blob.stream() as import('stream/web').ReadableStream
         )
-        await pipeline(nodeReadable, writeStream, {
-          signal: controller.signal,
-        })
+        // Hashed while it streams, as in `downloadSingleFileModel`. A mismatch throws before
+        // the temp directory is renamed, so the caller deletes it and nothing is installed.
+        const expectedSha256 = parakeetFileSha256(ent.path)
+        const hash = expectedSha256 ? createHash('sha256') : null
+        await pipeline(
+          nodeReadable,
+          async function* (source: AsyncIterable<Buffer>) {
+            for await (const chunk of source) {
+              hash?.update(chunk)
+              yield chunk
+            }
+          },
+          writeStream,
+          { signal: controller.signal }
+        )
+        if (hash && expectedSha256) {
+          const actual = hash.digest('hex')
+          if (actual !== expectedSha256) {
+            log('model-manager', 'sha256 mismatch', {
+              modelId: model.id,
+              path: ent.path,
+              expected: expectedSha256,
+              actual,
+            })
+            throw new Error(CHECKSUM_MISMATCH_MESSAGE)
+          }
+        }
 
         received += ent.size
         onProgress(Math.min(1, received / totalBytes), false)

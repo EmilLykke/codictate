@@ -23,7 +23,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.13" # the Bun that electrobun 1.18.1 bundles; bump the two together
 
       # Provides glslc, needed only by the llama-completion cmake source-build fallback in
       # scripts/pre-build.ts. On this x64 runner that fallback does not fire (the pinned
