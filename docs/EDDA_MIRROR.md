@@ -57,10 +57,12 @@ backend, `--language da`.
 | `q8_0` | 834 MiB | 1098 MB | 57 ms | 7.52% | 4.42% |
 | `q5_0` | 547 MiB | 787 MB | 53 ms | 7.53% | 4.40% |
 
-On the same 927 clips, hviske v5 tiny q5_0 scores 11.29% and large-v3-turbo-q5_0 13.9%.
+On the same 927 clips (the pooled aggregate), hviske v5 tiny q5_0 scores 11.31% and
+large-v3-turbo-q5_0 13.89%.
 The Quantization does not move accuracy, so **`q5_0`** is the one to recommend: the
-smallest and fastest, at the same WER. It is slower and larger than hviske (53 vs 16 ms per
-second of audio, 787 vs 282 MB), which is the price of a third fewer errors.
+smallest and fastest, at the same WER. It is slower and larger than hviske (53 vs 18 ms per
+second of audio, 787 vs 327 MB average peak RSS), which is the price of a third fewer errors
+(1,494 vs 2,245 word errors over 19,846 reference words).
 
 None is marked `curated`. A Danish-only Speech Model belongs in the browse modal, as with
 hviske.

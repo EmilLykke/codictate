@@ -647,7 +647,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
   // `peakRamMB` is the average peak RSS from the Benchmark Run
   // `2026-10-08_06-42-10_edda-v0-2-danish` (all 927 FLEURS `da_dk` clips, Apple M4 Max), and
   // `downloadSizeMB` the exact Mirror file size in MiB. That run measured 7.51 / 7.52 / 7.53
-  // WER for f16 / q8_0 / q5_0, against 11.29 for hviske q5_0 and 13.9 for large-v3-turbo-q5_0
+  // WER for f16 / q8_0 / q5_0, against 11.31 for hviske q5_0 and 13.89 for large-v3-turbo-q5_0
   // on the same clips: the Quantization does not move accuracy, so size and speed decide.
   {
     id: 'edda-v0.2-f16',
