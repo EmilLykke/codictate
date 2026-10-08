@@ -34,7 +34,10 @@ export type ParakeetStreamStartOptions = {
   outputDuckHeadphones?: boolean
   /** Duck target for enabled outputs: 0 = fully mute, 100 = no change. */
   outputDuckLevel?: number
-  /** Windows helper input device ref: stable endpoint ID preferred, numeric index fallback. */
+  /**
+   * Input device for the helper to record from: the Windows endpoint ID when known, otherwise
+   * the device index (on macOS always the `MicRecorder --list-devices` index).
+   */
   deviceRef?: string
 }
 

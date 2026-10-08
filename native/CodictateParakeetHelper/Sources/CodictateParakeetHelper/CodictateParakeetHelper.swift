@@ -52,7 +52,7 @@ private func usage() -> Never {
     Usage:
       CodictateParakeetHelper transcribe <wavPath> <parakeetModelDir>
       CodictateParakeetHelper transcribe-session <parakeetModelDir>
-      CodictateParakeetHelper stream <vad|live> <parakeetModelDir>
+      CodictateParakeetHelper stream <vad|live> <parakeetModelDir> [deviceIndex]
     """
   FileHandle.standardError.write(Data(msg.utf8))
   FileHandle.standardError.write(Data([0x0a]))
@@ -164,6 +164,110 @@ private func convert(_ buffer: AVAudioPCMBuffer, using converter: AVAudioConvert
   var samples = [Float](repeating: 0, count: n)
   for i in 0..<n { samples[i] = ch[0][i] }
   return samples
+}
+
+// MARK: - Input device selection
+
+private func coreAudioInputChannelCount(_ id: AudioDeviceID) -> Int {
+  var address = AudioObjectPropertyAddress(
+    mSelector: kAudioDevicePropertyStreamConfiguration,
+    mScope: kAudioDevicePropertyScopeInput,
+    mElement: kAudioObjectPropertyElementMain)
+  var size: UInt32 = 0
+  guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0
+  else { return 0 }
+  let raw = UnsafeMutableRawPointer.allocate(
+    byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
+  defer { raw.deallocate() }
+  guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, raw) == noErr else { return 0 }
+  let buffers = UnsafeMutableAudioBufferListPointer(raw.assumingMemoryBound(to: AudioBufferList.self))
+  return buffers.reduce(0) { $0 + Int($1.mNumberChannels) }
+}
+
+private func coreAudioDeviceName(_ id: AudioDeviceID) -> String {
+  var address = AudioObjectPropertyAddress(
+    mSelector: kAudioObjectPropertyName,
+    mScope: kAudioObjectPropertyScopeGlobal,
+    mElement: kAudioObjectPropertyElementMain)
+  var name: Unmanaged<CFString>?
+  var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+  guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &name) == noErr,
+    let name
+  else { return "Device \(id)" }
+  return name.takeRetainedValue() as String
+}
+
+/// Input devices in the order `MicRecorder --list-devices` numbers them: every Core Audio
+/// device with at least one input channel, sorted by `AudioDeviceID`. The selected mic reaches
+/// this helper as an index into that list, so it must stay identical to `listInputDevices` in
+/// `src/bun/utils/audio/MicRecorder.swift`.
+private func listInputDeviceIDs() -> [AudioDeviceID] {
+  var address = AudioObjectPropertyAddress(
+    mSelector: kAudioHardwarePropertyDevices,
+    mScope: kAudioObjectPropertyScopeGlobal,
+    mElement: kAudioObjectPropertyElementMain)
+  let system = AudioObjectID(kAudioObjectSystemObject)
+  var size: UInt32 = 0
+  guard AudioObjectGetPropertyDataSize(system, &address, 0, nil, &size) == noErr else { return [] }
+  var ids = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+  guard AudioObjectGetPropertyData(system, &address, 0, nil, &size, &ids) == noErr else { return [] }
+  return ids.filter { coreAudioInputChannelCount($0) > 0 }.sorted()
+}
+
+private func getDefaultInputDevice() -> AudioDeviceID {
+  var id = AudioDeviceID(0)
+  var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+  var address = AudioObjectPropertyAddress(
+    mSelector: kAudioHardwarePropertyDefaultInputDevice,
+    mScope: kAudioObjectPropertyScopeGlobal,
+    mElement: kAudioObjectPropertyElementMain)
+  _ = AudioObjectGetPropertyData(
+    AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &id)
+  return id
+}
+
+/// Points `engine`'s input node at the mic the user selected in Codictate, so Live Transcription
+/// records from the same device as batch Dictation (and as the Windows helper does).
+///
+/// Without a `deviceRef` the engine keeps the system default input, which is not necessarily
+/// the selected mic: with a MacBook lid closed the default is often the built-in microphone,
+/// which then delivers silence. A `deviceRef` that does not name a current input device is an
+/// error, never a quiet switch to the default.
+private func selectStreamInputDevice(_ engine: AVAudioEngine, deviceRef: String?, mode: String)
+  throws
+{
+  guard let deviceRef else {
+    let id = getDefaultInputDevice()
+    logPhase("stream [\(mode)]: input device: system default (\(coreAudioDeviceName(id)))")
+    return
+  }
+  let devices = listInputDeviceIDs()
+  guard let index = Int(deviceRef), devices.indices.contains(index) else {
+    throw NSError(
+      domain: "CodictateParakeet", code: 5,
+      userInfo: [
+        NSLocalizedDescriptionKey:
+          "Input device \(deviceRef) not found (\(devices.count) input devices)"
+      ])
+  }
+  var id = devices[index]
+  guard let unit = engine.inputNode.audioUnit else {
+    throw NSError(
+      domain: "CodictateParakeet", code: 6,
+      userInfo: [NSLocalizedDescriptionKey: "Audio input node has no audio unit"])
+  }
+  let status = AudioUnitSetProperty(
+    unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &id,
+    UInt32(MemoryLayout<AudioDeviceID>.size))
+  guard status == noErr else {
+    throw NSError(
+      domain: "CodictateParakeet", code: 7,
+      userInfo: [
+        NSLocalizedDescriptionKey:
+          "Cannot select input device \(index) (\(coreAudioDeviceName(id))): OSStatus \(status)"
+      ])
+  }
+  logPhase("stream [\(mode)]: input device #\(index): \(coreAudioDeviceName(id))")
 }
 
 private func getDefaultOutputDevice() -> AudioDeviceID {
@@ -509,6 +613,7 @@ struct CodictateParakeetHelperMain {
     guard args.count >= 2 else { usage() }
     let mode = args[0]
     let modelDir = URL(fileURLWithPath: args[1], isDirectory: true)
+    let deviceRef = args.count >= 3 ? args[2] : nil
 
     if let sid = ProcessInfo.processInfo.environment["CODICTATE_STREAM_DEBUG_ID"]?
       .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -540,21 +645,24 @@ struct CodictateParakeetHelperMain {
     }
 
     if mode == "vad" {
-      try await runVadMode(models: models)
+      try await runVadMode(models: models, deviceRef: deviceRef)
     } else {
-      try await runLiveMode(models: models)
+      try await runLiveMode(models: models, deviceRef: deviceRef)
     }
   }
 
   // MARK: VAD mode
 
-  static func runVadMode(models: AsrModels) async throws {
+  static func runVadMode(models: AsrModels, deviceRef: String?) async throws {
     let asr = AsrManager(config: .default)
     try await asr.loadModels(models)
 
     let engine = AVAudioEngine()
+    try selectStreamInputDevice(engine, deviceRef: deviceRef, mode: "vad")
     let inputNode = engine.inputNode
-    let hwFormat = inputNode.outputFormat(forBus: 0)
+    // The device's own format: after `selectStreamInputDevice` the node's output format still
+    // describes the previous default device until the engine is reconfigured.
+    let hwFormat = inputNode.inputFormat(forBus: 0)
 
     guard let converter = makeConverter(from: hwFormat) else {
       throw NSError(
@@ -631,12 +739,15 @@ struct CodictateParakeetHelperMain {
 
   // MARK: Live mode
 
-  static func runLiveMode(models: AsrModels) async throws {
+  static func runLiveMode(models: AsrModels, deviceRef: String?) async throws {
     let asr = AsrManager(config: .default)
     try await asr.loadModels(models)
     let engine = AVAudioEngine()
+    try selectStreamInputDevice(engine, deviceRef: deviceRef, mode: "live")
     let inputNode = engine.inputNode
-    let hwFormat = inputNode.outputFormat(forBus: 0)
+    // The device's own format: after `selectStreamInputDevice` the node's output format still
+    // describes the previous default device until the engine is reconfigured.
+    let hwFormat = inputNode.inputFormat(forBus: 0)
 
     guard let converter = makeConverter(from: hwFormat) else {
       throw NSError(

@@ -134,9 +134,12 @@ export const setupRecording = (
   /** Monotonic id for log correlation with Parakeet helper stderr (`[sN]`). */
   let streamDebugSeq = 0
 
-  const resolveStreamDeviceRef = async (): Promise<string | undefined> => {
-    if (getPlatformRuntime() !== 'windows') return undefined
-
+  /**
+   * The selected mic, resolved the same way batch Dictation resolves it for MicRecorder. Both
+   * platform helpers record from it; without it they would record from the system default
+   * input, which on a Mac with the lid closed is a built-in microphone that delivers silence.
+   */
+  const resolveStreamDeviceRef = async (): Promise<string> => {
     let currentSnapshot = getAudioDevices?.() ?? { devices: {}, details: {} }
     if (Object.keys(currentSnapshot.devices).length === 0) {
       currentSnapshot = await findDevices()
