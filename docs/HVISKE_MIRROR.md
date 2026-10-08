@@ -97,8 +97,9 @@ now that crispasr is the ASR Harness. See
 
 **Windows: backend confirmed, end-to-end run still missing.** The `cohere` backend is
 compiled into the Windows binary Codictate actually ships. That was checked against the
-pinned artifact: `crispasr-windows-x86_64-vulkan.zip` from CrispASR v0.8.29, sha256
-matching the pin in `scripts/vendor-manifest.ts`, then inspected for strings and symbols
+pinned artifact: `crispasr-windows-x86_64-vulkan.zip` from CrispASR v0.8.29, and again
+from v0.8.41 when the pin moved, sha256 matching the pin in
+`scripts/vendor-manifest.ts`, then inspected for strings and symbols
 in `crispasr.exe` and `crispasr.dll`. Its `--backend` help lists `cohere` as an accepted
 value, `--no-punctuation` documents itself as applying to `(canary, cohere)`, and the
 implementation symbols are present (`CohereBackend`, `cohere_transcribe_ex`,

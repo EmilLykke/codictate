@@ -16,12 +16,12 @@
  * PrismML fork for its Q2_0 ternary support; nothing shipping needs Q2_0, so this
  * is back on upstream. See docs/adr/0001-vendor-binary-sourcing.md.
  */
-export const LLAMA_VERSION = "b10470";
+export const LLAMA_VERSION = "b11496";
 export const LLAMA_RELEASE_BASE =
   `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}`;
 
 /** CrispASR, the only ASR Harness. Single prebuilt binary, also the only runtime for Cohere ASR weights. */
-export const CRISPASR_VERSION = "v0.8.29";
+export const CRISPASR_VERSION = "v0.8.41";
 export const CRISPASR_RELEASE_BASE =
   `https://github.com/CrispStrobe/CrispASR/releases/download/${CRISPASR_VERSION}`;
 
@@ -38,7 +38,7 @@ export interface VendorArchive {
 
 export const LLAMA_MACOS_ARM64_ARCHIVE: VendorArchive = {
   asset: `llama-${LLAMA_VERSION}-bin-macos-arm64.tar.gz`,
-  sha256: "75c29cd80a67a8388b8ed08ea4a87531269a737c18945bdf3c3db6d5858024a9",
+  sha256: "0eeb3bdef43d6b0ab28fb1b8aeacca8b2bb590cc76ca05c53ef0ac5e9850eebf",
   stripPrefix: `llama-${LLAMA_VERSION}`,
 };
 
@@ -50,7 +50,7 @@ export const LLAMA_MACOS_ARM64_ARCHIVE: VendorArchive = {
  */
 export const LLAMA_WINDOWS_ARCHIVE: VendorArchive = {
   asset: `llama-${LLAMA_VERSION}-bin-win-vulkan-x64.zip`,
-  sha256: "2e89637b30e0e2f90d4ed486118e8642f60625b1dbebb9ba3a30bc4100306fc9",
+  sha256: "f65e4f5b660e1d2690cbf01e8c3529473c4615b8f37dcabd71b5a669d47fde2b",
 };
 
 /**
@@ -85,7 +85,7 @@ export const LLAMA_WINDOWS_DLLS = [
   "ggml-base.dll",
   "ggml-rpc.dll",
   "ggml-vulkan.dll",
-  "libomp140.x86_64.dll",
+  "libomp.dll",
   "ggml-cpu-alderlake.dll",
   "ggml-cpu-cannonlake.dll",
   "ggml-cpu-cascadelake.dll",
@@ -113,14 +113,14 @@ export const CRISPASR_BUNDLE_SUBDIR = "crispasr";
 
 export const CRISPASR_MACOS_ARCHIVE: VendorArchive = {
   asset: "crispasr-macos.tar.gz",
-  sha256: "1425b177a19ff763dcf057c13f4f5244b902e53dc72c3c8be037276a66faf941",
+  sha256: "e3c1f1be6493f6247dfc11d9209b8287e3955f5a4012c3c2c56465dad6282823",
   stripPrefix: "crispasr-macos",
 };
 
 /** Vulkan variant, matching the Vulkan-on Windows build of llama-completion. */
 export const CRISPASR_WINDOWS_ARCHIVE: VendorArchive = {
   asset: "crispasr-windows-x86_64-vulkan.zip",
-  sha256: "d43c17f8a6c351fd988578d992f1b7753a342af26a8eea1416d7cf58f9daab0f",
+  sha256: "146a38edb97a83fbc1b526e7767d3e25ab03bf6f4118c41342eda09abe9af6a0",
   stripPrefix: "crispasr-windows-x86_64-vulkan",
 };
 
