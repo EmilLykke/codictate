@@ -51,13 +51,15 @@ describe('model downloads', () => {
 
     if (model.huggingFaceRepoId) {
       const repoId = model.huggingFaceRepoId
+      // The pinned commit where there is one (Parakeet Core ML), `main` otherwise.
+      const revision = model.huggingFaceRevision
 
       test(
         `${model.id}: HuggingFace repo is accessible and has files`,
         async () => {
           const repo = { type: 'model' as const, name: repoId }
           const files: string[] = []
-          for await (const entry of listFiles({ repo, recursive: true })) {
+          for await (const entry of listFiles({ repo, revision, recursive: true })) {
             if (entry.type === 'file' && entry.path !== '.gitattributes') {
               files.push(entry.path)
             }
@@ -73,7 +75,7 @@ describe('model downloads', () => {
         async () => {
           const repo = { type: 'model' as const, name: repoId }
           let firstFile: string | null = null
-          for await (const entry of listFiles({ repo, recursive: true })) {
+          for await (const entry of listFiles({ repo, revision, recursive: true })) {
             if (
               entry.type === 'file' &&
               entry.path !== '.gitattributes' &&
@@ -85,7 +87,7 @@ describe('model downloads', () => {
           }
           expect(firstFile).not.toBeNull()
 
-          const blob = await downloadFile({ repo, path: firstFile! })
+          const blob = await downloadFile({ repo, revision, path: firstFile! })
           expect(blob).not.toBeNull()
           expect(blob).toBeInstanceOf(Blob)
           expect(blob!.size).toBeGreaterThan(0)

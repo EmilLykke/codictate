@@ -72,11 +72,16 @@ const WINDOWS_PARAKEET_ONNX_REQUIRED_FILES = [
   'vocab.txt',
 ] as const
 
+/**
+ * What `CodictateParakeetHelper` loads for v3 (FluidAudio 0.17.7,
+ * `ModelNames.ASR.requiredModelsV3()` at the default `.int8` precision). It reads this exact
+ * directory and downloads nothing, so every entry has to be here.
+ */
 const MACOS_PARAKEET_COREML_REQUIRED_DIRS = [
   'Preprocessor.mlmodelc',
   'Encoder.mlmodelc',
   'Decoder.mlmodelc',
-  'JointDecision.mlmodelc',
+  'JointDecisionv3.mlmodelc',
 ] as const
 
 const MACOS_PARAKEET_COREML_REQUIRED_FILES = [
@@ -121,17 +126,17 @@ function cleanupParakeetCoreMlInstall(dir: string): void {
   }
 }
 
+/**
+ * Every directory the helper loads, not just any `.mlmodelc`: an install made before FluidAudio
+ * 0.14.1 has no `JointDecisionv3.mlmodelc`, and reading that as complete would let every
+ * Parakeet Dictation fail at load instead of offering the download.
+ */
 function parakeetCoreMlInstallComplete(dir: string): boolean {
   if (!existsSync(dir)) return false
-  const vocab =
-    existsSync(join(dir, 'parakeet_vocab.json')) ||
-    existsSync(join(dir, 'parakeet_v3_vocab.json'))
-  if (!vocab) return false
-  try {
-    return readdirSync(dir).some((name) => name.endsWith('.mlmodelc'))
-  } catch {
-    return false
-  }
+  if (!existsSync(join(dir, 'parakeet_vocab.json'))) return false
+  return MACOS_PARAKEET_COREML_REQUIRED_DIRS.every((name) =>
+    existsSync(join(dir, name))
+  )
 }
 
 function parakeetOnnxInstallComplete(dir: string): boolean {
@@ -208,6 +213,12 @@ function migrateLegacyParakeetInstall(model: SpeechModel): void {
 function parakeetRepoId(model: SpeechModel): string | undefined {
   if (getPlatformRuntime() === 'windows') return WINDOWS_PARAKEET_ONNX_REPO_ID
   return model.huggingFaceRepoId
+}
+
+/** The catalog's pinned commit names a commit in the Core ML repo, so it is macOS only. */
+function parakeetRevision(model: SpeechModel): string | undefined {
+  if (getPlatformRuntime() === 'windows') return undefined
+  return model.huggingFaceRevision
 }
 
 class ModelManager {
@@ -385,9 +396,10 @@ class ModelManager {
     if (!repoId) throw new Error('Parakeet model missing huggingFaceRepoId')
 
     const repo = { type: 'model' as const, name: repoId }
+    const revision = parakeetRevision(model)
     const entries: { path: string; size: number }[] = []
 
-    for await (const e of listFiles({ repo, recursive: true })) {
+    for await (const e of listFiles({ repo, revision, recursive: true })) {
       controller.signal.throwIfAborted()
       if (
         e.type === 'file' &&
@@ -410,6 +422,25 @@ class ModelManager {
       }
     }
 
+    // Refused here rather than installed: an install missing any of these reads as not
+    // installed, so it would only offer the same broken download again.
+    if (getPlatformRuntime() !== 'windows') {
+      const missing = [
+        'parakeet_vocab.json',
+        ...MACOS_PARAKEET_COREML_REQUIRED_DIRS,
+      ].filter(
+        (name) =>
+          !entries.some(
+            (entry) => entry.path === name || entry.path.startsWith(name + '/')
+          )
+      )
+      if (missing.length > 0) {
+        throw new Error(
+          `Parakeet Core ML repo ${repoId}@${revision ?? 'main'} is missing: ${missing.join(', ')}`
+        )
+      }
+    }
+
     const totalBytes = entries.reduce((s, e) => s + e.size, 0) || 1
     let received = 0
 
@@ -421,7 +452,7 @@ class ModelManager {
       while (nextIdx < entries.length) {
         controller.signal.throwIfAborted()
         const ent = entries[nextIdx++]
-        const blob = await downloadFile({ repo, path: ent.path })
+        const blob = await downloadFile({ repo, revision, path: ent.path })
         if (blob === null) continue
 
         controller.signal.throwIfAborted()

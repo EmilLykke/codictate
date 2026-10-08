@@ -119,6 +119,12 @@ export interface SpeechModel {
    */
   huggingFaceRepoId?: string
   /**
+   * Hugging Face commit a multi-file download (Parakeet Core ML) is fetched from, rather than
+   * `main`. The commit id names the whole file tree, so it pins a directory of weights the way
+   * `sha256` pins a single file: nothing pushed to the repo later can reach a download.
+   */
+  huggingFaceRevision?: string
+  /**
    * Expected sha256 of the downloaded file, lowercase hex. Set where Codictate produced
    * the artifact itself (Edda), so a download that differs from what was mirrored is
    * refused rather than installed.
@@ -143,6 +149,10 @@ export const SPEECH_MODELS: SpeechModel[] = [
     curated: true,
     translationSupport: false,
     huggingFaceRepoId: 'FluidInference/parakeet-tdt-0.6b-v3-coreml',
+    // 2026-08-19, the head for FluidAudio 0.17.7. It carries `JointDecisionv3.mlmodelc`, which
+    // FluidAudio's v3 path has required since 0.14.1; Preprocessor, Encoder, Decoder and
+    // the vocabulary are unchanged since 2025-11. macOS only: Windows downloads ONNX weights.
+    huggingFaceRevision: '7dd20fe6b1797d35f5e3307e8b1732d9a178edfe',
     supportedTranscriptionLanguageIds: PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS,
   },
   {
@@ -789,21 +799,16 @@ export function transcriptionLanguageAllowedForModel(
 }
 
 /**
- * The directory name FluidAudio will actually read Parakeet's Core ML weights from.
+ * The directory name Parakeet's Core ML weights are installed under on macOS.
  *
- * FluidAudio does not read the directory it is handed. `AsrModels.load(from:)` takes that
- * directory's *parent* and re-appends `Repo.folderName`, and for the v3 Parakeet repo
- * `folderName` is the repo slug with every `-coreml` stripped out (FluidAudio 0.13.6,
- * `ModelNames.swift`, the `default:` arm of `folderName`). `DownloadUtils.loadModels` then
- * resolves the same `directory + folderName` path.
+ * It is the name FluidAudio 0.13.6 insisted on: `AsrModels.load(from:)` read the *parent* of
+ * the directory it was handed and re-appended `Repo.folderName`, which for the v3 repo was the
+ * slug with every `-coreml` stripped, and fetched its own 461 MB copy when the names disagreed.
  *
- * So weights installed under the repo slug itself are invisible to the loader: it decides
- * they are missing and downloads its own copy into the name it expected. Worse, a failed
- * load deletes that directory and retries once (`DownloadUtils.loadModels`), so a mismatch
- * costs a fresh 461 MB fetch on every single attempt, with nothing on stdout to say so.
- *
- * On every FluidAudio upgrade, recheck `ModelNames.swift`'s `folderName` against this
- * rule before trusting the pinned tests: the upstream path can change without a type error.
+ * Since FluidAudio 0.17.7 the helper calls `AsrModels.loadLocal(from:)`, which reads exactly
+ * the directory it is handed and never downloads, so this name is Codictate's own. It stays
+ * as it was so existing installs do not move. Do not go back to `load(from:)` without
+ * rechecking: 0.17.7's `folderName` for v3 keeps `-coreml`, so it would disagree with this.
  *
  * macOS only. The Windows helper is ONNX and reads the directory it is given.
  */

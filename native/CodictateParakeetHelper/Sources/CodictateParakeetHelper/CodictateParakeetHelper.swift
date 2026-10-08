@@ -59,9 +59,28 @@ private func usage() -> Never {
   exit(2)
 }
 
-private func loadAsrModels(parakeetDir: URL) async throws -> AsrModels {
+/// Loads the Core ML weights from exactly `parakeetDir`, never from the network.
+///
+/// `AsrModels.load(from:)` would read `parakeetDir`'s parent plus FluidAudio's own folder
+/// name for the repo, and fetch whatever it finds missing from Hugging Face `main`. Codictate
+/// downloads a pinned revision itself (`model-manager.ts`), so a missing file must fail here.
+/// The default `.int8` precision is the original `Encoder.mlmodelc`, the one Codictate ships.
+private func loadAsrModels(parakeetDir: URL) throws -> AsrModels {
   let cfg = AsrModels.defaultConfiguration()
-  return try await AsrModels.load(from: parakeetDir, configuration: cfg, version: .v3)
+  return try AsrModels.loadLocal(from: parakeetDir, version: .v3, configuration: cfg)
+}
+
+/// One independent transcription. Since FluidAudio 0.13.7 the caller owns the TDT decoder
+/// state; a fresh one per call matches the old `transcribe(_:source:)`, which reset its
+/// per-source state after every call.
+private func transcribeOnce(_ asr: AsrManager, _ url: URL) async throws -> ASRResult {
+  var state = TdtDecoderState.make(decoderLayers: await asr.decoderLayerCount)
+  return try await asr.transcribe(url, decoderState: &state)
+}
+
+private func transcribeOnce(_ asr: AsrManager, _ samples: [Float]) async throws -> ASRResult {
+  var state = TdtDecoderState.make(decoderLayers: await asr.decoderLayerCount)
+  return try await asr.transcribe(samples, decoderState: &state)
 }
 
 private func joinTranscript(_ prefix: String, _ suffix: String) -> String {
@@ -423,12 +442,12 @@ struct CodictateParakeetHelperMain {
     let modelDir = URL(fileURLWithPath: args[1], isDirectory: true)
 
     logPhase("loading models (first run may prepare model assets for this Mac — can take a few minutes)…")
-    let models = try await loadAsrModels(parakeetDir: modelDir)
+    let models = try loadAsrModels(parakeetDir: modelDir)
     let asr = AsrManager(config: .default)
     try await asr.loadModels(models)
 
     logPhase("transcribing…")
-    let result = try await asr.transcribe(URL(fileURLWithPath: wavPath), source: .system)
+    let result = try await transcribeOnce(asr, URL(fileURLWithPath: wavPath))
     let text = applyInverseTextNormalization(result.text)
     logPhase("done")
     emitJSON(["kind": "final", "text": text])
@@ -447,7 +466,7 @@ struct CodictateParakeetHelperMain {
     let modelDir = URL(fileURLWithPath: modelPath, isDirectory: true)
 
     logPhase("transcribe session: loading models…")
-    let models = try await loadAsrModels(parakeetDir: modelDir)
+    let models = try loadAsrModels(parakeetDir: modelDir)
     let asr = AsrManager(config: .default)
     try await asr.loadModels(models)
     emitJSON(["kind": "ready"])
@@ -468,10 +487,7 @@ struct CodictateParakeetHelperMain {
       }
 
       logPhase("transcribe session: request \(request.id)…")
-      let result = try await asr.transcribe(
-        URL(fileURLWithPath: request.audioPath),
-        source: .system
-      )
+      let result = try await transcribeOnce(asr, URL(fileURLWithPath: request.audioPath))
       let text = applyInverseTextNormalization(result.text)
       emitJSON(["kind": "final", "id": request.id, "text": text])
     }
@@ -504,7 +520,7 @@ struct CodictateParakeetHelperMain {
     }
 
     logPhase("stream [\(mode)]: loading models…")
-    let models = try await loadAsrModels(parakeetDir: modelDir)
+    let models = try loadAsrModels(parakeetDir: modelDir)
     logPhase("stream [\(mode)]: models ready")
     installStreamSignalHandlersForCleanup()
     let duckBuiltInOutput = outputDuckBuiltInEnabledFromEnv()
@@ -603,7 +619,7 @@ struct CodictateParakeetHelperMain {
 
   private static func transcribeVadAndInject(asr: AsrManager, samples: [Float]) async {
     do {
-      let result = try await asr.transcribe(samples, source: .microphone)
+      let result = try await transcribeOnce(asr, samples)
       let text = applyInverseTextNormalization(result.text)
       guard !text.isEmpty else { return }
       logPhase("stream [vad]: pasting \(text.count) chars")
@@ -642,15 +658,17 @@ struct CodictateParakeetHelperMain {
         "stream [live][debug] CODICTATE_LIVE_DEBUG on — logging partials, commits, discards")
     }
 
-    // FluidAudio rejects < 1s of audio (`invalidAudioData`). Do not zero-pad partial
-    // snapshots — padding makes TDT hallucinate long junk, then finals are shorter and
-    // the UI deletes huge spans. Partials only run on real ≥1s buffers; short tails
-    // are padded only once at utterance end.
+    // The 1s floor below dates from FluidAudio < 0.13.7, which rejected < 1s of audio
+    // (`invalidAudioData`); it now rejects < 300ms. The 1s floor and padding are kept as
+    // tuned, not re-tuned for the lower limit. Do not zero-pad partial snapshots — padding
+    // makes TDT hallucinate long junk, then finals are shorter and the UI deletes huge
+    // spans. Partials only run on real ≥1s buffers; short tails are padded only once at
+    // utterance end.
     let rmsThreshold: Float = 0.010
     // ~1.5s @ 16kHz — longer than brief phrase gaps so one PTT hold stays fewer segments / less churn.
     let silenceCommit = 24_000
     let minUtterance = 2_400
-    // FluidAudio requires ≥1s of audio per call; cannot go lower for first partial.
+    // First partial waits for 1s of real audio (see above).
     let minSamplesForInfer = 16_000
     // How much new 16kHz audio between re-transcribe passes (~300ms). Smaller =
     // snappier UI but more ANE work; wall time is still dominated by TDT on long buffers.
@@ -690,9 +708,7 @@ struct CodictateParakeetHelperMain {
           samplesSinceLastUpdate >= minSamplesBetweenUpdates
         if shouldEmitUpdate {
           samplesSinceLastUpdate = 0
-          let partialText = try await asr
-            .transcribe(utterance, source: .microphone)
-            .text
+          let partialText = try await transcribeOnce(asr, utterance).text
           guard !partialText.isEmpty, partialText != lastLiveText else { continue }
           lastLiveText = partialText
           let fullText = joinTranscript(committedText, partialText)
@@ -710,9 +726,7 @@ struct CodictateParakeetHelperMain {
             ? utterance
             : padToMinimumTranscribeLength(utterance)
           let lastPartialSnapshot = lastLiveText
-          let rawFinal = try await asr
-            .transcribe(finalInput, source: .microphone)
-            .text
+          let rawFinal = try await transcribeOnce(asr, finalInput).text
           let finalText = resolveLiveUtteranceText(
             finalRaw: rawFinal, lastPartial: lastPartialSnapshot)
           let fallback =
@@ -747,9 +761,7 @@ struct CodictateParakeetHelperMain {
               ? utterance
               : padToMinimumTranscribeLength(utterance)
             let lastPartialSnapshot = lastLiveText
-            let rawFinal = try await asr
-              .transcribe(finalInput, source: .microphone)
-              .text
+            let rawFinal = try await transcribeOnce(asr, finalInput).text
             let finalText = resolveLiveUtteranceText(
               finalRaw: rawFinal, lastPartial: lastPartialSnapshot)
             let fallback =

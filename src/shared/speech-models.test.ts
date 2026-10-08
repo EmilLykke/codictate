@@ -6,12 +6,12 @@ import {
 } from './speech-models'
 
 /**
- * The folder name Parakeet's weights have to be installed under.
+ * The folder name Parakeet's weights are installed under.
  *
- * This is not a formatting preference. FluidAudio reads the parent of the directory it is
- * handed and re-appends its own `Repo.folderName`, so a name that disagrees by one suffix
- * makes an installed 461 MB model invisible and sends the loader off to download its own
- * copy - which is what made Parakeet unusable while the app reported it installed.
+ * FluidAudio 0.13.6 read the parent of the directory it was handed and re-appended its own
+ * `Repo.folderName`, so a name that disagreed by one suffix made an installed 461 MB model
+ * invisible. The helper now loads the exact directory (`AsrModels.loadLocal`), so the name
+ * is pinned here to keep existing installs where they are.
  */
 describe('fluidAudioModelFolderName', () => {
   it('strips the -coreml suffix FluidAudio strips', () => {
@@ -30,7 +30,7 @@ describe('fluidAudioModelFolderName', () => {
     expect(fluidAudioModelFolderName('a-coreml-b-coreml')).toBe('a-b')
   })
 
-  it('maps the catalog Parakeet entry to the folder FluidAudio reads', () => {
+  it('maps the catalog Parakeet entry to its install folder', () => {
     const parakeet = getSpeechModel('parakeet-tdt-0.6b-v3')
     expect(parakeet?.engine).toBe('whisperkit')
     // The Hugging Face repo slug keeps -coreml; the local folder must not.
