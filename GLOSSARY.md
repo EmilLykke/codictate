@@ -56,7 +56,7 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Raw Transcript** - the text a Speech Engine produced, before any rewriting.
 
-**Punctuation Restoration** - adding punctuation and capital letters to a Raw Transcript without changing, adding or removing any word. Danish only. Always applied to ekko-v1-tiny, whose Raw Transcript has neither; an opt-in for hviske and Edda; never applied to other Whisper Speech Models, which punctuate on their own. Not a Formatting Mode: it is not chosen per app and does not rewrite.
+**Punctuation Restoration** - adding punctuation and capital letters to a Raw Transcript, never removing a capital and never changing, adding or removing any word. Danish only. Always applied to ekko-v1-tiny, whose Raw Transcript has neither; an opt-in for hviske and Edda; never applied to other Whisper Speech Models, which punctuate on their own. Not a Formatting Mode: it is not chosen per app and does not rewrite.
 
 **Punctuation Model** - the weights that perform Punctuation Restoration (ekko-pnc). Distinct from a Speech Model, which recognises speech, and a Formatting Model, which rewrites text.
 
