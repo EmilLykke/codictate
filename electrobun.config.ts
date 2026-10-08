@@ -49,6 +49,9 @@ const buildCopy: Record<string, string> = {
 };
 
 if (isWindowsHost) {
+  // The helper's only non-system DLL. ort-sys downloads the pinned ONNX Runtime
+  // `+directml` prebuilt (sha256 in its dist.tsv, version locked by Cargo.lock),
+  // links onnxruntime statically and drops DirectML.dll beside the exe.
   buildCopy["native/CodictateWindowsHelper/target/release/DirectML.dll"] =
     "native-helpers/DirectML.dll";
   // Prebuilt llama is shared-library based, so its ggml/llama DLLs ship alongside it.
