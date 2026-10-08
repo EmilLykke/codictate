@@ -68,12 +68,6 @@ function httpDownloadErrorMessage(
 
 const WINDOWS_PARAKEET_ONNX_REPO_ID = 'istupakov/parakeet-tdt-0.6b-v3-onnx'
 const WINDOWS_PARAKEET_ONNX_ARTIFACT_NAME = 'parakeet-tdt-0.6b-v3-onnx'
-const WINDOWS_PARAKEET_ONNX_REQUIRED_FILES = [
-  'encoder-model.onnx',
-  'encoder-model.onnx.data',
-  'decoder_joint-model.onnx',
-  'vocab.txt',
-] as const
 
 /**
  * The commit of the ONNX repo a Windows install downloads, not `main`, so an upstream
@@ -85,13 +79,11 @@ const WINDOWS_PARAKEET_ONNX_REVISION =
 
 /**
  * sha256 of each required file at `WINDOWS_PARAKEET_ONNX_REVISION`, checked while it
- * streams to disk. The four LFS hashes are the ones Hugging Face lists at that commit;
- * `vocab.txt` is a plain git file, hashed from a download whose git blob id matched.
+ * streams to disk, and the download list, as `MACOS_PARAKEET_COREML_SHA256` is on macOS.
+ * The LFS hashes are the ones Hugging Face lists at that commit; `vocab.txt` is a plain
+ * git file, hashed from a download whose git blob id matched.
  */
-const WINDOWS_PARAKEET_ONNX_SHA256: Record<
-  (typeof WINDOWS_PARAKEET_ONNX_REQUIRED_FILES)[number],
-  string
-> = {
+const WINDOWS_PARAKEET_ONNX_SHA256: Record<string, string> = {
   'encoder-model.onnx':
     '98a74b21b4cc0017c1e7030319a4a96f4a9506e50f0708f3a516d02a77c96bb1',
   'encoder-model.onnx.data':
@@ -122,19 +114,60 @@ const MACOS_PARAKEET_COREML_REQUIRED_FILES = [
   'parakeet_v3_vocab.json',
 ] as const
 
-function shouldDownloadParakeetFile(path: string): boolean {
-  if (getPlatformRuntime() === 'windows') {
-    return (WINDOWS_PARAKEET_ONNX_REQUIRED_FILES as readonly string[]).includes(
-      path
-    )
-  }
-  if (
-    (MACOS_PARAKEET_COREML_REQUIRED_FILES as readonly string[]).includes(path)
-  )
-    return true
-  return MACOS_PARAKEET_COREML_REQUIRED_DIRS.some(
-    (dir) => path === dir || path.startsWith(dir + '/')
-  )
+/**
+ * sha256 of every file a macOS install downloads, at the catalog's Core ML
+ * `huggingFaceRevision` (`7dd20fe6`), checked while each one streams to disk. It is also the
+ * download list: a file it does not name is not fetched, so nothing read from the repo at
+ * run time decides what is trusted. The twelve `coremldata.bin` and `weight.bin` hashes are
+ * the LFS ones Hugging Face lists at that commit; the ten plain git files (`metadata.json`,
+ * `model.mil`, the two vocabularies) were hashed from downloads whose git blob ids matched.
+ * Moving the revision means rebuilding this table from the new commit's tree.
+ */
+const MACOS_PARAKEET_COREML_SHA256: Record<string, string> = {
+  'Preprocessor.mlmodelc/analytics/coremldata.bin':
+    'c9beeb989c8d66f8be11df59bc6df277ec76cee404f6865b46243835ef562f6d',
+  'Preprocessor.mlmodelc/coremldata.bin':
+    'dbde3f2300842c1fd51ef3ff948a0bcffe65ffd2dca10707f2509f32c1d65b1d',
+  'Preprocessor.mlmodelc/metadata.json':
+    '2a98699e22d279dd37fa1d238aeb1c6db1df0d6fad687775324157689d8f3acf',
+  'Preprocessor.mlmodelc/model.mil':
+    '4b8518a956450fec57f06c2a21bdffc26973f7f1fa6842fb38fe917f896b6b93',
+  'Preprocessor.mlmodelc/weights/weight.bin':
+    '129b76e3aeafa8afa3ea76d995b964b145fe83700d579f6ff42c4c38fa0968ea',
+  'Encoder.mlmodelc/analytics/coremldata.bin':
+    '42e638870d73f26b332918a3496ce36793fbb413a81cbd3d16ba01328637a105',
+  'Encoder.mlmodelc/coremldata.bin':
+    'd48034a167a82e88fc3df64f60af963ab3983538271175b8319e7d5720a0fb86',
+  'Encoder.mlmodelc/metadata.json':
+    'da24da9cca943fb29d7fa8e376d57fca7cb3aa08ca51b956b0b0e56813f087e9',
+  'Encoder.mlmodelc/model.mil':
+    'ed7b19156ca29fa7dfd6891deb9fda4b0e8893f68597c985d135736546a43808',
+  'Encoder.mlmodelc/weights/weight.bin':
+    'e2020f323703477a5b21d7c2d282c403e371afb5962e79877e3033e73ba6f421',
+  'Decoder.mlmodelc/analytics/coremldata.bin':
+    '4238c4e81ecd0dc94bd7dfbb60f7e2cc824107c1ffe0387b8607b72833dba350',
+  'Decoder.mlmodelc/coremldata.bin':
+    '18647af085d87bd8f3121c8a9b4d4564c1ede038dab63d295b4e745cf2d7fb99',
+  'Decoder.mlmodelc/metadata.json':
+    'a39e93cd8371b8ded92635c7804fcd0590f0d1dd9415c6d19a0484be073077d9',
+  'Decoder.mlmodelc/model.mil':
+    'ef2a0a281695398a62fde86ac269c68f73d5b578d7ed3b31f2ba91a2d1ea1f35',
+  'Decoder.mlmodelc/weights/weight.bin':
+    '48adf0f0d47c406c8253d4f7fef967436a39da14f5a65e66d5a4b407be355d41',
+  'JointDecisionv3.mlmodelc/analytics/coremldata.bin':
+    '26def4bf73dd56d29dee21c8ef97cb8969e62f6120ed1adc91e46828e2737b6c',
+  'JointDecisionv3.mlmodelc/coremldata.bin':
+    'f5fc08b741400f0088492c9e839418b1e18522f19cba28d361dd030c5f398342',
+  'JointDecisionv3.mlmodelc/metadata.json':
+    'd9307211b9a37e0f0ac260c7660b1571a3de25841035cfdf9b58fd40425f890f',
+  'JointDecisionv3.mlmodelc/model.mil':
+    'be60732943389a047175111a83f8839f3eb39d4803adafa828a0871b2f39818d',
+  'JointDecisionv3.mlmodelc/weights/weight.bin':
+    '4e0e63d840032f7f07ddb1d64446051166281e5491bf22da8a945c41f6eedb3e',
+  'parakeet_vocab.json':
+    '7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735',
+  'parakeet_v3_vocab.json':
+    '7ec60e05f1b24480736ec0eed40900f4626bce1fa9a60fd700ec7e2a59198735',
 }
 
 function isRequiredCoreMlEntry(name: string): boolean {
@@ -167,9 +200,9 @@ function cleanupParakeetCoreMlInstall(dir: string): void {
  * made before the 0.17.7 upgrade lacks it, and everything else those installs hold is
  * byte-identical to the pinned revision (Preprocessor, Encoder, Decoder and
  * `parakeet_vocab.json` have the same tree ids at every repo revision since 2025-09-25, and
- * the download re-verifies each file against the pinned revision anyway). So a 12.6 MB
- * fetch makes them complete, where reading them as missing would cost a 483 MB download and
- * a heal pass that switches the user's Speech Model away.
+ * the download re-checks each kept file against `MACOS_PARAKEET_COREML_SHA256` anyway). So
+ * a 12.6 MB fetch makes them complete, where reading them as missing would cost a 483 MB
+ * download and a heal pass that switches the user's Speech Model away.
  */
 const MACOS_PARAKEET_COREML_TOP_UP_DIRS = ['JointDecisionv3.mlmodelc'] as const
 
@@ -189,36 +222,26 @@ function parakeetCoreMlNeedsTopUp(dir: string): boolean {
 
 interface ParakeetRepoFile {
   path: string
+  /** From the repo listing, for progress only. */
   size: number
-  /** Git blob id, for a file stored in the repo itself. */
-  gitOid?: string
-  /** sha256 of the content, for a file stored in LFS. */
-  lfsSha256?: string
+  /** From the checked-in table, never from the listing. */
+  sha256: string
 }
 
 /**
- * Whether a file already installed is byte-for-byte the one the pinned revision lists, so
- * the download can keep it instead of fetching it again. Checked by content, not size: a
- * re-exported Core ML weight file can keep its size and change every value in it.
+ * Whether a file already installed is byte-for-byte the pinned one, so the download can keep
+ * it instead of fetching it again. Checked by content against the same sha256 a fetched file
+ * has to match, not by size: a re-exported Core ML weight file can keep its size and change
+ * every value in it.
  */
 async function installedFileMatches(
   path: string,
   file: ParakeetRepoFile
 ): Promise<boolean> {
   if (!existsSync(path) || statSync(path).size !== file.size) return false
-  let hash
-  let expected
-  if (file.lfsSha256) {
-    hash = createHash('sha256')
-    expected = file.lfsSha256
-  } else if (file.gitOid) {
-    hash = createHash('sha1').update(`blob ${file.size}\0`)
-    expected = file.gitOid
-  } else {
-    return false
-  }
+  const hash = createHash('sha256')
   for await (const chunk of createReadStream(path)) hash.update(chunk)
-  return hash.digest('hex') === expected
+  return hash.digest('hex') === file.sha256
 }
 
 /**
@@ -319,9 +342,15 @@ function parakeetRevision(model: SpeechModel): string | undefined {
   return model.huggingFaceRevision
 }
 
-function parakeetFileSha256(path: string): string | undefined {
-  if (getPlatformRuntime() !== 'windows') return undefined
-  return (WINDOWS_PARAKEET_ONNX_SHA256 as Record<string, string>)[path]
+/** Every file the platform's Parakeet install downloads, with the sha256 it must match. */
+function parakeetPinnedFiles(): Map<string, string> {
+  return new Map(
+    Object.entries(
+      getPlatformRuntime() === 'windows'
+        ? WINDOWS_PARAKEET_ONNX_SHA256
+        : MACOS_PARAKEET_COREML_SHA256
+    )
+  )
 }
 
 class ModelManager {
@@ -498,40 +527,31 @@ class ModelManager {
 
     const repo = { type: 'model' as const, name: repoId }
     const revision = parakeetRevision(model)
+    const pinned = parakeetPinnedFiles()
     const entries: ParakeetRepoFile[] = []
 
+    // The listing supplies sizes for progress and nothing else: what is fetched, and the
+    // sha256 it has to match, come from the checked-in table.
     for await (const e of listFiles({ repo, revision, recursive: true })) {
       controller.signal.throwIfAborted()
-      if (
-        e.type === 'file' &&
-        e.path !== '.gitattributes' &&
-        shouldDownloadParakeetFile(e.path)
-      ) {
-        entries.push({
-          path: e.path,
-          size: e.lfs?.size ?? e.size,
-          gitOid: e.lfs ? undefined : e.oid,
-          lfsSha256: e.lfs?.oid,
-        })
-      }
-    }
-
-    if (getPlatformRuntime() === 'windows') {
-      const found = new Set(entries.map((entry) => entry.path))
-      for (const required of WINDOWS_PARAKEET_ONNX_REQUIRED_FILES) {
-        if (!found.has(required)) {
-          throw new Error(
-            `Parakeet ONNX repo missing required file: ${required}`
-          )
-        }
+      const sha256 = e.type === 'file' ? pinned.get(e.path) : undefined
+      if (sha256) {
+        entries.push({ path: e.path, size: e.lfs?.size ?? e.size, sha256 })
       }
     }
 
     // Refused here rather than installed: an install missing any of these reads as not
-    // installed, so it would only offer the same broken download again.
+    // installed, or fails at load, so it would only offer the same broken download again.
+    const listed = new Set(entries.map((entry) => entry.path))
+    const missing = [...pinned.keys()].filter((path) => !listed.has(path))
+    if (missing.length > 0) {
+      throw new Error(
+        `Parakeet repo ${repoId}@${revision ?? 'main'} is missing: ${missing.join(', ')}`
+      )
+    }
     if (getPlatformRuntime() !== 'windows') {
-      const missing = [
-        'parakeet_vocab.json',
+      const uncovered = [
+        ...MACOS_PARAKEET_COREML_REQUIRED_FILES,
         ...MACOS_PARAKEET_COREML_REQUIRED_DIRS,
       ].filter(
         (name) =>
@@ -539,9 +559,9 @@ class ModelManager {
             (entry) => entry.path === name || entry.path.startsWith(name + '/')
           )
       )
-      if (missing.length > 0) {
+      if (uncovered.length > 0) {
         throw new Error(
-          `Parakeet Core ML repo ${repoId}@${revision ?? 'main'} is missing: ${missing.join(', ')}`
+          `Parakeet Core ML checksums pin nothing for: ${uncovered.join(', ')}`
         )
       }
     }
@@ -551,10 +571,10 @@ class ModelManager {
 
     mkdirSync(tempDir, { recursive: true })
 
-    // A file the current install already holds at the pinned revision is linked into the new
-    // install instead of fetched, which is what makes a top-up cost only what is missing.
-    // macOS only: on Windows every ONNX file is fetched, so none can skip the pinned sha256
-    // check below.
+    // A file the current install already holds, matching its pinned sha256, is linked into
+    // the new install instead of fetched, which is what makes a top-up cost only what is
+    // missing. macOS only: the top-up exists for pre-0.17.7 Core ML installs, and on Windows
+    // every ONNX file is fetched.
     const reuseInstalled =
       getPlatformRuntime() !== 'windows' && existsSync(destDir)
 
@@ -569,6 +589,7 @@ class ModelManager {
           reuseInstalled &&
           (await installedFileMatches(installedPath, ent))
         ) {
+          controller.signal.throwIfAborted()
           const outPath = join(tempDir, ent.path)
           mkdirSync(dirname(outPath), { recursive: true })
           linkSync(installedPath, outPath)
@@ -577,7 +598,11 @@ class ModelManager {
           continue
         }
         const blob = await downloadFile({ repo, revision, path: ent.path })
-        if (blob === null) continue
+        if (blob === null) {
+          throw new Error(
+            `Parakeet repo ${repoId}@${revision ?? 'main'} has no ${ent.path}`
+          )
+        }
 
         controller.signal.throwIfAborted()
         const outPath = join(tempDir, ent.path)
@@ -588,30 +613,27 @@ class ModelManager {
         )
         // Hashed while it streams, as in `downloadSingleFileModel`. A mismatch throws before
         // the temp directory is renamed, so the caller deletes it and nothing is installed.
-        const expectedSha256 = parakeetFileSha256(ent.path)
-        const hash = expectedSha256 ? createHash('sha256') : null
+        const hash = createHash('sha256')
         await pipeline(
           nodeReadable,
           async function* (source: AsyncIterable<Buffer>) {
             for await (const chunk of source) {
-              hash?.update(chunk)
+              hash.update(chunk)
               yield chunk
             }
           },
           writeStream,
           { signal: controller.signal }
         )
-        if (hash && expectedSha256) {
-          const actual = hash.digest('hex')
-          if (actual !== expectedSha256) {
-            log('model-manager', 'sha256 mismatch', {
-              modelId: model.id,
-              path: ent.path,
-              expected: expectedSha256,
-              actual,
-            })
-            throw new Error(CHECKSUM_MISMATCH_MESSAGE)
-          }
+        const actual = hash.digest('hex')
+        if (actual !== ent.sha256) {
+          log('model-manager', 'sha256 mismatch', {
+            modelId: model.id,
+            path: ent.path,
+            expected: ent.sha256,
+            actual,
+          })
+          throw new Error(CHECKSUM_MISMATCH_MESSAGE)
         }
 
         received += ent.size
@@ -720,6 +742,9 @@ class ModelManager {
         onProgress(1, true)
       } catch (err) {
         this.downloads.delete(modelId)
+        // One failed file, a checksum mismatch included, stops the other workers too, so
+        // none of them writes into the temp directory after it is deleted.
+        controller.abort()
         try {
           if (existsSync(tempDir))
             rmSync(tempDir, { recursive: true, force: true })
