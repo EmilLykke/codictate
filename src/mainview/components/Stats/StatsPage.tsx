@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import type {
@@ -138,6 +138,13 @@ function StreakHeatmap({
     return { weeks: allWeeks, monthLabels: labels, maxWords: mw };
   }, [dailyActivity, range]);
 
+  // Open on the most recent weeks: the grid runs oldest to newest, left to right.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [weeks]);
+
   const isFuture = (d: Date) => d > new Date();
 
   const todayKey = useMemo(() => {
@@ -180,7 +187,10 @@ function StreakHeatmap({
             </div>
           ))}
         </div>
-        <div className="flex-1 overflow-x-auto overflow-y-visible scrollbar-hidden">
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-x-auto overflow-y-visible scrollbar-hidden"
+        >
           <div className="flex gap-1 mb-1.5 min-h-[16px]">
             {monthLabels.map((m) => (
               <div
