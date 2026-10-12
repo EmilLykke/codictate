@@ -1,5 +1,5 @@
 import { readdirSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, userInfo } from 'node:os'
 import { join } from 'node:path'
 import Electrobun, { Updater, Utils } from 'electrobun/bun'
 import type { PermissionState, SettingsPane } from '../shared/types'
@@ -19,7 +19,7 @@ import {
 import { setOnAutoDisable, log } from './utils/logger'
 import { HistoryManager } from './utils/history/history-manager'
 import { StatsManager } from './utils/stats/stats-manager'
-import { RECORDING_PATH } from './platform/runtime'
+import { APP_DATA_DIR, RECORDING_PATH } from './platform/runtime'
 import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
 import {
@@ -31,6 +31,103 @@ import type {
   DictationPlan,
 } from '../shared/dictation-plan'
 import type { FailedTranscription } from './utils/whisper/engines/transcription'
+import { resolveAppIdentity } from './command-line/app-identity'
+import {
+  commandLineEndpoint,
+  readHiddenLaunchMarker,
+  removeHiddenLaunchMarker,
+  hiddenLaunchMarkerPath,
+} from './command-line/endpoint'
+import {
+  createCommandHandlers,
+  deferredCommandHandlers,
+} from './command-line/handlers'
+import type { CommandHandlers } from './command-line/session'
+import type { CommandLineDictationControl } from './dictation/command-line-dictation'
+import {
+  startCommandLineServer,
+  type CommandLineServer,
+  type CommandLineStart,
+} from './command-line/transport'
+import {
+  createFileTranscriptionQueue,
+  productionFileTranscriptionDeps,
+} from './file-transcription'
+
+/**
+ * Single instance, before anything else boots (`command-line/single-instance.ts`). Starting
+ * the command-line server is the claim: when another Codictate with this bundle identifier
+ * holds the instance lock or the endpoint, it is asked to show its window and this one quits
+ * without touching config, models, keyboard, tray or window. Otherwise this instance serves
+ * the socket now, so a client already waiting for a hidden launch can connect; its request
+ * waits in `deferredCommandHandlers` until the app below is ready to answer.
+ */
+const appIdentity = await resolveAppIdentity()
+
+function currentUsername(): string {
+  try {
+    return userInfo().username
+  } catch {
+    return process.env.USERNAME || process.env.USER || 'user'
+  }
+}
+
+const cliEndpoint = commandLineEndpoint({
+  platform: process.platform,
+  appDataDir: APP_DATA_DIR,
+  identifier: appIdentity.identifier,
+  username: currentUsername(),
+  uid: process.getuid?.() ?? -1,
+})
+
+let resolveCommandHandlers: (handlers: CommandHandlers) => void = () => {}
+const commandHandlersReady = new Promise<CommandHandlers>((resolve) => {
+  resolveCommandHandlers = resolve
+})
+
+const hiddenLaunchMarker = hiddenLaunchMarkerPath(
+  APP_DATA_DIR,
+  appIdentity.identifier
+)
+/** The command line asked for this launch: boot to the tray, with no window. */
+const launchedHidden = readHiddenLaunchMarker(hiddenLaunchMarker, Date.now())
+
+const commandLineStart: CommandLineStart = await startCommandLineServer(
+  cliEndpoint,
+  deferredCommandHandlers(commandHandlersReady),
+  (message, data) => log('command-line', message, data),
+  { showRunningApp: !launchedHidden }
+).catch((error: unknown) => ({ status: 'unavailable' as const, error }))
+
+if (commandLineStart.status === 'another-instance') {
+  console.log(
+    launchedHidden
+      ? 'Codictate is already running.'
+      : 'Codictate is already running; asked it to show its window.'
+  )
+  Utils.quit()
+  // `quit` exits the process; never let the rest of boot run in the meantime.
+  await new Promise<never>(() => {})
+}
+
+const commandLineServer: CommandLineServer | null =
+  commandLineStart.status === 'serving' ? commandLineStart.server : null
+if (commandLineStart.status === 'unavailable') {
+  // Still the only instance: this is not another app holding the endpoint, so the app runs
+  // without its command line, and the client reports it as unavailable.
+  console.error('Command line server failed to start:', commandLineStart.error)
+  log('command-line', 'server failed to start', {
+    err: String(commandLineStart.error),
+  })
+}
+
+// Left in place briefly so a second instance racing this one also boots hidden (see
+// `readHiddenLaunchMarker`); a stale marker is removed at once.
+if (launchedHidden) {
+  setTimeout(() => removeHiddenLaunchMarker(hiddenLaunchMarker), 15_000)
+} else {
+  removeHiddenLaunchMarker(hiddenLaunchMarker)
+}
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -99,6 +196,11 @@ await modelManager.topUpInstalls(30_000)
 
 export const UserAppConfig = createProductionAppConfig()
 await UserAppConfig.load()
+
+/** One File Transcription queue for the command line and the window. */
+const fileTranscriptions = createFileTranscriptionQueue(
+  productionFileTranscriptionDeps(UserAppConfig)
+)
 
 const historyManager = new HistoryManager(() =>
   UserAppConfig.getHistoryStoragePath()
@@ -178,7 +280,7 @@ const onApplyUpdate = async () => {
 const win = setupWindow({
   url,
   appConfig: UserAppConfig,
-  openWindowOnLaunch: true,
+  openWindowOnLaunch: !launchedHidden,
   getCurrentDeviceSnapshot: () => deviceSnapshot,
   getPermissions: async () => {
     let accessibility = currentPermissions.accessibility
@@ -246,6 +348,7 @@ const win = setupWindow({
   },
   historyManager,
   statsManager,
+  fileTranscriptions,
   onTriggerPermissionPrompt: (pane: SettingsPane) => {
     if (pane === 'inputMonitoring') {
       if (keyboard.isAlive) {
@@ -355,6 +458,19 @@ const onOpenSettings = () => {
   win.getOrCreateWindow(() => win.send.openSettingsScreen()).focus()
 }
 
+/**
+ * "Transcribe File…" in the tray and the app menu: the native dialog first, then the window
+ * on the Transcribe page, where the queue and the transcripts are. Nothing opens on cancel.
+ */
+const onTranscribeFile = () => {
+  void win.chooseAndTranscribeFiles().then((queued) => {
+    if (queued === 0) return
+    win
+      .getOrCreateWindow(() => win.send.navigate({ tab: 'transcribe' }))
+      .focus()
+  })
+}
+
 Electrobun.events.on('reopen', () => {
   win.getOrCreateWindow().focus()
 })
@@ -365,7 +481,8 @@ menuHandlers = setupApplicationMenu(
   UserAppConfig,
   () => win.getOrCreateWindow(),
   onDeviceSelected,
-  onOpenSettings
+  onOpenSettings,
+  onTranscribeFile
 )
 
 const pushSettingsToWebview = () =>
@@ -414,7 +531,8 @@ trayHandlers = setupTray(
   // onTranscriptionLanguageChanged, onFormattingModeChanged, onModelChanged
   pushSettingsToWebview,
   pushSettingsToWebview,
-  pushSettingsToWebview
+  pushSettingsToWebview,
+  onTranscribeFile
 )
 
 /**
@@ -667,20 +785,78 @@ function startKeyboard() {
 
 let keyboard = startKeyboard()
 
+/**
+ * The command line's handle on Dictation. `keyboard` is replaced on every settings change
+ * and permission refresh, so the handlers reach the current one through this.
+ */
+const dictationControl: CommandLineDictationControl = {
+  startCommandLineDictation: (options) =>
+    keyboard.startCommandLineDictation(options),
+  stopAnyDictation: () => keyboard.stopAnyDictation(),
+  getActiveDictation: () => keyboard.getActiveDictation(),
+}
+
+resolveCommandHandlers(
+  createCommandHandlers({
+    app: appIdentity,
+    isOnboardingCompleted: () =>
+      UserAppConfig.getSettings().onboardingCompleted,
+    // The permission helpers report a boolean, so "not granted" cannot tell denied from
+    // not yet asked.
+    getMicrophone: () =>
+      currentPermissions.microphone ? 'granted' : 'unknown',
+    getCommandLineControl: () => UserAppConfig.getCommandLineControl(),
+    // The cached state can be stale after the user grants access; ask afresh when it says no.
+    isMicrophoneGranted: async () =>
+      currentPermissions.microphone ||
+      (await checkMicrophoneAuthorization().catch(() => false)),
+    dictation: dictationControl,
+    notify: (notification) => Utils.showNotification(notification),
+    getSpeechModelId: () => UserAppConfig.getSpeechModelId(),
+    getTranscriptionLanguageId: () =>
+      UserAppConfig.getTranscriptionLanguageId(),
+    isModelAvailable: (id) => modelManager.isModelAvailable(id),
+    fileTranscriptions,
+    showMainWindow: () => {
+      win.getOrCreateWindow().focus()
+    },
+    getStreamMode: () => UserAppConfig.getStreamMode(),
+    // The sync a write from Settings or the tray gets: the window hears either way, then the
+    // tray menu, and a Live Transcription that was just switched off stops.
+    updateTranscriptionSettings: async (patch) => {
+      const ok = await UserAppConfig.updateTranscriptionSettings(patch)
+      pushSettingsToWebview()
+      if (!ok) return false
+      trayHandlers.syncModelState()
+      if (!UserAppConfig.getStreamMode()) {
+        void keyboard.stopActiveParakeetStream()
+      }
+      return true
+    },
+    models: win.models,
+  })
+)
+
 // Push initial app state once the first window's RPC bridge is live.
 setTimeout(pushInitialState, 500)
 
 startDeviceMonitor()
 
 Electrobun.events.on('before-quit', () => {
+  // First, and synchronously: a decoder or Speech Engine left running would outlive the app.
+  fileTranscriptions.cancelAll()
   trayHandlers.setTrayIdle()
   void (async () => {
     await keyboard.stopActiveParakeetStream()
     keyboard.stop()
   })()
   indicatorRef.current?.dispose()
+  commandLineServer?.close()
 })
-process.on('exit', () => keyboard.stop())
+process.on('exit', () => {
+  keyboard.stop()
+  commandLineServer?.close()
+})
 
 async function checkForUpdates() {
   const sendStatus = (

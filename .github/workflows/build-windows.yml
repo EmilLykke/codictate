@@ -53,6 +53,9 @@ jobs:
       - name: Build Windows native helper (Rust/Cargo)
         run: bun run build:native:windows-helper
 
+      - name: Build the codictate command line (Rust/Cargo)
+        run: bun run build:native:cli
+
       - name: Build (${{ inputs.channel }})
         shell: pwsh
         env:

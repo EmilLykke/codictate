@@ -67,6 +67,8 @@ jobs:
 
           rm certificate.p12
 
+      # build:<channel> runs build:native first, which builds the Swift helpers and the
+      # `codictate` command line (bun run build:native:cli) before `electrobun build`.
       - name: Build (${{ inputs.channel }})
         env:
           ELECTROBUN_DEVELOPER_ID: ${{ secrets.ELECTROBUN_DEVELOPER_ID || '' }}

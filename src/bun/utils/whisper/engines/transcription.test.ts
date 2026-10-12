@@ -131,6 +131,7 @@ describe('failedTranscription', () => {
     'engine_timed_out',
     'parakeet_no_final_line',
     'engine_output_unreadable',
+    'cancelled',
   ]
 
   it('writes a finished sentence for every reason', () => {

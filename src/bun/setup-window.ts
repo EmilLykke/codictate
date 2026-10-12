@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserView, BrowserWindow } from 'electrobun/bun'
+import { BrowserView, BrowserWindow, Utils } from 'electrobun/bun'
 import { getPlatform } from './platform'
 import type {
   WebviewRPCType,
@@ -8,11 +8,15 @@ import type {
   AppStatus,
   DeviceInfo,
   AudioDuckingSettingsPatch,
+  FileTranscriptionOutcome,
+  FileTranscriptionsState,
   DictationNoticeKind,
   DictionarySettingsPatch,
   FormattingSettingsPatch,
   GeneralSettingsPatch,
   HistorySettingsPatch,
+  ModelDownloadProgress,
+  NavigateRequest,
   PermissionState,
   SettingsPane,
   StatsRange,
@@ -29,7 +33,28 @@ import { modelManager } from './utils/whisper/model-manager'
 import { formatterModelManager } from './utils/formatting/formatter-model-manager'
 import { getPlatformRuntime } from './platform/runtime'
 import { setWindowsWindowIcon } from './utils/window/windows-window-icon'
+import {
+  addCommandLineToUserPath,
+  getCommandLineInstallState,
+  installCommandLine,
+  removeCommandLine,
+} from './command-line-install'
 import type { AudioDeviceSnapshot } from './utils/audio/devices'
+import type { FileTranscriptionQueue } from './file-transcription'
+import {
+  createWindowFileTranscriptions,
+  type WindowFileTranscriptions,
+} from './window-file-transcriptions/controller'
+import {
+  chooseFilesWithNativeDialog,
+  writeNewTextFile,
+} from './window-file-transcriptions/native'
+import {
+  droppedFilePath,
+  mainWindowNavigationRules,
+} from './window-file-transcriptions/paths'
+import { createModelOperations, type ModelOperations } from './model-operations'
+import { log } from './utils/logger'
 
 interface WindowDeps {
   url: string
@@ -64,6 +89,8 @@ interface WindowDeps {
   onFormattingModeChanged?: () => void
   historyManager?: HistoryManager
   statsManager?: StatsManager
+  /** The File Transcription queue shared with the command line. */
+  fileTranscriptions?: FileTranscriptionQueue
 }
 
 export interface WindowHandle {
@@ -73,24 +100,32 @@ export interface WindowHandle {
     updateDevice: (data: DeviceInfo) => void
     updateSettings: (data: AppSettings) => void
     openSettingsScreen: () => void
+    /** Switch the sidebar page and/or open the Settings modal at a tab. */
+    navigate: (data: NavigateRequest) => void
     updateCheckStatus: (data: {
       state: UpdateCheckState
       message?: string
     }) => void
-    updateModelDownloadProgress: (data: {
-      modelId: string
-      progressFraction: number
-      done: boolean
-      error?: string
-    }) => void
+    updateModelDownloadProgress: (data: ModelDownloadProgress) => void
     updateModelAvailability: (data: {
       modelId: string
       available: boolean
     }) => void
     historyEntryAdded: (data: Record<string, never>) => void
     statsUpdated: (data: Record<string, never>) => void
+    fileTranscriptionsChanged: (data: FileTranscriptionsState) => void
   }
   hasWindow: () => boolean
+  /**
+   * Speech Model downloads and removals, shared with the command line: a download either
+   * side starts shows on the Models page, and both end in the heal pass.
+   */
+  models: ModelOperations
+  /**
+   * Open the native file dialog and queue each chosen file as a window File Transcription.
+   * Resolves how many were queued; 0 when the user cancelled.
+   */
+  chooseAndTranscribeFiles: () => Promise<number>
   /**
    * Returns (or creates) the main window.
    * `onAction` is invoked once the window is ready to receive messages —
@@ -161,6 +196,65 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
     }
     deps.onTranslateChanged?.()
     deps.onStreamModeChanged?.()
+  }
+
+  const models = createModelOperations({
+    store: modelManager,
+    pushProgress: (progress) =>
+      sendIfWindowAlive(() => rpc.send.updateModelDownloadProgress(progress)),
+    pushAvailability: (data) =>
+      sendIfWindowAlive(() => rpc.send.updateModelAvailability(data)),
+    onAvailabilityChanged: healAfterAvailabilityChange,
+    log: (event, data) => log('model-operations', event, data),
+  })
+
+  /** Tell the user about a finished transcript they cannot see: the window is closed. */
+  function notifyFinishedWhileClosed(outcome: FileTranscriptionOutcome): void {
+    if (hasWindow()) return
+    if (outcome.status === 'failed' && outcome.code === 'cancelled') return
+    try {
+      Utils.showNotification(
+        outcome.status === 'ok'
+          ? { title: 'Transcript ready', body: outcome.fileName }
+          : { title: "Couldn't transcribe", body: outcome.fileName }
+      )
+    } catch (err) {
+      log('file-transcription', 'finished notification failed', {
+        err: String(err),
+      })
+    }
+  }
+
+  const windowFiles: WindowFileTranscriptions | null = deps.fileTranscriptions
+    ? createWindowFileTranscriptions({
+        queue: deps.fileTranscriptions,
+        chooseFiles: chooseFilesWithNativeDialog,
+        saveToHistory: async ({ transcript, fileName, durationMs }) => {
+          if (!deps.historyManager || !deps.appConfig.getHistoryEnabled()) {
+            return false
+          }
+          await deps.historyManager.saveFileTranscription(transcript, {
+            fileName,
+            durationMs,
+            maxEntries: deps.appConfig.getHistoryMaxEntries(),
+          })
+          sendIfWindowAlive(() => rpc.send.historyEntryAdded({}))
+          return true
+        },
+        writeNewFile: writeNewTextFile,
+        fallbackFolder: () => Utils.paths.downloads,
+        reveal: (path) => Utils.showItemInFolder(path),
+        now: () => Date.now(),
+        onChange: (state) =>
+          sendIfWindowAlive(() => rpc.send.fileTranscriptionsChanged(state)),
+        onFinished: notifyFinishedWhileClosed,
+        log: (message, data) => log('file-transcription', message, data),
+      })
+    : null
+
+  const emptyFileTranscriptions: FileTranscriptionsState = {
+    active: [],
+    finished: [],
   }
 
   const rpc = BrowserView.defineRPC<WebviewRPCType>({
@@ -326,11 +420,27 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           if (ok) rpc.send.updateSettings(deps.appConfig.getSettings())
           return ok
         },
+        getCommandLineInstall: async () => getCommandLineInstallState(),
+        installCommandLine: async ({ replace }: { replace: boolean }) =>
+          installCommandLine(replace),
+        removeCommandLine: async () => removeCommandLine(),
+        addCommandLineToPath: async () => addCommandLineToUserPath(),
         setOnboardingIndicatorPreview: async ({ active, mode }) => {
           deps.appConfig.setRecordingIndicatorOnboardingPreview(active, mode)
           deps.onOnboardingIndicatorPreviewChanged?.()
           return true
         },
+        getFileTranscriptions: async () =>
+          windowFiles?.state() ?? emptyFileTranscriptions,
+        cancelFileTranscription: async ({ id }) =>
+          windowFiles?.cancel(id) ?? false,
+        dismissFileTranscription: async ({ id }) =>
+          windowFiles?.dismiss(id) ?? false,
+        saveTranscriptAsText: async ({ id }) =>
+          windowFiles?.saveAsText(id) ?? {
+            ok: false,
+            message: "That transcript isn't here anymore.",
+          },
         getHistoryEntries: async ({ search }) => {
           if (!deps.historyManager) return []
           return deps.historyManager.loadEntries(search)
@@ -381,7 +491,10 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
               deps.historyManager &&
               !deps.appConfig.isStatsBackfillDone()
             ) {
-              const entries = await deps.historyManager.loadEntries()
+              // Stats count Dictations. A File Transcription is not one.
+              const entries = (await deps.historyManager.loadEntries()).filter(
+                (entry) => entry.source === 'dictation'
+              )
               if (entries.length > 0) {
                 await deps.statsManager.backfillFromHistory(entries)
               }
@@ -436,37 +549,14 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           copyLogToClipboard().catch(console.error)
         },
         downloadWhisperModel: ({ modelId }) => {
-          modelManager
-            .downloadModel(modelId, (progressFraction, done, error) => {
-              try {
-                rpc.send.updateModelDownloadProgress({
-                  modelId,
-                  progressFraction,
-                  done,
-                  error,
-                })
-                if (done && !error) {
-                  // The heal pass also settles the runnable-settings observer, which is what
-                  // starts Parakeet's preparation when the weights that just landed are the
-                  // ones the user has selected.
-                  void healAfterAvailabilityChange()
-                }
-              } catch {
-                // Window may be closed during a long download
-              }
-            })
-            .catch(console.error)
+          // Joins a download the command line already started for the same weights.
+          void models.download(modelId, 'window').result
         },
         cancelModelDownload: ({ modelId }) => {
-          modelManager.cancelDownload(modelId)
+          models.cancelDownload(modelId)
         },
         deleteWhisperModel: ({ modelId }) => {
-          const deleted = modelManager.deleteModel(modelId)
-          if (!deleted) return
-          // Deleting weights is never refused, so the configuration is what gets corrected:
-          // a dangling selection, a Translate toggle with nothing to translate with, a Live
-          // Transcription switched on without Parakeet.
-          void healAfterAvailabilityChange()
+          void models.remove(modelId)
         },
         downloadFormatterModel: ({ tier }) => {
           formatterModelManager
@@ -509,6 +599,12 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           mkdirSync(path, { recursive: true })
           getPlatform().openUrl(path)
         },
+        chooseFilesToTranscribe: () => {
+          void windowFiles?.chooseAndTranscribe()
+        },
+        revealSavedTranscript: ({ id }) => {
+          windowFiles?.reveal(id)
+        },
       },
     },
   })
@@ -524,6 +620,27 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
       rpc,
     })
     setWindowsWindowIcon(win)
+    // Every navigation away from the app is blocked. A file dropped on the window makes the
+    // webview navigate to its `file://` URL, since neither WKWebView nor WebView2 gives the
+    // page a dropped file's real path; blocking keeps the app on screen and `will-navigate`
+    // carries the path. Set on the webview after creation: Electrobun 1.18 ignores the
+    // `navigationRules` constructor option.
+    win.webview.setNavigationRules(mainWindowNavigationRules(deps.url))
+    win.webview.on('will-navigate', (event) => {
+      const detail = (event as { data?: { detail?: unknown } }).data?.detail
+      if (typeof detail !== 'string') return
+      let url: unknown
+      try {
+        url = (JSON.parse(detail) as { url?: unknown }).url
+      } catch {
+        return
+      }
+      if (typeof url !== 'string') return
+      const path = droppedFilePath(url, getPlatformRuntime())
+      if (path === null || windowFiles === null) return
+      windowFiles.transcribe([path])
+      sendIfWindowAlive(() => rpc.send.navigate({ tab: 'transcribe' }))
+    })
     return win
   }
 
@@ -573,6 +690,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         sendIfWindowAlive(() => rpc.send.updateSettings(data)),
       openSettingsScreen: () =>
         sendIfWindowAlive(() => rpc.send.openSettingsScreen({})),
+      navigate: (data) => sendIfWindowAlive(() => rpc.send.navigate(data)),
       updateCheckStatus: (data) =>
         sendIfWindowAlive(() => rpc.send.updateCheckStatus(data)),
       updateModelDownloadProgress: (data) =>
@@ -583,8 +701,13 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         sendIfWindowAlive(() => rpc.send.historyEntryAdded(data)),
       statsUpdated: (data) =>
         sendIfWindowAlive(() => rpc.send.statsUpdated(data)),
+      fileTranscriptionsChanged: (data) =>
+        sendIfWindowAlive(() => rpc.send.fileTranscriptionsChanged(data)),
     },
     hasWindow,
+    models,
+    chooseAndTranscribeFiles: async () =>
+      (await windowFiles?.chooseAndTranscribe()) ?? 0,
     getOrCreateWindow,
   }
 }

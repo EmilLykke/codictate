@@ -6,6 +6,7 @@ mod audio;
 mod indicator;
 mod ipc;
 mod keyboard;
+mod media;
 
 fn print_help() {
     println!("CodictateWindowsHelper");
@@ -14,6 +15,7 @@ fn print_help() {
     println!("Implemented:");
     println!("  --list-devices");
     println!("  --mic-authorization");
+    println!("  extract-audio <input> <output.wav>");
     println!("  indicator");
     println!("  keyboard-hook");
     println!("  record <path> <deviceIndexOrEndpointId> <maxSeconds>");
@@ -35,6 +37,7 @@ fn main() -> ExitCode {
         }
         Some("--list-devices") => audio::handle_list_devices(),
         Some("--mic-authorization") => audio::handle_mic_authorization(),
+        Some("extract-audio") => media::handle_extract_audio(&args),
         Some("indicator") => indicator::handle_indicator(),
         Some("keyboard-hook") => keyboard::handle_keyboard_hook(),
         Some("record") => audio::handle_record(&args),

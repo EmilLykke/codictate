@@ -34,6 +34,7 @@ import {
   type PermissionStatus,
 } from './utils/keyboard/keyboard-events'
 import {
+  duckDelayAfterStartChimeMs,
   playCancelSound,
   playEndSound,
   playErrorSound,
@@ -50,7 +51,32 @@ import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { log } from './utils/logger'
 import { startObserverHelper } from './utils/keyboard/observer-helper'
-import { getPlatformRuntime } from './platform/runtime'
+import { getPlatformRuntime, RECORDING_PATH } from './platform/runtime'
+import type { DictationStartedBy } from '../shared/command-line-protocol'
+import type { FormattingModeId } from '../shared/formatting-modes'
+import {
+  activeDictationStatus,
+  claimDictation,
+  currentDictation,
+  releaseDictation,
+  stopAnyDictation,
+  type DictationClaim,
+} from './dictation/active-dictation'
+import type {
+  CommandLineDictationControl,
+  CommandLineDictationOptions,
+  CommandLineDictationResult,
+  CommandLineDictationStart,
+} from './dictation/command-line-dictation'
+import {
+  DEFAULT_END_OF_SPEECH_OPTIONS,
+  createEndOfSpeechDetector,
+  createLevelMeter,
+} from './dictation/end-of-speech'
+import {
+  watchGrowingWav,
+  type GrowingWavWatcher,
+} from './utils/audio/growing-wav'
 
 const getShortcutDefinition = (
   id: ShortcutId,
@@ -70,6 +96,44 @@ function holdFnChordConflictsWithFnGlobeMain(
     hybridId === 'fn-globe' && holdId !== null && isModifierChord(holdId, 'fn')
   )
 }
+
+/** How a finished Batch Dictation ended, for whoever started it. */
+type DictationFinish =
+  /** Cancelled (Escape, or the command line), or the recorder was killed. */
+  | { status: 'cancelled' }
+  /** Too short to be speech, or no usable file. Silence, not a failure. */
+  | { status: 'empty'; durationMs: number }
+  | { status: 'failed'; failure: FailedTranscription }
+  | { status: 'ok'; outcome: DictationOutcome; pasted: boolean }
+  | { status: 'error'; message: string }
+
+/**
+ * Where one Batch Dictation's Outcome goes. ADR-0006: the run returns an Outcome and placing
+ * it is the starter's job, so the shortcut pastes it and the command line may hand it back
+ * instead. History and Stats are saved the same way for both.
+ */
+interface DictationDelivery {
+  claim: DictationClaim
+  paste: boolean
+  /** Output the Raw Transcript: no brand table, Dictionary or Formatting Mode. */
+  raw: boolean
+  /** Use this Formatting Mode instead of the focused app's. */
+  formattingModeId: FormattingModeId | null
+  /** Aborted to cancel a Dictation that is already transcribing. */
+  signal?: AbortSignal
+  onRecording?(session: RecordingSession): void
+  onTranscribing?(): void
+  onFinished?(finish: DictationFinish): void
+}
+
+/** How a Live Transcription session ended. */
+type StreamEnd =
+  | { status: 'stopped' }
+  | { status: 'blocked'; plan: BlockedDictationPlan }
+  | { status: 'error'; message: string }
+
+const SILENCE_WITH_LIVE_MESSAGE =
+  '--until silence does not work with live transcription. Leave out --paste, or turn live transcription off in Settings.'
 
 function mergeSwallowRules(a: KeyEvent[], b: KeyEvent[]): KeyEvent[] {
   const seen = new Set<string>()
@@ -116,6 +180,8 @@ export const setupRecording = (
    */
   onDictationFailed?: (failure: FailedTranscription) => Promise<void>
 ) => {
+  /** Tells this instance's Dictations apart from those of an instance `index.ts` replaced. */
+  const instance = Symbol('setupRecording')
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null
   let recordingSession: RecordingSession | null = null
   let sessionStarting = false
@@ -125,6 +191,9 @@ export const setupRecording = (
   let pendingHoldReleaseStartedAtMs = 0
   let pendingStreamHoldReleaseWhileStarting = false
   let pendingStreamHoldReleaseStartedAtMs = 0
+  /** `stop()` / `cancel()` from a claim arrived while the recorder was still spawning. */
+  let pendingStopWhileStarting = false
+  let pendingCancelWhileStarting = false
 
   // Stream mode state
   let streamSession: StreamSession | null = null
@@ -133,6 +202,17 @@ export const setupRecording = (
   let activeStreamShortcutMode: 'hybrid' | 'holdOnly' | null = null
   /** Monotonic id for log correlation with Parakeet helper stderr (`[sN]`). */
   let streamDebugSeq = 0
+  /** Ends the running stream's claim and tells its starter. Once per stream. */
+  let streamEnd: ((end: StreamEnd) => void) | null = null
+
+  /** Anything at all in flight, here or in an instance this one replaced. */
+  const isBusy = () =>
+    currentDictation() !== null ||
+    recorderProc !== null ||
+    sessionStarting ||
+    transcriptionPipelineActive ||
+    streamSession !== null ||
+    streamStarting
 
   /**
    * The selected mic, resolved the same way batch Dictation resolves it for MicRecorder. Both
@@ -338,9 +418,10 @@ export const setupRecording = (
    * `transcriptionPipelineActive` true for the rest of the process and every later press was
    * refused until restart. A failed Dictation must cost one Dictation, not all of them.
    */
-  const releaseDictationPipeline = () => {
+  const releaseDictationPipeline = (claim: DictationClaim) => {
     transcriptionPipelineActive = false
     recordingSession = null
+    releaseDictation(claim)
     setTrayIdle()
     onStatusChange?.('ready')
   }
@@ -354,30 +435,53 @@ export const setupRecording = (
    * and the paste. What changed is who does it - `setup-recording.ts` already owns every
    * other post-Dictation surface, and the audio module should not be orchestrating the
    * Formatting Backend. ADR-0006.
+   *
+   * The Outcome goes to `delivery`, which belongs to whoever started the Dictation: the
+   * shortcut pastes it, the command line may only hand it back. History and Stats are the
+   * same for both.
    */
   const handleCaptureFinished = async (
     plan: RunnableDictationPlan,
-    capture: CaptureResult
+    session: RecordingSession,
+    capture: CaptureResult,
+    delivery: DictationDelivery
   ) => {
+    // The recorder has exited, whichever way. Nothing newer can be running: this Dictation
+    // still holds the claim until the release below.
+    recorderProc = null
+    activeRecordingMode = null
+
     // Cancelled, or too short to be speech. Silence, not a failure: no chime, no notice, and
-    // the session ends where it stands.
-    if (capture.discarded || capture.skipReason !== null) {
-      releaseDictationPipeline()
+    // the session ends where it stands. A cancel can land after the recorder exited but
+    // before this ran (the recorder's `onExit` reads `session.discard`, then inspects the
+    // WAV), so the session and the signal are asked again here, not only the capture.
+    const cancelled =
+      capture.discarded || session.discard || delivery.signal?.aborted === true
+    if (cancelled || capture.skipReason !== null) {
+      releaseDictationPipeline(delivery.claim)
+      delivery.onFinished?.(
+        cancelled
+          ? { status: 'cancelled' }
+          : { status: 'empty', durationMs: capture.durationMs }
+      )
       return
     }
 
-    recorderProc = null
     transcriptionPipelineActive = true
-    activeRecordingMode = null
-    setTrayTranscribing()
-    onStatusChange?.('transcribing')
 
     // Held rather than reported inline, because the tray error state has to outlive the
     // release below - which puts the tray back to idle. Same order the blocked-stream path
     // uses: idle first, then the error.
     let failure: FailedTranscription | null = null
+    let finish: DictationFinish
 
+    // Everything from here is inside the `try`, so a throw anywhere, these status calls
+    // included, still releases the claim.
     try {
+      setTrayTranscribing()
+      onStatusChange?.('transcribing')
+      delivery.onTranscribing?.()
+
       if (appConfig.getSoundEffectsEnabled())
         playEndSound(appConfig.getFunModeEnabled())
 
@@ -386,48 +490,161 @@ export const setupRecording = (
       // not part of producing this transcript.
       await appConfig.acceptPreviouslyAppliedEntries()
 
+      const formattingSettings = appConfig.getFormattingRuntimeSettings()
       const outcome = await runDictation({
         plan,
         audioPath: capture.audioPath,
         durationMs: capture.durationMs,
-        formattingSettings: appConfig.getFormattingRuntimeSettings(),
+        formattingSettings:
+          delivery.formattingModeId === null
+            ? formattingSettings
+            : { ...formattingSettings, forceModeId: delivery.formattingModeId },
         dictionaryEntries: appConfig.getDictionaryEntries(),
         onAppliedEntries: (entries) => appConfig.notifyAppliedEntries(entries),
+        raw: delivery.raw,
+        signal: delivery.signal,
       })
 
-      // An empty output is a Dictation the Speech Engine heard nothing in, and it writes
-      // nothing: no paste, no history entry, no stats row, no error chime. It used to paste
-      // an empty string over the cursor and count a zero-word stats row.
-      if (outcome.status === 'failed') {
+      if (delivery.signal?.aborted === true) {
+        // Cancelled while it was transcribing: nothing is pasted or saved, and the engine
+        // stopping on the signal is not a failure to report.
+        finish = { status: 'cancelled' }
+      } else if (outcome.status === 'failed') {
         failure = outcome
-      } else if (outcome.output !== '') {
-        await pasteTranscript(outcome.output)
+        finish = { status: 'failed', failure: outcome }
+      } else {
+        // An empty output is a Dictation the Speech Engine heard nothing in, and it writes
+        // nothing: no paste, no history entry, no stats row, no error chime. It used to paste
+        // an empty string over the cursor and count a zero-word stats row.
+        let pasted = false
+        if (outcome.output !== '') {
+          if (delivery.paste) {
+            await pasteTranscript(outcome.output)
+            pasted = true
+          }
 
-        if (onHistorySave) {
-          try {
-            await onHistorySave(outcome.output)
-          } catch (err) {
-            log('history', 'failed to save entry', { err: String(err) })
+          if (onHistorySave) {
+            try {
+              await onHistorySave(outcome.output)
+            } catch (err) {
+              log('history', 'failed to save entry', { err: String(err) })
+            }
+          }
+          if (onStatsSave) {
+            try {
+              await onStatsSave(outcome)
+            } catch (err) {
+              log('stats', 'failed to save session', { err: String(err) })
+            }
           }
         }
-        if (onStatsSave) {
-          try {
-            await onStatsSave(outcome)
-          } catch (err) {
-            log('stats', 'failed to save session', { err: String(err) })
-          }
-        }
+        finish = { status: 'ok', outcome, pasted }
       }
     } catch (err) {
-      log('whisper', 'transcription pipeline failed', {
-        err: err instanceof Error ? err.message : String(err),
-      })
+      const message = err instanceof Error ? err.message : String(err)
+      log('whisper', 'transcription pipeline failed', { err: message })
+      finish = { status: 'error', message: `The Dictation failed: ${message}` }
     } finally {
-      releaseDictationPipeline()
+      releaseDictationPipeline(delivery.claim)
     }
 
+    delivery.onFinished?.(finish)
     if (failure !== null) await reportFailedDictation(failure)
   }
+
+  const shortcutDelivery = (claim: DictationClaim): DictationDelivery => ({
+    claim,
+    paste: true,
+    raw: false,
+    formattingModeId: null,
+  })
+
+  /**
+   * Escape, for a Batch Dictation that is recording: the recorder is killed and the capture
+   * discarded, so nothing is transcribed, pasted or saved. False when nothing was recording.
+   */
+  const discardRecording = (): boolean => {
+    if (!recorderProc) return false
+    resetHoldGate()
+    activeRecordingMode = null
+    if (recordingSession) recordingSession.discard = true
+    recorderProc.kill()
+    recorderProc = null
+    setTrayIdle()
+    onStatusChange?.('ready')
+    if (appConfig.getSoundEffectsEnabled()) playCancelSound()
+    return true
+  }
+
+  /** The claim of a Batch Dictation run by this instance. */
+  const batchClaim = (
+    startedBy: DictationStartedBy,
+    transcription?: AbortController
+  ): DictationClaim => ({
+    owner: instance,
+    startedBy,
+    stop: () => {
+      if (sessionStarting) {
+        pendingStopWhileStarting = true
+        return true
+      }
+      if (recorderProc === null) return false
+      if (!sessionStopping) {
+        resetHoldGate()
+        void tryStop()
+      }
+      return true
+    },
+    // Whatever stage it is at, a cancelled Dictation is never transcribed, pasted or saved:
+    // the transcription signal is aborted on every path, and `handleCaptureFinished` checks
+    // it before it starts and again before it delivers.
+    cancel: () => {
+      const abortTranscription = (): boolean => {
+        if (transcription === undefined || transcription.signal.aborted) {
+          return false
+        }
+        transcription.abort()
+        return true
+      }
+      if (sessionStarting) {
+        pendingCancelWhileStarting = true
+        abortTranscription()
+        return
+      }
+      if (discardRecording()) {
+        abortTranscription()
+        return
+      }
+      if (abortTranscription() && appConfig.getSoundEffectsEnabled()) {
+        playCancelSound()
+      }
+    },
+  })
+
+  /** The claim of a Live Transcription run by this instance. */
+  const streamClaim = (startedBy: DictationStartedBy): DictationClaim => ({
+    owner: instance,
+    startedBy,
+    stop: () => {
+      if (streamStarting) {
+        pendingStreamHoldReleaseWhileStarting = true
+        return true
+      }
+      if (streamSession === null) return false
+      void tryStopStream()
+      return true
+    },
+    // As Escape does: the helper has already written its text into the field, so there is
+    // nothing left to discard. The stream just ends.
+    cancel: () => {
+      if (appConfig.getSoundEffectsEnabled()) playCancelSound()
+      if (streamStarting) {
+        pendingStreamHoldReleaseWhileStarting = true
+        return
+      }
+      void tryStopStream()
+    },
+  })
 
   const routeShortcutAction = async (
     mode: 'hybrid' | 'holdOnly',
@@ -475,24 +692,47 @@ export const setupRecording = (
     plan: RunnableDictationPlan,
     shortcutMode: 'hybrid' | 'holdOnly'
   ) => {
-    if (
-      streamSession !== null ||
-      streamStarting ||
-      recorderProc !== null ||
-      transcriptionPipelineActive
-    )
-      return
+    if (isBusy()) return
+    const claim = streamClaim('shortcut')
+    claimDictation(claim)
+    await startStream(plan, shortcutMode, true, claim)
+  }
+
+  /**
+   * One Live Transcription session. The caller has claimed the Dictation; every way out of
+   * here ends that claim exactly once, through `end`.
+   */
+  const startStream = async (
+    plan: RunnableDictationPlan,
+    shortcutMode: 'hybrid' | 'holdOnly',
+    /** Shortcut presses arm the hold gate; a command-line start has no key held down. */
+    armHoldGate: boolean,
+    claim: DictationClaim,
+    hooks: {
+      onStarted?(): void
+      onEnded?(end: StreamEnd): void
+    } = {}
+  ) => {
     streamStarting = true
     pendingStreamHoldReleaseWhileStarting = false
     pendingStreamHoldReleaseStartedAtMs = Date.now()
     const streamDebugId = ++streamDebugSeq
     activeStreamShortcutMode = shortcutMode
+    let ended = false
+    const end = (how: StreamEnd) => {
+      if (ended) return
+      ended = true
+      if (streamEnd === end) streamEnd = null
+      releaseDictation(claim)
+      hooks.onEnded?.(how)
+    }
     try {
       const streamDeviceRef = await resolveStreamDeviceRef()
       log('stream', 'starting Parakeet stream session', {
         streamTranscriptionMode: appConfig.getStreamTranscriptionMode(),
         speechModelId: plan.speechModelId,
         shortcutMode,
+        startedBy: claim.startedBy,
         streamDebugId,
         deviceRef: streamDeviceRef,
       })
@@ -512,6 +752,7 @@ export const setupRecording = (
             activeStreamShortcutMode = null
             setTrayIdle()
             onStatusChange?.('ready')
+            end({ status: 'stopped' })
           },
         },
         {
@@ -530,15 +771,18 @@ export const setupRecording = (
         resetHoldGate()
         setTrayIdle()
         onStatusChange?.('ready')
+        end({ status: 'blocked', plan: started.plan })
         await reportBlockedDictation(started.plan)
         return
       }
       streamSession = started.session
+      streamEnd = end
+      hooks.onStarted?.()
       if (pendingStreamHoldReleaseWhileStarting && streamSession !== null) {
         resetHoldGate()
         await tryStopStream()
       } else if (streamSession !== null) {
-        if (shortcutMode === 'hybrid') armHoldGateAfterStart()
+        if (shortcutMode === 'hybrid' && armHoldGate) armHoldGateAfterStart()
         else resetHoldGate()
       }
     } catch (err) {
@@ -551,6 +795,7 @@ export const setupRecording = (
       resetHoldGate()
       setTrayIdle()
       onStatusChange?.('ready')
+      end({ status: 'error', message: 'Live transcription could not start' })
     } finally {
       streamStarting = false
       if (streamSession === null) {
@@ -566,14 +811,20 @@ export const setupRecording = (
     const streamDebugId = streamSession.streamDebugId
     log('stream', 'stopping stream session', { streamDebugId })
     const session = streamSession
+    const end = streamEnd
     streamSession = null
+    streamEnd = null
     activeStreamShortcutMode = null
     pendingStreamHoldReleaseWhileStarting = false
     pendingStreamHoldReleaseStartedAtMs = 0
     resetHoldGate()
-    await stopParakeetStream(session)
-    setTrayIdle()
-    onStatusChange?.('ready')
+    try {
+      await stopParakeetStream(session)
+    } finally {
+      setTrayIdle()
+      onStatusChange?.('ready')
+      end?.({ status: 'stopped' })
+    }
   }
 
   const tryStop = async () => {
@@ -597,15 +848,28 @@ export const setupRecording = (
     plan: RunnableDictationPlan,
     mode: 'hybrid' | 'holdOnly'
   ) => {
-    if (
-      recorderProc !== null ||
-      sessionStarting ||
-      transcriptionPipelineActive
-    ) {
-      return
-    }
+    if (isBusy()) return
+    const claim = batchClaim('shortcut')
+    claimDictation(claim)
+    await startBatch(plan, mode, true, shortcutDelivery(claim))
+  }
+
+  /**
+   * One Batch Dictation's recording. The caller has claimed the Dictation; the claim is
+   * released when the capture is handled (`handleCaptureFinished`), or here when the
+   * recorder could not be started at all.
+   */
+  const startBatch = async (
+    plan: RunnableDictationPlan,
+    mode: 'hybrid' | 'holdOnly',
+    /** Shortcut presses arm the hold gate; a command-line start has no key held down. */
+    armHoldGate: boolean,
+    delivery: DictationDelivery
+  ) => {
     sessionStarting = true
     pendingHoldReleaseWhileStarting = false
+    pendingStopWhileStarting = false
+    pendingCancelWhileStarting = false
     pendingHoldReleaseStartedAtMs = Date.now()
     activeRecordingMode = mode
     try {
@@ -613,21 +877,28 @@ export const setupRecording = (
         mode,
         planMode: plan.mode,
         speechModelId: plan.speechModelId,
+        startedBy: delivery.claim.startedBy,
       })
       if (appConfig.getSoundEffectsEnabled())
         playStartSound(appConfig.getFunModeEnabled())
       setTrayRecording()
       onStatusChange?.('recording')
-      recordingSession = { discard: false, startedAtMs: Date.now() }
+      const session: RecordingSession = {
+        discard: false,
+        startedAtMs: Date.now(),
+      }
+      recordingSession = session
       recorderProc = await startRecording(
         appConfig,
         plan,
-        recordingSession,
-        (capture) => handleCaptureFinished(plan, capture),
+        session,
+        (capture) => handleCaptureFinished(plan, session, capture, delivery),
         getAudioDevices
       )
 
-      if (pendingHoldReleaseWhileStarting && recordingSession && recorderProc) {
+      const discardNow =
+        pendingHoldReleaseWhileStarting || pendingCancelWhileStarting
+      if (discardNow && recordingSession && recorderProc) {
         resetHoldGate()
         activeRecordingMode = null
         recordingSession.discard = true
@@ -635,14 +906,33 @@ export const setupRecording = (
         recorderProc = null
         setTrayIdle()
         onStatusChange?.('ready')
+        if (pendingCancelWhileStarting && appConfig.getSoundEffectsEnabled())
+          playCancelSound()
         p.kill('SIGINT')
         await p.exited
       } else if (recorderProc) {
-        if (mode === 'hybrid') armHoldGateAfterStart()
+        if (mode === 'hybrid' && armHoldGate) armHoldGateAfterStart()
         else resetHoldGate()
+        delivery.onRecording?.(session)
+        if (pendingStopWhileStarting) await tryStop()
       }
+    } catch (err) {
+      // No recorder, so no capture will ever arrive to release the claim.
+      log('mic', 'failed to start recording', { err: String(err) })
+      recorderProc = null
+      recordingSession = null
+      resetHoldGate()
+      releaseDictation(delivery.claim)
+      setTrayIdle()
+      onStatusChange?.('ready')
+      delivery.onFinished?.({
+        status: 'error',
+        message: 'The microphone recording could not start',
+      })
     } finally {
       sessionStarting = false
+      pendingStopWhileStarting = false
+      pendingCancelWhileStarting = false
       if (recorderProc === null) activeRecordingMode = null
     }
   }
@@ -674,6 +964,24 @@ export const setupRecording = (
     const hybrid = getHybridShortcut()
     const holdOnly = getHoldOnlyShortcut()
 
+    // A Dictation started by an instance `index.ts` has since replaced (settings change,
+    // permission refresh) is still the user's: a press of the shortcut stops it and Escape
+    // cancels it, as they would have in the instance that started it.
+    const foreign = currentDictation()
+    if (foreign !== null && foreign.owner !== instance) {
+      if (keyEvent.keyDown && !keyEvent.isRepeat) {
+        if (keyEvent.keycode === Key.escape) {
+          foreign.cancel()
+        } else if (
+          hybrid.matchesToggleDown(keyEvent) ||
+          holdOnly?.matchesToggleDown(keyEvent) === true
+        ) {
+          foreign.stop()
+        }
+      }
+      return
+    }
+
     if (streamSession !== null) {
       const activeStreamShortcut =
         activeStreamShortcutMode === 'holdOnly' && holdOnly !== null
@@ -703,17 +1011,7 @@ export const setupRecording = (
         void tryStopStream()
         return
       }
-      if (recorderProc) {
-        resetHoldGate()
-        activeRecordingMode = null
-        if (recordingSession) recordingSession.discard = true
-        recorderProc.kill()
-        recorderProc = null
-        setTrayIdle()
-        onStatusChange?.('ready')
-        if (appConfig.getSoundEffectsEnabled()) playCancelSound()
-        return
-      }
+      if (discardRecording()) return
     }
 
     if (recorderProc !== null) {
@@ -907,8 +1205,230 @@ export const setupRecording = (
     await tryStopStream()
   }
 
+  /**
+   * Follows the recording as it is written and calls `onEnd` once the user has spoken and
+   * then paused (`dictation/end-of-speech.ts`). The start chime is skipped, since it plays
+   * into the microphone as the recording opens.
+   */
+  const watchForEndOfSpeech = (
+    startedAtMs: number,
+    onEnd: () => void
+  ): GrowingWavWatcher => {
+    const chimeMs = appConfig.getSoundEffectsEnabled()
+      ? duckDelayAfterStartChimeMs(appConfig.getFunModeEnabled())
+      : 0
+    const detector = createEndOfSpeechDetector({
+      ignoreLeadingMs: chimeMs + 150,
+    })
+    let meter: ((samples: Int16Array) => void) | null = null
+    let ended = false
+    return watchGrowingWav({
+      path: RECORDING_PATH,
+      startedAtMs,
+      onSamples: (samples, sampleRate) => {
+        meter ??= createLevelMeter(
+          Math.round(
+            (sampleRate * DEFAULT_END_OF_SPEECH_OPTIONS.frameMs) / 1000
+          ),
+          (levelDb) => {
+            if (ended || !detector.push(levelDb)) return
+            ended = true
+            log('mic', 'end of speech heard (--until silence)')
+            onEnd()
+          }
+        )
+        meter(samples)
+      },
+    })
+  }
+
+  /**
+   * A Dictation from `codictate dictate`. The same Dictation the shortcut runs: the plan
+   * comes from the one resolver, and the sounds, tray, indicator, History and Stats are the
+   * shortcut's. While it records, the Dictation Shortcut stops it and Escape cancels it, as
+   * for a tapped Dictation.
+   *
+   * What differs: `output: 'stdout'` hands the Outcome back without pasting and is always a
+   * Batch Dictation, because a Live Transcription has no Outcome to hand back. `'cursor'`
+   * pastes like the shortcut and honours the Live Transcription setting. Overrides apply to
+   * this plan only and never write settings.
+   */
+  const startCommandLineDictation = async (
+    options: CommandLineDictationOptions
+  ): Promise<CommandLineDictationStart> => {
+    if (isBusy()) return { status: 'busy' }
+
+    const fromOverrides =
+      options.speechModelId !== null || options.transcriptionLanguageId !== null
+    const plan = appConfig.getDictationPlanFor({
+      speechModelId: options.speechModelId,
+      transcriptionLanguageId: options.transcriptionLanguageId,
+      forceBatch: options.output === 'stdout',
+    })
+    if (plan.status === 'blocked') {
+      log('command-line', 'dictation blocked', {
+        reason: plan.reason,
+        fromOverrides,
+      })
+      // From the settings alone, a blocked plan means the world changed under them: the
+      // shortcut's surfaces and heal pass, so the next Dictation works. A blocked override
+      // says nothing about the settings, and the caller already has the reason.
+      if (!fromOverrides) void reportBlockedDictation(plan)
+      return { status: 'blocked', plan, fromOverrides }
+    }
+    if (plan.mode === 'live' && options.until === 'silence') {
+      return { status: 'unsupported', message: SILENCE_WITH_LIVE_MESSAGE }
+    }
+
+    let settle: (result: CommandLineDictationResult) => void = () => {}
+    const result = new Promise<CommandLineDictationResult>((resolve) => {
+      settle = resolve
+    })
+    const appMaxSeconds = appConfig.getMaxRecordingDurationSeconds()
+    let maxTimer: ReturnType<typeof setTimeout> | null = null
+    let silenceWatcher: GrowingWavWatcher | null = null
+    const stopEndings = () => {
+      if (maxTimer !== null) clearTimeout(maxTimer)
+      maxTimer = null
+      silenceWatcher?.stop()
+      silenceWatcher = null
+    }
+    const audioSeconds = (ms: number) => Math.round(ms / 100) / 10
+
+    if (plan.mode === 'live') {
+      const claim = streamClaim('command-line')
+      claimDictation(claim)
+      void onDictationPlan?.(plan)
+      let startedAtMs = 0
+      let cancelled = false
+      // The Parakeet helper has no maximum of its own, so both limits are timed here.
+      const limitSeconds = Math.min(
+        options.maxSeconds ?? appMaxSeconds,
+        appMaxSeconds
+      )
+      void startStream(plan, 'hybrid', false, claim, {
+        onStarted: () => {
+          startedAtMs = Date.now()
+          options.onEvent({ type: 'recording' })
+          maxTimer = setTimeout(() => claim.stop(), limitSeconds * 1000)
+        },
+        onEnded: (end) => {
+          stopEndings()
+          if (end.status === 'blocked') {
+            settle({ status: 'blocked', plan: end.plan })
+          } else if (end.status === 'error') {
+            settle({ status: 'error', message: end.message })
+          } else if (cancelled || startedAtMs === 0) {
+            settle({ status: 'cancelled' })
+          } else {
+            options.onEvent({ type: 'transcribing' })
+            settle({
+              status: 'ok',
+              text: '',
+              rawText: '',
+              formattingModeId: null,
+              pasted: true,
+              live: true,
+              plan,
+              audioSeconds: audioSeconds(Date.now() - startedAtMs),
+            })
+          }
+        },
+      })
+      return {
+        status: 'started',
+        stop: () => {
+          claim.stop()
+        },
+        cancel: () => {
+          cancelled = true
+          claim.cancel()
+        },
+        result,
+      }
+    }
+
+    const transcription = new AbortController()
+    const claim = batchClaim('command-line', transcription)
+    claimDictation(claim)
+    void onDictationPlan?.(plan)
+    void startBatch(plan, 'hybrid', false, {
+      claim,
+      paste: options.output === 'cursor',
+      raw: options.raw,
+      formattingModeId: options.formattingModeId,
+      signal: transcription.signal,
+      onRecording: (session) => {
+        options.onEvent({ type: 'recording' })
+        // Codictate's own maximum is enforced by the recorder; a shorter one is timed here.
+        if (options.maxSeconds !== null && options.maxSeconds < appMaxSeconds) {
+          maxTimer = setTimeout(() => claim.stop(), options.maxSeconds * 1000)
+        }
+        if (options.until === 'silence') {
+          silenceWatcher = watchForEndOfSpeech(session.startedAtMs, () =>
+            claim.stop()
+          )
+        }
+      },
+      onTranscribing: () => {
+        stopEndings()
+        options.onEvent({ type: 'transcribing' })
+      },
+      onFinished: (finish) => {
+        stopEndings()
+        switch (finish.status) {
+          case 'cancelled':
+          case 'error':
+            settle(finish)
+            return
+          case 'failed':
+            settle({ status: 'failed', failure: finish.failure, plan })
+            return
+          case 'empty':
+            settle({
+              status: 'ok',
+              text: '',
+              rawText: '',
+              formattingModeId: null,
+              pasted: false,
+              live: false,
+              plan,
+              audioSeconds: audioSeconds(finish.durationMs),
+            })
+            return
+          case 'ok':
+            settle({
+              status: 'ok',
+              text: finish.outcome.output,
+              rawText: finish.outcome.rawTranscript,
+              formattingModeId: finish.outcome.formattingModeId,
+              pasted: finish.pasted,
+              live: false,
+              plan,
+              audioSeconds: audioSeconds(finish.outcome.durationMs),
+            })
+        }
+      },
+    })
+    return {
+      status: 'started',
+      stop: () => {
+        claim.stop()
+      },
+      cancel: () => claim.cancel(),
+      result,
+    }
+  }
+
+  const commandLine: CommandLineDictationControl = {
+    startCommandLineDictation,
+    stopAnyDictation,
+    getActiveDictation: activeDictationStatus,
+  }
+
   return {
     ...keyboard,
     stopActiveParakeetStream,
+    ...commandLine,
   }
 }

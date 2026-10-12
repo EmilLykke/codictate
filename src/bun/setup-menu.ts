@@ -13,7 +13,9 @@ export const setupApplicationMenu = (
   appConfig: AppConfig,
   getOrCreateWindow: () => BrowserWindow,
   onDeviceSelected?: (device: number) => void,
-  onOpenSettings?: () => void
+  onOpenSettings?: () => void,
+  /** "Transcribe File…": the native file dialog, then the Transcribe page. */
+  onTranscribeFile?: () => void
 ): {
   rebuildDeviceMenu: (selectedDevice: number) => void
   updateDeviceList: (
@@ -40,6 +42,7 @@ export const setupApplicationMenu = (
     {
       submenu: [
         { label: 'Show Window', action: 'show-window' },
+        { label: 'Transcribe File…', action: 'transcribe-file' },
         { label: 'Settings', action: 'open-settings' },
         { type: 'separator' as const },
         {
@@ -87,6 +90,10 @@ export const setupApplicationMenu = (
     }
     if (e.data.action === 'open-settings') {
       onOpenSettings?.()
+      return
+    }
+    if (e.data.action === 'transcribe-file') {
+      onTranscribeFile?.()
       return
     }
     handleDeviceAction(

@@ -15,6 +15,7 @@ import {
   decodeEngineStdout,
   stderrTail,
 } from './drain-stream'
+import { lowerProcessPriority } from './process-priority'
 import { superviseProcess } from './process-supervisor'
 import {
   failedTranscription,
@@ -66,6 +67,10 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     )
   }
 
+  if (request.signal?.aborted) {
+    return failedTranscription('cancelled', request.speechModelId)
+  }
+
   log('whisper', 'spawning ASR harness', {
     harness: command.harness,
     backend: command.crispasrBackend,
@@ -75,11 +80,13 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     languageMode: command.languageArg === 'auto' ? 'auto-detect' : 'fixed',
     modelId: request.speechModelId,
     translateToEnglish: request.translateToEnglish,
+    lowPriority: request.lowPriority === true,
   })
 
   const proc = Bun.spawn(command.argv, {
     stdout: 'pipe',
     stderr: 'pipe',
+    signal: request.signal,
     env: {
       ...process.env,
       // Avoid C locale / missing UTF-8 so the ASR Harness prints a UTF-8 transcript
@@ -88,12 +95,20 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     },
   })
 
+  if (request.lowPriority) lowerProcessPriority(proc.pid, 'whisper')
+
   const supervised = await superviseProcess(proc, {
     stdout: proc.stdout,
     stderr: proc.stderr,
     timeoutMs: request.timeoutMs,
   })
   const stderrText = decodeEngineStderr(supervised.stderr)
+  // Aborting the signal kills the process, which then looks like any other non-zero exit.
+  // The caller asked for that, so it is a cancellation and not an engine failure.
+  if (request.signal?.aborted) {
+    log('whisper', 'ASR harness cancelled', { modelId: request.speechModelId })
+    return failedTranscription('cancelled', request.speechModelId)
+  }
   if (supervised.status === 'timed_out') {
     log('whisper', 'ASR harness timed out', {
       harness: command.harness,

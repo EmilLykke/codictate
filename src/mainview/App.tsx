@@ -60,10 +60,16 @@ export default function App() {
     return appEvents.on("status", (s) => setStatus(s));
   }, []);
 
+  // The main process asked for a page or Settings: leave any dev preview so the main view
+  // that handles the request is the one on screen.
   useEffect(() => {
-    return appEvents.on("openSettingsScreen", () => {
-      setDevPreviewRoute(null);
-    });
+    const leavePreview = () => setDevPreviewRoute(null);
+    const offOpen = appEvents.on("openSettingsScreen", leavePreview);
+    const offNavigate = appEvents.on("navigate", leavePreview);
+    return () => {
+      offOpen();
+      offNavigate();
+    };
   }, []);
 
   const openSettings = useCallback((pane: SettingsPane) => {

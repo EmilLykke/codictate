@@ -16,6 +16,7 @@ import {
   stderrTail,
 } from './drain-stream'
 import { parseParakeetFinalText } from './parakeet-output'
+import { lowerProcessPriority } from './process-priority'
 import { superviseProcess } from './process-supervisor'
 import {
   failedTranscription,
@@ -74,9 +75,15 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     )
   }
 
+  // A cancel that landed while this waited on the preparation spawns nothing.
+  if (request.signal?.aborted) {
+    return failedTranscription('cancelled', request.speechModelId)
+  }
+
   log('parakeet', 'spawning CodictateParakeetHelper transcribe', {
     helper,
     modelDir: request.modelDir,
+    lowPriority: request.lowPriority === true,
   })
 
   const proc = Bun.spawn(
@@ -84,6 +91,7 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     {
       stdout: 'pipe',
       stderr: 'pipe',
+      signal: request.signal,
       env: {
         ...process.env,
         LC_ALL: 'en_US.UTF-8',
@@ -92,12 +100,20 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     }
   )
 
+  if (request.lowPriority) lowerProcessPriority(proc.pid, 'parakeet')
+
   const supervised = await superviseProcess(proc, {
     stdout: proc.stdout,
     stderr: proc.stderr,
     timeoutMs: request.timeoutMs,
   })
   const stderrText = decodeEngineStderr(supervised.stderr)
+  // Aborting the signal kills the helper, which then looks like any other non-zero exit.
+  // The caller asked for that, so it is a cancellation and not an engine failure.
+  if (request.signal?.aborted) {
+    log('parakeet', 'helper cancelled', { modelId: request.speechModelId })
+    return failedTranscription('cancelled', request.speechModelId)
+  }
 
   if (supervised.status === 'timed_out') {
     log('parakeet', 'helper timed out', { timeoutMs: request.timeoutMs })

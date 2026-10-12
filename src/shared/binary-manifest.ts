@@ -8,6 +8,12 @@ export type BinaryId =
   | 'parakeet'
   | 'llama'
   | 'crispasr'
+  /**
+   * The media decoder File Transcription runs: `<helper> extract-audio <in> <out.wav>`.
+   * AVFoundation in `CodictateMediaHelper` on macOS, Media Foundation in
+   * `CodictateWindowsHelper` on Windows, with the same argv and exit codes (ADR-0009).
+   */
+  | 'media'
 
 export interface BinaryArtifact {
   source: string
@@ -66,6 +72,12 @@ const macos: Record<BinaryId, BinaryArtifact> = {
     remediation:
       'crispasr not found. Run `bun run scripts/pre-build.ts --crispasr-only`, then rebuild the app.',
   },
+  media: {
+    source: 'vendors/media-helper/CodictateMediaHelper',
+    destination: 'native-helpers/CodictateMediaHelper',
+    remediation:
+      'CodictateMediaHelper not found. Run `bun run build:native`, then rebuild the app.',
+  },
 }
 
 const windows: Record<BinaryId, BinaryArtifact | null> = {
@@ -74,6 +86,7 @@ const windows: Record<BinaryId, BinaryArtifact | null> = {
   window: windowsHelper,
   parakeet: windowsHelper,
   observer: null,
+  media: windowsHelper,
   llama: {
     ...macos.llama,
     source: macos.llama.source + '.exe',
@@ -98,6 +111,7 @@ export const BINARY_MANIFEST: Record<
     window: null,
     observer: null,
     parakeet: null,
+    media: null,
     llama: macos.llama,
     crispasr: macos.crispasr,
   },

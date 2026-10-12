@@ -1,7 +1,8 @@
 /**
- * Reading the selected Speech Model out of a persisted config file.
+ * Reading the selected Speech Model and Transcription Language out of a persisted config
+ * file, for `AppConfig`.
  *
- * One function, in its own module for one reason: `AppConfig.ts` cannot be imported without
+ * In its own module for one reason: `AppConfig.ts` cannot be imported without
  * its paths, its `modelManager` and its logger, so anything that lives in it cannot be
  * tested without a filesystem. This is the field a rename moved, on a config file written by
  * an older build, and getting it wrong resets a user's Speech Model to the default without
@@ -9,6 +10,7 @@
  */
 
 import { isValidSpeechModelId } from '../../shared/speech-models'
+import { isValidTranscriptionLanguageId } from '../../shared/transcription-languages'
 
 /** The current key. */
 const SPEECH_MODEL_KEY = 'speechModelId'
@@ -43,4 +45,17 @@ export function persistedSpeechModelId(
         : null
   if (found === null) return null
   return isValidSpeechModelId(found) ? found : null
+}
+
+/**
+ * The persisted Transcription Language id, or `null` when the file names none this build
+ * recognises - in which case the caller keeps its default (`auto`).
+ */
+export function persistedTranscriptionLanguageId(
+  raw: Record<string, unknown>
+): string | null {
+  const value = raw.transcriptionLanguageId
+  return typeof value === 'string' && isValidTranscriptionLanguageId(value)
+    ? value
+    : null
 }

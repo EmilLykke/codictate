@@ -206,6 +206,12 @@ export interface AppSettings {
   funModeEnabled: boolean
   /** When false, dictation start/stop/cancel sounds are suppressed. */
   soundEffectsEnabled: boolean
+  /**
+   * Command-Line Control: whether the `codictate` command may start a Dictation or change
+   * Codictate's settings. Off until the user turns it on (ADR-0009). File Transcription and
+   * reading status never need it.
+   */
+  commandLineControl: boolean
   /** `auto` = language detection; else a key from `TRANSCRIPTION_LANGUAGE_OPTIONS`. */
   transcriptionLanguageId: string
   /**
@@ -341,6 +347,7 @@ export interface GeneralSettingsPatch {
   debugMode?: boolean
   funModeEnabled?: boolean
   soundEffectsEnabled?: boolean
+  commandLineControl?: boolean
   userDisplayName?: string
   onboardingCompleted?: boolean
   recordingIndicatorMode?: RecordingIndicatorMode
@@ -378,12 +385,24 @@ export interface DictionarySettingsPatch {
 
 export type AudioDuckingSettingsPatch = Partial<AudioDuckingSettings>
 
+/**
+ * What a History entry came from. A Dictation, or a File Transcription asked for in
+ * Codictate's window (GLOSSARY.md: History). Index files written before File Transcription
+ * have no `source`; they are read as `dictation`.
+ */
+export type HistoryEntrySource = 'dictation' | 'file'
+
 export interface HistoryEntry {
   id: string
   timestamp: number
   transcript: string
+  /** Empty when no audio was kept, which is always the case for a File Transcription. */
   audioFilename: string
+  /** For a File Transcription, the length of the file's audio. */
   durationMs?: number
+  source: HistoryEntrySource
+  /** The transcribed file's name, for `source: 'file'`. */
+  fileName?: string
 }
 
 export interface HistorySettings {
@@ -437,6 +456,175 @@ export interface StatsSummary {
   currentStreakDays: number
   longestStreakDays: number
 }
+
+/** A page in the main window's sidebar. Shared so the main process can name one in `navigate`. */
+export type SidebarTab =
+  | 'home'
+  | 'transcribe'
+  | 'dictionary'
+  | 'models'
+  | 'formatting'
+  | 'history'
+  | 'stats'
+
+/** A tab in the Settings modal. Shared so the main process can name one in `navigate`. */
+export type SettingsTab =
+  | 'general'
+  | 'audio'
+  | 'shortcuts'
+  | 'ui'
+  | 'history'
+  | 'stats'
+  | 'command-line'
+  | 'debug'
+  | 'fun'
+
+/**
+ * Where the main process wants the window to go: a sidebar page, the Settings modal at a
+ * tab, or both. An empty request is a no-op.
+ */
+export interface NavigateRequest {
+  tab?: SidebarTab
+  settingsTab?: SettingsTab
+}
+
+/** A Speech Model download's progress, pushed to the window whoever started it. */
+export interface ModelDownloadProgress {
+  modelId: string
+  progressFraction: number
+  done: boolean
+  error?: string
+  /**
+   * The window started this download or joined it. Only then does a finished download
+   * select the Speech Model; one only the command line asked for never does.
+   */
+  requestedByWindow: boolean
+}
+
+/**
+ * What sits at `~/.local/bin/codictate` on macOS, relative to this app's client.
+ *
+ * - `installed`: a symlink to this app's client.
+ * - `other-codictate`: a symlink to some other Codictate's client (another channel, an old
+ *   copy, a dev build). Safe to replace when the user asks.
+ * - `foreign`: anything else. Never overwritten.
+ * - `not-installed`: nothing there.
+ */
+export type CommandLineLinkStatus =
+  'installed' | 'other-codictate' | 'foreign' | 'not-installed'
+
+/** How to put the `codictate` command on the user's PATH, as Settings shows it. */
+export type CommandLineInstallState =
+  | {
+      platform: 'macos'
+      /** This app's client, or `null` when the bundle has none (a dev build without it). */
+      clientPath: string | null
+      /** The symlink location, for display (`~/.local/bin/codictate`). */
+      linkPath: string
+      link: CommandLineLinkStatus
+      /**
+       * The app runs from the disk image or a translocated copy, so a link to it would break;
+       * install refuses until the app is in Applications.
+       */
+      mustMoveToApplications: boolean
+      /** Where the existing symlink points, when there is one. */
+      linkTarget: string | null
+      /** `~/.local/bin` on the login shell's PATH; `null` when the shell could not be asked. */
+      onPath: boolean | null
+      /** The line that puts `~/.local/bin` on PATH for the user's shell, and where it goes. */
+      pathSetup: { line: string; where: string }
+    }
+  | {
+      platform: 'windows'
+      clientPath: string | null
+      /** The directory the installer puts on the user's Path. */
+      binDir: string
+      /** `binDir` in the user's Path (HKCU); `null` when it could not be read. */
+      onPath: boolean | null
+    }
+  | { platform: 'linux' }
+
+export interface CommandLineInstallResult {
+  ok: boolean
+  /** One sentence for the user when `ok` is false. */
+  message: string | null
+  state: CommandLineInstallState
+}
+
+/**
+ * The File Transcription error codes, as the window shows them. Mirrors
+ * `FileTranscriptionErrorCode` in src/bun/file-transcription/types.ts (the command line's
+ * contract); the window controller assigns one to the other, so they cannot drift apart.
+ */
+export type FileTranscriptionFailureCode =
+  | 'input_unreadable'
+  | 'no_audio'
+  | 'model_not_installed'
+  | 'unknown_model'
+  | 'unknown_language'
+  | 'language_not_allowed'
+  | 'engine_failed'
+  | 'cancelled'
+  | 'internal'
+
+/** A File Transcription that is running or waiting, from the window or the command line. */
+export interface FileTranscriptionQueueItem {
+  id: string
+  fileName: string
+  /** Who asked. Command-line jobs are shown while they run, never kept. */
+  origin: 'window' | 'command-line'
+  /** The command line's self-reported caller (`Terminal`, `codiclens`), when there is one. */
+  callerName: string | null
+  state: 'queued' | 'decoding' | 'transcribing'
+  /** 1 means next. `null` for the running job. */
+  position: number | null
+  /** Epoch milliseconds, `null` while queued. */
+  startedAt: number | null
+  /** Length of the decoded audio, `null` until decoding has finished. */
+  audioSeconds: number | null
+}
+
+interface FileTranscriptionOutcomeBase {
+  id: string
+  fileName: string
+  filePath: string
+  /** Epoch milliseconds. */
+  finishedAt: number
+}
+
+/** A finished File Transcription asked for in the window. Kept in memory for the session. */
+export type FileTranscriptionOutcome =
+  | (FileTranscriptionOutcomeBase & {
+      status: 'ok'
+      /** The Raw Transcript. Empty for silence. */
+      text: string
+      audioSeconds: number
+      speechModelId: string
+      savedToHistory: boolean
+      /** Where "Save as text" last wrote it, if it did. */
+      savedTextPath: string | null
+    })
+  | (FileTranscriptionOutcomeBase & {
+      status: 'failed'
+      code: FileTranscriptionFailureCode
+      /** The queue's own one-line message, for the codes that need detail. */
+      message: string
+    })
+
+/** Everything the Transcribe page shows. Newest finished first. */
+export interface FileTranscriptionsState {
+  active: FileTranscriptionQueueItem[]
+  finished: FileTranscriptionOutcome[]
+}
+
+export type SaveTranscriptResult =
+  | {
+      ok: true
+      path: string
+      /** `source-folder`: beside the original file. `fallback-folder`: it could not be written there. */
+      location: 'source-folder' | 'fallback-folder'
+    }
+  | { ok: false; message: string }
 
 export type WebviewRPCType = {
   bun: RPCSchema<{
@@ -502,6 +690,46 @@ export type WebviewRPCType = {
         params: { patch: StatsSettingsPatch }
         response: boolean
       }
+      /** Where `codictate` is on PATH, if anywhere. Asks the login shell on macOS. */
+      getCommandLineInstall: {
+        params: {}
+        response: CommandLineInstallState
+      }
+      /** macOS: symlink `~/.local/bin/codictate` to this app's client. */
+      installCommandLine: {
+        params: { replace: boolean }
+        response: CommandLineInstallResult
+      }
+      /** macOS: remove `~/.local/bin/codictate`, only when it points to this app. */
+      removeCommandLine: {
+        params: {}
+        response: CommandLineInstallResult
+      }
+      /** Windows: append the client's directory to the user's Path. */
+      addCommandLineToPath: {
+        params: {}
+        response: CommandLineInstallResult
+      }
+      /** The Transcribe page's queue and this session's finished window File Transcriptions. */
+      getFileTranscriptions: {
+        params: {}
+        response: FileTranscriptionsState
+      }
+      /** Cancel a queued or running File Transcription, from the window or the command line. */
+      cancelFileTranscription: {
+        params: { id: string }
+        response: boolean
+      }
+      /** Remove a finished File Transcription from the page. History keeps its copy. */
+      dismissFileTranscription: {
+        params: { id: string }
+        response: boolean
+      }
+      /** Write a finished transcript to a `.txt` beside the original file. */
+      saveTranscriptAsText: {
+        params: { id: string }
+        response: SaveTranscriptResult
+      }
       /** Ephemeral: show the floating indicator during onboarding to preview the chosen mode. */
       setOnboardingIndicatorPreview: {
         params: { active: boolean; mode?: RecordingIndicatorMode }
@@ -533,6 +761,14 @@ export type WebviewRPCType = {
       deleteFormatterModel: { tier: FormatterModelTier }
       openExternalUrl: { url: string }
       openHistoryFolder: {}
+      /**
+       * Open the native file dialog and transcribe what the user picks. A message, not a
+       * request: the dialog stays open as long as the user likes, longer than a request may
+       * wait. The result arrives as `fileTranscriptionsChanged`.
+       */
+      chooseFilesToTranscribe: {}
+      /** Show a transcript saved by `saveTranscriptAsText` in Finder / Explorer. */
+      revealSavedTranscript: { id: string }
     }
   }>
   webview: RPCSchema<{
@@ -543,13 +779,10 @@ export type WebviewRPCType = {
       updateDevice: DeviceInfo
       updateSettings: AppSettings
       openSettingsScreen: {}
+      /** Switch the sidebar page and/or open the Settings modal at a tab. */
+      navigate: NavigateRequest
       updateCheckStatus: { state: UpdateCheckState; message?: string }
-      updateModelDownloadProgress: {
-        modelId: string
-        progressFraction: number
-        done: boolean
-        error?: string
-      }
+      updateModelDownloadProgress: ModelDownloadProgress
       updateModelAvailability: { modelId: string; available: boolean }
       updateFormatterModelProgress: {
         tier: FormatterModelTier
@@ -559,6 +792,8 @@ export type WebviewRPCType = {
       }
       historyEntryAdded: {}
       statsUpdated: {}
+      /** The File Transcription queue changed, or a window File Transcription finished. */
+      fileTranscriptionsChanged: FileTranscriptionsState
     }
   }>
 }

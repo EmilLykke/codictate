@@ -4,6 +4,7 @@ import type {
   AppSettings,
   AppStatus,
   DevAppPreviewRoute,
+  SettingsTab,
 } from "../../../shared/types";
 import { SectionUi } from "./Sections/SectionUi";
 import { SectionGeneral } from "./Sections/SectionGeneral";
@@ -13,20 +14,11 @@ import { SectionAudio } from "./Sections/SectionAudio";
 import { SectionFun } from "./Sections/SectionFun";
 import { SectionHistory } from "./Sections/SectionHistory";
 import { SectionStats } from "./Sections/SectionStats";
+import { SectionCommandLine } from "./Sections/SectionCommandLine";
 import { useState, useRef, useEffect, useCallback } from "react";
 
 const SECRET_UNLOCK_CLICK_COUNT = 3;
 const SECRET_UNLOCK_WINDOW_MS = 900;
-
-type SettingsTab =
-  | "general"
-  | "audio"
-  | "shortcuts"
-  | "ui"
-  | "history"
-  | "stats"
-  | "debug"
-  | "fun";
 
 const TAB_BUTTON =
   "flex items-center gap-3 px-3 py-2 rounded-lg text-[15px] font-medium transition-colors duration-200 cursor-pointer w-full text-left";
@@ -39,6 +31,7 @@ export function SettingsModal({
   settings,
   status,
   initialTab,
+  tabRequestId,
   devPreviewRoute,
   onDevPreviewRouteChange,
 }: {
@@ -47,6 +40,8 @@ export function SettingsModal({
   settings: AppSettings;
   status: AppStatus;
   initialTab?: SettingsTab;
+  /** Bumped to re-apply `initialTab` while the modal is already open. */
+  tabRequestId?: number;
   devPreviewRoute?: DevAppPreviewRoute | null;
   onDevPreviewRouteChange?: (route: DevAppPreviewRoute | null) => void;
 }) {
@@ -82,10 +77,11 @@ export function SettingsModal({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab ?? "general");
-    }
-  }, [isOpen, initialTab]);
+    if (!isOpen) return;
+    const tab = initialTab ?? "general";
+    setActiveTab(tab === "fun" && !funModeUnlocked ? "general" : tab);
+    // funModeUnlocked is read, not watched: unlocking switches the tab itself.
+  }, [isOpen, initialTab, tabRequestId]);
 
   return (
     <Dialog.Root
@@ -195,6 +191,16 @@ export function SettingsModal({
                         Stats
                       </button>
                       <button
+                        onClick={() => setActiveTab("command-line")}
+                        className={`${TAB_BUTTON} ${
+                          activeTab === "command-line"
+                            ? "bg-surface-3 text-overlay/90"
+                            : "text-overlay/50 hover:bg-surface-1 hover:text-overlay/70"
+                        }`}
+                      >
+                        Command Line
+                      </button>
+                      <button
                         onClick={() => setActiveTab("debug")}
                         className={`${TAB_BUTTON} ${
                           activeTab === "debug"
@@ -234,9 +240,11 @@ export function SettingsModal({
                                   ? "History"
                                   : activeTab === "stats"
                                     ? "Stats"
-                                    : activeTab === "debug"
-                                      ? "Debug"
-                                      : "Fun"}
+                                    : activeTab === "command-line"
+                                      ? "Command Line"
+                                      : activeTab === "debug"
+                                        ? "Debug"
+                                        : "Fun"}
                       </h2>
                       <Dialog.Close asChild>
                         <button
@@ -288,6 +296,9 @@ export function SettingsModal({
                         )}
                         {activeTab === "stats" && (
                           <SectionStats settings={settings} />
+                        )}
+                        {activeTab === "command-line" && (
+                          <SectionCommandLine settings={settings} />
                         )}
                         {activeTab === "debug" && (
                           <SectionDebug

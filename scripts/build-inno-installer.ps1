@@ -64,6 +64,12 @@ if (-not $SourceExeName) {
   throw "Windows launcher not found in $(Join-Path $SourceDir 'bin'). Expected launcher.exe or launcher."
 }
 
+# The `codictate` command line (docs/CLI.md); the installer puts this directory on Path.
+$CliPath = Join-Path $SourceDir 'Resources\app\bin\codictate.exe'
+if (-not (Test-Path -Path $CliPath -PathType Leaf)) {
+  throw "codictate.exe not found at $CliPath. Run 'bun run build:native:cli' before the Electrobun build."
+}
+
 if (-not (Test-Path -Path $OutputDir -PathType Container)) {
   New-Item -ItemType Directory -Path $OutputDir | Out-Null
 }

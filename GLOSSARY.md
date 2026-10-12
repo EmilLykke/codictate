@@ -4,7 +4,9 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 ## Dictation
 
-**Dictation** - one complete cycle of the core user action: the user activates a Dictation Shortcut, speaks, and the resulting text is placed at the cursor.
+**Dictation** - one complete cycle of the core user action: speech is captured from the microphone and turned into text. Started either by a Dictation Shortcut or from the command line. A Dictation started by its Shortcut places the text at the cursor; one started from the command line hands the text back to the command line, unless it asked for the text to be placed at the cursor instead.
+
+**Command-Line Control** - the user's permission for the command line to start a Dictation or change what Codictate is doing. Separate from File Transcription and from reading Codictate's state, which never touch the microphone and need no permission.
 
 **Dictation Plan** - the fully resolved description of what a single Dictation will do: which Speech Engine and Speech Model run it, in which Transcription Language, whether Translate to English applies, and whether it is a Live Transcription. A Dictation Plan is either runnable or blocked. Codictate never adapts a Dictation to an unrunnable state - it keeps the state runnable instead - so a blocked plan means something changed outside the app, and it names the reason rather than starting a Dictation that cannot do what was asked.
 
@@ -50,7 +52,11 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Translate to English** - a mode where the Speech Engine outputs English regardless of the spoken language, rather than transcribing verbatim. Distinct from Transcription Language, which selects the input language.
 
-**Live Transcription** - a mode where partial text appears while the user is still speaking, rather than only after the Dictation ends. Requires Parakeet, and a Transcription Language that Parakeet supports. Parakeet detects the spoken language itself, so the user does not choose one: the Transcription Language is automatic for the whole time Parakeet is the selected Speech Model. Previously labelled "Stream mode".
+**File Transcription** - transcribing an existing audio or video file with the selected Speech Model, or one the request names. Asked for from the command line or in Codictate's window. Not a Dictation: no Dictation Shortcut, no microphone, no Dictionary or Formatting Mode, and nothing is pasted; the result is the Raw Transcript. File Transcriptions run one at a time, and never make a Dictation wait. Only those asked for in Codictate's window are kept in History; one asked for from the command line belongs to whoever asked.
+
+**History** - the user's record of past Dictations and of File Transcriptions asked for in Codictate's window.
+
+**Live Transcription** - a mode where partial text appears while the user is still speaking, rather than only after the Dictation ends. Requires Parakeet, and a Transcription Language that Parakeet supports. Only a Dictation that places its text at the cursor can be a Live Transcription, since a Live Transcription produces no Dictation Outcome to hand back. Parakeet detects the spoken language itself, so the user does not choose one: the Transcription Language is automatic for the whole time Parakeet is the selected Speech Model. Previously labelled "Stream mode".
 
 ## Formatting
 

@@ -71,3 +71,40 @@ jobs:
 
       - name: Check native helper (fmt, check, clippy, test)
         run: bun run check:native:windows-helper
+
+  # The `codictate` command-line client (docs/CLI.md) is one Rust crate for both platforms,
+  # with platform-specific transport (Unix socket / named pipe), so it is checked on each.
+  # On macOS this includes the integration tests against a fake app on a Unix socket.
+  cli:
+    name: Command-line client (Rust, ${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.13" # the Bun that electrobun 1.18.1 bundles; bump the two together
+
+      - name: Cache cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            native/codictate-cli/target
+          key: ${{ matrix.os }}-cli-cargo-${{ hashFiles('native/codictate-cli/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.os }}-cli-cargo-
+
+      - name: Check the client (fmt, clippy, test)
+        run: bun run check:native:cli
+
+      - name: Build the release client
+        run: bun run build:native:cli

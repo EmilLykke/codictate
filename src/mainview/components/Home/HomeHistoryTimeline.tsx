@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { HistoryEntry } from "../../../shared/types";
 import { fetchHistoryEntries } from "../../rpc";
 import { appEvents } from "../../app-events";
+import { HistoryFileBadge } from "../History/HistoryFileBadge";
 
 const TRUNCATE_LENGTH = 120;
 
@@ -196,7 +197,12 @@ export function HomeHistoryTimeline({
                   <span className="text-[14px] text-overlay/35 tabular-nums shrink-0 min-w-[70px]">
                     {timeFormatter.format(entry.timestamp)}
                   </span>
-                  <div className="flex-1 relative">
+                  <div className="flex-1 min-w-0 relative">
+                    {entry.source === "file" && (
+                      <div className="mb-1">
+                        <HistoryFileBadge fileName={entry.fileName} />
+                      </div>
+                    )}
                     <span
                       onClick={async () => {
                         await navigator.clipboard.writeText(entry.transcript);

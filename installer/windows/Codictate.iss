@@ -74,6 +74,9 @@ PrivilegesRequired=lowest
 CloseApplications=yes
 RestartApplications=no
 WizardStyle=modern
+; The installer puts the `codictate` command line on the user's Path (docs/CLI.md), and
+; this broadcasts the change so new terminals see it without signing out.
+ChangesEnvironment=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -91,3 +94,110 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\bin\{#AppExeName}"; WorkingDi
 
 [Run]
 Filename: "{app}\bin\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+// The `codictate` command line (docs/CLI.md) ships at <install>\Resources\app\bin, where
+// <install> is the app directory (%LOCALAPPDATA%\app.codictate\stable\app for stable).
+// That directory goes on HKCU\Environment Path once, and comes off again on uninstall.
+// In-app updates replace the files in the same directory, so the entry stays valid.
+const
+  EnvironmentKey = 'Environment';
+
+function CliBinDir(): string;
+begin
+  Result := ExpandConstant('{app}\Resources\app\bin');
+end;
+
+function SamePathEntry(A, B: string): Boolean;
+begin
+  Result := CompareText(RemoveBackslashUnlessRoot(Trim(A)), RemoveBackslashUnlessRoot(Trim(B))) = 0;
+end;
+
+// Path with every entry naming Entry removed, other entries untouched.
+function PathWithout(Path, Entry: string; var Found: Boolean): string;
+var
+  Rest, Part: string;
+  P: Integer;
+  First: Boolean;
+begin
+  Result := '';
+  Found := False;
+  First := True;
+  Rest := Path;
+  while Rest <> '' do
+  begin
+    P := Pos(';', Rest);
+    if P = 0 then
+    begin
+      Part := Rest;
+      Rest := '';
+    end
+    else
+    begin
+      Part := Copy(Rest, 1, P - 1);
+      Rest := Copy(Rest, P + 1, Length(Rest));
+    end;
+    if SamePathEntry(Part, Entry) then
+      Found := True
+    else
+    begin
+      if not First then
+        Result := Result + ';';
+      Result := Result + Part;
+      First := False;
+    end;
+  end;
+end;
+
+procedure AddCliToPath();
+var
+  Path, Unused: string;
+  Found: Boolean;
+begin
+  // A Path that exists but does not read as a string is left alone: writing ours over it
+  // would replace every entry the user has. Only a missing Path is created from scratch.
+  if RegValueExists(HKCU, EnvironmentKey, 'Path') then
+  begin
+    if not RegQueryStringValue(HKCU, EnvironmentKey, 'Path', Path) then
+    begin
+      Log('Could not read the user Path, so ' + CliBinDir() + ' was not added to it');
+      Exit;
+    end;
+  end
+  else
+    Path := '';
+  Unused := PathWithout(Path, CliBinDir(), Found);
+  if Found then
+    Exit;
+  if (Path <> '') and (Copy(Path, Length(Path), 1) <> ';') then
+    Path := Path + ';';
+  Path := Path + CliBinDir();
+  if not RegWriteExpandStringValue(HKCU, EnvironmentKey, 'Path', Path) then
+    Log('Could not add ' + CliBinDir() + ' to the user Path');
+end;
+
+procedure RemoveCliFromPath();
+var
+  Path, Remaining: string;
+  Found: Boolean;
+begin
+  if not RegQueryStringValue(HKCU, EnvironmentKey, 'Path', Path) then
+    Exit;
+  Remaining := PathWithout(Path, CliBinDir(), Found);
+  if not Found then
+    Exit;
+  if not RegWriteExpandStringValue(HKCU, EnvironmentKey, 'Path', Remaining) then
+    Log('Could not remove ' + CliBinDir() + ' from the user Path');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    AddCliToPath();
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+    RemoveCliFromPath();
+end;

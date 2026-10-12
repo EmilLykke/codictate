@@ -57,6 +57,16 @@ export interface HarnessTranscriptionRequest {
   translateToEnglish: boolean
   /** crispasr `--backend` to pin, or `null` for the default backend. hviske needs `cohere`. */
   crispasrBackend: CrispasrBackendId | null
+  /**
+   * Cancels the run: the engine process is terminated and the Result is a `cancelled`
+   * failure. File Transcription passes one; the Dictation path does not.
+   */
+  signal?: AbortSignal
+  /**
+   * Run the engine process at lowered OS priority, so a File Transcription never makes a
+   * Dictation wait for the CPU. The Dictation path never sets it.
+   */
+  lowPriority?: boolean
 }
 
 /**
@@ -74,6 +84,16 @@ export interface ParakeetTranscriptionRequest {
   timeoutMs: number
   /** Absolute path to the Parakeet install directory (Core ML on macOS, ONNX on Windows). */
   modelDir: string
+  /**
+   * Cancels the run: the engine process is terminated and the Result is a `cancelled`
+   * failure. File Transcription passes one; the Dictation path does not.
+   */
+  signal?: AbortSignal
+  /**
+   * Run the engine process at lowered OS priority, so a File Transcription never makes a
+   * Dictation wait for the CPU. The Dictation path never sets it.
+   */
+  lowPriority?: boolean
 }
 
 export type TranscriptionRequest =
@@ -109,6 +129,11 @@ export type TranscriptionFailureReason =
   | 'parakeet_no_final_line'
   /** The engine wrote bytes that are not the UTF-8 it was asked for. */
   | 'engine_output_unreadable'
+  /**
+   * The caller aborted the Request's `signal`, so the engine was stopped on purpose. Not an
+   * engine failure, and never reached by a Dictation, which passes no signal.
+   */
+  | 'cancelled'
 
 /**
  * A Speech Engine run that produced nothing, and the sentence to say so.
@@ -167,6 +192,8 @@ const TRANSCRIPTION_FAILURE_MESSAGES: Record<
     `Dictation stopped because ${label} finished without returning a transcript. Nothing was pasted.`,
   engine_output_unreadable: (label) =>
     `Dictation stopped because ${label} returned output Codictate could not read. Nothing was pasted.`,
+  cancelled: (label) =>
+    `The transcription with ${label} was cancelled before it finished.`,
 }
 
 /**

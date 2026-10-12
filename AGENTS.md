@@ -31,6 +31,8 @@ Supported platforms: macOS (Apple Silicon, macOS 13+) and Windows (x64, Windows 
 | `bun run test` | Run the hermetic test suite |
 | `bun run test:manual` | Run the two opt-in suites (network, Benchmark Run archive) |
 | `bun run check:native:windows-helper` | Rust helper fmt / check / clippy / test (Windows host) |
+| `bun run build:native:cli` | Build the `codictate` command-line client (Rust, host target) |
+| `bun run check:native:cli` | Client fmt / clippy / test |
 
 ## Tests and CI
 
@@ -42,6 +44,8 @@ Two suites are deliberately outside that run and carry a `.manual.ts` suffix so 
 |-------|------------------|
 | `src/bun/utils/whisper/model-download-reachability.manual.ts` | Live `fetch` against Hugging Face and the hviske Mirror. Flakes offline or behind a proxy, and it imports no Codictate download code. Run it after changing a download URL or the Speech Model list. |
 | `benchmarks/stt/results-archive.manual.ts` | Pinned to the seven committed Benchmark Runs, including an exact `runCount` and the Sample Cursors derived from them. An eighth archived run turns it red with nothing broken. Run it when the archive or the results read path moves, and update the pinned numbers in the same change. |
+| `src/bun/file-transcription/file-transcription.manual.ts` | End-to-end File Transcription on this Mac, through the real queue in-process: spawns `say`, the Media Helper and real Speech Engines, one per installed engine kind. Needs `bun run build:native`. Not in `test:manual`; run it directly after changing File Transcription or the Speech Engine Adapters. |
+| `src/bun/command-line/client-server.manual.ts` | The real `codictate` client against the real app side (server, session, handlers, File Transcription queue, model operations) over fake engines and a fake recording module, every command, asserted against docs/CLI.md. Spawns the client and signals it, macOS only. Needs `bun run build:native:cli`. Not in `test:manual`; run it directly after changing the client, the app side or docs/CLI.md. |
 
 Run both with `bun run test:manual`, or one with `bun test ./benchmarks/stt/results-archive.manual.ts`. The leading `./` is required: without it `bun test` reads the argument as a name filter, matches nothing, and runs nothing.
 
@@ -56,7 +60,11 @@ src/
   bun/                          # Main process (Bun + Electrobun)
     index.ts                    # Entry point
     AppConfig/                  # Persistent app configuration
-    dictation/                  # The Batch Dictation pipeline (transcript -> Dictation Outcome)
+    command-line/               # The app side of the `codictate` command line: socket server, handlers (docs/CLI.md)
+    command-line-install.ts     # Settings > Command Line: put `codictate` on PATH
+    dictation/                  # The Batch Dictation pipeline (transcript -> Dictation Outcome), command-line Dictations
+    file-transcription/         # The File Transcription queue, shared by the command line and the window
+    window-file-transcriptions/ # The Transcribe page's side of the queue: file dialog, drop, results, History
     platform/                   # Platform-specific code
       macos/                    #   macOS implementations
       windows/                  #   Windows implementations
@@ -102,7 +110,9 @@ native/
   CodictateWindowHelper/        # macOS: recording HUD (AppKit NSPanel)
   CodictateParakeetHelper/      # macOS: Parakeet ASR (FluidAudio engine)
   CodictateObserverHelper/      # macOS: correction observer
-  CodictateWindowsHelper/       # Windows: keyboard hook + mic + indicator (Rust)
+  CodictateMediaHelper/         # macOS: AVFoundation audio/video decode for File Transcription
+  CodictateWindowsHelper/       # Windows: keyboard hook + mic + indicator + Media Foundation decode (Rust)
+  codictate-cli/                # macOS + Windows: the `codictate` command-line client (Rust)
 
 scripts/
   pre-build.ts                  # Downloads vendor binaries + Whisper model
@@ -123,6 +133,7 @@ docs/
   HVISKE_MIRROR.md              # The published Danish hviske Mirror
   EDDA_MIRROR.md                # The Danish Edda Mirror (Codictate's own GGML conversion)
   AEROSPACE.md                  # AeroSpace window rule
+  CLI.md                        # Contract of the `codictate` command line: commands, JSON, exit codes, wire protocol
   adr/                          # Architecture decision records
 
 vendors/                        # Pre-built vendor binaries (crispasr, llama-completion, etc.)
@@ -161,7 +172,7 @@ See `docs/RECORDING_INDICATOR.md` for full details.
 
 A Dictation never adapts to an unrunnable state; the state is kept runnable instead. Do not add a fallback when a Speech Model, a Speech Engine capability or a Native Helper is unavailable - refuse the settings write, heal the config when availability changes, and do not offer the option in the UI.
 
-- **One resolver.** `buildDictationPlan` in `src/shared/dictation-plan.ts` turns `(settings, availability snapshot)` into a **Dictation Plan** - a pure value, no `modelManager` and no `getPlatform`. Batch Dictation and Live Transcription are one union, discriminated by `mode`. `AppConfig.getDictationPlan()` is the only caller, once per press of the Dictation Shortcut, and the transcription path consumes the plan whole: `runDictation`, `startRecording` and `startParakeetStream` all take it and re-derive nothing. Never decide which Speech Model, Speech Engine, Transcription Language or crispasr backend runs anywhere else.
+- **One resolver.** `buildDictationPlan` in `src/shared/dictation-plan.ts` turns `(settings, availability snapshot)` into a **Dictation Plan** - a pure value, no `modelManager` and no `getPlatform`. Batch Dictation and Live Transcription are one union, discriminated by `mode`. `AppConfig.getDictationPlan()` is the caller for the Dictation Shortcut, once per press; `AppConfig.getDictationPlanFor()` is the same resolver with per-call overrides (Speech Model, Transcription Language, force Batch) for a command-line Dictation, and never writes settings; File Transcription resolves through it too (see below). The transcription path consumes the plan whole: `runDictation`, `startRecording` and `startParakeetStream` all take it and re-derive nothing. Never decide which Speech Model, Speech Engine, Transcription Language or crispasr backend runs anywhere else.
 - **Runnable or blocked, nothing in between.** A blocked plan carries a reason from a closed union (`DictationBlockedReason`, eight members, each with a message in an exhaustive `Record` so a new failure mode cannot compile without one), starts no Dictation, and reaches four surfaces: an error chime, a tray error state, and the reason itself as a native notification when the main window is closed or an in-window banner when it is open. It also triggers the heal pass, so the next press works. There is no substitution and no silent drop. `assertParakeetStreamRuntimeReady` survives as the pre-spawn race check inside `startParakeetStream`, which now returns `{ status: 'blocked', plan }` instead of throwing an `Error` its caller discarded.
 - **Enforced in three places.** `src/shared/settings-heal.ts` owns all three, as pure functions over `(settings, availability snapshot)`: `applyRunnableDictationPatch` validates the object a settings write would produce (a patch can be valid and its result invalid) and refuses a patch that asks for something unrunnable; `healDictationSettings` corrects the configuration on every availability change and at boot, because refusing to delete weights that happen to be selected is arguing with the user. `AppConfig` is the adapter: `updateTranscriptionSettings` for writes, `healRunnableSettings()` for `load()`, for a Speech Model download or delete, and for a blocked plan. The heal pass announces changes to the Speech Model selection, Translate to English and Live Transcription in `AppSettings.healAnnouncements`, and corrects everything else in silence.
 - **Stats record what ran.** `engineId` and `languageId` come from the plan, not from live config read after the run - the user can change either mid-transcription.
@@ -172,6 +183,17 @@ A Dictation never adapts to an unrunnable state; the state is kept runnable inst
 - The benchmark is outside all of this: no settings, no availability healing, no fallback semantics. It reuses the ASR Harness command builder, not the plan. Outside the plan does not mean frozen - `benchmarks/stt/runner.ts` is fixed like any other module - but do not give it a Dictation Plan, a settings read or a fallback.
 
 See `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.
+
+### Command line (`codictate`)
+
+A public command line for users, scripts, AI agents and other apps (Codiclens first): File Transcription, Dictation, status, Speech Models and Transcription Languages. The contract (commands, JSON events, exit codes, wire protocol, where the client lives) is `docs/CLI.md`; changing any of it is a breaking change for callers outside this repo. Why it is built this way: `docs/adr/0009-command-line-talks-to-the-running-app.md` (supersedes ADR-0008).
+
+- **Thin client, everything in the app.** `native/codictate-cli` is one Rust executable for macOS and Windows, bundled at `Resources/app/bin/codictate(.exe)` by `electrobun.config.ts` and signed by `scripts/post-build.ts`. It parses arguments, starts the app hidden when it is not running, talks to it over a Unix socket (macOS) or named pipe (Windows) and maps the answer to an exit code. It holds no Codictate logic: never give it a model table or a settings read.
+- **The app side** is `src/bun/command-line/`: transport, one session per connection (exactly one `result` or `error`, a disconnect is a cancel), handlers with injected deps. Protocol types live in `src/shared/command-line-protocol.ts`, checked against the JSON examples in docs/CLI.md. Starting the socket server is also the single-instance claim (`single-instance.ts`: a `flock`ed `run/<identifier>.lock` on Unix, the pipe name on Windows); a second instance never runs past it, and a fresh `run/<identifier>.hidden-launch` marker boots the app without its window.
+- **Command-Line Control** (Settings > Command Line, off by default) gates every command that records the microphone or changes state. File Transcription and reads are never gated.
+- **File Transcription is one queue** (`src/bun/file-transcription/`), shared by the command line and the Transcribe page: one job at a time, decode and engine at lowered OS priority so a Dictation never waits, cancellable. Raw Transcript only: no Dictionary, Formatting Mode or brand table. Only window jobs are kept in History. Decoding is `CodictateMediaHelper` on macOS and `CodictateWindowsHelper extract-audio` on Windows, same argv and exit codes.
+- **A command-line Dictation is a Dictation.** It goes through the same recording path as the Dictation Shortcut (sounds, indicator, History, Stats); the outcome goes back to the command line unless it asked to paste. Printing forces a Batch Dictation, since a Live Transcription produces no outcome.
+- **No timestamps.** Dropping crispasr's `-nt` changes whisper.cpp decoding (Edda turned to noise), so segments are not offered.
 
 ### Formatting pipeline
 

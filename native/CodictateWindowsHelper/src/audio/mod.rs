@@ -1,8 +1,8 @@
 pub(crate) mod capture;
-mod com;
+pub(crate) mod com;
 mod devices;
 pub(crate) mod resample;
-mod wav;
+pub(crate) mod wav;
 
 use crate::ipc::emit_json;
 use serde::Serialize;

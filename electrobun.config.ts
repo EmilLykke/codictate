@@ -1,4 +1,5 @@
 import { binaryBuildCopy } from "./src/shared/binary-manifest";
+import { cliBinarySource } from "./scripts/build-native-cli";
 import type { ElectrobunConfig } from "electrobun";
 import {
   CRISPASR_BUNDLE_SUBDIR,
@@ -35,6 +36,11 @@ const buildCopy: Record<string, string> = {
   "docs/licenses/edda": "licenses/edda",
   "docs/licenses/tinyld": "licenses/tinyld",
   ...binaryBuildCopy(isWindowsHost ? "windows" : "macos"),
+  // The `codictate` command line (docs/CLI.md). Its path inside the bundle is part of the
+  // contract: the client finds its app from it, and callers run it from there.
+  [cliBinarySource(process.platform)]: isWindowsHost
+    ? "bin/codictate.exe"
+    : "bin/codictate",
   "dist/index.html": "views/mainview/index.html",
   "dist/assets": "views/mainview/assets",
   // -- Sounds (src/assets/sounds -> app/sounds)

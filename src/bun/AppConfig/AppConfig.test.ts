@@ -66,6 +66,33 @@ describe('AppConfig dependency seam', () => {
     expect(reloaded.getSettings().soundEffectsEnabled).toBe(false)
   })
 
+  test('Command-Line Control is off until turned on, and persists', async () => {
+    const dependencies = testDependencies()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(config.getCommandLineControl()).toBe(false)
+    expect(config.getSettings().commandLineControl).toBe(false)
+
+    expect(
+      await config.updateGeneralSettings({
+        commandLineControl: 'yes' as unknown as boolean,
+      })
+    ).toBe(false)
+    expect(config.getCommandLineControl()).toBe(false)
+
+    expect(
+      await config.updateGeneralSettings({ commandLineControl: true })
+    ).toBe(true)
+    const persisted = JSON.parse(
+      readFileSync(dependencies.paths.mainConfig, 'utf8')
+    ) as Record<string, unknown>
+    expect(persisted.commandLineControl).toBe(true)
+
+    const reloaded = new AppConfig(dependencies)
+    await reloaded.load()
+    expect(reloaded.getCommandLineControl()).toBe(true)
+  })
+
   test('uses injected platform and model availability for writes and snapshots', async () => {
     const dependencies = testDependencies({
       getPlatformCapabilities: () => ({
@@ -147,5 +174,97 @@ describe('AppConfig dependency seam', () => {
     const existingInstall = new AppConfig(existingInstallDependencies)
     await existingInstall.load()
     expect(existingInstall.getSettings().onboardingCompleted).toBe(true)
+  })
+})
+
+describe('getDictationPlanFor (command-line overrides)', () => {
+  const PARAKEET = 'parakeet-tdt-0.6b-v3'
+
+  async function liveConfig() {
+    const dependencies = testDependencies({
+      isModelAvailable: (id) => id === DEFAULT_MODEL_ID || id === PARAKEET,
+      getModelAvailability: () => ({
+        [DEFAULT_MODEL_ID]: true,
+        [PARAKEET]: true,
+      }),
+    })
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(
+      await config.updateTranscriptionSettings({
+        speechModelId: PARAKEET,
+        streamMode: true,
+      })
+    ).toBe(true)
+    return { config, dependencies }
+  }
+
+  test('no overrides is exactly the shortcut plan', async () => {
+    const { config } = await liveConfig()
+    expect(config.getDictationPlanFor({})).toEqual(config.getDictationPlan())
+    expect(config.getDictationPlan()).toMatchObject({
+      status: 'runnable',
+      mode: 'live',
+    })
+  })
+
+  test('forceBatch turns Live Transcription off for this plan only', async () => {
+    const { config, dependencies } = await liveConfig()
+    const before = readFileSync(dependencies.paths.mainConfig, 'utf8')
+    expect(config.getDictationPlanFor({ forceBatch: true })).toMatchObject({
+      status: 'runnable',
+      mode: 'batch',
+      speechModelId: PARAKEET,
+    })
+    expect(config.getStreamMode()).toBe(true)
+    expect(readFileSync(dependencies.paths.mainConfig, 'utf8')).toBe(before)
+  })
+
+  test('a Speech Model override runs that model and never writes the selection', async () => {
+    const { config } = await liveConfig()
+    expect(
+      config.getDictationPlanFor({
+        speechModelId: DEFAULT_MODEL_ID,
+        transcriptionLanguageId: 'da',
+        forceBatch: true,
+      })
+    ).toMatchObject({
+      status: 'runnable',
+      mode: 'batch',
+      speechModelId: DEFAULT_MODEL_ID,
+      transcriptionLanguageId: 'da',
+      languageCode: 'da',
+    })
+    expect(config.getSpeechModelId()).toBe(PARAKEET)
+  })
+
+  test('a Speech Model override that cannot stream runs as a Batch Dictation', async () => {
+    const { config, dependencies } = await liveConfig()
+    const before = readFileSync(dependencies.paths.mainConfig, 'utf8')
+    expect(
+      config.getDictationPlanFor({ speechModelId: DEFAULT_MODEL_ID })
+    ).toMatchObject({
+      status: 'runnable',
+      mode: 'batch',
+      speechModelId: DEFAULT_MODEL_ID,
+    })
+    // The setting is untouched, and a Speech Model that can stream still streams.
+    expect(config.getStreamMode()).toBe(true)
+    expect(config.getSpeechModelId()).toBe(PARAKEET)
+    expect(readFileSync(dependencies.paths.mainConfig, 'utf8')).toBe(before)
+    expect(
+      config.getDictationPlanFor({ speechModelId: PARAKEET })
+    ).toMatchObject({ status: 'runnable', mode: 'live' })
+  })
+
+  test('an override that cannot run is blocked, not substituted', async () => {
+    const { config } = await liveConfig()
+    // Weights that are not installed.
+    expect(
+      config.getDictationPlanFor({
+        speechModelId: 'large-v3-q5_0',
+        forceBatch: true,
+      })
+    ).toMatchObject({ status: 'blocked', reason: 'speech_model_not_installed' })
   })
 })

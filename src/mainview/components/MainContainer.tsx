@@ -1,13 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppLayout, type SidebarTab } from "./Layout/AppLayout";
+import { AppLayout } from "./Layout/AppLayout";
 import { HomeScreen } from "./Home/HomeScreen";
 import { SectionModels } from "./Settings/Sections/SectionModels";
 import { SectionFormatting } from "./Settings/Sections/SectionFormatting";
 import { SectionDictionary } from "./Settings/Sections/SectionDictionary";
 import { HistorySection } from "./History/HistorySection";
 import { StatsPage } from "./Stats/StatsPage";
-import { SettingsModal, type SettingsTab } from "./Settings/SettingsModal";
+import { TranscribePage } from "./Transcribe/TranscribePage";
+import { SettingsModal } from "./Settings/SettingsModal";
 import { HealNotices } from "./Common/HealNotices";
 import type {
   AppStatus,
@@ -15,10 +16,13 @@ import type {
   DeviceInfo,
   DevAppPreviewRoute,
   DictationNoticeKind,
+  NavigateRequest,
+  SettingsTab,
+  SidebarTab,
   StreamTranscriptionMode,
   TranscriptionSettingsPatch,
 } from "../../shared/types";
-import { appEvents } from "../app-events";
+import { appEvents, takePendingNavigation } from "../app-events";
 import {
   LARGE_V3_Q5_MODEL_ID,
   SPEECH_MODELS,
@@ -58,6 +62,30 @@ export function MainContainer({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] =
     useState<SettingsTab>("general");
+  const [settingsTabRequestId, setSettingsTabRequestId] = useState(0);
+
+  /**
+   * The main process names a sidebar page and/or a Settings tab (tray, app menu, a
+   * Command-Line Control notification). Requests that landed before this view mounted are
+   * picked up on mount.
+   */
+  const applyNavigation = useCallback((request: NavigateRequest) => {
+    if (request.tab !== undefined) setActiveTab(request.tab);
+    if (request.settingsTab !== undefined) {
+      setSettingsInitialTab(request.settingsTab);
+      setSettingsTabRequestId((id) => id + 1);
+      setIsSettingsModalOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const pending = takePendingNavigation();
+    if (pending !== null) applyNavigation(pending);
+    return appEvents.on("navigate", () => {
+      const request = takePendingNavigation();
+      if (request !== null) applyNavigation(request);
+    });
+  }, [applyNavigation]);
 
   // Model availability: seeded from settings (always up-to-date on fetch),
   // then kept in sync via modelAvailability events for incremental changes.
@@ -97,7 +125,7 @@ export function MainContainer({
   useEffect(() => {
     const unsub = appEvents.on(
       "modelDownloadProgress",
-      async ({ modelId, progressFraction, done, error }) => {
+      async ({ modelId, progressFraction, done, error, requestedByWindow }) => {
         if (!done) {
           setDownloadProgress((prev) => ({
             ...prev,
@@ -139,7 +167,10 @@ export function MainContainer({
         if (!error) {
           setModelAvailability((prev) => ({ ...prev, [modelId]: true }));
           // Auto-select when downloading from the model picker (not a translate-pending flow).
+          // A download only the command line asked for never selects: `models download`
+          // promises not to.
           if (
+            requestedByWindow &&
             pendingTranslate !== modelId &&
             modelId !== LARGE_V3_Q5_MODEL_ID
           ) {
@@ -413,6 +444,12 @@ export function MainContainer({
             onNavigateToStats={() => setActiveTab("stats")}
           />
         )}
+        {activeTab === "transcribe" && (
+          <TranscribePage
+            settings={settings}
+            onOpenModels={() => setActiveTab("models")}
+          />
+        )}
         {activeTab === "dictionary" && (
           <SectionDictionary settings={settings} />
         )}
@@ -456,6 +493,7 @@ export function MainContainer({
         settings={settings}
         status={status}
         initialTab={settingsInitialTab}
+        tabRequestId={settingsTabRequestId}
         devPreviewRoute={devPreviewRoute}
         onDevPreviewRouteChange={onDevPreviewRouteChange}
       />

@@ -71,7 +71,9 @@ export const setupTray = (
   /** After tray changes formatting mode — sync webview. */
   onFormattingModeChanged?: () => void,
   /** After tray changes the transcription model — sync webview. */
-  onModelChanged?: () => void
+  onModelChanged?: () => void,
+  /** "Transcribe File…": the native file dialog, then the Transcribe page. */
+  onTranscribeFile?: () => void
 ): TrayHandlers => {
   const tray = new Tray({
     image: trayIconPath,
@@ -226,7 +228,8 @@ export const setupTray = (
   }
 
   /**
-   * Status and shortcut on top, then the four settings a user changes mid-session,
+   * Status and shortcut on top with Settings and Transcribe File… under it, then the four
+   * settings a user changes mid-session,
    * then app-level actions. Translate to English and Live transcription are
    * deliberately absent: they need readiness explanation that does not fit a menu
    * label, so they live in Settings.
@@ -234,6 +237,11 @@ export const setupTray = (
   const buildMenu = (selectedDevice: number) => [
     statusMenuItem(),
     { type: 'normal' as const, label: 'Settings…', action: 'open-settings' },
+    {
+      type: 'normal' as const,
+      label: 'Transcribe File…',
+      action: 'transcribe-file',
+    },
     { type: 'divider' as const },
     {
       type: 'normal' as const,
@@ -282,6 +290,7 @@ export const setupTray = (
     if (event.data.action === 'open-settings') {
       onOpenSettings?.()
     }
+    if (event.data.action === 'transcribe-file') onTranscribeFile?.()
     if (event.data.action === 'check-for-update') onCheckForUpdate?.()
     if (event.data.action === 'restart-to-update') onApplyUpdate?.()
     if (event.data.action === 'quit') onQuit()

@@ -1,7 +1,10 @@
 import type {
   AppStatus,
   AppSettings,
+  FileTranscriptionsState,
   FormatterModelTier,
+  ModelDownloadProgress,
+  NavigateRequest,
   PermissionState,
   SettingsPane,
   UpdateCheckState,
@@ -15,13 +18,9 @@ type EventMap = {
   settings: AppSettings
   openSettings: SettingsPane
   openSettingsScreen: void
+  navigate: NavigateRequest
   updateCheckStatus: { state: UpdateCheckState; message?: string }
-  modelDownloadProgress: {
-    modelId: string
-    progressFraction: number
-    done: boolean
-    error?: string
-  }
+  modelDownloadProgress: ModelDownloadProgress
   modelAvailability: { modelId: string; available: boolean }
   formatterModelProgress: {
     tier: FormatterModelTier
@@ -30,6 +29,7 @@ type EventMap = {
     error?: string
   }
   historyEntryAdded: void
+  fileTranscriptions: FileTranscriptionsState
 }
 
 type Unsubscribe = () => void
@@ -58,3 +58,26 @@ class AppEventBus {
 }
 
 export const appEvents = new AppEventBus()
+
+/**
+ * Navigation from the main process can arrive before the main view has mounted: a window
+ * the tray just created is still fetching settings when the request lands. The last request
+ * is kept for a short while so the main view can pick it up when it mounts.
+ */
+const PENDING_NAVIGATION_TTL_MS = 10_000
+let pendingNavigation: { request: NavigateRequest; at: number } | null = null
+
+export function dispatchNavigation(request: NavigateRequest): void {
+  pendingNavigation = { request, at: Date.now() }
+  appEvents.emit('navigate', request)
+}
+
+/** The navigation request nobody has handled yet, if it is recent. Clears it. */
+export function takePendingNavigation(): NavigateRequest | null {
+  const pending = pendingNavigation
+  pendingNavigation = null
+  if (pending === null) return null
+  return Date.now() - pending.at <= PENDING_NAVIGATION_TTL_MS
+    ? pending.request
+    : null
+}

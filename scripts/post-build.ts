@@ -151,6 +151,10 @@ const helperEntitlementsByBasename: Record<string, string> = {
     entitlementsRoot,
     "CodictateObserverHelper.entitlements",
   ),
+  CodictateMediaHelper: join(
+    entitlementsRoot,
+    "CodictateMediaHelper.entitlements",
+  ),
 };
 const CODESIGN_RETRIES = 3;
 const buildEnv = process.env.ELECTROBUN_BUILD_ENV ?? "dev";
@@ -249,84 +253,133 @@ verifyRequiredHelperExecutable(
   "Re-run: bun run build:native",
 );
 
+verifyRequiredHelperExecutable(
+  "CodictateMediaHelper",
+  "Re-run: bun run build:native",
+);
+
+// ─── The `codictate` command line (docs/CLI.md) ──────────────────────────────
+// A Rust executable electrobun.config.ts copies to Resources/app/bin. Electrobun does not
+// sign anything under Resources/app/bin, so it is signed here with the helpers, before
+// Electrobun's codesignAppBundle seals the outer bundle.
+
+const cliPath = join(resourcesDir, "app", "bin", "codictate");
+{
+  const remediation = "Re-run: bun run build:native:cli";
+  if (!existsSync(cliPath)) {
+    console.error(`[post-build] Resources/app/bin/codictate missing — ${remediation}`);
+    process.exit(1);
+  }
+  const kind = Bun.spawnSync(["file", "-b", cliPath], { stdout: "pipe" }).stdout.toString();
+  if (!kind.includes("Mach-O") || !kind.includes("executable")) {
+    console.error(`[post-build] Resources/app/bin/codictate is not a Mach-O executable. ${remediation}`);
+    console.error(`[post-build] file(1) said: ${kind.trim()}`);
+    process.exit(1);
+  }
+  console.log("[post-build] Verified Resources/app/bin/codictate is a Mach-O executable");
+}
+
 const machoNativeHelpers = listCodesignableNativeHelpers(nativeHelpersDir);
 
 // Non-dev builds are code-signed and notarized by Electrobun; unsigned Mach-O under
-// Resources/app/ fails notarization. Fail fast if we cannot sign helpers.
-if (buildEnv !== "dev" && machoNativeHelpers.length > 0 && !developerId) {
+// Resources/app/ (the helpers and the command line) fails notarization. Fail fast if we
+// cannot sign them.
+if (buildEnv !== "dev" && !developerId) {
   console.error(
-    "[post-build] ELECTROBUN_DEVELOPER_ID is required to sign native helpers (stable/canary build).",
+    "[post-build] ELECTROBUN_DEVELOPER_ID is required to sign native helpers and the command line (stable/canary build).",
   );
   process.exit(1);
 }
 
-if (developerId && existsSync(nativeHelpersDir) && machoNativeHelpers.length > 0) {
-  for (const binaryPath of machoNativeHelpers) {
-    const name = binaryPath.split("/").pop() ?? binaryPath;
-    const id = `${appIdentifier}.native.${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
-    const entitlementsPath = resolveEntitlementsForHelper(name);
-    const entitlementArgs =
-      entitlementsPath && existsSync(entitlementsPath)
-        ? (["--entitlements", entitlementsPath] as const)
-        : [];
-    if (entitlementArgs.length === 0) {
-      console.warn(
-        `[post-build] Missing entitlements for ${name} — signing without (add entitlements/${name}.entitlements if notarization fails)`,
-      );
-    }
+/** Developer ID signs one Mach-O with hardened runtime + secure timestamp, then verifies it. */
+function codesignBinary(
+  binaryPath: string,
+  label: string,
+  id: string,
+  entitlementsPath: string | undefined,
+  signingIdentity: string,
+): void {
+  const entitlementArgs =
+    entitlementsPath && existsSync(entitlementsPath)
+      ? (["--entitlements", entitlementsPath] as const)
+      : [];
+  if (entitlementArgs.length === 0) {
+    console.warn(
+      `[post-build] Missing entitlements for ${label} — signing without (add entitlements/<name>.entitlements if notarization fails)`,
+    );
+  }
 
-    console.log(`[post-build] codesign native helper: ${name}`);
-    let signed = false;
-    for (let attempt = 1; attempt <= CODESIGN_RETRIES; attempt += 1) {
-      const result = Bun.spawnSync(
-        [
-          "codesign",
-          "--force",
-          "--verbose",
-          "--timestamp",
-          "--options",
-          "runtime",
-          "--sign",
-          developerId,
-          "--identifier",
-          id,
-          ...entitlementArgs,
-          binaryPath,
-        ],
-        { stdio: ["ignore", "inherit", "inherit"] },
-      );
-      if (result.exitCode === 0) {
-        signed = true;
-        break;
-      }
-      if (attempt < CODESIGN_RETRIES) {
-        console.warn(
-          `[post-build] codesign retry ${attempt}/${CODESIGN_RETRIES - 1} for native-helpers/${name}`,
-        );
-      }
-    }
-    if (!signed) {
-      console.error(`[post-build] codesign failed for native-helpers/${name}`);
-      process.exit(1);
-    }
-
-    const verify = Bun.spawnSync(
-      ["codesign", "--verify", "--strict", "--verbose=2", binaryPath],
+  console.log(`[post-build] codesign ${label}`);
+  let signed = false;
+  for (let attempt = 1; attempt <= CODESIGN_RETRIES; attempt += 1) {
+    const result = Bun.spawnSync(
+      [
+        "codesign",
+        "--force",
+        "--verbose",
+        "--timestamp",
+        "--options",
+        "runtime",
+        "--sign",
+        signingIdentity,
+        "--identifier",
+        id,
+        ...entitlementArgs,
+        binaryPath,
+      ],
       { stdio: ["ignore", "inherit", "inherit"] },
     );
-    if (verify.exitCode !== 0) {
-      console.error(
-        `[post-build] codesign --verify failed for native-helpers/${name}`,
-      );
-      process.exit(1);
+    if (result.exitCode === 0) {
+      signed = true;
+      break;
     }
+    if (attempt < CODESIGN_RETRIES) {
+      console.warn(
+        `[post-build] codesign retry ${attempt}/${CODESIGN_RETRIES - 1} for ${label}`,
+      );
+    }
+  }
+  if (!signed) {
+    console.error(`[post-build] codesign failed for ${label}`);
+    process.exit(1);
+  }
+
+  const verify = Bun.spawnSync(
+    ["codesign", "--verify", "--strict", "--verbose=2", binaryPath],
+    { stdio: ["ignore", "inherit", "inherit"] },
+  );
+  if (verify.exitCode !== 0) {
+    console.error(`[post-build] codesign --verify failed for ${label}`);
+    process.exit(1);
+  }
+}
+
+if (developerId) {
+  for (const binaryPath of machoNativeHelpers) {
+    const name = binaryPath.split("/").pop() ?? binaryPath;
+    codesignBinary(
+      binaryPath,
+      `native-helpers/${name}`,
+      `${appIdentifier}.native.${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+      resolveEntitlementsForHelper(name),
+      developerId,
+    );
   }
   console.log(
     `[post-build] Signed and verified ${machoNativeHelpers.length} Mach-O native helper(s)`,
   );
-} else if (buildEnv === "dev" && machoNativeHelpers.length > 0 && !developerId) {
+
+  codesignBinary(
+    cliPath,
+    "app/bin/codictate",
+    `${appIdentifier}.cli`,
+    join(entitlementsRoot, "codictate-cli.entitlements"),
+    developerId,
+  );
+  console.log("[post-build] Signed and verified the codictate command line");
+} else if (buildEnv === "dev") {
   console.log(
-    "[post-build] Skipping native helper codesign (dev build, no ELECTROBUN_DEVELOPER_ID)",
+    "[post-build] Skipping native helper and command-line codesign (dev build, no ELECTROBUN_DEVELOPER_ID)",
   );
 }
 

@@ -30,11 +30,15 @@ import type {
   ThemePreference,
   TranscriptionSettingsPatch,
 } from '../../shared/types'
-import { DEFAULT_MODEL_ID } from '../../shared/speech-models'
+import {
+  DEFAULT_MODEL_ID,
+  coerceTranscriptionLanguageIdForModel,
+} from '../../shared/speech-models'
 import type { PlatformCapabilities } from '../../shared/platform'
 import {
   buildDictationPlan,
   getDictationReadiness,
+  isStreamCapableModelId,
   type BlockedDictationPlan,
   type DictationAvailability,
   type DictationPlan,
@@ -57,7 +61,10 @@ import {
   isValidSlackTone,
   type FormattingModeId,
 } from '../../shared/formatting-modes'
-import { persistedSpeechModelId } from './persisted-speech-model'
+import {
+  persistedSpeechModelId,
+  persistedTranscriptionLanguageId,
+} from './persisted-speech-model'
 import {
   BUILTIN_DICTIONARY_ENTRIES,
   SerializedSnapshotWriter,
@@ -71,6 +78,17 @@ import {
   parseDictionaryCandidates,
   stageDictionaryCandidate,
 } from '../utils/dictionary/auto-learn-candidates'
+
+/**
+ * Per-call overrides for `AppConfig.getDictationPlanFor`. Ids are already validated against
+ * the catalogs by the caller; `null` or absent means "the user's setting".
+ */
+export interface DictationPlanOverrides {
+  speechModelId?: string | null
+  transcriptionLanguageId?: string | null
+  /** Build a Batch Dictation plan whatever the Live Transcription setting says. */
+  forceBatch?: boolean
+}
 
 export interface AppConfigPaths {
   readonly mainConfig: string
@@ -189,6 +207,7 @@ interface PersistedMainSettings {
   shortcutHoldOnlyId: ShortcutId | null
   funModeEnabled: boolean
   soundEffectsEnabled: boolean
+  commandLineControl: boolean
   transcriptionLanguageId: string
   maxRecordingDuration: RecordingDurationPresetSeconds
   speechModelId: string
@@ -228,6 +247,11 @@ export class AppConfig {
   private debugMode: boolean
   private funModeEnabled: boolean
   private soundEffectsEnabled: boolean
+  /**
+   * Command-Line Control: may the `codictate` command start a Dictation or change settings.
+   * Off until the user turns it on (ADR-0009). File Transcription and status never need it.
+   */
+  private commandLineControl: boolean
   private transcriptionLanguageId: string
   private maxRecordingDuration: RecordingDurationPresetSeconds
   private speechModelId: string
@@ -311,6 +335,7 @@ export class AppConfig {
     this.debugMode = false
     this.funModeEnabled = false
     this.soundEffectsEnabled = true
+    this.commandLineControl = false
     this.transcriptionLanguageId = 'auto'
     this.maxRecordingDuration = DEFAULT_MAX_RECORDING_DURATION_SECONDS
     this.speechModelId = DEFAULT_MODEL_ID
@@ -351,6 +376,7 @@ export class AppConfig {
       shortcutHoldOnlyId: this.shortcutHoldOnlyId,
       funModeEnabled: this.funModeEnabled,
       soundEffectsEnabled: this.soundEffectsEnabled,
+      commandLineControl: this.commandLineControl,
       transcriptionLanguageId: this.transcriptionLanguageId,
       maxRecordingDuration: this.maxRecordingDuration,
       speechModelId: this.speechModelId,
@@ -442,11 +468,12 @@ export class AppConfig {
     if (typeof raw.soundEffectsEnabled === 'boolean') {
       this.soundEffectsEnabled = raw.soundEffectsEnabled
     }
-    if (
-      typeof raw.transcriptionLanguageId === 'string' &&
-      isValidTranscriptionLanguageId(raw.transcriptionLanguageId)
-    ) {
-      this.transcriptionLanguageId = raw.transcriptionLanguageId
+    if (typeof raw.commandLineControl === 'boolean') {
+      this.commandLineControl = raw.commandLineControl
+    }
+    const persistedLanguage = persistedTranscriptionLanguageId(raw)
+    if (persistedLanguage !== null) {
+      this.transcriptionLanguageId = persistedLanguage
     }
     if (
       typeof raw.maxRecordingDuration === 'number' &&
@@ -947,6 +974,7 @@ export class AppConfig {
       debugMode: this.debugMode,
       funModeEnabled: this.funModeEnabled,
       soundEffectsEnabled: this.soundEffectsEnabled,
+      commandLineControl: this.commandLineControl,
       transcriptionLanguageId: this.transcriptionLanguageId,
       speechModelId: this.speechModelId,
       translateToEnglish: this.translateToEnglish,
@@ -1125,6 +1153,48 @@ export class AppConfig {
   }
 
   /**
+   * The same plan, for a Dictation started from the command line with per-call overrides.
+   *
+   * The overrides apply to this one plan and never write settings. A Speech Model override
+   * coerces the Transcription Language for that Speech Model, exactly as a settings change
+   * would, unless a language override is given too (the caller has already coerced that
+   * one). `forceBatch` turns Live Transcription off for this plan, because a Dictation that
+   * hands its text back has to be a Batch Dictation. So does a Speech Model override that
+   * cannot run Live Transcription: the caller chose that Speech Model for this one Dictation,
+   * and a Batch Dictation is what it can run. That is the Live Transcription setting not
+   * applying to an explicit per-call choice, not a substitution: the plan still runs exactly
+   * the Speech Model asked for. Everything else, including Translate to English, is the
+   * user's settings, so an override that cannot run with them is a blocked plan, never a
+   * substitution (ADR-0005).
+   */
+  public getDictationPlanFor(overrides: DictationPlanOverrides): DictationPlan {
+    const settings = this.runnableDictationSettings()
+    const speechModelId = overrides.speechModelId ?? settings.speechModelId
+    const transcriptionLanguageId =
+      overrides.transcriptionLanguageId ??
+      (overrides.speechModelId == null
+        ? settings.transcriptionLanguageId
+        : coerceTranscriptionLanguageIdForModel(
+            speechModelId,
+            settings.transcriptionLanguageId
+          ))
+    return buildDictationPlan(
+      {
+        ...settings,
+        speechModelId,
+        transcriptionLanguageId,
+        streamMode:
+          overrides.forceBatch === true ||
+          (overrides.speechModelId != null &&
+            !isStreamCapableModelId(speechModelId))
+            ? false
+            : settings.streamMode,
+      },
+      this.dictationAvailability()
+    )
+  }
+
+  /**
    * Remember a Dictation that refused to start, so the window can show it in the banner slot
    * the heal announcements already use. Not persisted: the next press either works or blocks
    * again.
@@ -1233,6 +1303,12 @@ export class AppConfig {
       return false
     }
     if (
+      patch.commandLineControl !== undefined &&
+      typeof patch.commandLineControl !== 'boolean'
+    ) {
+      return false
+    }
+    if (
       patch.themePreference !== undefined &&
       patch.themePreference !== 'system' &&
       patch.themePreference !== 'light' &&
@@ -1270,6 +1346,9 @@ export class AppConfig {
     }
     if (patch.soundEffectsEnabled !== undefined) {
       this.soundEffectsEnabled = patch.soundEffectsEnabled
+    }
+    if (patch.commandLineControl !== undefined) {
+      this.commandLineControl = patch.commandLineControl
     }
     if (patch.userDisplayName !== undefined) {
       this.userDisplayName = patch.userDisplayName.trim()
@@ -1550,6 +1629,10 @@ export class AppConfig {
 
   public getSoundEffectsEnabled(): boolean {
     return this.soundEffectsEnabled
+  }
+
+  public getCommandLineControl(): boolean {
+    return this.commandLineControl
   }
 
   public getMaxRecordingDurationSeconds(): number {

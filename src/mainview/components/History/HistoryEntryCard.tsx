@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { HistoryEntry } from "../../../shared/types";
 import { AudioPlayer } from "./AudioPlayer";
+import { HistoryFileBadge } from "./HistoryFileBadge";
 import { deleteHistoryEntry } from "../../rpc";
 
 interface Props {
@@ -41,10 +42,15 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
 
   return (
     <div className="group px-5 py-4">
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-[14px] font-medium text-overlay/60">
-          {dateFormatter.format(entry.timestamp)}
-        </span>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="shrink-0 text-[14px] font-medium text-overlay/60">
+            {dateFormatter.format(entry.timestamp)}
+          </span>
+          {entry.source === "file" && (
+            <HistoryFileBadge fileName={entry.fileName} />
+          )}
+        </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -131,7 +137,7 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
         )}
       </div>
 
-      {entry.audioFilename && (
+      {entry.source !== "file" && entry.audioFilename && (
         <AudioPlayer entryId={entry.id} durationMs={entry.durationMs ?? 0} />
       )}
     </div>

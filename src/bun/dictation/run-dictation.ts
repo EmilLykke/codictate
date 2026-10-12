@@ -19,6 +19,7 @@
  */
 
 import type { RunnableDictationPlan } from '../../shared/dictation-plan'
+import type { FormattingModeId } from '../../shared/formatting-modes'
 import type {
   DictionaryEntry,
   FormattingRuntimeSettings,
@@ -49,6 +50,13 @@ export interface DictationRunRequest {
    * next Dictation promotes them, and only this pass knows which ones matched.
    */
   onAppliedEntries?: (entries: DictionaryEntry[]) => void
+  /**
+   * Output the Raw Transcript: no brand table, no Dictionary, no Formatting Mode. A
+   * command-line Dictation asks for this with `--raw`.
+   */
+  raw?: boolean
+  /** Stops the Speech Engine. Only a command-line Dictation passes one, to cancel. */
+  signal?: AbortSignal
 }
 
 /**
@@ -62,11 +70,15 @@ export interface DictationRunRequest {
  */
 export interface DictationOutcome {
   status: 'ok'
+  /** The Raw Transcript: what the Speech Engine produced, before any rewriting. */
+  rawTranscript: string
   /** After the brand table and the Dictionary, before the Formatting Mode. */
   raw: string
   /** What the caller pastes. Equal to `raw` when no Formatting Mode matched. */
   output: string
   formattingUsed: boolean
+  /** The Formatting Mode that rewrote `raw`, or `null` when none did. */
+  formattingModeId: FormattingModeId | null
   /** The Speech Model that produced this, as stats names it. */
   engineId: string
   languageId: string
@@ -86,25 +98,28 @@ export async function runDictation(
 ): Promise<DictationRunResult> {
   const { plan } = request
 
-  const engineResult = await runTranscription(
-    transcriptionRequestFromPlan(
+  const engineResult = await runTranscription({
+    ...transcriptionRequestFromPlan(
       plan,
       request.audioPath,
       engineProcessTimeoutMs(request.durationMs),
       modelManager
-    )
-  )
+    ),
+    signal: request.signal,
+  })
   if (engineResult.status === 'failed') return engineResult
 
   const outcome = (
     raw: string,
     output: string,
-    formattingUsed: boolean
+    formattingModeId: FormattingModeId | null
   ): DictationOutcome => ({
     status: 'ok',
+    rawTranscript: engineResult.rawTranscript,
     raw,
     output,
-    formattingUsed,
+    formattingUsed: formattingModeId !== null,
+    formattingModeId,
     engineId: plan.speechModelId,
     languageId: plan.transcriptionLanguageId,
     durationMs: request.durationMs,
@@ -115,7 +130,11 @@ export async function runDictation(
   // and plays no error chime: pressing the shortcut and saying nothing is the normal outcome
   // of pressing the shortcut and saying nothing. See ADR-0006.
   if (engineResult.rawTranscript.trim() === '') {
-    return outcome('', '', false)
+    return outcome('', '', null)
+  }
+
+  if (request.raw === true) {
+    return outcome(engineResult.rawTranscript, engineResult.rawTranscript, null)
   }
 
   // The shipped brand table first, then the user Dictionary. Both are app rewrites of what
@@ -140,11 +159,15 @@ export async function runDictation(
       ? 'en'
       : plan.transcriptionLanguageId,
   })
-  if (formatterRequest === null) return outcome(raw, raw, false)
+  if (formatterRequest === null) return outcome(raw, raw, null)
 
   // A Formatting Backend failure degrades to the Raw Transcript rather than failing the
   // Dictation - withholding real text because the rewrite failed is worse than pasting it
   // unformatted, and unlike the engine there is something honest to paste. `applyFormatting`
   // owns that degrade and never hands the failure back here.
-  return outcome(raw, await applyFormatting(formatterRequest), true)
+  return outcome(
+    raw,
+    await applyFormatting(formatterRequest),
+    formatterRequest.modeId
+  )
 }

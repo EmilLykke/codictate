@@ -13,7 +13,10 @@ import {
   DEFAULT_MODEL_ID,
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
 } from '../../shared/speech-models'
-import { persistedSpeechModelId } from './persisted-speech-model'
+import {
+  persistedSpeechModelId,
+  persistedTranscriptionLanguageId,
+} from './persisted-speech-model'
 
 const HVISKE = 'hviske-v5-tiny-f16'
 
@@ -67,5 +70,23 @@ describe('persistedSpeechModelId', () => {
   test('null for a non-string, so a corrupt file cannot install a selection', () => {
     expect(persistedSpeechModelId({ speechModelId: 42 })).toBeNull()
     expect(persistedSpeechModelId({ whisperModelId: null })).toBeNull()
+  })
+})
+
+describe('persistedTranscriptionLanguageId', () => {
+  test('reads a known id, and nothing else', () => {
+    expect(
+      persistedTranscriptionLanguageId({ transcriptionLanguageId: 'da' })
+    ).toBe('da')
+    expect(
+      persistedTranscriptionLanguageId({ transcriptionLanguageId: 'auto' })
+    ).toBe('auto')
+    expect(
+      persistedTranscriptionLanguageId({ transcriptionLanguageId: 'danish' })
+    ).toBeNull()
+    expect(
+      persistedTranscriptionLanguageId({ transcriptionLanguageId: 7 })
+    ).toBeNull()
+    expect(persistedTranscriptionLanguageId({})).toBeNull()
   })
 })

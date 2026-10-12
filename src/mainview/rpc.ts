@@ -5,12 +5,17 @@ import type {
   PermissionState,
   DeviceInfo,
   AppSettings,
+  CommandLineInstallResult,
+  CommandLineInstallState,
   DictionaryCandidate,
   DictionaryEntry,
   DictationNoticeKind,
+  FileTranscriptionsState,
   FormatterModelTier,
   HistoryEntry,
   HistorySettingsPatch,
+  ModelDownloadProgress,
+  NavigateRequest,
   SettingsPane,
   ShortcutId,
   StatsRange,
@@ -22,9 +27,10 @@ import type {
   UpdateCheckState,
   RecordingIndicatorMode,
   AppStatus,
+  SaveTranscriptResult,
   WindowResizeEdge,
 } from '../shared/types'
-import { appEvents } from './app-events'
+import { appEvents, dispatchNavigation } from './app-events'
 import { SPEECH_MODELS } from '../shared/speech-models'
 
 export const queryClient = new QueryClient()
@@ -40,6 +46,9 @@ queryClient.setQueryData(
 // that TypeScript cannot name in declaration files (TS2742). All external access
 // goes through the typed helpers below.
 const rpc = Electroview.defineRPC<WebviewRPCType>({
+  // Electrobun gives up on a request after 1 s by default. Asking the login shell for its
+  // PATH, or PowerShell for a Path write, can take a few seconds on a cold start.
+  maxRequestTime: 20_000,
   handlers: {
     messages: {
       updatePermissions: (data: PermissionState) => {
@@ -66,6 +75,10 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
       },
       openSettingsScreen: () => {
         appEvents.emit('openSettingsScreen')
+        dispatchNavigation({ settingsTab: 'general' })
+      },
+      navigate: (data: NavigateRequest) => {
+        dispatchNavigation(data)
       },
       updateCheckStatus: (data: {
         state: UpdateCheckState
@@ -73,12 +86,7 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
       }) => {
         appEvents.emit('updateCheckStatus', data)
       },
-      updateModelDownloadProgress: (data: {
-        modelId: string
-        progressFraction: number
-        done: boolean
-        error?: string
-      }) => {
+      updateModelDownloadProgress: (data: ModelDownloadProgress) => {
         appEvents.emit('modelDownloadProgress', data)
       },
       updateFormatterModelProgress: (data: {
@@ -94,6 +102,10 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
       },
       statsUpdated: () => {
         queryClient.invalidateQueries({ queryKey: ['stats'] })
+      },
+      fileTranscriptionsChanged: (data: FileTranscriptionsState) => {
+        queryClient.setQueryData(['fileTranscriptions'], data)
+        appEvents.emit('fileTranscriptions', data)
       },
       updateModelAvailability: (data: {
         modelId: string
@@ -218,6 +230,32 @@ export async function setSoundEffectsEnabled(
   return rpc.request.updateGeneralSettings({
     patch: { soundEffectsEnabled: enabled },
   })
+}
+
+export async function setCommandLineControl(
+  enabled: boolean
+): Promise<boolean> {
+  return rpc.request.updateGeneralSettings({
+    patch: { commandLineControl: enabled },
+  })
+}
+
+export async function fetchCommandLineInstall(): Promise<CommandLineInstallState> {
+  return rpc.request.getCommandLineInstall({})
+}
+
+export async function installCommandLine(
+  replace: boolean
+): Promise<CommandLineInstallResult> {
+  return rpc.request.installCommandLine({ replace })
+}
+
+export async function removeCommandLine(): Promise<CommandLineInstallResult> {
+  return rpc.request.removeCommandLine({})
+}
+
+export async function addCommandLineToPath(): Promise<CommandLineInstallResult> {
+  return rpc.request.addCommandLineToPath({})
 }
 
 export async function setTranscriptionLanguage(
@@ -609,4 +647,31 @@ export async function updateStatsSettings(
   patch: StatsSettingsPatch
 ): Promise<boolean> {
   return rpc.request.updateStatsSettings({ patch })
+}
+
+export async function fetchFileTranscriptions(): Promise<FileTranscriptionsState> {
+  return rpc.request.getFileTranscriptions({})
+}
+
+/** Opens the native file dialog. The queued files arrive as `fileTranscriptionsChanged`. */
+export function chooseFilesToTranscribe(): void {
+  rpc.send.chooseFilesToTranscribe({})
+}
+
+export async function cancelFileTranscription(id: string): Promise<boolean> {
+  return rpc.request.cancelFileTranscription({ id })
+}
+
+export async function dismissFileTranscription(id: string): Promise<boolean> {
+  return rpc.request.dismissFileTranscription({ id })
+}
+
+export async function saveTranscriptAsText(
+  id: string
+): Promise<SaveTranscriptResult> {
+  return rpc.request.saveTranscriptAsText({ id })
+}
+
+export function revealSavedTranscript(id: string): void {
+  rpc.send.revealSavedTranscript({ id })
 }

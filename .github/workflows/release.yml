@@ -149,6 +149,8 @@ jobs:
           security find-identity -v -p codesigning build.keychain
           rm certificate.p12
 
+      # build:<channel> runs build:native first, which builds the Swift helpers and the
+      # `codictate` command line (bun run build:native:cli) before `electrobun build`.
       - name: Build (${{ needs.create-release.outputs.channel }})
         env:
           ELECTROBUN_DEVELOPER_ID: ${{ secrets.ELECTROBUN_DEVELOPER_ID || '' }}
@@ -230,6 +232,9 @@ jobs:
 
       - name: Build Windows native helper (Rust/Cargo)
         run: bun run build:native:windows-helper
+
+      - name: Build the codictate command line (Rust/Cargo)
+        run: bun run build:native:cli
 
       - name: Build (${{ needs.create-release.outputs.channel }})
         shell: pwsh
