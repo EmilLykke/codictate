@@ -1,7 +1,7 @@
 /**
  * File paths for the Transcribe page: what the native dialog and a file drop hand back, and
- * where the Transcript Export folder dialog opens. Pure, so both platforms are tested on any
- * host.
+ * the Transcript Export Save dialog's start folder, argv and answer. Pure, so both platforms
+ * are tested on any host.
  */
 
 /**
@@ -92,7 +92,7 @@ export function droppedFilePath(
 }
 
 /**
- * Where the Transcript Export folder dialog opens: the last folder a transcript was saved to,
+ * Where the Transcript Export Save dialog opens: the last folder a transcript was saved to,
  * if it is still there; otherwise the transcribed file's own folder, if that is still there;
  * otherwise the home folder.
  */
@@ -108,4 +108,60 @@ export function exportStartFolder(args: {
     }
   }
   return args.homeFolder
+}
+
+export interface SaveDialogRequest {
+  /** The name the dialog starts with, extension included: `talk.srt`. */
+  defaultName: string
+  /** The folder it opens in. */
+  directory: string
+  /** Without the dot: `srt`. */
+  extension: string
+}
+
+/** What the dialog says in its title bar. */
+export const SAVE_DIALOG_TITLE = 'Save Transcript'
+
+/**
+ * The media Native Helper's `save-dialog` argv after the executable, the same on macOS
+ * (`CodictateMediaHelper`, NSSavePanel) and Windows (`CodictateWindowsHelper`,
+ * IFileSaveDialog).
+ */
+export function saveDialogArgs(request: SaveDialogRequest): string[] {
+  return [
+    'save-dialog',
+    '--name',
+    request.defaultName,
+    '--directory',
+    request.directory,
+    '--extension',
+    request.extension,
+    '--title',
+    SAVE_DIALOG_TITLE,
+  ]
+}
+
+/**
+ * The helper's one JSON line: `{"path":"..."}` is the chosen path, `{"cancelled":true}` is
+ * `null`. Anything else throws, so a broken helper is reported, not taken for a cancel.
+ */
+export function parseSaveDialogAnswer(stdout: string): string | null {
+  const line = stdout.trim()
+  let answer: unknown
+  try {
+    answer = JSON.parse(line)
+  } catch {
+    throw new Error(`The Save dialog gave no answer: ${line.slice(0, 200)}`)
+  }
+  if (typeof answer === 'object' && answer !== null) {
+    if ('cancelled' in answer && answer.cancelled === true) return null
+    if (
+      'path' in answer &&
+      typeof answer.path === 'string' &&
+      answer.path.trim() !== ''
+    ) {
+      return answer.path
+    }
+  }
+  throw new Error(`The Save dialog gave no answer: ${line.slice(0, 200)}`)
 }

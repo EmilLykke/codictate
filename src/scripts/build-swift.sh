@@ -48,11 +48,14 @@ PARAKEET_BIN_DIR="$(swift build -c release --show-bin-path --package-path "$PARA
 cp "$PARAKEET_BIN_DIR/CodictateParakeetHelper" "$PARAKEET_VENDOR_BIN"
 chmod +x "$PARAKEET_VENDOR_BIN"
 
-# File Transcription's AVFoundation audio extraction (docs/CLI.md).
+# File Transcription's AVFoundation audio extraction (docs/CLI.md), and the Save dialog for a
+# Transcript Export (AppKit NSSavePanel).
 MEDIA_HELPER_VENDOR_DIR="vendors/media-helper"
 mkdir -p "$MEDIA_HELPER_VENDOR_DIR"
 swiftc -swift-version 5 -O native/CodictateMediaHelper/main.swift \
   -o "$MEDIA_HELPER_VENDOR_DIR/CodictateMediaHelper" \
   -target arm64-apple-macosx13.0 \
   -framework AVFoundation \
-  -framework CoreMedia
+  -framework CoreMedia \
+  -framework AppKit \
+  -framework UniformTypeIdentifiers

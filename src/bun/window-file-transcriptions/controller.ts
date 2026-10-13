@@ -9,14 +9,14 @@
  * go to History (GLOSSARY.md: File Transcription, History), Timed Transcript included.
  *
  * A Transcript Export of a session result or a History entry also runs here: render, ask
- * for a folder, write under a new name. It is started by an RPC message and reports back
- * with one, because the folder dialog must never be awaited inside a request (#156).
+ * where to save in the system Save dialog, write there. It is started by an RPC message and
+ * reports back with one, because the dialog must never be awaited inside a request (#156).
  *
  * Everything that touches the machine comes in through the deps, so it is tested
  * hermetically (controller.test.ts).
  */
 
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname } from 'node:path'
 import type {
   FileTranscriptionQueue,
   FileTranscriptionResult,
@@ -37,7 +37,7 @@ import {
   type TranscriptExportSource,
 } from '../../shared/transcript-export'
 import { transcriptExportFailureMessage } from '../../shared/file-transcription-copy'
-import { exportStartFolder } from './paths'
+import { exportStartFolder, type SaveDialogRequest } from './paths'
 import {
   belongsInHistory,
   outcomeFromResult,
@@ -46,9 +46,6 @@ import {
 
 /** How many finished results the page keeps for the session. */
 export const FINISHED_LIMIT = 100
-
-/** How many `name N.ext` names a Transcript Export tries before giving up. */
-const EXPORT_NAME_ATTEMPTS = 500
 
 const GONE_MESSAGE = "That transcript isn't here anymore."
 
@@ -61,8 +58,11 @@ export interface WindowFileTranscriptionsDeps {
    * No audio: the file stays the user's own.
    */
   saveToHistory(record: FileTranscriptionHistoryRecord): Promise<boolean>
-  /** The native folder dialog. Resolves `null` when the user cancels. */
-  chooseFolder(startingFolder: string): Promise<string | null>
+  /**
+   * The system Save dialog: name field, folder browsing, and its own question before
+   * replacing a file. Resolves the chosen path, or `null` when the user cancels.
+   */
+  chooseSaveLocation(request: SaveDialogRequest): Promise<string | null>
   /** The folder the last Transcript Export went to, remembered across launches. */
   lastExportFolder(): string | null
   rememberExportFolder(folder: string): Promise<void>
@@ -77,8 +77,8 @@ export interface WindowFileTranscriptionsDeps {
   pushExportResult(result: TranscriptExportResult): void
   isDirectory(path: string): boolean
   homeFolder(): string
-  /** Create a new file; must throw an error with `code: 'EEXIST'` when the path exists. */
-  writeNewFile(path: string, text: string): void
+  /** Write the file, replacing one that is there: the Save dialog already asked. */
+  writeFile(path: string, text: string): void
   /** Show a file in Finder / Explorer. */
   reveal(path: string): void
   now(): number
@@ -89,7 +89,7 @@ export interface WindowFileTranscriptionsDeps {
   log(message: string, data?: Record<string, unknown>): void
   /** Injected in tests; the shared renderer otherwise. */
   renderTranscript?: typeof renderTranscriptDefault
-  /** Injected in tests; the shared namer otherwise. */
+  /** The name the Save dialog starts with. Injected in tests; the shared namer otherwise. */
   transcriptExportFileName?: typeof transcriptExportFileNameDefault
 }
 
@@ -101,8 +101,9 @@ export interface WindowFileTranscriptions {
   cancel(id: string): boolean
   dismiss(id: string): boolean
   /**
-   * Ask for a folder and save the transcript there in `format`, under a new name. How it
-   * ended goes to `pushExportResult`; the returned promise resolves with the same result.
+   * Ask where to save in the system Save dialog and write the transcript there in `format`.
+   * How it ended goes to `pushExportResult`; the returned promise resolves with the same
+   * result.
    */
   exportTranscript(
     target: TranscriptExportTarget,
@@ -268,26 +269,6 @@ export function createWindowFileTranscriptions(
     }
   }
 
-  /** The new file's path. Throws the write's own error for anything but a taken name. */
-  function writeUnder(
-    folder: string,
-    fileName: string,
-    format: TranscriptExportFormat,
-    content: string
-  ): string {
-    for (let attempt = 1; attempt <= EXPORT_NAME_ATTEMPTS; attempt += 1) {
-      const path = join(folder, exportFileName(fileName, format, attempt))
-      try {
-        deps.writeNewFile(path, content)
-        return path
-      } catch (err) {
-        if (errorCode(err) === 'EEXIST') continue
-        throw err
-      }
-    }
-    throw new Error(`No free name for ${fileName} in ${folder}`)
-  }
-
   async function runExport(
     target: TranscriptExportTarget,
     format: TranscriptExportFormat
@@ -327,11 +308,15 @@ export function createWindowFileTranscriptions(
       homeFolder: deps.homeFolder(),
       isDirectory: (path) => deps.isDirectory(path),
     })
-    let folder: string | null
+    let path: string | null
     try {
-      folder = await deps.chooseFolder(start)
+      path = await deps.chooseSaveLocation({
+        defaultName: exportFileName(source.fileName, format),
+        directory: start,
+        extension: format,
+      })
     } catch (err) {
-      deps.log('folder dialog failed', { err: String(err) })
+      deps.log('save dialog failed', { err: String(err) })
       return {
         target,
         status: 'failed',
@@ -339,11 +324,10 @@ export function createWindowFileTranscriptions(
         message: transcriptExportFailureMessage(null),
       }
     }
-    if (folder === null) return { target, status: 'cancelled' }
+    if (path === null) return { target, status: 'cancelled' }
 
-    let path: string
     try {
-      path = writeUnder(folder, source.fileName, format, rendered.content)
+      deps.writeFile(path, rendered.content)
     } catch (err) {
       deps.log('export write failed', { target, format, err: String(err) })
       return {
@@ -355,7 +339,7 @@ export function createWindowFileTranscriptions(
     }
 
     try {
-      await deps.rememberExportFolder(folder)
+      await deps.rememberExportFolder(dirname(path))
     } catch (err) {
       deps.log('remember export folder failed', { err: String(err) })
     }

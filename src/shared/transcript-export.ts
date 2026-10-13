@@ -225,16 +225,15 @@ export function renderTranscript(
 }
 
 /**
- * The names a Transcript Export tries, in order: `memo.srt`, then `memo 2.srt`, `memo
- * 3.srt` and so on, so an existing file is never overwritten. The source file's last
- * extension is dropped (`a.b.mov` gives `a.b.srt`); a leading dot is part of the name.
+ * The name a Transcript Export's Save dialog starts with: `memo.m4a` gives `memo.srt`. The
+ * source file's last extension is dropped (`a.b.mov` gives `a.b.srt`); a leading dot is part
+ * of the name. The user can change it in the dialog, which asks before replacing a file.
  */
 export function transcriptExportFileName(
   sourceFileName: string,
-  format: TranscriptExportFormat,
-  attempt: number
+  format: TranscriptExportFormat
 ): string {
   const dot = sourceFileName.lastIndexOf('.')
   const stem = dot > 0 ? sourceFileName.slice(0, dot) : sourceFileName
-  return attempt <= 1 ? `${stem}.${format}` : `${stem} ${attempt}.${format}`
+  return `${stem}.${format}`
 }

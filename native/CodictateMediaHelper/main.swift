@@ -1,7 +1,9 @@
 // CodictateMediaHelper: turns any audio or video file AVFoundation can read into the
-// 16 kHz mono 16-bit PCM WAV every Speech Engine accepts.
+// 16 kHz mono 16-bit PCM WAV every Speech Engine accepts, and shows the Save dialog for a
+// Transcript Export.
 //
 //   CodictateMediaHelper extract-audio <input> <output.wav>
+//   CodictateMediaHelper save-dialog --name <file name> --directory <folder> --extension <ext> [--title <title>]
 //
 // Used by File Transcription (src/bun/file-transcription/), which owns the temp directory the
 // output goes into. Every audio track is mixed down, so a screen recording with a microphone track and a
@@ -14,11 +16,22 @@
 //   4  the input opened but has no audio track
 //   5  the output could not be written
 //
-// macOS only. On Windows, `CodictateWindowsHelper extract-audio` does the same with Media
-// Foundation, with the same argv and exit codes.
+// `save-dialog` is the system Save dialog (NSSavePanel), read by
+// src/bun/window-file-transcriptions/native.ts. It prints exactly one JSON line on stdout:
+// `{"path":"<chosen path>"}` when the user saves, `{"cancelled":true}` when they cancel. The
+// panel asks before replacing an existing file. Exit codes:
+//   0  the user answered (saved or cancelled)
+//   2  usage error
+// The Bun side treats any other exit, or any other output, as a failed dialog.
+//
+// macOS only. On Windows, `CodictateWindowsHelper` does both with Media Foundation and
+// IFileSaveDialog, with the same argv, output and exit codes (it adds 1: the dialog could not
+// be shown).
 
 import AVFoundation
+import AppKit
 import Foundation
+import UniformTypeIdentifiers
 
 enum Exit: Int32 {
     case usage = 2
@@ -142,7 +155,81 @@ func extractAudio(input: String, output: String) async {
     handle.closeFile()
 }
 
+struct SaveDialogRequest {
+    var name: String
+    var directory: String
+    var fileExtension: String
+    var title: String?
+}
+
+let saveDialogUsage =
+    "usage: CodictateMediaHelper save-dialog --name <file name> --directory <folder> --extension <ext> [--title <title>]"
+
+/// `--flag value` pairs, each flag at most once. `nil` for anything else.
+func parseSaveDialogArgs(_ args: ArraySlice<String>) -> SaveDialogRequest? {
+    var values: [String: String] = [:]
+    var rest = args
+    while let flag = rest.popFirst() {
+        guard ["--name", "--directory", "--extension", "--title"].contains(flag),
+            values[flag] == nil,
+            let value = rest.popFirst()
+        else { return nil }
+        values[flag] = value
+    }
+    var fileExtension = values["--extension"] ?? ""
+    if fileExtension.hasPrefix(".") { fileExtension.removeFirst() }
+    guard let name = values["--name"], !name.isEmpty,
+        let directory = values["--directory"], !directory.isEmpty,
+        !fileExtension.isEmpty,
+        fileExtension.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber) })
+    else { return nil }
+    return SaveDialogRequest(
+        name: name, directory: directory, fileExtension: fileExtension, title: values["--title"])
+}
+
+func printJSONLine(_ object: [String: Any]) {
+    // Only strings and booleans go in, so this cannot throw.
+    var line = try! JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes])
+    line.append(0x0A)
+    FileHandle.standardOutput.write(line)
+}
+
+/// The helper has no window of its own, so it becomes an accessory app (no Dock icon, no menu
+/// bar) and activates itself: the panel then opens in front of Codictate's window with the
+/// name field focused, instead of behind it.
+@MainActor
+func runSaveDialog(_ request: SaveDialogRequest) -> Never {
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    app.activate(ignoringOtherApps: true)
+
+    let panel = NSSavePanel()
+    // Types before the name: `.srt` has no registered type, and a dynamic type set after the
+    // name makes the panel append the extension again (`talk.srt.srt`).
+    if let type = UTType(filenameExtension: request.fileExtension) {
+        panel.allowedContentTypes = [type]
+    }
+    panel.nameFieldStringValue = request.name
+    panel.directoryURL = URL(fileURLWithPath: request.directory, isDirectory: true)
+    panel.canCreateDirectories = true
+    panel.isExtensionHidden = false
+    if let title = request.title { panel.title = title }
+
+    if panel.runModal() == .OK, let url = panel.url {
+        printJSONLine(["path": url.path])
+    } else {
+        printJSONLine(["cancelled": true])
+    }
+    exit(0)
+}
+
 let args = CommandLine.arguments
+if args.count >= 2, args[1] == "save-dialog" {
+    guard let request = parseSaveDialogArgs(args.dropFirst(2)) else {
+        fail(.usage, saveDialogUsage)
+    }
+    runSaveDialog(request)
+}
 guard args.count == 4, args[1] == "extract-audio" else {
     fail(.usage, "usage: CodictateMediaHelper extract-audio <input> <output.wav>")
 }

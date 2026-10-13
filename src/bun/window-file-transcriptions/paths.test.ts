@@ -4,6 +4,8 @@ import {
   mainWindowNavigationRules,
   splitDialogPaths,
   exportStartFolder,
+  parseSaveDialogAnswer,
+  saveDialogArgs,
 } from './paths'
 
 describe('splitDialogPaths', () => {
@@ -154,5 +156,53 @@ describe('exportStartFolder', () => {
         isDirectory,
       })
     ).toBe('/Users/me')
+  })
+})
+
+describe('the Save dialog helper', () => {
+  test('the same flags on both platforms, spaces and all', () => {
+    expect(
+      saveDialogArgs({
+        defaultName: 'board call.srt',
+        directory: 'C:\\Users\\me\\Talks, 2026',
+        extension: 'srt',
+      })
+    ).toEqual([
+      'save-dialog',
+      '--name',
+      'board call.srt',
+      '--directory',
+      'C:\\Users\\me\\Talks, 2026',
+      '--extension',
+      'srt',
+      '--title',
+      'Save Transcript',
+    ])
+  })
+
+  test('a path is the choice and a cancel is null', () => {
+    expect(
+      parseSaveDialogAnswer('{"path":"/Users/me/Talks, 2026/board call.srt"}\n')
+    ).toBe('/Users/me/Talks, 2026/board call.srt')
+    expect(
+      parseSaveDialogAnswer('{"path":"C:\\\\Users\\\\me\\\\talk.vtt"}')
+    ).toBe('C:\\Users\\me\\talk.vtt')
+    expect(parseSaveDialogAnswer('{"cancelled":true}\n')).toBeNull()
+  })
+
+  test('anything else is an error, never a quiet cancel', () => {
+    for (const stdout of [
+      '',
+      'not json',
+      '{}',
+      '{"cancelled":false}',
+      '{"path":""}',
+      '{"path":42}',
+      'null',
+    ]) {
+      expect(() => parseSaveDialogAnswer(stdout)).toThrow(
+        'The Save dialog gave no answer'
+      )
+    }
   })
 })

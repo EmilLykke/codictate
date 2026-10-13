@@ -683,7 +683,7 @@ export async function dismissFileTranscriptionNotice(): Promise<boolean> {
   return rpc.request.dismissFileTranscriptionNotice({})
 }
 
-/** Opens the native folder dialog and saves there. The result arrives as `transcriptExportFinished`. */
+/** Opens the system Save dialog and saves there. The result arrives as `transcriptExportFinished`. */
 export function exportTranscript(
   target: TranscriptExportTarget,
   format: TranscriptExportFormat

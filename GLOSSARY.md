@@ -62,7 +62,7 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Caption File** - an SRT or VTT file made from a Timed Transcript, for showing the words on screen alongside the audio or video.
 
-**Transcript Export** - saving a File Transcription to a folder the user picks, as text, as a Caption File, or as JSON. A Caption File, and the timing inside JSON, need a Timed Transcript.
+**Transcript Export** - saving a File Transcription as a file the user names and places in the system Save dialog, as text, as a Caption File, or as JSON. A Caption File, and the timing inside JSON, need a Timed Transcript.
 
 **Processing Time** - how long a File Transcription took, from when Codictate began reading the file to when the transcript was ready. Time spent waiting behind other File Transcriptions does not count. Distinct from the audio's own length.
 

@@ -65,7 +65,7 @@ src/
     command-line-install.ts     # Settings > Command Line: put `codictate` on PATH
     dictation/                  # The Batch Dictation pipeline (transcript -> Dictation Outcome), command-line Dictations
     file-transcription/         # The File Transcription queue, shared by the command line and the window
-    window-file-transcriptions/ # The Transcribe page's side of the queue: file dialog, drop, results, History
+    window-file-transcriptions/ # The Transcribe page's side of the queue: file dialog, drop, results, History, Transcript Export
     platform/                   # Platform-specific code
       macos/                    #   macOS implementations
       windows/                  #   Windows implementations
@@ -111,8 +111,8 @@ native/
   CodictateWindowHelper/        # macOS: recording HUD (AppKit NSPanel)
   CodictateParakeetHelper/      # macOS: Parakeet ASR (FluidAudio engine)
   CodictateObserverHelper/      # macOS: correction observer
-  CodictateMediaHelper/         # macOS: AVFoundation audio/video decode for File Transcription
-  CodictateWindowsHelper/       # Windows: keyboard hook + mic + indicator + Media Foundation decode (Rust)
+  CodictateMediaHelper/         # macOS: AVFoundation audio/video decode for File Transcription + the Save dialog (NSSavePanel)
+  CodictateWindowsHelper/       # Windows: keyboard hook + mic + indicator + Media Foundation decode + the Save dialog (Rust)
   codictate-cli/                # macOS + Windows: the `codictate` command-line client (Rust)
 
 scripts/
@@ -193,6 +193,7 @@ A public command line for users, scripts, AI agents and other apps (Codiclens fi
 - **The app side** is `src/bun/command-line/`: transport, one session per connection (exactly one `result` or `error`, a disconnect is a cancel), handlers with injected deps. Protocol types live in `src/shared/command-line-protocol.ts`, checked against the JSON examples in docs/CLI.md. Starting the socket server is also the single-instance claim (`single-instance.ts`: a `flock`ed `run/<identifier>.lock` on Unix, the pipe name on Windows); a second instance never runs past it, and a fresh `run/<identifier>.hidden-launch` marker boots the app without its window.
 - **Command-Line Control** (Settings > Command Line, off by default) gates every command that records the microphone or changes state. File Transcription and reads are never gated.
 - **File Transcription is one queue** (`src/bun/file-transcription/`), shared by the command line and the Transcribe page: one job at a time, decode and engine at lowered OS priority so a Dictation never waits, cancellable. Raw Transcript only: no Dictionary, Formatting Mode or brand table. Only window jobs are kept in History. Decoding is `CodictateMediaHelper` on macOS and `CodictateWindowsHelper extract-audio` on Windows, same argv and exit codes.
+- **Transcript Export uses the system Save dialog.** Electrobun 1.18 has none, so it is the same media Native Helper's `save-dialog` subcommand (NSSavePanel on macOS, IFileSaveDialog on Windows; same argv and one JSON line, documented at the top of `native/CodictateMediaHelper/main.swift`). The dialog asks before replacing a file, so Codictate writes to the chosen path as it is. It is started by an RPC message, never awaited inside a request (#156).
 - **A command-line Dictation is a Dictation.** It goes through the same recording path as the Dictation Shortcut (sounds, indicator, History, Stats); the outcome goes back to the command line unless it asked to paste. Printing forces a Batch Dictation, since a Live Transcription produces no outcome.
 - **Timestamps, not `-nt`.** On the whisper backend `-nt` decodes in fixed 30 s windows and loses speech, so stock Whisper Speech Models run without it and Codictate reads the plain transcript and the Timed Transcript from the JSON file crispasr writes (`--no-prints -ojf -of <per-run temp dir>/transcript`, read from `transcript.json`), never from stdout: `-of -` does not reach a pipe on Windows or on the `--backend` paths. Never strip text out of printed output. Edda keeps `-nt` plus `--backend whisper --vad -vm` with the bundled Silero VAD weights (`vendors/silero-vad/`, binary id `silero-vad`; it turns to noise without `-nt`), and so does any Whisper model that has not passed the long-audio check. See `docs/adr/0010-whisper-decodes-with-timestamps.md`.
 

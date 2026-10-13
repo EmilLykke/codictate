@@ -48,9 +48,9 @@ import {
 } from './window-file-transcriptions/controller'
 import {
   chooseFilesWithNativeDialog,
-  chooseFolderWithNativeDialog,
+  chooseSaveLocationWithNativeDialog,
   isDirectory,
-  writeNewTextFile,
+  writeTextFile,
 } from './window-file-transcriptions/native'
 import {
   droppedFilePath,
@@ -242,7 +242,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           sendIfWindowAlive(() => rpc.send.historyEntryAdded({}))
           return true
         },
-        chooseFolder: chooseFolderWithNativeDialog,
+        chooseSaveLocation: chooseSaveLocationWithNativeDialog,
         lastExportFolder: () => deps.appConfig.getLastTranscriptExportFolder(),
         rememberExportFolder: (folder) =>
           deps.appConfig.setLastTranscriptExportFolder(folder),
@@ -258,7 +258,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           sendIfWindowAlive(() => rpc.send.transcriptExportFinished(result)),
         isDirectory,
         homeFolder: () => homedir(),
-        writeNewFile: writeNewTextFile,
+        writeFile: writeTextFile,
         reveal: (path) => Utils.showItemInFolder(path),
         now: () => Date.now(),
         onChange: (state) =>
@@ -630,7 +630,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         chooseFilesToTranscribe: () => {
           void windowFiles?.chooseAndTranscribe()
         },
-        // A message, like `chooseFilesToTranscribe`: the folder dialog is never awaited
+        // A message, like `chooseFilesToTranscribe`: the Save dialog is never awaited
         // inside a request (#156). The result goes back as `transcriptExportFinished`.
         exportTranscript: ({ target, format }) => {
           if (!windowFiles) {

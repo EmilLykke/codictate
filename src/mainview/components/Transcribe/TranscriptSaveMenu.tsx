@@ -20,8 +20,8 @@ const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 /**
  * "Save" and its menu: Text, Captions (.srt, .vtt) and JSON, for a window result or a History
- * entry. Picking one asks the main process to open the folder dialog and save there under a
- * new name; how it went comes back as `transcriptExportFinished` and is shown beside the
+ * entry. Picking one asks the main process to open the system Save dialog and save where the
+ * user says; how it went comes back as `transcriptExportFinished` and is shown beside the
  * button. Captions are greyed out, with the reason, when there are no timings.
  *
  * Renders the button and the status line as siblings, for the caller's flex row.

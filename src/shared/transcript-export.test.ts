@@ -309,20 +309,17 @@ describe('transcriptExportOptions', () => {
 })
 
 describe('transcriptExportFileName', () => {
-  test('the source name with the format, then numbered, never overwriting', () => {
-    expect(transcriptExportFileName('memo.m4a', 'srt', 1)).toBe('memo.srt')
-    expect(transcriptExportFileName('memo.m4a', 'srt', 2)).toBe('memo 2.srt')
-    expect(transcriptExportFileName('memo.m4a', 'json', 3)).toBe('memo 3.json')
-    expect(transcriptExportFileName('board call.m4a', 'txt', 1)).toBe(
+  test('the source name with the format', () => {
+    expect(transcriptExportFileName('memo.m4a', 'srt')).toBe('memo.srt')
+    expect(transcriptExportFileName('memo.m4a', 'json')).toBe('memo.json')
+    expect(transcriptExportFileName('board call.m4a', 'txt')).toBe(
       'board call.txt'
     )
   })
 
   test('only the last extension goes; a leading dot is part of the name', () => {
-    expect(transcriptExportFileName('a.b.mov', 'vtt', 1)).toBe('a.b.vtt')
-    expect(transcriptExportFileName('recording', 'txt', 1)).toBe(
-      'recording.txt'
-    )
-    expect(transcriptExportFileName('.hidden', 'srt', 3)).toBe('.hidden 3.srt')
+    expect(transcriptExportFileName('a.b.mov', 'vtt')).toBe('a.b.vtt')
+    expect(transcriptExportFileName('recording', 'txt')).toBe('recording.txt')
+    expect(transcriptExportFileName('.hidden', 'srt')).toBe('.hidden.srt')
   })
 })
