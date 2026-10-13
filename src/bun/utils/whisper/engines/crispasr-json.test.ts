@@ -34,7 +34,7 @@ const bytes = (...parts: (string | number[])[]): Uint8Array =>
   )
 
 describe('parseCrispasrJson on real crispasr output', () => {
-  test('turbo, English: text, tokens without special tokens, times in seconds', () => {
+  test('turbo, English: text and segment times in seconds, no words on the timestamps path', () => {
     const parsed = ok(parseCrispasrJson(fixture('turbo-en.json')))
     expect(parsed.language).toBe('en')
     expect(parsed.segments).toHaveLength(1)
@@ -42,49 +42,35 @@ describe('parseCrispasrJson on real crispasr output', () => {
     expect(segment.text).toBe(` "'Stuff it into you,' his belly counseled him.`)
     expect(segment.start).toBe(0)
     expect(segment.end).toBe(2.8)
-    expect(segment.tokens.some((t) => t.text.startsWith('[_'))).toBe(false)
-    expect(segment.tokens.map((t) => t.text).join('')).toBe(segment.text)
+    expect(segment.tokens.length).toBeGreaterThan(0)
 
     const { rawTranscript, timedTranscript } = crispasrTranscript(
       parsed,
       'timestamps'
     )
     expect(rawTranscript).toBe(`"'Stuff it into you,' his belly counseled him.`)
-    expect(timedTranscript).not.toBeNull()
     expect(isTimedTranscript(timedTranscript)).toBe(true)
-    expect(timedTranscript!.parts).toHaveLength(1)
-    expect(timedTranscript!.parts[0].words!.map((w) => w.text)).toEqual([
-      `"'Stuff`,
-      'it',
-      'into',
-      "you,'",
-      'his',
-      'belly',
-      'counseled',
-      'him.',
+    // With the VAD the token times are in its own timeline (whisper.cpp #4046), so the part
+    // keeps its segment time and gets no words, though the tokens are right there.
+    expect(timedTranscript!.parts).toEqual([
+      { text: rawTranscript, start: 0, end: 2.8 },
     ])
   })
 
-  test('small, Danish: a character split across tokens is carried into the next one', () => {
+  test('small, Danish: a file that is not UTF-8 token by token still reads, by its segment text', () => {
     const raw = fixture('small-da-split-utf8.json')
     expect(new TextDecoder().decode(raw)).toContain('�') // not UTF-8 as a whole
     const parsed = ok(parseCrispasrJson(raw))
     const [segment] = parsed.segments
     expect(segment.text.startsWith(' Øgrummen ligger 120 km')).toBe(true)
-    const texts = segment.tokens.map((t) => t.text)
-    // `" \xc3"` + `"\x98"`: the lead byte moves on, so the space and the Ø are whole tokens.
-    expect(texts.slice(0, 2)).toEqual([' ', 'Ø'])
-    expect(texts.join('')).toBe(segment.text)
-    expect(texts.some((t) => t.includes('�'))).toBe(false)
 
     const { rawTranscript, timedTranscript } = crispasrTranscript(
       parsed,
       'timestamps'
     )
     expect(rawTranscript).toBe(segment.text.trim())
-    const words = timedTranscript!.parts[0].words!.map((w) => w.text)
-    expect(words.slice(0, 4)).toEqual(['Øgrummen', 'ligger', '120', 'km'])
-    expect(words.join(' ')).toBe(rawTranscript)
+    expect(timedTranscript!.parts[0].text).toBe(rawTranscript)
+    expect(timedTranscript!.parts[0].words).toBeUndefined()
   })
 
   test('Edda on the VAD path: the transcript is read, its unusable times are not', () => {
@@ -140,37 +126,14 @@ describe('parseCrispasrJson on what the old writer can produce', () => {
     expect(parsed.segments[0].text).toBe(' a\tb\u0001c')
   })
 
-  test('split UTF-8 in tokens is carried; a split in segment text is not_utf8', () => {
-    const parsed = ok(
-      parseCrispasrJson(
-        bytes(
-          '{"transcription":[{"offsets":{"from":0,"to":900},"text":" bl',
-          [0xc3, 0xa5],
-          '","tokens":[{"text":" bl","offsets":{"from":0,"to":300}},{"text":"',
-          [0xc3],
-          '","offsets":{"from":300,"to":600}},{"text":"',
-          [0xa5],
-          '","offsets":{"from":600,"to":900}}]}]}'
-        )
-      )
-    )
-    expect(parsed.segments[0].tokens.map((t) => t.text)).toEqual([
-      ' bl',
-      '',
-      'å',
-    ])
-    const { timedTranscript } = crispasrTranscript(parsed, 'timestamps')
-    expect(timedTranscript!.parts[0].words).toEqual([
-      { text: 'blå', start: 0, end: 0.9 },
-    ])
-
+  test('a character split in segment text is not_utf8', () => {
     const broken = parseCrispasrJson(
       bytes('{"transcription":[{"text":" bl', [0xc3], '"}]}')
     )
     expect(broken).toMatchObject({ ok: false, reason: 'not_utf8' })
   })
 
-  test('special tokens and tokens without offsets are dropped', () => {
+  test('tokens without offsets are dropped', () => {
     const parsed = ok(
       parseCrispasrJson(
         bytes(
@@ -178,13 +141,10 @@ describe('parseCrispasrJson on what the old writer can produce', () => {
             transcription: [
               {
                 offsets: { from: 1000, to: 2000 },
-                text: ' Hi there',
+                text: 'Hi there',
                 tokens: [
-                  { text: '[_BEG_]', offsets: { from: 1000, to: 1000 } },
-                  { text: '<|endoftext|>', offsets: { from: 1000, to: 1000 } },
                   { text: ' Hi', offsets: { from: 1000, to: 1400 } },
                   { text: ' there' },
-                  { text: '[_TT_100]', offsets: { from: 2000, to: 2000 } },
                 ],
               },
             ],
@@ -196,7 +156,7 @@ describe('parseCrispasrJson on what the old writer can produce', () => {
       { text: ' Hi', start: 1, end: 1.4 },
     ])
     // The words no longer spell the part out, so the part keeps its own time and no words.
-    const { timedTranscript } = crispasrTranscript(parsed, 'timestamps')
+    const { timedTranscript } = crispasrTranscript(parsed, 'cohere')
     expect(timedTranscript!.parts).toEqual([
       { text: 'Hi there', start: 1, end: 2 },
     ])

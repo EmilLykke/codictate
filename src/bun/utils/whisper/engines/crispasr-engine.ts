@@ -27,9 +27,10 @@ import {
 } from './transcription'
 
 /**
- * crispasr's own words when a VAD run found no speech: it exits 0 and writes no JSON file
- * (upstream #311, `crispasr_run.cpp`). A silent recording is a success with an empty
- * transcript, so this one missing file is not a failure.
+ * crispasr's own words when a `--backend` VAD run (`nt-vad`) found no speech: it exits 0 and
+ * writes no JSON file (upstream #311, `crispasr_run.cpp`). A silent recording is a success
+ * with an empty transcript, so this one missing file is not a failure. The `timestamps` path
+ * writes `"transcription": []` instead.
  */
 const NO_SPEECH_DETECTED = 'no speech detected'
 
@@ -77,8 +78,8 @@ async function transcribeInto(
   let command
   try {
     // The binary half of the same check: `findAsrHarnessBinary` throws with its remediation
-    // when crispasr is not in the bundle, and so does the Silero VAD lookup on the `nt-vad`
-    // path when the bundled weights are missing. The other throw in here - translate on a
+    // when crispasr is not in the bundle, and so does the Silero VAD lookup (`timestamps` and
+    // `nt-vad`) when the bundled weights are missing. The other throw in here - translate on a
     // pinned backend - is a last-resort invariant that settings-heal and the plan builder make
     // unreachable, so it lands on the same reason rather than earning a fifth one.
     command = await buildWhisperHarnessCommand({

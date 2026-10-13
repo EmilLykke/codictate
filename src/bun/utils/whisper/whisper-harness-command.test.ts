@@ -15,6 +15,33 @@ const common = {
   jsonOutputBase: '/tmp/run/transcript',
 }
 
+const ENGLISH_PROMPT =
+  'Hello, this is a dictation. I write in full sentences, with commas where I pause.'
+const DANISH_PROMPT =
+  'Hej, dette er en diktering. Jeg skriver i hele sætninger, med kommaer hvor jeg holder pause.'
+
+/** The `--prompt` value, or `null` when the argv has none. */
+function promptOf(argv: readonly string[]): string | null {
+  const at = argv.indexOf('--prompt')
+  return at === -1 ? null : argv[at + 1]
+}
+
+async function timestampsCommand(
+  language: string | null,
+  translateToEnglish = false
+) {
+  return buildWhisperHarnessCommand(
+    {
+      ...common,
+      speechModelId: 'small-q5_1',
+      modelPath: '/models/small.bin',
+      language,
+      translateToEnglish,
+    },
+    dependencies
+  )
+}
+
 describe('buildWhisperHarnessCommand', () => {
   test('a checked stock Whisper Speech Model decodes with timestamps, translating', async () => {
     const command = await buildWhisperHarnessCommand(
@@ -42,6 +69,15 @@ describe('buildWhisperHarnessCommand', () => {
         '-f',
         '/audio/input.wav',
         '--no-prints',
+        '--vad',
+        '-vm',
+        '/test/bin/ggml-silero-v6.2.0.bin',
+        '-vt',
+        '0.35',
+        '-bs',
+        '5',
+        '--prompt',
+        ENGLISH_PROMPT,
         '-ojf',
         '-of',
         '/tmp/run/transcript',
@@ -54,8 +90,45 @@ describe('buildWhisperHarnessCommand', () => {
     })
   })
 
-  test('the bundled turbo model decodes with timestamps and never asks for the VAD', async () => {
+  test('the bundled turbo model decodes with timestamps, the VAD, beam search and a prompt, on no backend', async () => {
     const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'large-v3-turbo-q5_0',
+        modelPath: '/models/turbo.bin',
+        language: 'en',
+      },
+      dependencies
+    )
+    expect(command.decoding).toBe('timestamps')
+    expect(command.argv).toEqual([
+      '/test/bin/crispasr',
+      '-m',
+      '/models/turbo.bin',
+      '-t',
+      '8',
+      '--language',
+      'en',
+      '-f',
+      '/audio/input.wav',
+      '--no-prints',
+      '--vad',
+      '-vm',
+      '/test/bin/ggml-silero-v6.2.0.bin',
+      '-vt',
+      '0.35',
+      '-bs',
+      '5',
+      '--prompt',
+      ENGLISH_PROMPT,
+      '-ojf',
+      '-of',
+      '/tmp/run/transcript',
+    ])
+  })
+
+  test('the timestamps path fails like nt-vad when the bundled VAD weights are missing', async () => {
+    const rejected = buildWhisperHarnessCommand(
       {
         ...common,
         speechModelId: 'large-v3-turbo-q5_0',
@@ -65,19 +138,38 @@ describe('buildWhisperHarnessCommand', () => {
       {
         ...dependencies,
         resolveVadModel: () => {
-          throw new Error('VAD resolved on the timestamps path')
+          throw new Error('silero-vad is not bundled')
         },
       }
     )
-    expect(command.decoding).toBe('timestamps')
-    expect(command.argv).not.toContain('-nt')
-    expect(command.argv).not.toContain('--vad')
-    expect(command.argv.slice(-4)).toEqual([
-      '--no-prints',
-      '-ojf',
-      '-of',
-      '/tmp/run/transcript',
-    ])
+    expect(
+      await rejected.then(
+        () => '',
+        (error) => String(error)
+      )
+    ).toContain('silero-vad is not bundled')
+  })
+
+  test('the prompt follows the Transcription Language: Danish gets the Danish one', async () => {
+    expect(promptOf((await timestampsCommand('da')).argv)).toBe(DANISH_PROMPT)
+  })
+
+  test('English, auto-detect and Translate to English get the English prompt', async () => {
+    expect(promptOf((await timestampsCommand('en')).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await timestampsCommand(null)).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await timestampsCommand('da', true)).argv)).toBe(
+      ENGLISH_PROMPT
+    )
+    expect(promptOf((await timestampsCommand('de', true)).argv)).toBe(
+      ENGLISH_PROMPT
+    )
+  })
+
+  test('any other pinned language gets no prompt, and keeps the VAD and beam search', async () => {
+    const command = await timestampsCommand('de')
+    expect(command.argv).not.toContain('--prompt')
+    expect(command.argv).toContain('--vad')
+    expect(command.argv).toContain('-bs')
   })
 
   test('a stock Whisper Speech Model not yet checked takes the -nt and VAD path', async () => {
@@ -115,6 +207,8 @@ describe('buildWhisperHarnessCommand', () => {
       '-tr',
     ])
     expect(command.crispasrBackend).toBeUndefined()
+    expect(command.argv).not.toContain('-bs')
+    expect(command.argv).not.toContain('--prompt')
   })
 
   test('Edda keeps -nt on --backend whisper with the bundled Silero VAD', async () => {

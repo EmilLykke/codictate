@@ -36,8 +36,10 @@ export interface WhisperHarnessCommandOptions {
 }
 
 /**
- * How this run decodes (ADR-0010).
- * - `timestamps`: stock Whisper without `-nt`, so nothing is lost at 30 s window edges.
+ * How this run decodes (ADR-0010, ADR-0011).
+ * - `timestamps`: stock Whisper without `-nt`, so nothing is lost at 30 s window edges, with
+ *   whisper.cpp's own VAD, beam search and a punctuated prompt, so a pause mid-sentence does
+ *   not end the sentence.
  * - `nt-vad`: `-nt` on `--backend whisper`, with the audio split at pauses by the bundled
  *   Silero VAD. Edda, and every Whisper Speech Model not yet checked without `-nt`.
  * - `cohere`: hviske. `-nt` only changes the stdout display on that backend.
@@ -60,12 +62,34 @@ export interface WhisperHarnessCommand {
 export interface WhisperHarnessCommandDependencies {
   resolveBinary: (harness: AsrHarnessId) => Promise<string>
   threadCount: () => number
-  /** The bundled Silero VAD weights. Only asked for on the `nt-vad` path. */
+  /** The bundled Silero VAD weights. Asked for on the `timestamps` and `nt-vad` paths. */
   resolveVadModel: () => string
 }
 
 function whisperHarnessThreadCount(): number {
   return Math.max(4, availableParallelism?.() ?? 4)
+}
+
+/**
+ * The `--prompt` for the `timestamps` path (ADR-0011): one punctuated sentence in the
+ * language Whisper will write, so beam search keeps capitals and full stops instead of
+ * running on with commas. English also covers auto-detect (a Danish clip stayed Danish under
+ * it) and Translate to English. Any other pinned language gets none: untested, so unbiased.
+ */
+const DICTATION_PROMPT = {
+  en: 'Hello, this is a dictation. I write in full sentences, with commas where I pause.',
+  da: 'Hej, dette er en diktering. Jeg skriver i hele sætninger, med kommaer hvor jeg holder pause.',
+} as const
+
+function dictationPrompt(
+  languageArg: string,
+  translateToEnglish: boolean | undefined
+): string | null {
+  if (translateToEnglish || languageArg === 'auto' || languageArg === 'en') {
+    return DICTATION_PROMPT.en
+  }
+  if (languageArg === 'da') return DICTATION_PROMPT.da
+  return null
 }
 
 function crispasrDecoding(
@@ -89,7 +113,12 @@ function crispasrDecoding(
  * Three ways to decode (ADR-0010):
  * - `timestamps`, for a Speech Model with `whisperDecoding: 'timestamps'`: no `-nt`. On the
  *   whisper backend `-nt` puts the no-timestamps token in the prompt and decodes in fixed
- *   30 s windows, which loses speech that crosses a window edge.
+ *   30 s windows, which loses speech that crosses a window edge. Left alone, Whisper closes a
+ *   sentence at every pause on this path, so it adds (ADR-0011) `--vad -vm` with the bundled
+ *   Silero weights, which joins the speech into one stream with short gaps while keeping the
+ *   original timeline for segment times, `-bs 5` beam search, and a punctuated `--prompt` in
+ *   the language Whisper will write (`dictationPrompt`). No `--backend`: the dispatcher's VAD
+ *   decodes each slice on its own and breaks sentences more, not less.
  * - `nt-vad`, for Edda and every Whisper Speech Model not yet checked without `-nt`: keeps
  *   `-nt` (Edda turns to foreign-script noise without it) and runs `--backend whisper --vad`
  *   with the bundled Silero weights, which splits at pauses instead of every 30 s. The VAD
@@ -148,6 +177,22 @@ export async function buildWhisperHarnessCommand(
     '--no-prints'
   )
 
+  if (decoding === 'timestamps') {
+    // `-vt 0.35`: at the default 0.5 the VAD starts a region late and clips the first word
+    // when speech begins at once ("Stuff it into you" became "Stuffed into you"). A wider
+    // `-vp` pad fixes that too but keeps more of each pause, and the full stops come back.
+    argv.push(
+      '--vad',
+      '-vm',
+      dependencies.resolveVadModel(),
+      '-vt',
+      '0.35',
+      '-bs',
+      '5'
+    )
+    const prompt = dictationPrompt(languageArg, options.translateToEnglish)
+    if (prompt !== null) argv.push('--prompt', prompt)
+  }
   if (decoding === 'nt-vad') {
     argv.push('-nt', '--vad', '-vm', dependencies.resolveVadModel())
   }

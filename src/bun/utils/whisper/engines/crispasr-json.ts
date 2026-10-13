@@ -4,11 +4,9 @@
  *
  * crispasr has two JSON writers, and the stock whisper one does not write strict JSON:
  * - It escapes only `"` and `\`, so control characters inside strings pass through raw.
- * - Token texts are raw byte-level BPE pieces, so one token can end halfway through a UTF-8
- *   character (`" \xc3"`, `"\x98"` = " Ø"). Upstream fixed this (#475) only in the `--backend`
- *   dispatcher's writer, which carries the incomplete tail into the next token.
- * - Tokens include Whisper's special tokens (`[_BEG_]`, `[_TT_150]`), and a token has
- *   `offsets` only when it was timed.
+ * - Its token texts are raw byte-level BPE pieces that can end halfway through a UTF-8
+ *   character, mixed with Whisper's special tokens (`[_BEG_]`). Its tokens are never read
+ *   (ADR-0011), so only the segment texts have to be whole UTF-8.
  *
  * So the file is read as bytes: every byte becomes one code unit (latin1), raw control
  * characters inside strings are escaped, `JSON.parse` runs on that, and each string the
@@ -33,9 +31,10 @@ export interface CrispasrTimedText {
 
 export interface CrispasrSegment extends CrispasrTimedText {
   /**
-   * The segment's timed tokens in order, as whole characters: special tokens and tokens
-   * without `offsets` dropped, split characters carried into the next token. Empty when the
-   * writer gave none.
+   * The segment's timed tokens in order, tokens without `offsets` dropped. Empty when the
+   * writer gave none. Whole characters only from the `--backend` dispatcher's writer, which
+   * carries a split character into the next token (upstream #475); that is the only writer
+   * whose tokens `crispasrTranscript` reads.
    */
   tokens: CrispasrTimedText[]
 }
@@ -58,8 +57,6 @@ export type CrispasrJsonParse =
       reason: 'not_json' | 'not_utf8' | 'no_transcription'
       detail: string
     }
-
-const SPECIAL_TOKEN = [/^\[_[A-Z]+_?\d*\]$/, /^<\|.*\|>$/]
 
 /** One code unit per byte. Not `TextDecoder('latin1')`, which is windows-1252 and remaps 0x80-0x9f. */
 function bytesAsCodeUnits(bytes: Uint8Array): string {
@@ -129,26 +126,6 @@ function decodeUtf8(bytes: Uint8Array, fatal: boolean): string | null {
   }
 }
 
-/** Length of the longest prefix that does not end inside a UTF-8 sequence (upstream #475). */
-function utf8CompletePrefixLength(bytes: Uint8Array): number {
-  const n = bytes.length
-  for (let back = 1; back <= 3 && back <= n; back += 1) {
-    const c = bytes[n - back]
-    if ((c & 0xc0) === 0x80) continue
-    const need = c >= 0xf0 ? 4 : c >= 0xe0 ? 3 : c >= 0xc0 ? 2 : 1
-    return need > back ? n - back : n
-  }
-  return n
-}
-
-function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
-  if (a.length === 0) return b
-  const out = new Uint8Array(a.length + b.length)
-  out.set(a)
-  out.set(b, a.length)
-  return out
-}
-
 type JsonObject = Record<string, unknown>
 
 function isObject(value: unknown): value is JsonObject {
@@ -165,26 +142,16 @@ function offsetsSeconds(value: unknown): { start: number; end: number } | null {
 
 function segmentTokens(raw: unknown): CrispasrTimedText[] {
   if (!Array.isArray(raw)) return []
-  const kept = raw.filter(
-    (token): token is JsonObject =>
-      isObject(token) &&
-      typeof token.text === 'string' &&
-      !SPECIAL_TOKEN.some((pattern) => pattern.test(token.text as string))
-  )
   const out: CrispasrTimedText[] = []
-  let carry = new Uint8Array(0)
-  kept.forEach((token, index) => {
-    let bytes = concatBytes(carry, stringBytes(token.text as string))
-    carry = new Uint8Array(0)
-    if (index + 1 < kept.length) {
-      const complete = utf8CompletePrefixLength(bytes)
-      carry = bytes.slice(complete)
-      bytes = bytes.slice(0, complete)
-    }
+  for (const token of raw) {
+    if (!isObject(token) || typeof token.text !== 'string') continue
     const times = offsetsSeconds(token.offsets)
-    if (times === null) return
-    out.push({ text: decodeUtf8(bytes, false) ?? '', ...times })
-  })
+    if (times === null) continue
+    out.push({
+      text: decodeUtf8(stringBytes(token.text), false) ?? '',
+      ...times,
+    })
+  }
   return out
 }
 
@@ -285,7 +252,9 @@ function segmentTimesUsable(segments: readonly CrispasrTimedText[]): boolean {
  *
  * The Raw Transcript is the segment texts joined in order (`joinTranscriptPieces`). The
  * Timed Transcript is `null` on the `nt-vad` path: with `-nt` the segment times are not
- * usable (Edda's come back negative), so nothing is built from them.
+ * usable (Edda's come back negative), so nothing is built from them. Only hviske (`cohere`)
+ * gets word times. On `timestamps` the VAD leaves token times in its own compressed timeline
+ * (whisper.cpp #4046), so parts carry segment times and no words (ADR-0011).
  */
 export function crispasrTranscript(
   parsed: { segments: readonly CrispasrSegment[] },
@@ -305,7 +274,7 @@ export function crispasrTranscript(
     text: segment.text,
     start: segment.start,
     end: segment.end,
-    words: wordsOf(segment.tokens),
+    words: decoding === 'cohere' ? wordsOf(segment.tokens) : undefined,
   }))
   return {
     rawTranscript,
