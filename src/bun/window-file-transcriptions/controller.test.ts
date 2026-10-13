@@ -7,7 +7,17 @@ import type {
   FileTranscriptionRequest,
   FileTranscriptionResult,
 } from '../file-transcription'
-import type { FileTranscriptionsState } from '../../shared/types'
+import type {
+  FileTranscriptionsState,
+  TranscriptExportResult,
+} from '../../shared/types'
+import type { FileTranscriptionHistoryRecord } from '../utils/history/history-manager'
+import type { TimedTranscript } from '../../shared/timed-transcript'
+import type {
+  RenderedTranscript,
+  TranscriptExportFormat,
+  TranscriptExportSource,
+} from '../../shared/transcript-export'
 import {
   createWindowFileTranscriptions,
   type WindowFileTranscriptionsDeps,
@@ -54,7 +64,11 @@ function fakeQueue() {
   return { queue, jobs, listeners, cancelled }
 }
 
-const ok = (filePath: string, text: string): FileTranscriptionResult => ({
+const ok = (
+  filePath: string,
+  text: string,
+  timedTranscript: TimedTranscript | null = null
+): FileTranscriptionResult => ({
   status: 'ok',
   filePath,
   text,
@@ -62,39 +76,98 @@ const ok = (filePath: string, text: string): FileTranscriptionResult => ({
   speechModelId: 'large-v3-turbo-q5_0',
   engine: 'whisper',
   audioSeconds: 12.5,
+  translated: false,
+  processingSeconds: 3.2,
+  timedTranscript,
 })
+
+const timed = (text: string): TimedTranscript => ({
+  text,
+  parts: [{ text, start: 0, end: 1.5 }],
+})
+
+/** Stands in for the shared renderer: captions need timings, like the real one. */
+function fakeRender(
+  format: TranscriptExportFormat,
+  source: TranscriptExportSource
+): RenderedTranscript {
+  if ((format === 'srt' || format === 'vtt') && !source.timedTranscript) {
+    return {
+      ok: false,
+      reason: 'no_timed_transcript',
+      message: 'No timings.',
+    }
+  }
+  return { ok: true, content: `${format}:${source.text}` }
+}
+
+function fakeFileName(
+  sourceFileName: string,
+  format: TranscriptExportFormat,
+  attempt: number
+): string {
+  const dot = sourceFileName.lastIndexOf('.')
+  const stem = dot > 0 ? sourceFileName.slice(0, dot) : sourceFileName
+  return attempt <= 1 ? `${stem}.${format}` : `${stem} ${attempt}.${format}`
+}
 
 function setup(overrides: Partial<WindowFileTranscriptionsDeps> = {}) {
   const fake = fakeQueue()
   const pushes: FileTranscriptionsState[] = []
-  const history: {
-    transcript: string
-    fileName: string
-    durationMs: number
-  }[] = []
+  const history: FileTranscriptionHistoryRecord[] = []
   const written = new Map<string, string>()
+  const exports: TranscriptExportResult[] = []
+  const folderAsks: string[] = []
+  const remembered: string[] = []
+  const revealed: string[] = []
+  let lastExportFolder: string | null = null
   const deps: WindowFileTranscriptionsDeps = {
     queue: fake.queue,
     chooseFiles: async () => [],
-    saveToHistory: async (entry) => {
-      history.push(entry)
+    saveToHistory: async (record) => {
+      history.push(record)
       return true
     },
+    chooseFolder: async (start) => {
+      folderAsks.push(start)
+      return '/Users/me/Exports'
+    },
+    lastExportFolder: () => lastExportFolder,
+    rememberExportFolder: async (folder) => {
+      remembered.push(folder)
+      lastExportFolder = folder
+    },
+    loadHistoryExportSource: async () => null,
+    pushExportResult: (result) => exports.push(result),
+    isDirectory: (path) =>
+      ['/a', '/Users/me', '/Users/me/Exports'].includes(path),
+    homeFolder: () => '/Users/me',
     writeNewFile(path, text) {
       if (written.has(path)) {
         throw Object.assign(new Error('exists'), { code: 'EEXIST' })
       }
       written.set(path, text)
     },
-    fallbackFolder: () => '/Users/me/Downloads',
-    reveal: () => {},
+    reveal: (path) => revealed.push(path),
     now: () => 1_000,
     onChange: (state) => pushes.push(state),
     log: () => {},
+    renderTranscript: fakeRender,
+    transcriptExportFileName: fakeFileName,
     ...overrides,
   }
   const controller = createWindowFileTranscriptions(deps)
-  return { controller, fake, pushes, history, written }
+  return {
+    controller,
+    fake,
+    pushes,
+    history,
+    written,
+    exports,
+    folderAsks,
+    remembered,
+    revealed,
+  }
 }
 
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
@@ -112,11 +185,21 @@ describe('window File Transcriptions', () => {
   test('a finished transcript is kept for the session and saved to History', async () => {
     const { controller, fake, history, pushes } = setup()
     controller.transcribe(['/a/one.m4a'])
-    fake.jobs[0].resolve(ok('/a/one.m4a', 'hello there'))
+    fake.jobs[0].resolve(ok('/a/one.m4a', 'hello there', timed('hello there')))
     await settled()
 
     expect(history).toEqual([
-      { transcript: 'hello there', fileName: 'one.m4a', durationMs: 12_500 },
+      {
+        transcript: 'hello there',
+        fileName: 'one.m4a',
+        filePath: '/a/one.m4a',
+        durationMs: 12_500,
+        processingSeconds: 3.2,
+        speechModelId: 'large-v3-turbo-q5_0',
+        language: null,
+        translated: false,
+        timedTranscript: timed('hello there'),
+      },
     ])
     expect(controller.state().finished).toEqual([
       {
@@ -129,7 +212,11 @@ describe('window File Transcriptions', () => {
         audioSeconds: 12.5,
         speechModelId: 'large-v3-turbo-q5_0',
         savedToHistory: true,
-        savedTextPath: null,
+        processingSeconds: 3.2,
+        language: null,
+        translated: false,
+        hasTimedTranscript: true,
+        lastExport: null,
       },
     ])
     expect(pushes[pushes.length - 1]?.finished[0]).toMatchObject({
@@ -162,45 +249,169 @@ describe('window File Transcriptions', () => {
     })
   })
 
-  test('save as text writes beside the original and never overwrites', async () => {
-    const { controller, fake, written } = setup()
+  test('export asks for a folder, names the file after the original and never overwrites', async () => {
+    const { controller, fake, written, exports, folderAsks, remembered } =
+      setup()
     controller.transcribe(['/a/talk.m4a'])
-    fake.jobs[0].resolve(ok('/a/talk.m4a', 'first line'))
+    fake.jobs[0].resolve(ok('/a/talk.m4a', 'first line', timed('first line')))
     await settled()
 
-    expect(controller.saveAsText('job-1')).toEqual({
-      ok: true,
-      path: '/a/talk.txt',
-      location: 'source-folder',
+    const target = { kind: 'window', id: 'job-1' } as const
+    expect(await controller.exportTranscript(target, 'srt')).toEqual({
+      target,
+      status: 'saved',
+      format: 'srt',
+      path: '/Users/me/Exports/talk.srt',
     })
-    expect(controller.saveAsText('job-1')).toEqual({
-      ok: true,
-      path: '/a/talk 2.txt',
-      location: 'source-folder',
-    })
-    expect(written.get('/a/talk.txt')).toBe('first line\n')
+    await controller.exportTranscript(target, 'srt')
+    expect(written.get('/Users/me/Exports/talk.srt')).toBe('srt:first line')
+    expect([...written.keys()]).toEqual([
+      '/Users/me/Exports/talk.srt',
+      '/Users/me/Exports/talk 2.srt',
+    ])
+    expect(exports.map((r) => r.status)).toEqual(['saved', 'saved'])
+    // First the file's own folder, then the folder last saved to.
+    expect(folderAsks).toEqual(['/a', '/Users/me/Exports'])
+    expect(remembered).toEqual(['/Users/me/Exports', '/Users/me/Exports'])
     expect(controller.state().finished[0]).toMatchObject({
-      savedTextPath: '/a/talk 2.txt',
+      lastExport: { format: 'srt', path: '/Users/me/Exports/talk 2.srt' },
     })
   })
 
-  test('save as text falls back when the folder cannot be written', async () => {
-    const { controller, fake } = setup({
-      writeNewFile(path) {
-        if (path.startsWith('/Volumes/')) {
-          throw Object.assign(new Error('read-only'), { code: 'EROFS' })
-        }
-      },
+  test('the dialog starts at home when neither folder is still there', async () => {
+    const { controller, fake, folderAsks } = setup({
+      lastExportFolder: () => '/Volumes/Gone',
     })
     controller.transcribe(['/Volumes/Card/clip.mov'])
     fake.jobs[0].resolve(ok('/Volumes/Card/clip.mov', 'x'))
     await settled()
-    expect(controller.saveAsText('job-1')).toEqual({
-      ok: true,
-      path: '/Users/me/Downloads/clip.txt',
-      location: 'fallback-folder',
+    await controller.exportTranscript({ kind: 'window', id: 'job-1' }, 'txt')
+    expect(folderAsks).toEqual(['/Users/me'])
+  })
+
+  test('a cancelled dialog writes nothing and says cancelled', async () => {
+    const { controller, fake, written, exports, remembered } = setup({
+      chooseFolder: async () => null,
     })
-    expect(controller.saveAsText('nope')).toMatchObject({ ok: false })
+    controller.transcribe(['/a/talk.m4a'])
+    fake.jobs[0].resolve(ok('/a/talk.m4a', 'x'))
+    await settled()
+    const target = { kind: 'window', id: 'job-1' } as const
+    expect(await controller.exportTranscript(target, 'txt')).toEqual({
+      target,
+      status: 'cancelled',
+    })
+    expect(written.size).toBe(0)
+    expect(remembered).toEqual([])
+    expect(exports).toEqual([{ target, status: 'cancelled' }])
+  })
+
+  test('an unwritable folder asks for another one; other errors say so plainly', async () => {
+    for (const [code, message] of [
+      ['EACCES', "Codictate can't save in that folder. Choose another folder."],
+      ['EPERM', "Codictate can't save in that folder. Choose another folder."],
+      ['EROFS', "Codictate can't save in that folder. Choose another folder."],
+      ['EIO', "Couldn't save the file."],
+    ]) {
+      const { controller, fake, remembered } = setup({
+        writeNewFile() {
+          throw Object.assign(new Error('nope'), { code })
+        },
+      })
+      controller.transcribe(['/a/talk.m4a'])
+      fake.jobs[0].resolve(ok('/a/talk.m4a', 'x'))
+      await settled()
+      const target = { kind: 'window', id: 'job-1' } as const
+      expect(await controller.exportTranscript(target, 'json')).toEqual({
+        target,
+        status: 'failed',
+        format: 'json',
+        message,
+      })
+      expect(remembered).toEqual([])
+    }
+  })
+
+  test('captions without timings are refused before the dialog opens', async () => {
+    const { controller, fake, folderAsks, exports } = setup()
+    controller.transcribe(['/a/talk.m4a'])
+    fake.jobs[0].resolve(ok('/a/talk.m4a', 'no timings here'))
+    await settled()
+    expect(controller.state().finished[0]).toMatchObject({
+      hasTimedTranscript: false,
+    })
+    const target = { kind: 'window', id: 'job-1' } as const
+    expect(await controller.exportTranscript(target, 'vtt')).toEqual({
+      target,
+      status: 'failed',
+      format: 'vtt',
+      message: 'No timings.',
+    })
+    expect(folderAsks).toEqual([])
+    expect(exports).toHaveLength(1)
+    // JSON is always on offer.
+    expect((await controller.exportTranscript(target, 'json')).status).toBe(
+      'saved'
+    )
+  })
+
+  test('a History entry exports from History, and Show finds it', async () => {
+    const source: TranscriptExportSource = {
+      fileName: 'old memo.m4a',
+      speechModelId: null,
+      language: null,
+      translated: false,
+      audioSeconds: 30,
+      processingSeconds: null,
+      text: 'from history',
+      timedTranscript: null,
+    }
+    const asked: string[] = []
+    const { controller, written, folderAsks, revealed } = setup({
+      loadHistoryExportSource: async (id) => {
+        asked.push(id)
+        return id === 'h1'
+          ? { source, filePath: '/Users/me/old memo.m4a' }
+          : null
+      },
+    })
+    const target = { kind: 'history', id: 'h1' } as const
+    expect(await controller.exportTranscript(target, 'txt')).toMatchObject({
+      status: 'saved',
+      path: '/Users/me/Exports/old memo.txt',
+    })
+    expect(written.get('/Users/me/Exports/old memo.txt')).toBe(
+      'txt:from history'
+    )
+    expect(folderAsks).toEqual(['/Users/me'])
+    controller.revealExport(target)
+    expect(revealed).toEqual(['/Users/me/Exports/old memo.txt'])
+
+    expect(
+      await controller.exportTranscript({ kind: 'history', id: 'gone' }, 'txt')
+    ).toMatchObject({
+      status: 'failed',
+      message: "That transcript isn't here anymore.",
+    })
+    expect(asked).toEqual(['h1', 'gone'])
+  })
+
+  test('Show reveals the last export of a window result; a dismissed one is gone', async () => {
+    const { controller, fake, revealed } = setup()
+    controller.transcribe(['/a/talk.m4a'])
+    fake.jobs[0].resolve(ok('/a/talk.m4a', 'x', timed('x')))
+    await settled()
+    const target = { kind: 'window', id: 'job-1' } as const
+    controller.revealExport(target)
+    expect(revealed).toEqual([])
+    await controller.exportTranscript(target, 'vtt')
+    controller.revealExport(target)
+    expect(revealed).toEqual(['/Users/me/Exports/talk.vtt'])
+
+    controller.dismiss('job-1')
+    expect(await controller.exportTranscript(target, 'txt')).toMatchObject({
+      status: 'failed',
+    })
   })
 
   test('cancel goes to the shared queue; dismiss forgets a finished card', async () => {

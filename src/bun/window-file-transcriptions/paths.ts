@@ -1,6 +1,7 @@
 /**
  * File paths for the Transcribe page: what the native dialog and a file drop hand back, and
- * where "Save as text" writes. Pure, so both platforms are tested on any host.
+ * where the Transcript Export folder dialog opens. Pure, so both platforms are tested on any
+ * host.
  */
 
 /**
@@ -91,14 +92,20 @@ export function droppedFilePath(
 }
 
 /**
- * The `.txt` names "Save as text" tries, in order: `talk.txt`, then `talk 2.txt`, `talk
- * 3.txt` and so on, so an existing file is never overwritten.
+ * Where the Transcript Export folder dialog opens: the last folder a transcript was saved to,
+ * if it is still there; otherwise the transcribed file's own folder, if that is still there;
+ * otherwise the home folder.
  */
-export function transcriptTextFileName(
-  sourceFileName: string,
-  attempt: number
-): string {
-  const dot = sourceFileName.lastIndexOf('.')
-  const stem = dot > 0 ? sourceFileName.slice(0, dot) : sourceFileName
-  return attempt <= 1 ? `${stem}.txt` : `${stem} ${attempt}.txt`
+export function exportStartFolder(args: {
+  lastExportFolder: string | null
+  sourceFolder: string | null
+  homeFolder: string
+  isDirectory: (path: string) => boolean
+}): string {
+  for (const folder of [args.lastExportFolder, args.sourceFolder]) {
+    if (folder !== null && folder.trim() !== '' && args.isDirectory(folder)) {
+      return folder
+    }
+  }
+  return args.homeFolder
 }

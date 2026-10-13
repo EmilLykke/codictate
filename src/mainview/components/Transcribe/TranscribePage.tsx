@@ -4,12 +4,12 @@ import type {
   AppSettings,
   FileTranscriptionsState,
 } from "../../../shared/types";
-import { transcribeSettingsSummary } from "../../../shared/file-transcription-copy";
 import { fetchFileTranscriptions } from "../../rpc";
 import { TranscribeDropZone } from "./TranscribeDropZone";
 import { TranscribeQueueItem } from "./TranscribeQueueItem";
 import { TranscribeResultCard } from "./TranscribeResultCard";
-import { CARD, HEADING, LINK } from "./transcribe-styles";
+import { TranscribeSettings } from "./TranscribeSettings";
+import { CARD, HEADING } from "./transcribe-styles";
 
 const EMPTY: FileTranscriptionsState = { active: [], finished: [] };
 
@@ -27,8 +27,9 @@ function useNow(active: boolean): number {
 
 /**
  * File Transcription in the window: drop or choose audio and video files and get the Raw
- * Transcript back. The queue is shared with the command line, so its jobs show up here
- * while they wait or run. Only this window's results are listed and kept in History.
+ * Transcript back, with the File Transcription Settings right below. The queue is shared
+ * with the command line, so its jobs show up here while they wait or run. Only this
+ * window's results are listed and kept in History.
  */
 export function TranscribePage({
   settings,
@@ -44,10 +45,6 @@ export function TranscribePage({
     staleTime: Infinity,
   });
   const now = useNow(data.active.some((item) => item.state !== "queued"));
-  const summary = transcribeSettingsSummary(
-    settings.speechModelId,
-    settings.transcriptionLanguageId,
-  );
   const empty = data.active.length === 0 && data.finished.length === 0;
 
   return (
@@ -64,12 +61,7 @@ export function TranscribePage({
 
       <TranscribeDropZone compact={!empty} />
 
-      <p className="mt-3 text-[13px] text-overlay/40">
-        Using {summary.model} · {summary.language} ·{" "}
-        <button type="button" onClick={onOpenModels} className={LINK}>
-          Change
-        </button>
-      </p>
+      <TranscribeSettings settings={settings} onOpenModels={onOpenModels} />
 
       {data.active.length > 0 && (
         <div className="mt-8">

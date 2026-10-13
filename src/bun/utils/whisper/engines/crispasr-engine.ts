@@ -5,16 +5,19 @@
  * `buildWhisperHarnessCommand`, which owns the flag set and the backend-and-translate
  * invariant - and it makes no decision the Dictation Plan already made. What it adds is the
  * spawn, the drain, and turning what came back into a Transcription Result.
+ *
+ * The transcript comes from the JSON file crispasr writes into a directory made for this one
+ * run (ADR-0010), never from stdout, which is drained and ignored. The directory is removed on
+ * every way out.
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { log } from '../../logger'
 import { buildWhisperHarnessCommand } from '../whisper-harness-command'
-import {
-  decodeEngineStderr,
-  decodeEngineStdout,
-  stderrTail,
-} from './drain-stream'
+import { crispasrTranscript, parseCrispasrJson } from './crispasr-json'
+import { decodeEngineStderr, stderrTail } from './drain-stream'
 import { lowerProcessPriority } from './process-priority'
 import { superviseProcess } from './process-supervisor'
 import {
@@ -22,6 +25,13 @@ import {
   type HarnessTranscriptionRequest,
   type SpeechEngineAdapter,
 } from './transcription'
+
+/**
+ * crispasr's own words when a VAD run found no speech: it exits 0 and writes no JSON file
+ * (upstream #311, `crispasr_run.cpp`). A silent recording is a success with an empty
+ * transcript, so this one missing file is not a failure.
+ */
+const NO_SPEECH_DETECTED = 'no speech detected'
 
 export const transcribeWithCrispasr: SpeechEngineAdapter<
   HarnessTranscriptionRequest
@@ -41,14 +51,40 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     )
   }
 
+  let outputDir: string
+  try {
+    outputDir = mkdtempSync(join(tmpdir(), 'codictate-crispasr-'))
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    log('whisper', 'no temp directory for the crispasr JSON', { err: detail })
+    return failedTranscription(
+      'engine_output_unreadable',
+      request.speechModelId,
+      `no temp directory for the JSON output: ${detail}`
+    )
+  }
+  try {
+    return await transcribeInto(outputDir, request)
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
+}
+
+async function transcribeInto(
+  outputDir: string,
+  request: HarnessTranscriptionRequest
+): ReturnType<SpeechEngineAdapter<HarnessTranscriptionRequest>> {
   let command
   try {
     // The binary half of the same check: `findAsrHarnessBinary` throws with its remediation
-    // when crispasr is not in the bundle. The other throw in here - translate on a pinned
-    // backend - is a last-resort invariant that settings-heal and the plan builder make
+    // when crispasr is not in the bundle, and so does the Silero VAD lookup on the `nt-vad`
+    // path when the bundled weights are missing. The other throw in here - translate on a
+    // pinned backend - is a last-resort invariant that settings-heal and the plan builder make
     // unreachable, so it lands on the same reason rather than earning a fifth one.
     command = await buildWhisperHarnessCommand({
       crispasrBackend: request.crispasrBackend ?? undefined,
+      speechModelId: request.speechModelId,
+      jsonOutputBase: join(outputDir, 'transcript'),
       modelPath: request.modelPath,
       language: request.languageCode,
       audioPath: request.audioPath,
@@ -74,6 +110,7 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
   log('whisper', 'spawning ASR harness', {
     harness: command.harness,
     backend: command.crispasrBackend,
+    decoding: command.decoding,
     binary: command.binary,
     model: request.modelPath,
     whisperLanguageCode: command.languageArg,
@@ -128,8 +165,6 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
       'process exited but its output pipes did not close'
     )
   }
-  const stdoutBytes = supervised.stdout
-
   if (supervised.exitCode !== 0) {
     log('whisper', 'ASR harness exited non-zero', {
       harness: command.harness,
@@ -143,27 +178,63 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     )
   }
 
-  const stdoutText = decodeEngineStdout(stdoutBytes)
-  if (stdoutText === null) {
-    log('whisper', 'ASR harness stdout was not UTF-8', {
+  // Stdout is crispasr's display output. It was drained so the pipe never fills; the
+  // transcript is in the JSON file.
+  let jsonBytes: Uint8Array
+  try {
+    jsonBytes = new Uint8Array(readFileSync(command.jsonPath))
+  } catch {
+    if (stderrText.includes(NO_SPEECH_DETECTED)) {
+      log('whisper', 'transcription complete: no speech detected', {
+        harness: command.harness,
+        decoding: command.decoding,
+      })
+      return { status: 'ok', rawTranscript: '', timedTranscript: null }
+    }
+    log('whisper', 'ASR harness wrote no JSON', {
       harness: command.harness,
-      byteLength: stdoutBytes.length,
+      decoding: command.decoding,
+      stdoutBytes: supervised.stdout.length,
+      stderr: stderrText.slice(0, 500) || undefined,
     })
     return failedTranscription(
       'engine_output_unreadable',
       request.speechModelId,
-      `${stdoutBytes.length} bytes of stdout were not UTF-8`
+      `exit 0 but no ${command.jsonPath}: ${stderrTail(stderrText)}`
     )
   }
 
-  const rawTranscript = stdoutText.trim()
+  const parsed = parseCrispasrJson(jsonBytes)
+  if (!parsed.ok) {
+    log('whisper', 'ASR harness JSON unreadable', {
+      harness: command.harness,
+      decoding: command.decoding,
+      reason: parsed.reason,
+      byteLength: jsonBytes.length,
+      detail: parsed.detail,
+    })
+    return failedTranscription(
+      'engine_output_unreadable',
+      request.speechModelId,
+      parsed.detail
+    )
+  }
+
+  const { rawTranscript, timedTranscript } = crispasrTranscript(
+    parsed,
+    command.decoding
+  )
 
   log('whisper', 'transcription complete', {
     harness: command.harness,
+    decoding: command.decoding,
     exitCode: supervised.exitCode,
     transcriptLength: rawTranscript.length,
+    segments: parsed.segments.length,
+    timedParts: timedTranscript?.parts.length ?? 0,
+    language: parsed.language,
     stderr: stderrText.slice(0, 500) || undefined,
   })
 
-  return { status: 'ok', rawTranscript }
+  return { status: 'ok', rawTranscript, timedTranscript }
 }

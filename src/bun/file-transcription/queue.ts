@@ -4,7 +4,8 @@
  *
  * A job is: resolve the plan (ADR-0005's one resolver, read-only), decode the file to a
  * 16 kHz mono WAV in a temp directory of its own, run the Speech Engine on it, and return
- * the Raw Transcript. No Dictionary, no Formatting Mode, nothing pasted: a file is not a
+ * the Raw Transcript (in English when Translate to English is on), with its Timed Transcript
+ * when the Speech Engine timed it. No Dictionary, no Formatting Mode, nothing pasted: a file is not a
  * Dictation. And a Dictation never waits for one. The queue holds no lock a Dictation takes,
  * and the decoder and the engine run at lowered OS priority.
  *
@@ -52,7 +53,7 @@ export interface FileTranscriptionClock {
 
 /** Everything the queue needs from outside itself. */
 export interface FileTranscriptionDeps {
-  /** The selected Speech Model and Transcription Language, read when a job is queued. */
+  /** The File Transcription Settings and the translate default, read when a job is queued. */
   settings: FileTranscriptionSettingsReader
   /** `modelManager.isModelAvailable`: a question, never a write. */
   isModelAvailable(speechModelId: string): boolean
@@ -132,7 +133,10 @@ export function createFileTranscriptionQueue(
       try {
         listener(event)
       } catch (err) {
-        deps.log('event listener threw', { jobId: record.id, err: String(err) })
+        deps.log('event listener threw', {
+          jobId: record.id,
+          err: String(err),
+        })
       }
     }
   }
@@ -338,6 +342,13 @@ export function createFileTranscriptionQueue(
       speechModelId: plan.speechModelId,
       engine: publicEngineName(plan.engineId),
       audioSeconds: record.audioSeconds,
+      translated: plan.translateToEnglish,
+      // Processing Time: `startedAt` is when the job left the queue and began decoding.
+      processingSeconds: roundTo(
+        Math.max(0, deps.clock.now() - record.startedAt!) / 1000,
+        1
+      ),
+      timedTranscript: transcribed.timedTranscript ?? null,
     }
   }
 

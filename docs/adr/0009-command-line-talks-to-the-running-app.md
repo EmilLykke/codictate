@@ -32,4 +32,4 @@ Because the app holds the microphone permission, any local process that can run 
 - A command-line call launches Codictate when it is not running, and the app stays running as the normal tray app afterwards. The command line never opens a window, including during onboarding.
 - File Transcription now works on Windows too, which needs a Media Foundation decoder in `CodictateWindowsHelper` alongside `CodictateMediaHelper` on macOS. ADR-0008's macOS-only exception is closed.
 - ADR-0008's "the CLI never writes `main-config.json`" holds in a stronger form: only the app writes it, and the command line's writes go through `AppConfig` like a settings change from the window.
-- ADR-0008's "no timestamps" still holds, for the same reason.
+- ADR-0008's "no timestamps" still holds, for the same reason. (Superseded by ADR-0010: `-nt` was losing speech past 30 s, and stock Whisper now decodes with timestamps.)

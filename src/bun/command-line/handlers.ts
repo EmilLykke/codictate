@@ -6,7 +6,7 @@
  * Control (`requireCommandLineControl`).
  */
 
-import { isAbsolute } from 'node:path'
+import { basename, isAbsolute } from 'node:path'
 import {
   COMMAND_NAMES,
   CONTRACT_VERSION,
@@ -26,6 +26,7 @@ import {
 import {
   SPEECH_MODELS,
   getSpeechModel,
+  speechModelMakesTimedTranscript,
   transcriptionLanguageAllowedForModel,
 } from '../../shared/speech-models'
 import { speechModelSelectionPatch } from '../../shared/speech-model-selection'
@@ -33,7 +34,14 @@ import {
   TRANSCRIPTION_LANGUAGE_OPTIONS,
   isValidTranscriptionLanguageId,
 } from '../../shared/transcription-languages'
-import type { TranscriptionSettingsPatch } from '../../shared/types'
+import {
+  renderTranscript as renderTranscriptExport,
+  type TranscriptExportFormat,
+} from '../../shared/transcript-export'
+import type {
+  FileTranscriptionSettings,
+  TranscriptionSettingsPatch,
+} from '../../shared/types'
 import type { ModelOperations } from '../model-operations'
 import {
   modelLabel,
@@ -52,7 +60,7 @@ import type {
 import {
   engineFailureLine,
   resultLanguage,
-  selectFileTranscription,
+  selectSpeechModelAndLanguage,
 } from '../file-transcription/plan'
 import type {
   FileTranscriptionEvent,
@@ -81,10 +89,16 @@ export interface CommandLineDeps {
   dictation: CommandLineDictationControl
   /** A native notification. Electrobun's cannot carry a click action. */
   notify(notification: { title: string; body: string }): void
+  /** The Dictation's Speech Model. */
   getSpeechModelId(): string
+  /** The Dictation's Transcription Language. */
   getTranscriptionLanguageId(): string
   isModelAvailable(speechModelId: string): boolean
   fileTranscriptions: Pick<FileTranscriptionQueue, 'enqueue' | 'snapshot'>
+  /** What `transcribe` runs with when the request does not say. `AppConfig` satisfies it. */
+  fileSettings: { getFileTranscriptionSettings(): FileTranscriptionSettings }
+  /** `--format`'s renderer. Defaults to the Transcript Export one, as the window's Save. */
+  renderTranscript?: typeof renderTranscriptExport
   /** Show and focus the main window, creating it when it is closed. */
   showMainWindow(): void
   getStreamMode(): boolean
@@ -207,10 +221,13 @@ export function fileTranscriptionWireEvent(
   }
 }
 
-export function fileTranscriptionTerminalEvent(
-  result: FileTranscriptionResult
-): TranscribeResult | ErrorEvent {
-  if (result.status === 'failed') return errorEvent(result.code, result.message)
+type FinishedFileTranscription = Extract<
+  FileTranscriptionResult,
+  { status: 'ok' }
+>
+
+/** A finished File Transcription as the docs/CLI.md `transcribe` result, before `--format`. */
+function transcribeResult(result: FinishedFileTranscription): TranscribeResult {
   return {
     type: 'result',
     file: result.filePath,
@@ -219,22 +236,86 @@ export function fileTranscriptionTerminalEvent(
     speechModelId: result.speechModelId,
     engine: result.engine,
     audioSeconds: result.audioSeconds,
+    processingSeconds: result.processingSeconds,
+    translated: result.translated,
   }
 }
+
+/**
+ * `captions_unavailable` before anything is queued, when the Speech Model that would run
+ * never makes a Timed Transcript (Edda, and any Whisper model still on `-nt`), so a caption
+ * request does not wait for a whole transcription to be refused. An unknown id is left to the
+ * queue, which answers `unknown_model`.
+ */
+function captionsRefusal(
+  format: TranscriptExportFormat | null,
+  speechModelId: string
+): ErrorEvent | null {
+  if (format !== 'srt' && format !== 'vtt') return null
+  if (getSpeechModel(speechModelId) === undefined) return null
+  if (speechModelMakesTimedTranscript(speechModelId)) return null
+  return errorEvent(
+    'captions_unavailable',
+    `${modelLabel(speechModelId)} cannot make captions: it does not record when each part was spoken. Use --format txt or json, or choose another Speech Model with --model.`
+  )
+}
+
+/** The result with `formatted` added, or why that format cannot be made from it. */
+function withFormatted(
+  result: TranscribeResult,
+  format: TranscriptExportFormat,
+  timedTranscript: FinishedFileTranscription['timedTranscript'],
+  render: typeof renderTranscriptExport
+): TranscribeResult | ErrorEvent {
+  let rendered: ReturnType<typeof renderTranscriptExport>
+  try {
+    rendered = render(format, {
+      fileName: basename(result.file),
+      speechModelId: result.speechModelId,
+      language: result.language,
+      translated: result.translated,
+      audioSeconds: result.audioSeconds,
+      processingSeconds: result.processingSeconds,
+      text: result.text,
+      timedTranscript,
+    })
+  } catch (err) {
+    return errorEvent(
+      'internal',
+      `Codictate could not make the ${format} output: ${err instanceof Error ? err.message : String(err)}`
+    )
+  }
+  if (!rendered.ok) return errorEvent('captions_unavailable', rendered.message)
+  return { ...result, formatted: rendered.content }
+}
+
+/**
+ * Added to `cannot_translate` when Translate to English came from the File Transcription
+ * Settings: the caller never asked for it, so the error says how to leave it out.
+ */
+const TRANSLATE_FROM_SETTINGS_HINT =
+  'Translate to English is on in the File Transcription Settings; add --no-translate to transcribe without it.'
 
 const transcribe =
   (deps: CommandLineDeps): CommandHandler<'transcribe'> =>
   async (request, context) => {
-    const { file, speechModelId, languageId } = request.args
+    const { file, speechModelId, languageId, translate, format } = request.args
     // A cancel can land while the handler waited for the app to finish booting.
     if (context.signal.aborted) return errorEvent('cancelled', 'Cancelled')
     if (!isAbsolute(file)) {
       return errorEvent('usage', `transcribe: not an absolute path: ${file}`)
     }
+    const refused = captionsRefusal(
+      format,
+      speechModelId ??
+        deps.fileSettings.getFileTranscriptionSettings().speechModelId
+    )
+    if (refused) return refused
     const job = deps.fileTranscriptions.enqueue({
       filePath: file,
       speechModelId,
       languageId,
+      translateToEnglish: translate,
       origin: {
         kind: 'command-line',
         callerName: request.caller?.name ?? null,
@@ -245,12 +326,28 @@ const transcribe =
     const unsubscribe = job.onEvent((event) =>
       context.emit(fileTranscriptionWireEvent(event))
     )
+    let result: FileTranscriptionResult
     try {
-      return fileTranscriptionTerminalEvent(await job.result)
+      result = await job.result
     } finally {
       unsubscribe()
       context.signal.removeEventListener('abort', cancel)
     }
+    if (result.status === 'failed') {
+      const hint =
+        result.code === 'cannot_translate' && translate === null
+          ? ` ${TRANSLATE_FROM_SETTINGS_HINT}`
+          : ''
+      return errorEvent(result.code, `${result.message}${hint}`)
+    }
+    const finished = transcribeResult(result)
+    if (format === null) return finished
+    return withFormatted(
+      finished,
+      format,
+      result.timedTranscript,
+      deps.renderTranscript ?? renderTranscriptExport
+    )
   }
 
 const appShow =
@@ -460,15 +557,18 @@ const dictate =
     let speechModelId: string | null = null
     let transcriptionLanguageId: string | null = null
     if (args.speechModelId !== null || args.languageId !== null) {
-      const selected = selectFileTranscription(deps, {
-        speechModelId: args.speechModelId,
-        languageId: args.languageId,
-      })
+      const selected = selectSpeechModelAndLanguage(
+        {
+          speechModelId: deps.getSpeechModelId(),
+          transcriptionLanguageId: deps.getTranscriptionLanguageId(),
+        },
+        { speechModelId: args.speechModelId, languageId: args.languageId }
+      )
       if (selected.status === 'failed') {
         return errorEvent(selected.code, selected.message)
       }
-      speechModelId = selected.selection.speechModelId
-      transcriptionLanguageId = selected.selection.transcriptionLanguageId
+      speechModelId = selected.speechModelId
+      transcriptionLanguageId = selected.transcriptionLanguageId
     }
     // Read before starting: a blocked plan runs the heal pass, which can change the selection.
     const reportedSpeechModelId = speechModelId ?? deps.getSpeechModelId()

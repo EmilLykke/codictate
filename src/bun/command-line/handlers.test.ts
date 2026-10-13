@@ -32,6 +32,11 @@ import type {
   ModelDownloadRequester,
 } from '../model-operations'
 import type { TranscriptionSettingsPatch } from '../../shared/types'
+import type {
+  TranscriptExportFormat,
+  TranscriptExportSource,
+} from '../../shared/transcript-export'
+import type { TimedTranscript } from '../../shared/timed-transcript'
 import { speechModelSelectionPatch } from '../../shared/speech-model-selection'
 import { createCommandLineSession, type HandlerContext } from './session'
 import type {
@@ -46,6 +51,8 @@ import {
 } from '../../shared/dictation-plan'
 
 const HVISKE_ID = SPEECH_MODELS.find((m) => m.engine === 'hviske')!.id
+const EDDA_ID = 'edda-v0.2-q5_0'
+const SMALL_ID = 'small-q5_1'
 const NON_CURATED_ID = SPEECH_MODELS.find((m) => !m.curated && !m.bundled)!.id
 
 class FakeJob implements FileTranscriptionJob {
@@ -156,6 +163,7 @@ function fakeDeps(overrides: Partial<CommandLineDeps> = {}) {
   const models = new FakeModels()
   const notifications: { title: string; body: string }[] = []
   const writes: TranscriptionSettingsPatch[] = []
+  const renders: [TranscriptExportFormat, TranscriptExportSource][] = []
   const deps: CommandLineDeps = {
     app: { version: '0.0.62', channel: 'stable', identifier: 'app.codictate' },
     isOnboardingCompleted: () => true,
@@ -178,6 +186,17 @@ function fakeDeps(overrides: Partial<CommandLineDeps> = {}) {
       },
       snapshot: () => snapshot,
     },
+    fileSettings: {
+      getFileTranscriptionSettings: () => ({
+        speechModelId: SMALL_ID,
+        transcriptionLanguageId: 'auto',
+        translateToEnglish: false,
+      }),
+    },
+    renderTranscript: (format, source) => {
+      renders.push([format, source])
+      return { ok: true, content: `<${format}>${source.text}</${format}>\n` }
+    },
     showMainWindow: () => {
       shown += 1
     },
@@ -197,6 +216,7 @@ function fakeDeps(overrides: Partial<CommandLineDeps> = {}) {
     notifications,
     enqueued,
     jobs,
+    renders,
     get shown() {
       return shown
     },
@@ -382,6 +402,8 @@ describe('transcribe', () => {
         file: '/abs/memo.m4a',
         speechModelId: HVISKE_ID,
         languageId: null,
+        translate: null,
+        format: null,
       }),
       context(emitted).ctx
     )
@@ -390,6 +412,7 @@ describe('transcribe', () => {
         filePath: '/abs/memo.m4a',
         speechModelId: HVISKE_ID,
         languageId: null,
+        translateToEnglish: null,
         origin: { kind: 'command-line', callerName: 'Terminal' },
       },
     ])
@@ -409,6 +432,9 @@ describe('transcribe', () => {
       speechModelId: HVISKE_ID,
       engine: 'hviske',
       audioSeconds: 61.2,
+      translated: false,
+      processingSeconds: 4.8,
+      timedTranscript: null,
     })
     expect(await running).toEqual({
       type: 'result',
@@ -418,7 +444,10 @@ describe('transcribe', () => {
       speechModelId: HVISKE_ID,
       engine: 'hviske',
       audioSeconds: 61.2,
+      processingSeconds: 4.8,
+      translated: false,
     })
+    expect(f.renders).toEqual([])
     expect(emitted).toEqual([
       { type: 'queued', position: 2 },
       {
@@ -436,7 +465,13 @@ describe('transcribe', () => {
     const running = createCommandHandlers(f.deps).transcribe(
       req(
         'transcribe',
-        { file: '/x.mov', speechModelId: null, languageId: null },
+        {
+          file: '/x.mov',
+          speechModelId: null,
+          languageId: null,
+          translate: null,
+          format: null,
+        },
         null
       ),
       context().ctx
@@ -464,6 +499,8 @@ describe('transcribe', () => {
         file: 'memo.m4a',
         speechModelId: null,
         languageId: null,
+        translate: null,
+        format: null,
       }),
       context().ctx
     )
@@ -514,6 +551,243 @@ describe('transcribe', () => {
     expect(sent).toEqual([
       { type: 'error', code: 'cancelled', message: 'Cancelled' },
     ])
+  })
+})
+
+const finished = (
+  extra: Partial<Extract<FileTranscriptionResult, { status: 'ok' }>> = {}
+): FileTranscriptionResult => ({
+  status: 'ok',
+  filePath: '/abs/clips/memo.m4a',
+  text: 'Hello there.',
+  language: null,
+  speechModelId: SMALL_ID,
+  engine: 'whisper',
+  audioSeconds: 3.2,
+  translated: false,
+  processingSeconds: 1.4,
+  timedTranscript: null,
+  ...extra,
+})
+
+function transcribeArgs(
+  extra: Partial<CommandRequestOf<'transcribe'>['args']> = {}
+): CommandRequestOf<'transcribe'>['args'] {
+  return {
+    file: '/abs/clips/memo.m4a',
+    speechModelId: null,
+    languageId: null,
+    translate: null,
+    format: null,
+    ...extra,
+  }
+}
+
+describe('transcribe: Translate to English', () => {
+  test('--translate and --no-translate reach the queue; neither leaves it to the settings', async () => {
+    for (const translate of [true, false, null]) {
+      const f = fakeDeps()
+      const running = createCommandHandlers(f.deps).transcribe(
+        req('transcribe', transcribeArgs({ translate })),
+        context().ctx
+      )
+      expect(f.enqueued[0].translateToEnglish).toBe(translate)
+      f.jobs[0].settle(finished({ translated: translate === true }))
+      expect(await running).toMatchObject({
+        type: 'result',
+        translated: translate === true,
+      })
+    }
+  })
+
+  test('cannot_translate from the settings says how to leave it out; an asked-for one does not', async () => {
+    const message =
+      "Large V3 Turbo can't translate to English. Choose a Whisper Small or Large Speech Model, or turn off Translate to English."
+    for (const [translate, expected] of [
+      [
+        null,
+        `${message} Translate to English is on in the File Transcription Settings; add --no-translate to transcribe without it.`,
+      ],
+      [true, message],
+    ] as const) {
+      const f = fakeDeps()
+      const running = createCommandHandlers(f.deps).transcribe(
+        req('transcribe', transcribeArgs({ translate })),
+        context().ctx
+      )
+      f.jobs[0].settle({ status: 'failed', code: 'cannot_translate', message })
+      expect(await running).toEqual({
+        type: 'error',
+        code: 'cannot_translate',
+        message: expected,
+      })
+    }
+  })
+})
+
+describe('transcribe: --format', () => {
+  test('txt and json are rendered from the result, with its facts, into formatted', async () => {
+    const timed: TimedTranscript = {
+      text: 'Hello there.',
+      parts: [{ text: 'Hello there.', start: 0.1, end: 1.3 }],
+    }
+    for (const format of ['txt', 'json'] as const) {
+      const f = fakeDeps()
+      const running = createCommandHandlers(f.deps).transcribe(
+        req('transcribe', transcribeArgs({ format })),
+        context().ctx
+      )
+      f.jobs[0].settle(finished({ timedTranscript: timed, translated: true }))
+      expect(await running).toEqual({
+        type: 'result',
+        file: '/abs/clips/memo.m4a',
+        text: 'Hello there.',
+        language: null,
+        speechModelId: SMALL_ID,
+        engine: 'whisper',
+        audioSeconds: 3.2,
+        processingSeconds: 1.4,
+        translated: true,
+        formatted: `<${format}>Hello there.</${format}>\n`,
+      })
+      expect(f.renders).toEqual([
+        [
+          format,
+          {
+            fileName: 'memo.m4a',
+            speechModelId: SMALL_ID,
+            language: null,
+            translated: true,
+            audioSeconds: 3.2,
+            processingSeconds: 1.4,
+            text: 'Hello there.',
+            timedTranscript: timed,
+          },
+        ],
+      ])
+    }
+  })
+
+  test('srt and vtt render too when the Speech Model times its transcript', async () => {
+    for (const format of ['srt', 'vtt'] as const) {
+      const f = fakeDeps()
+      const running = createCommandHandlers(f.deps).transcribe(
+        req('transcribe', transcribeArgs({ format })),
+        context().ctx
+      )
+      f.jobs[0].settle(finished())
+      expect(await running).toMatchObject({
+        type: 'result',
+        formatted: `<${format}>Hello there.</${format}>\n`,
+      })
+    }
+  })
+
+  test('captions with a Speech Model that never times its transcript are refused before anything is queued', async () => {
+    const viaSettings = fakeDeps({
+      fileSettings: {
+        getFileTranscriptionSettings: () => ({
+          speechModelId: EDDA_ID,
+          transcriptionLanguageId: 'da',
+          translateToEnglish: false,
+        }),
+      },
+    })
+    const viaOverride = fakeDeps()
+    for (const [f, speechModelId] of [
+      [viaSettings, null],
+      [viaOverride, EDDA_ID],
+    ] as const) {
+      for (const format of ['srt', 'vtt'] as const) {
+        const result = await createCommandHandlers(f.deps).transcribe(
+          req('transcribe', transcribeArgs({ format, speechModelId })),
+          context().ctx
+        )
+        expect(result).toMatchObject({
+          type: 'error',
+          code: 'captions_unavailable',
+        })
+        if (result.type === 'error') {
+          expect(result.message).toContain('cannot make captions')
+          expect(result.message).not.toContain('—')
+        }
+      }
+      expect(f.enqueued).toEqual([])
+    }
+  })
+
+  test('the same Speech Model can still make text and JSON', async () => {
+    const f = fakeDeps()
+    const running = createCommandHandlers(f.deps).transcribe(
+      req(
+        'transcribe',
+        transcribeArgs({ format: 'json', speechModelId: EDDA_ID })
+      ),
+      context().ctx
+    )
+    expect(f.enqueued).toHaveLength(1)
+    f.jobs[0].settle(finished({ speechModelId: EDDA_ID, language: 'da' }))
+    expect(await running).toMatchObject({
+      type: 'result',
+      formatted: expect.any(String),
+    })
+  })
+
+  test('an unknown Speech Model is left to the queue, which says unknown_model', async () => {
+    const f = fakeDeps()
+    void createCommandHandlers(f.deps).transcribe(
+      req(
+        'transcribe',
+        transcribeArgs({ format: 'srt', speechModelId: 'nope' })
+      ),
+      context().ctx
+    )
+    expect(f.enqueued).toHaveLength(1)
+  })
+
+  test('a renderer that cannot make captions from this result is captions_unavailable', async () => {
+    const f = fakeDeps({
+      renderTranscript: () => ({
+        ok: false,
+        reason: 'no_timed_transcript',
+        message: 'There are no timings to make captions from.',
+      }),
+    })
+    const running = createCommandHandlers(f.deps).transcribe(
+      req('transcribe', transcribeArgs({ format: 'srt' })),
+      context().ctx
+    )
+    f.jobs[0].settle(finished())
+    expect(await running).toEqual({
+      type: 'error',
+      code: 'captions_unavailable',
+      message: 'There are no timings to make captions from.',
+    })
+  })
+
+  test('a renderer that throws is internal, never a result without formatted', async () => {
+    const f = fakeDeps({
+      renderTranscript: () => {
+        throw new Error('boom')
+      },
+    })
+    const running = createCommandHandlers(f.deps).transcribe(
+      req('transcribe', transcribeArgs({ format: 'txt' })),
+      context().ctx
+    )
+    f.jobs[0].settle(finished())
+    expect(await running).toMatchObject({ type: 'error', code: 'internal' })
+  })
+
+  test('a failed File Transcription is its error, and nothing is rendered', async () => {
+    const f = fakeDeps()
+    const running = createCommandHandlers(f.deps).transcribe(
+      req('transcribe', transcribeArgs({ format: 'srt' })),
+      context().ctx
+    )
+    f.jobs[0].settle({ status: 'failed', code: 'no_audio', message: 'x' })
+    expect(await running).toMatchObject({ type: 'error', code: 'no_audio' })
+    expect(f.renders).toEqual([])
   })
 })
 

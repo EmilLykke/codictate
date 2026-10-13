@@ -14,6 +14,12 @@ export type BinaryId =
    * `CodictateWindowsHelper` on Windows, with the same argv and exit codes (ADR-0009).
    */
   | 'media'
+  /**
+   * The Silero VAD weights crispasr loads with `--vad -vm <path>` on the `nt-vad` path
+   * (ADR-0010). Not an executable: a pinned data file shipped next to crispasr, so it is never
+   * downloaded at runtime.
+   */
+  | 'silero-vad'
 
 export interface BinaryArtifact {
   source: string
@@ -27,6 +33,14 @@ const windowsHelper: BinaryArtifact = {
   destination: 'native-helpers/CodictateWindowsHelper.exe',
   remediation:
     'CodictateWindowsHelper not found. Run `bun run build:native:windows-helper`, then rebuild the app.',
+}
+
+/** Same file and the same place beside crispasr on every platform. */
+const sileroVad: BinaryArtifact = {
+  source: 'vendors/silero-vad/ggml-silero-v6.2.0.bin',
+  destination: 'native-helpers/crispasr/ggml-silero-v6.2.0.bin',
+  remediation:
+    'Silero VAD weights not found. Run `bun run scripts/pre-build.ts --crispasr-only`, then rebuild the app.',
 }
 
 const macos: Record<BinaryId, BinaryArtifact> = {
@@ -78,6 +92,7 @@ const macos: Record<BinaryId, BinaryArtifact> = {
     remediation:
       'CodictateMediaHelper not found. Run `bun run build:native`, then rebuild the app.',
   },
+  'silero-vad': sileroVad,
 }
 
 const windows: Record<BinaryId, BinaryArtifact | null> = {
@@ -97,6 +112,7 @@ const windows: Record<BinaryId, BinaryArtifact | null> = {
     source: macos.crispasr.source + '.exe',
     destination: macos.crispasr.destination + '.exe',
   },
+  'silero-vad': sileroVad,
 }
 
 export const BINARY_MANIFEST: Record<
@@ -114,6 +130,7 @@ export const BINARY_MANIFEST: Record<
     media: null,
     llama: macos.llama,
     crispasr: macos.crispasr,
+    'silero-vad': sileroVad,
   },
 }
 

@@ -554,7 +554,36 @@ struct CodictateParakeetHelperMain {
     let result = try await transcribeOnce(asr, URL(fileURLWithPath: wavPath))
     let text = applyInverseTextNormalization(result.text)
     logPhase("done")
-    emitJSON(["kind": "final", "text": text])
+    var final: [String: Any] = ["kind": "final", "text": text]
+    if let timing = spokenWordTiming(transcript: text, tokenTimings: result.tokenTimings) {
+      final["timing"] = timing
+    }
+    emitJSON(final)
+  }
+
+  /// The batch `final` line's optional `timing`: the words as spoken, before ITN, with when each
+  /// was said (seconds, rounded to ms). Spoken, not written, because ITN rewrites words ("twenty
+  /// one" → "21") after the model timed them; the app lines the written words back up with these
+  /// (`parakeet-timings.ts`). `nil` when there is no transcript or no timings, so the field is
+  /// omitted and the line reads exactly as it did before.
+  private static func spokenWordTiming(
+    transcript: String, tokenTimings: [TokenTiming]?
+  ) -> [String: Any]? {
+    guard !transcript.isEmpty, let tokenTimings, !tokenTimings.isEmpty else { return nil }
+    // Decimal, not Double: JSONSerialization writes a Double's 17 digits (0.23999999999999999).
+    func ms(_ seconds: TimeInterval) -> Decimal {
+      Decimal(Int64((seconds * 1000).rounded())) / 1000
+    }
+    let items: [[String: Any]] = buildWordTimings(from: tokenTimings).compactMap { word in
+      guard word.startTime.isFinite, word.endTime.isFinite, word.startTime >= 0 else { return nil }
+      return [
+        "text": word.word,
+        "start": ms(word.startTime),
+        "end": ms(max(word.startTime, word.endTime)),
+      ]
+    }
+    guard !items.isEmpty else { return nil }
+    return ["unit": "spoken-word", "items": items]
   }
 
   // MARK: - transcribe-session (one model load, sequential WAV requests over NDJSON)

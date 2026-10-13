@@ -7,15 +7,22 @@ import {
 const dependencies: WhisperHarnessCommandDependencies = {
   resolveBinary: async () => '/test/bin/crispasr',
   threadCount: () => 8,
+  resolveVadModel: () => '/test/bin/ggml-silero-v6.2.0.bin',
+}
+
+const common = {
+  audioPath: '/audio/input.wav',
+  jsonOutputBase: '/tmp/run/transcript',
 }
 
 describe('buildWhisperHarnessCommand', () => {
-  test('builds exact argv for automatic-language translation', async () => {
+  test('a checked stock Whisper Speech Model decodes with timestamps, translating', async () => {
     const command = await buildWhisperHarnessCommand(
       {
-        modelPath: '/models/large-v3.bin',
+        ...common,
+        speechModelId: 'small-q5_1',
+        modelPath: '/models/small.bin',
         language: null,
-        audioPath: '/audio/input.wav',
         translateToEnglish: true,
       },
       dependencies
@@ -27,7 +34,7 @@ describe('buildWhisperHarnessCommand', () => {
       argv: [
         '/test/bin/crispasr',
         '-m',
-        '/models/large-v3.bin',
+        '/models/small.bin',
         '-t',
         '8',
         '--language',
@@ -35,20 +42,136 @@ describe('buildWhisperHarnessCommand', () => {
         '-f',
         '/audio/input.wav',
         '--no-prints',
-        '-nt',
+        '-ojf',
+        '-of',
+        '/tmp/run/transcript',
         '-tr',
       ],
       languageArg: 'auto',
       crispasrBackend: undefined,
+      decoding: 'timestamps',
+      jsonPath: '/tmp/run/transcript.json',
     })
   })
 
-  test('pins the backend before the common crispasr arguments', async () => {
+  test('the bundled turbo model decodes with timestamps and never asks for the VAD', async () => {
     const command = await buildWhisperHarnessCommand(
       {
+        ...common,
+        speechModelId: 'large-v3-turbo-q5_0',
+        modelPath: '/models/turbo.bin',
+        language: 'en',
+      },
+      {
+        ...dependencies,
+        resolveVadModel: () => {
+          throw new Error('VAD resolved on the timestamps path')
+        },
+      }
+    )
+    expect(command.decoding).toBe('timestamps')
+    expect(command.argv).not.toContain('-nt')
+    expect(command.argv).not.toContain('--vad')
+    expect(command.argv.slice(-4)).toEqual([
+      '--no-prints',
+      '-ojf',
+      '-of',
+      '/tmp/run/transcript',
+    ])
+  })
+
+  test('a stock Whisper Speech Model not yet checked takes the -nt and VAD path', async () => {
+    const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'large-v3',
+        modelPath: '/models/large-v3-f16.bin',
+        language: 'da',
+        translateToEnglish: true,
+      },
+      dependencies
+    )
+    expect(command.decoding).toBe('nt-vad')
+    expect(command.argv).toEqual([
+      '/test/bin/crispasr',
+      '--backend',
+      'whisper',
+      '-m',
+      '/models/large-v3-f16.bin',
+      '-t',
+      '8',
+      '--language',
+      'da',
+      '-f',
+      '/audio/input.wav',
+      '--no-prints',
+      '-nt',
+      '--vad',
+      '-vm',
+      '/test/bin/ggml-silero-v6.2.0.bin',
+      '-ojf',
+      '-of',
+      '/tmp/run/transcript',
+      '-tr',
+    ])
+    expect(command.crispasrBackend).toBeUndefined()
+  })
+
+  test('Edda keeps -nt on --backend whisper with the bundled Silero VAD', async () => {
+    const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'edda-v0.2-q5_0',
+        modelPath: '/models/edda.bin',
+        language: 'da',
+      },
+      dependencies
+    )
+    expect(command.decoding).toBe('nt-vad')
+    expect(command.argv).toEqual([
+      '/test/bin/crispasr',
+      '--backend',
+      'whisper',
+      '-m',
+      '/models/edda.bin',
+      '-t',
+      '8',
+      '--language',
+      'da',
+      '-f',
+      '/audio/input.wav',
+      '--no-prints',
+      '-nt',
+      '--vad',
+      '-vm',
+      '/test/bin/ggml-silero-v6.2.0.bin',
+      '-ojf',
+      '-of',
+      '/tmp/run/transcript',
+    ])
+    expect(command.jsonPath).toBe('/tmp/run/transcript.json')
+  })
+
+  test('an unknown Speech Model id is unchecked, so it takes the VAD path', async () => {
+    const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'not-a-model',
+        modelPath: '/models/x.bin',
+        language: 'en',
+      },
+      dependencies
+    )
+    expect(command.decoding).toBe('nt-vad')
+  })
+
+  test('hviske pins the cohere backend before the common crispasr arguments', async () => {
+    const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'hviske-v5-tiny-q5_0',
         modelPath: '/models/hviske.gguf',
         language: 'da',
-        audioPath: '/audio/input.wav',
         crispasrBackend: 'cohere',
       },
       dependencies
@@ -68,26 +191,59 @@ describe('buildWhisperHarnessCommand', () => {
       '/audio/input.wav',
       '--no-prints',
       '-nt',
+      '-ojf',
+      '-of',
+      '/tmp/run/transcript',
     ])
     expect(command.crispasrBackend).toBe('cohere')
+    expect(command.decoding).toBe('cohere')
+  })
+
+  test('a Windows binary and paths pass through unchanged', async () => {
+    const command = await buildWhisperHarnessCommand(
+      {
+        speechModelId: 'edda-v0.2-q8_0',
+        modelPath: 'C:\\Users\\A B\\models\\edda.bin',
+        language: 'da',
+        audioPath: 'C:\\Temp\\in.wav',
+        jsonOutputBase: 'C:\\Temp\\codictate-crispasr-x\\transcript',
+      },
+      {
+        resolveBinary: async () =>
+          'C:\\Codictate\\native-helpers\\crispasr\\crispasr.exe',
+        threadCount: () => 4,
+        resolveVadModel: () =>
+          'C:\\Codictate\\native-helpers\\crispasr\\ggml-silero-v6.2.0.bin',
+      }
+    )
+    expect(command.argv[0]).toBe(
+      'C:\\Codictate\\native-helpers\\crispasr\\crispasr.exe'
+    )
+    expect(command.argv).toContain(
+      'C:\\Codictate\\native-helpers\\crispasr\\ggml-silero-v6.2.0.bin'
+    )
+    expect(command.jsonPath).toBe(
+      'C:\\Temp\\codictate-crispasr-x\\transcript.json'
+    )
   })
 
   test('rejects backend translation before resolving a binary', async () => {
     let resolverCalls = 0
     const rejected = buildWhisperHarnessCommand(
       {
+        ...common,
+        speechModelId: 'hviske-v5-tiny-q5_0',
         modelPath: '/models/hviske.gguf',
         language: 'da',
-        audioPath: '/audio/input.wav',
         crispasrBackend: 'cohere',
         translateToEnglish: true,
       },
       {
+        ...dependencies,
         resolveBinary: async () => {
           resolverCalls++
           return '/test/bin/crispasr'
         },
-        threadCount: () => 8,
       }
     )
 

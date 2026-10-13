@@ -5,10 +5,17 @@ import {
   type AsrHarnessId,
   type CrispasrBackendId,
 } from '../../../shared/asr-harness'
+import { whisperDecodingForModel } from '../../../shared/speech-models'
+import { requireRuntimeBinary } from '../../platform/binaries'
 import { findAsrHarnessBinary } from './find-asr-harness'
 
 export interface WhisperHarnessCommandOptions {
   harness?: AsrHarnessId
+  /**
+   * Which Speech Model this is. Decides how crispasr decodes it (`whisperDecodingForModel`):
+   * only a Speech Model that passed the long-audio check decodes with timestamps.
+   */
+  speechModelId: string
   /** Absolute path to the Whisper Speech Model weights. */
   modelPath: string
   /** Transcription Language code, or null/undefined for automatic detection. */
@@ -21,7 +28,21 @@ export interface WhisperHarnessCommandOptions {
    * other backend can load.
    */
   crispasrBackend?: CrispasrBackendId
+  /**
+   * Where crispasr writes its JSON, without the extension: `-of <base>` writes
+   * `<base>.json`. A path in a directory the caller made for this one run and removes after.
+   */
+  jsonOutputBase: string
 }
+
+/**
+ * How this run decodes (ADR-0010).
+ * - `timestamps`: stock Whisper without `-nt`, so nothing is lost at 30 s window edges.
+ * - `nt-vad`: `-nt` on `--backend whisper`, with the audio split at pauses by the bundled
+ *   Silero VAD. Edda, and every Whisper Speech Model not yet checked without `-nt`.
+ * - `cohere`: hviske. `-nt` only changes the stdout display on that backend.
+ */
+export type CrispasrDecoding = 'timestamps' | 'nt-vad' | 'cohere'
 
 export interface WhisperHarnessCommand {
   harness: AsrHarnessId
@@ -31,31 +52,54 @@ export interface WhisperHarnessCommand {
   languageArg: string
   /** The `--backend` value, when one was pinned. */
   crispasrBackend?: CrispasrBackendId
+  decoding: CrispasrDecoding
+  /** The JSON file crispasr writes: `${jsonOutputBase}.json`. */
+  jsonPath: string
 }
 
 export interface WhisperHarnessCommandDependencies {
   resolveBinary: (harness: AsrHarnessId) => Promise<string>
   threadCount: () => number
+  /** The bundled Silero VAD weights. Only asked for on the `nt-vad` path. */
+  resolveVadModel: () => string
 }
 
 function whisperHarnessThreadCount(): number {
   return Math.max(4, availableParallelism?.() ?? 4)
 }
 
+function crispasrDecoding(
+  options: WhisperHarnessCommandOptions
+): CrispasrDecoding {
+  if (options.crispasrBackend === 'cohere') return 'cohere'
+  // An unknown Speech Model id has not been checked either, so it takes Edda's path.
+  return whisperDecodingForModel(options.speechModelId) ?? 'nt-vad'
+}
+
 /**
- * The argv for one Whisper transcription on the crispasr ASR Harness.
+ * The argv for one Whisper or hviske transcription on the crispasr ASR Harness, and the JSON
+ * file it writes.
  *
- * crispasr was verified a drop-in for this exact flag set (`-m -t --language -f
- * --no-prints -nt`) before it replaced `whisper-cli`, and is now the only Harness, so
- * there is one binary to resolve and no degrade path.
+ * Every run writes crispasr's own structured output, `--no-prints -ojf -of <base>`, and
+ * Codictate reads the Raw Transcript and the Timed Transcript from `<base>.json`. Never from
+ * stdout: `-of -` reaches stdout only on the stock whisper path and only on macOS (Windows
+ * opens `CON`, which is not the pipe), and the `--backend` dispatcher writes a file literally
+ * named `-.json` and prints plain text to stdout anyway. Stdout is drained and ignored.
+ *
+ * Three ways to decode (ADR-0010):
+ * - `timestamps`, for a Speech Model with `whisperDecoding: 'timestamps'`: no `-nt`. On the
+ *   whisper backend `-nt` puts the no-timestamps token in the prompt and decodes in fixed
+ *   30 s windows, which loses speech that crosses a window edge.
+ * - `nt-vad`, for Edda and every Whisper Speech Model not yet checked without `-nt`: keeps
+ *   `-nt` (Edda turns to foreign-script noise without it) and runs `--backend whisper --vad`
+ *   with the bundled Silero weights, which splits at pauses instead of every 30 s. The VAD
+ *   path is passed explicitly so crispasr never downloads it at runtime.
+ * - `cohere`, hviske: `--backend cohere -nt`. There `-nt` only changes how stdout is printed.
  *
  * Translate needs no special-casing. `-tr` was measured equivalent across Harnesses on a
- * translate-capable Speech Model (large-v3, Danish and Spanish FLEURS): English on every
- * sample, differing only by ordinary decoding variance. An earlier turbo-model test that
- * came back in Danish was the wrong model, not a crispasr defect - `large-v3-turbo` is a
- * transcribe-only distillation and returns the source language whatever runs it, which is
- * why translate depends on the Speech Model selection. Translate is a Speech Model concern,
- * not a Harness one.
+ * translate-capable Speech Model (large-v3, Danish and Spanish FLEURS), and `large-v3-turbo`
+ * is a transcribe-only distillation that returns the source language whatever runs it, which
+ * is why translate is a Speech Model concern, not a Harness one.
  *
  * The `translateToEnglish` + pinned-backend combination is rejected rather than run,
  * because hviske's weights are Danish-only and cannot translate: a run there would
@@ -71,25 +115,26 @@ export async function buildWhisperHarnessCommand(
   dependencies: WhisperHarnessCommandDependencies = {
     resolveBinary: findAsrHarnessBinary,
     threadCount: whisperHarnessThreadCount,
+    resolveVadModel: () => requireRuntimeBinary('silero-vad'),
   }
 ): Promise<WhisperHarnessCommand> {
   const harness = options.harness ?? DEFAULT_ASR_HARNESS
-  const backend = options.crispasrBackend
+  const pinnedBackend = options.crispasrBackend
 
-  if (backend != null && options.translateToEnglish) {
+  if (pinnedBackend != null && options.translateToEnglish) {
     throw new Error(
-      `translate to English is not available on the crispasr ${backend} backend`
+      `translate to English is not available on the crispasr ${pinnedBackend} backend`
     )
   }
 
+  const decoding = crispasrDecoding(options)
   const binary = await dependencies.resolveBinary(harness)
   const languageArg = asrHarnessLanguageArg(options.language)
+  const jsonPath = `${options.jsonOutputBase}.json`
 
   const argv = [binary]
-
-  if (backend != null) {
-    argv.push('--backend', backend)
-  }
+  if (decoding === 'cohere') argv.push('--backend', 'cohere')
+  if (decoding === 'nt-vad') argv.push('--backend', 'whisper')
 
   argv.push(
     '-m',
@@ -100,13 +145,25 @@ export async function buildWhisperHarnessCommand(
     languageArg,
     '-f',
     options.audioPath,
-    '--no-prints',
-    '-nt' // No timestamps
+    '--no-prints'
   )
 
-  if (options.translateToEnglish) {
-    argv.push('-tr')
+  if (decoding === 'nt-vad') {
+    argv.push('-nt', '--vad', '-vm', dependencies.resolveVadModel())
   }
+  if (decoding === 'cohere') argv.push('-nt')
 
-  return { harness, binary, argv, languageArg, crispasrBackend: backend }
+  argv.push('-ojf', '-of', options.jsonOutputBase)
+
+  if (options.translateToEnglish) argv.push('-tr')
+
+  return {
+    harness,
+    binary,
+    argv,
+    languageArg,
+    crispasrBackend: pinnedBackend,
+    decoding,
+    jsonPath,
+  }
 }

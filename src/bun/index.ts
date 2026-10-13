@@ -817,6 +817,7 @@ resolveCommandHandlers(
       UserAppConfig.getTranscriptionLanguageId(),
     isModelAvailable: (id) => modelManager.isModelAvailable(id),
     fileTranscriptions,
+    fileSettings: UserAppConfig,
     showMainWindow: () => {
       win.getOrCreateWindow().focus()
     },

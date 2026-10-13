@@ -3,7 +3,7 @@ import {
   droppedFilePath,
   mainWindowNavigationRules,
   splitDialogPaths,
-  transcriptTextFileName,
+  exportStartFolder,
 } from './paths'
 
 describe('splitDialogPaths', () => {
@@ -114,15 +114,45 @@ describe('mainWindowNavigationRules', () => {
   })
 })
 
-describe('transcriptTextFileName', () => {
-  test('swaps the extension, then numbers', () => {
-    expect(transcriptTextFileName('board call.m4a', 1)).toBe('board call.txt')
-    expect(transcriptTextFileName('board call.m4a', 2)).toBe('board call 2.txt')
-    expect(transcriptTextFileName('a.b.mov', 1)).toBe('a.b.txt')
+describe('exportStartFolder', () => {
+  const folders = new Set(['/Users/me', '/Users/me/Exports', '/Users/me/Talks'])
+  const isDirectory = (path: string) => folders.has(path)
+
+  test('the last export folder first', () => {
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Users/me/Exports',
+        sourceFolder: '/Users/me/Talks',
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me/Exports')
   })
 
-  test('no extension, or a dot file', () => {
-    expect(transcriptTextFileName('recording', 1)).toBe('recording.txt')
-    expect(transcriptTextFileName('.hidden', 3)).toBe('.hidden 3.txt')
+  test("then the file's own folder, then home", () => {
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Volumes/Gone',
+        sourceFolder: '/Users/me/Talks',
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me/Talks')
+    expect(
+      exportStartFolder({
+        lastExportFolder: null,
+        sourceFolder: '/Volumes/Card',
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me')
+    expect(
+      exportStartFolder({
+        lastExportFolder: null,
+        sourceFolder: null,
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me')
   })
 })

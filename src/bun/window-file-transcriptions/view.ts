@@ -63,7 +63,11 @@ export function outcomeFromResult(args: {
     audioSeconds: result.audioSeconds,
     speechModelId: result.speechModelId,
     savedToHistory: false,
-    savedTextPath: null,
+    processingSeconds: result.processingSeconds ?? 0,
+    language: result.language,
+    translated: result.translated ?? false,
+    hasTimedTranscript: (result.timedTranscript ?? null) !== null,
+    lastExport: null,
   }
 }
 

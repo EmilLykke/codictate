@@ -17,6 +17,9 @@ import type {
   DictionaryEntry,
   DictionarySettings,
   DictionarySettingsPatch,
+  FileTranscriptionSettings,
+  FileTranscriptionSettingsPatch,
+  FileTranscriptionSettingsState,
   FormatterModelTier,
   FormattingRuntimeSettings,
   FormattingSettings,
@@ -45,8 +48,12 @@ import {
   type DictationReadiness,
 } from '../../shared/dictation-plan'
 import {
+  applyFileTranscriptionSettingsPatch,
   applyRunnableDictationPatch,
+  fileTranscriptionTranslateReadiness,
   healDictationSettings,
+  healFileTranscriptionSettings,
+  type FileTranscriptionHealContext,
   type RunnableDictationSettings,
   type SettingsHealAnnouncement,
 } from '../../shared/settings-heal'
@@ -199,6 +206,38 @@ function defaultDictionarySettings(): DictionarySettings {
   }
 }
 
+/**
+ * The persisted File Transcription Settings, or `null` when the file holds none this build
+ * can read - in which case they follow the Dictation's, as they do until the user first
+ * changes one.
+ *
+ * Validated only for shape and vocabulary. Whether the Speech Model can run is the heal
+ * pass's question, asked right after.
+ */
+function persistedFileTranscriptionSettings(
+  raw: unknown
+): FileTranscriptionSettings | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const value = raw as Record<string, unknown>
+  // Any id is kept, even one this build's catalog has dropped: the heal pass then switches it
+  // to the Dictation's Speech Model and says so, rather than it happening here in silence.
+  if (
+    typeof value.speechModelId !== 'string' ||
+    value.speechModelId.trim() === ''
+  ) {
+    return null
+  }
+  return {
+    speechModelId: value.speechModelId,
+    transcriptionLanguageId:
+      typeof value.transcriptionLanguageId === 'string' &&
+      isValidTranscriptionLanguageId(value.transcriptionLanguageId)
+        ? value.transcriptionLanguageId
+        : 'auto',
+    translateToEnglish: value.translateToEnglish === true,
+  }
+}
+
 interface PersistedMainSettings {
   audioDeviceName: string | null
   audioDeviceId: string | null
@@ -229,6 +268,9 @@ interface PersistedMainSettings {
   statsEnabled: boolean
   statsBackfillDone: boolean
   themePreference: ThemePreference
+  /** `null` while the File Transcription Settings follow the Dictation's. */
+  fileTranscription: FileTranscriptionSettings | null
+  lastTranscriptExportFolder: string | null
   debugMode: false
 }
 
@@ -274,6 +316,21 @@ export class AppConfig {
   private statsEnabled: boolean
   private statsBackfillDone: boolean
   private themePreference: ThemePreference
+  /**
+   * The File Transcription Settings once the user has chosen them. `null` while they follow
+   * the Dictation's: they start out as the Dictation settings, so nothing changes until the
+   * user picks something else. The first accepted `updateFileTranscriptionSettings` makes
+   * them their own, from the Dictation values of that moment plus the patch.
+   */
+  private fileTranscription: FileTranscriptionSettings | null = null
+  /**
+   * What the most recent heal pass changed in the File Transcription Settings. Kept apart
+   * from `healAnnouncements` because it is shown on the Transcribe page, not in Settings, and
+   * dismissed there. In memory only, for the same reason.
+   */
+  private fileHealAnnouncements: SettingsHealAnnouncement[] = []
+  /** Where the last Transcript Export was saved, so the next folder dialog opens there. */
+  private lastTranscriptExportFolder: string | null = null
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
     null
@@ -408,6 +465,9 @@ export class AppConfig {
       statsEnabled: this.statsEnabled,
       statsBackfillDone: this.statsBackfillDone,
       themePreference: this.themePreference,
+      fileTranscription:
+        this.fileTranscription === null ? null : { ...this.fileTranscription },
+      lastTranscriptExportFolder: this.lastTranscriptExportFolder,
       debugMode: false,
     }
   }
@@ -550,6 +610,15 @@ export class AppConfig {
     if (typeof raw.debugMode === 'boolean') {
       this.debugMode = raw.debugMode
       if (this.debugMode) enableDebug()
+    }
+    this.fileTranscription = persistedFileTranscriptionSettings(
+      raw.fileTranscription
+    )
+    if (
+      typeof raw.lastTranscriptExportFolder === 'string' &&
+      raw.lastTranscriptExportFolder.trim() !== ''
+    ) {
+      this.lastTranscriptExportFolder = raw.lastTranscriptExportFolder
     }
 
     if (raw.formatting && typeof raw.formatting === 'object') {
@@ -1014,6 +1083,7 @@ export class AppConfig {
       modelAvailability: this.dependencies.getModelAvailability(),
       healAnnouncements: this.getHealAnnouncements(),
       dictationReadiness: this.getDictationReadiness(),
+      fileTranscription: this.getFileTranscriptionSettingsState(),
       blockedDictation: this.getBlockedDictation(),
       dictationFailure: this.getDictationFailure(),
     }
@@ -1104,24 +1174,75 @@ export class AppConfig {
       this.runnableDictationSettings(),
       this.dictationAvailability()
     )
+    if (!result.unchanged) {
+      this.applyRunnableDictationSettings(result.settings)
+      this.recordHealAnnouncements(result.announcements)
+    } else if (
+      options?.retireSettledAnnouncements === true &&
+      this.healAnnouncements.length > 0
+    ) {
+      this.healAnnouncements = []
+    }
+
+    // After the Dictation heal, so a missing file selection falls back to a Dictation Speech
+    // Model that is installed. One save covers both.
+    const fileChanged = this.healFileTranscriptionSettings(options)
+
+    if (!result.unchanged || fileChanged) await this.saveMain()
+    // Notified either way: still a settled `(settings, availability)` pair, and the
+    // availability half may be what moved - a finished Parakeet download changes nothing
+    // about the settings and is exactly the moment a preparation becomes possible.
+    this.notifyRunnableDictationSettled()
+    return result.announcements
+  }
+
+  private fileTranscriptionHealContext(): FileTranscriptionHealContext {
+    return {
+      dictationSpeechModelId: this.speechModelId,
+      translateDefaultLanguageId: this.translateDefaultLanguageId,
+    }
+  }
+
+  /**
+   * The File Transcription half of the heal pass, run after the Dictation half (and after a
+   * Dictation settings write, which can move the translate default under them). Settings that
+   * still follow the Dictation's are already healed by the Dictation half, so only chosen
+   * ones are healed here. Returns true when anything changed, so the caller saves.
+   */
+  private healFileTranscriptionSettings(options?: {
+    retireSettledAnnouncements?: boolean
+  }): boolean {
+    if (this.fileTranscription === null) {
+      if (options?.retireSettledAnnouncements === true) {
+        this.fileHealAnnouncements = []
+      }
+      return false
+    }
+    const result = healFileTranscriptionSettings(
+      this.fileTranscription,
+      this.fileTranscriptionHealContext(),
+      this.dictationAvailability()
+    )
     if (result.unchanged) {
       if (
         options?.retireSettledAnnouncements === true &&
-        this.healAnnouncements.length > 0
+        this.fileHealAnnouncements.length > 0
       ) {
-        this.healAnnouncements = []
+        this.fileHealAnnouncements = []
       }
-      // Still a settled `(settings, availability)` pair, and the availability half may be
-      // what moved: a finished Parakeet download changes nothing about the settings and is
-      // exactly the moment a preparation becomes possible.
-      this.notifyRunnableDictationSettled()
-      return []
+      return false
     }
-    this.applyRunnableDictationSettings(result.settings)
-    this.recordHealAnnouncements(result.announcements)
-    await this.saveMain()
-    this.notifyRunnableDictationSettled()
-    return result.announcements
+    this.fileTranscription = result.settings
+    if (result.announcements.length > 0) {
+      this.fileHealAnnouncements = result.announcements
+      for (const announcement of result.announcements) {
+        log('config', 'healed file transcription settings', {
+          target: announcement.target,
+          reason: announcement.reason,
+        })
+      }
+    }
+    return true
   }
 
   /**
@@ -1243,6 +1364,123 @@ export class AppConfig {
     if (this.healAnnouncements.length === 0) return false
     this.healAnnouncements = []
     return true
+  }
+
+  /**
+   * The Speech Model, Transcription Language and Translate to English File Transcriptions
+   * use. Kept runnable by the heal pass, so a File Transcription can run them as they are.
+   * Until the user first changes one, these are the Dictation's current values.
+   */
+  public getFileTranscriptionSettings(): FileTranscriptionSettings {
+    if (this.fileTranscription === null) {
+      return {
+        speechModelId: this.speechModelId,
+        transcriptionLanguageId: this.transcriptionLanguageId,
+        translateToEnglish: this.translateToEnglish,
+      }
+    }
+    return { ...this.fileTranscription }
+  }
+
+  /** As the Transcribe page is shipped them: with their own readiness and announcements. */
+  private getFileTranscriptionSettingsState(): FileTranscriptionSettingsState {
+    const settings = this.getFileTranscriptionSettings()
+    return {
+      ...settings,
+      translateReadiness: fileTranscriptionTranslateReadiness(
+        settings,
+        this.fileTranscriptionHealContext(),
+        this.dictationAvailability()
+      ),
+      healAnnouncements: this.fileHealAnnouncements.map((announcement) => ({
+        ...announcement,
+      })),
+    }
+  }
+
+  /** The source language Translate to English uses when the Transcription Language is `auto`. */
+  public getTranslateDefaultLanguageId(): string {
+    return this.translateDefaultLanguageId
+  }
+
+  /**
+   * Write the File Transcription Settings. `false`, and nothing written, when the patch is
+   * malformed or asks for something that cannot run: a Speech Model that is not installed, a
+   * Transcription Language that Speech Model cannot take, or Translate to English where it
+   * cannot run. A correction the patch did not ask for (switching to a Speech Model that
+   * cannot translate turns Translate off) is applied and announced on the Transcribe page.
+   */
+  public async updateFileTranscriptionSettings(
+    patch: FileTranscriptionSettingsPatch
+  ): Promise<boolean> {
+    // The patch arrives over RPC, so its shape is checked before anything reads it.
+    if (
+      (patch.speechModelId !== undefined &&
+        typeof patch.speechModelId !== 'string') ||
+      (patch.transcriptionLanguageId !== undefined &&
+        typeof patch.transcriptionLanguageId !== 'string') ||
+      (patch.translateToEnglish !== undefined &&
+        typeof patch.translateToEnglish !== 'boolean')
+    ) {
+      return false
+    }
+
+    const outcome = applyFileTranscriptionSettingsPatch(
+      this.getFileTranscriptionSettings(),
+      {
+        ...(patch.speechModelId !== undefined
+          ? { speechModelId: patch.speechModelId }
+          : {}),
+        ...(patch.transcriptionLanguageId !== undefined
+          ? { transcriptionLanguageId: patch.transcriptionLanguageId }
+          : {}),
+        ...(patch.translateToEnglish !== undefined
+          ? { translateToEnglish: patch.translateToEnglish }
+          : {}),
+      },
+      this.fileTranscriptionHealContext(),
+      this.dictationAvailability()
+    )
+
+    if (outcome.kind === 'refused') {
+      log('config', 'file transcription settings write refused', {
+        targets: outcome.refusedTargets,
+        reasons: outcome.announcements.map((a) => a.reason),
+      })
+      // As for a Dictation write: the patch is dropped, but whatever availability broke
+      // underneath it still gets corrected.
+      await this.healRunnableSettings()
+      return false
+    }
+
+    // The first accepted write makes them the user's own: `current` was the Dictation
+    // values while they followed, so this stores those plus the patch, and they stop following.
+    this.fileTranscription = outcome.settings
+    if (outcome.announcements.length > 0) {
+      this.fileHealAnnouncements = outcome.announcements
+    }
+    await this.saveMain()
+    return true
+  }
+
+  /** Like `dismissHealAnnouncements`, for the File Transcription Settings' announcements. */
+  public dismissFileTranscriptionHealAnnouncements(): boolean {
+    if (this.fileHealAnnouncements.length === 0) return false
+    this.fileHealAnnouncements = []
+    return true
+  }
+
+  /** The folder the last Transcript Export was saved in, if any. */
+  public getLastTranscriptExportFolder(): string | null {
+    return this.lastTranscriptExportFolder
+  }
+
+  public async setLastTranscriptExportFolder(folder: string): Promise<void> {
+    if (folder.trim() === '' || folder === this.lastTranscriptExportFolder) {
+      return
+    }
+    this.lastTranscriptExportFolder = folder
+    await this.saveMain()
   }
 
   private getHealAnnouncements(): SettingsHealAnnouncement[] {
@@ -1451,6 +1689,9 @@ export class AppConfig {
     }
     this.applyRunnableDictationSettings(outcome.settings)
     this.recordHealAnnouncements(outcome.announcements)
+    // The File Transcription Settings borrow the translate default, so a Dictation write can
+    // leave them unrunnable: Translate to English from automatic detection with no default.
+    this.healFileTranscriptionSettings()
 
     await this.saveMain()
     this.notifyRunnableDictationSettled()

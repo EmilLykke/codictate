@@ -40,7 +40,7 @@ export function inspectInputFile(
   }
 }
 
-/** `settings` is usually `UserAppConfig`; only its two getters are read, never a write. */
+/** `settings` is usually `UserAppConfig`; only its getters are read, never a write. */
 export function productionFileTranscriptionDeps(
   settings: FileTranscriptionSettingsReader
 ): FileTranscriptionDeps {

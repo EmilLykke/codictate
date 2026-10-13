@@ -31,12 +31,19 @@ import {
   getDictationReadiness,
   modelLabel,
   type DictationAvailability,
+  type TranslateReadiness,
 } from './dictation-plan'
 import {
   DEFAULT_MODEL_ID,
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
+  coerceTranscriptionLanguageIdForModel,
   isValidSpeechModelId,
 } from './speech-models'
+import { isValidTranscriptionLanguageId } from './transcription-languages'
+import type {
+  FileTranscriptionSettings,
+  FileTranscriptionSettingsPatch,
+} from './types'
 
 /**
  * The slice of the settings a Dictation depends on. Nothing else in `AppSettings` can make
@@ -284,6 +291,199 @@ export function applyRunnableDictationPatch(
   availability: DictationAvailability
 ): SettingsWriteOutcome {
   const healed = healDictationSettings({ ...current, ...patch }, availability)
+  const refusedTargets = healed.announcements
+    .map((announcement) => announcement.target)
+    .filter((target) => PATCH_OWNS_TARGET[target](patch))
+  if (refusedTargets.length > 0) {
+    return {
+      kind: 'refused',
+      refusedTargets,
+      announcements: healed.announcements,
+    }
+  }
+  return {
+    kind: 'accepted',
+    settings: healed.settings,
+    announcements: healed.announcements,
+  }
+}
+
+// ── File Transcription Settings ─────────────────────────────────────────────────
+//
+// The Speech Model, Transcription Language and Translate to English that File
+// Transcriptions use, chosen apart from the Dictation's and kept runnable the same way:
+// refused on write, healed on every availability change and at boot. What differs is where
+// a missing Speech Model lands. A Dictation's falls back to the bundled default; a File
+// Transcription's falls back to the Dictation's, which the heal pass has already made
+// runnable, because "the same as my Dictations" is what the user started from.
+
+/**
+ * What the File Transcription Settings borrow from the Dictation's. Read after the Dictation
+ * heal, so `dictationSpeechModelId` is always installed.
+ */
+export interface FileTranscriptionHealContext {
+  /** The Dictation's Speech Model after healing: where a missing file selection falls back to. */
+  dictationSpeechModelId: string
+  /** The source language Translate to English uses when the Transcription Language is `auto`. */
+  translateDefaultLanguageId: string
+}
+
+export interface FileTranscriptionSettingsHealResult {
+  /** The corrected settings. The input object is never mutated. */
+  settings: FileTranscriptionSettings
+  /** What to tell the user on the Transcribe page. Empty when only quiet corrections applied. */
+  announcements: SettingsHealAnnouncement[]
+  /** True when nothing changed at all, announced or quiet. */
+  unchanged: boolean
+}
+
+/**
+ * Can Translate to English run with these File Transcription Settings, and the sentence when
+ * it cannot. The same readiness the Dictation's Translate toggle uses, asked about the file
+ * selection, so the Transcribe page and the heal pass cannot disagree.
+ */
+export function fileTranscriptionTranslateReadiness(
+  settings: FileTranscriptionSettings,
+  context: FileTranscriptionHealContext,
+  availability: DictationAvailability
+): TranslateReadiness {
+  return getDictationReadiness(
+    {
+      speechModelId: settings.speechModelId,
+      transcriptionLanguageId: settings.transcriptionLanguageId,
+      translateDefaultLanguageId: context.translateDefaultLanguageId,
+      // Readiness for Live Transcription is not asked for here, and translate ignores it.
+      parakeetCoreMlReady: false,
+    },
+    availability
+  ).translateToEnglish
+}
+
+export function healFileTranscriptionSettings(
+  settings: FileTranscriptionSettings,
+  context: FileTranscriptionHealContext,
+  availability: DictationAvailability
+): FileTranscriptionSettingsHealResult {
+  const next: FileTranscriptionSettings = { ...settings }
+  const announcements: SettingsHealAnnouncement[] = []
+
+  if (
+    !isValidSpeechModelId(next.speechModelId) ||
+    !availability.isModelAvailable(next.speechModelId)
+  ) {
+    const previous = modelLabel(next.speechModelId)
+    next.speechModelId = context.dictationSpeechModelId
+    announcements.push({
+      target: 'speech_model',
+      reason: 'speech_model_not_installed',
+      message: `File transcription switched to ${modelLabel(next.speechModelId)} because the ${previous} weights are no longer installed.`,
+    })
+  }
+
+  // Quiet, as it is for a Dictation: Parakeet always detects the language itself, and a
+  // single-language Speech Model cannot take one it does not speak.
+  if (!isValidTranscriptionLanguageId(next.transcriptionLanguageId)) {
+    next.transcriptionLanguageId = 'auto'
+  }
+  next.transcriptionLanguageId = coerceTranscriptionLanguageIdForModel(
+    next.speechModelId,
+    next.transcriptionLanguageId
+  )
+
+  const translate = fileTranscriptionTranslateReadiness(
+    next,
+    context,
+    availability
+  )
+  if (next.translateToEnglish && !translate.ready) {
+    next.translateToEnglish = false
+    announcements.push(
+      translate.reason === 'needs_source_language'
+        ? {
+            target: 'translate_to_english',
+            reason: 'no_translate_source_language',
+            message:
+              'Translate to English for files turned off because it needs a source language rather than automatic detection.',
+          }
+        : {
+            target: 'translate_to_english',
+            reason: 'model_cannot_translate',
+            message: `Translate to English for files turned off because ${modelLabel(next.speechModelId)} cannot translate.`,
+          }
+    )
+  }
+
+  return {
+    settings: next,
+    announcements,
+    unchanged:
+      next.speechModelId === settings.speechModelId &&
+      next.transcriptionLanguageId === settings.transcriptionLanguageId &&
+      next.translateToEnglish === settings.translateToEnglish,
+  }
+}
+
+export type FileTranscriptionSettingsWriteOutcome =
+  | {
+      kind: 'accepted'
+      settings: FileTranscriptionSettings
+      /** Collateral the patch never asked for, corrected and to be announced. */
+      announcements: SettingsHealAnnouncement[]
+    }
+  | {
+      kind: 'refused'
+      /** The choices in the patch that cannot run. Nothing is written. */
+      refusedTargets: SettingsHealTarget[]
+      announcements: SettingsHealAnnouncement[]
+    }
+
+/**
+ * The write arm for the File Transcription Settings, with the same rule as
+ * `applyRunnableDictationPatch`: validate the object the patch would produce, refuse a patch
+ * whose own request cannot run, and apply and announce a correction to a field it never
+ * mentioned (switching to a Speech Model that cannot translate turns Translate off, visibly).
+ *
+ * Stricter than the heal pass in two places, because a write is the user standing right
+ * there: a Speech Model that is not installed is refused rather than swapped for the
+ * Dictation's, and a Transcription Language that is not a language, or that the Speech Model
+ * cannot take, is refused rather than coerced. A patch that changes only the Speech Model
+ * still has its language coerced quietly, exactly as a model switch does in Settings.
+ */
+export function applyFileTranscriptionSettingsPatch(
+  current: FileTranscriptionSettings,
+  patch: FileTranscriptionSettingsPatch,
+  context: FileTranscriptionHealContext,
+  availability: DictationAvailability
+): FileTranscriptionSettingsWriteOutcome {
+  const refuse = (target: SettingsHealTarget) => ({
+    kind: 'refused' as const,
+    refusedTargets: [target],
+    announcements: [],
+  })
+  const merged: FileTranscriptionSettings = { ...current, ...patch }
+
+  if (
+    patch.speechModelId !== undefined &&
+    (!isValidSpeechModelId(patch.speechModelId) ||
+      !availability.isModelAvailable(patch.speechModelId))
+  ) {
+    return refuse('speech_model')
+  }
+  if (patch.transcriptionLanguageId !== undefined) {
+    if (
+      !isValidTranscriptionLanguageId(patch.transcriptionLanguageId) ||
+      coerceTranscriptionLanguageIdForModel(
+        merged.speechModelId,
+        patch.transcriptionLanguageId
+      ) !== patch.transcriptionLanguageId
+    ) {
+      // Not a heal target of its own: the language is corrected quietly, so a refused one is
+      // filed under the Speech Model whose languages it falls outside.
+      return refuse('speech_model')
+    }
+  }
+
+  const healed = healFileTranscriptionSettings(merged, context, availability)
   const refusedTargets = healed.announcements
     .map((announcement) => announcement.target)
     .filter((target) => PATCH_OWNS_TARGET[target](patch))

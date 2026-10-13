@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { BrowserView, BrowserWindow, Utils } from 'electrobun/bun'
 import { getPlatform } from './platform'
@@ -47,6 +48,8 @@ import {
 } from './window-file-transcriptions/controller'
 import {
   chooseFilesWithNativeDialog,
+  chooseFolderWithNativeDialog,
+  isDirectory,
   writeNewTextFile,
 } from './window-file-transcriptions/native'
 import {
@@ -229,20 +232,33 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
     ? createWindowFileTranscriptions({
         queue: deps.fileTranscriptions,
         chooseFiles: chooseFilesWithNativeDialog,
-        saveToHistory: async ({ transcript, fileName, durationMs }) => {
+        saveToHistory: async (record) => {
           if (!deps.historyManager || !deps.appConfig.getHistoryEnabled()) {
             return false
           }
-          await deps.historyManager.saveFileTranscription(transcript, {
-            fileName,
-            durationMs,
+          await deps.historyManager.saveFileTranscription(record, {
             maxEntries: deps.appConfig.getHistoryMaxEntries(),
           })
           sendIfWindowAlive(() => rpc.send.historyEntryAdded({}))
           return true
         },
+        chooseFolder: chooseFolderWithNativeDialog,
+        lastExportFolder: () => deps.appConfig.getLastTranscriptExportFolder(),
+        rememberExportFolder: (folder) =>
+          deps.appConfig.setLastTranscriptExportFolder(folder),
+        loadHistoryExportSource: async (id) => {
+          const history = deps.historyManager
+          if (!history) return null
+          const source = await history.loadExportSource(id)
+          if (source === null) return null
+          const entry = (await history.loadEntries()).find((e) => e.id === id)
+          return { source, filePath: entry?.filePath ?? null }
+        },
+        pushExportResult: (result) =>
+          sendIfWindowAlive(() => rpc.send.transcriptExportFinished(result)),
+        isDirectory,
+        homeFolder: () => homedir(),
         writeNewFile: writeNewTextFile,
-        fallbackFolder: () => Utils.paths.downloads,
         reveal: (path) => Utils.showItemInFolder(path),
         now: () => Date.now(),
         onChange: (state) =>
@@ -436,11 +452,23 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           windowFiles?.cancel(id) ?? false,
         dismissFileTranscription: async ({ id }) =>
           windowFiles?.dismiss(id) ?? false,
-        saveTranscriptAsText: async ({ id }) =>
-          windowFiles?.saveAsText(id) ?? {
-            ok: false,
-            message: "That transcript isn't here anymore.",
-          },
+        updateFileTranscriptionSettings: async ({ patch }) => {
+          const ok = await deps.appConfig.updateFileTranscriptionSettings(patch)
+          // Pushed whether or not it was accepted, so a refused write snaps the page back.
+          rpc.send.updateSettings(deps.appConfig.getSettings())
+          return ok
+        },
+        dismissFileTranscriptionNotice: async () => {
+          if (!deps.appConfig.dismissFileTranscriptionHealAnnouncements()) {
+            return false
+          }
+          try {
+            rpc.send.updateSettings(deps.appConfig.getSettings())
+          } catch {
+            // Window may have been closed between the click and this push
+          }
+          return true
+        },
         getHistoryEntries: async ({ search }) => {
           if (!deps.historyManager) return []
           return deps.historyManager.loadEntries(search)
@@ -602,8 +630,24 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         chooseFilesToTranscribe: () => {
           void windowFiles?.chooseAndTranscribe()
         },
-        revealSavedTranscript: ({ id }) => {
-          windowFiles?.reveal(id)
+        // A message, like `chooseFilesToTranscribe`: the folder dialog is never awaited
+        // inside a request (#156). The result goes back as `transcriptExportFinished`.
+        exportTranscript: ({ target, format }) => {
+          if (!windowFiles) {
+            sendIfWindowAlive(() =>
+              rpc.send.transcriptExportFinished({
+                target,
+                status: 'failed',
+                format,
+                message: "That transcript isn't here anymore.",
+              })
+            )
+            return
+          }
+          void windowFiles.exportTranscript(target, format)
+        },
+        revealExportedTranscript: ({ target }) => {
+          windowFiles?.revealExport(target)
         },
       },
     },

@@ -6,7 +6,11 @@
  * (docs/adr/0009-command-line-talks-to-the-running-app.md). Every job it adds has origin
  * `window`. It shows command-line jobs while they wait or run, and can cancel them, but
  * keeps only its own results: those stay in memory for the session and, when History is on,
- * go to History (GLOSSARY.md: File Transcription, History). Raw Transcript only.
+ * go to History (GLOSSARY.md: File Transcription, History), Timed Transcript included.
+ *
+ * A Transcript Export of a session result or a History entry also runs here: render, ask
+ * for a folder, write under a new name. It is started by an RPC message and reports back
+ * with one, because the folder dialog must never be awaited inside a request (#156).
  *
  * Everything that touches the machine comes in through the deps, so it is tested
  * hermetically (controller.test.ts).
@@ -17,13 +21,23 @@ import type {
   FileTranscriptionQueue,
   FileTranscriptionResult,
 } from '../file-transcription'
+import type { FileTranscriptionHistoryRecord } from '../utils/history/history-manager'
 import type {
   FileTranscriptionFailureCode,
   FileTranscriptionOutcome,
   FileTranscriptionsState,
-  SaveTranscriptResult,
+  TranscriptExportResult,
+  TranscriptExportTarget,
 } from '../../shared/types'
-import { transcriptTextFileName } from './paths'
+import type { TimedTranscript } from '../../shared/timed-transcript'
+import {
+  renderTranscript as renderTranscriptDefault,
+  transcriptExportFileName as transcriptExportFileNameDefault,
+  type TranscriptExportFormat,
+  type TranscriptExportSource,
+} from '../../shared/transcript-export'
+import { transcriptExportFailureMessage } from '../../shared/file-transcription-copy'
+import { exportStartFolder } from './paths'
 import {
   belongsInHistory,
   outcomeFromResult,
@@ -33,8 +47,10 @@ import {
 /** How many finished results the page keeps for the session. */
 export const FINISHED_LIMIT = 100
 
-/** How many `name N.txt` names "Save as text" tries before giving up. */
-const TEXT_NAME_ATTEMPTS = 500
+/** How many `name N.ext` names a Transcript Export tries before giving up. */
+const EXPORT_NAME_ATTEMPTS = 500
+
+const GONE_MESSAGE = "That transcript isn't here anymore."
 
 export interface WindowFileTranscriptionsDeps {
   queue: FileTranscriptionQueue
@@ -44,15 +60,25 @@ export interface WindowFileTranscriptionsDeps {
    * Keep a finished transcript in History when History is on. Resolves whether it was kept.
    * No audio: the file stays the user's own.
    */
-  saveToHistory(entry: {
-    transcript: string
-    fileName: string
-    durationMs: number
-  }): Promise<boolean>
+  saveToHistory(record: FileTranscriptionHistoryRecord): Promise<boolean>
+  /** The native folder dialog. Resolves `null` when the user cancels. */
+  chooseFolder(startingFolder: string): Promise<string | null>
+  /** The folder the last Transcript Export went to, remembered across launches. */
+  lastExportFolder(): string | null
+  rememberExportFolder(folder: string): Promise<void>
+  /**
+   * What a History entry's Transcript Export is made from, and the transcribed file's path
+   * when History kept it. `null` when there is no File Transcription entry with that id.
+   */
+  loadHistoryExportSource(
+    id: string
+  ): Promise<{ source: TranscriptExportSource; filePath: string | null } | null>
+  /** How a Transcript Export ended. Called whether or not a window is open to receive it. */
+  pushExportResult(result: TranscriptExportResult): void
+  isDirectory(path: string): boolean
+  homeFolder(): string
   /** Create a new file; must throw an error with `code: 'EEXIST'` when the path exists. */
   writeNewFile(path: string, text: string): void
-  /** Where "Save as text" writes when the original file's folder cannot be written. */
-  fallbackFolder(): string
   /** Show a file in Finder / Explorer. */
   reveal(path: string): void
   now(): number
@@ -61,6 +87,10 @@ export interface WindowFileTranscriptionsDeps {
   /** A window File Transcription finished, after History has had its say. */
   onFinished?(outcome: FileTranscriptionOutcome): void
   log(message: string, data?: Record<string, unknown>): void
+  /** Injected in tests; the shared renderer otherwise. */
+  renderTranscript?: typeof renderTranscriptDefault
+  /** Injected in tests; the shared namer otherwise. */
+  transcriptExportFileName?: typeof transcriptExportFileNameDefault
 }
 
 export interface WindowFileTranscriptions {
@@ -70,8 +100,16 @@ export interface WindowFileTranscriptions {
   chooseAndTranscribe(): Promise<number>
   cancel(id: string): boolean
   dismiss(id: string): boolean
-  saveAsText(id: string): SaveTranscriptResult
-  reveal(id: string): void
+  /**
+   * Ask for a folder and save the transcript there in `format`, under a new name. How it
+   * ended goes to `pushExportResult`; the returned promise resolves with the same result.
+   */
+  exportTranscript(
+    target: TranscriptExportTarget,
+    format: TranscriptExportFormat
+  ): Promise<TranscriptExportResult>
+  /** Show the file the last Transcript Export of `target` wrote. */
+  revealExport(target: TranscriptExportTarget): void
   state(): FileTranscriptionsState
   dispose(): void
 }
@@ -97,8 +135,19 @@ function errorCode(err: unknown): string | null {
 export function createWindowFileTranscriptions(
   deps: WindowFileTranscriptionsDeps
 ): WindowFileTranscriptions {
+  const render = deps.renderTranscript ?? renderTranscriptDefault
+  const exportFileName =
+    deps.transcriptExportFileName ?? transcriptExportFileNameDefault
+
   /** Newest first. */
   let finished: FileTranscriptionOutcome[] = []
+  /**
+   * The Timed Transcripts of `finished`, by id. They stay in this process: the page is told
+   * only whether there is one (`hasTimedTranscript`).
+   */
+  const timings = new Map<string, TimedTranscript>()
+  /** Where each History entry was last exported to this session, for "Show". */
+  const historyExports = new Map<string, string>()
   /** The dialog opens where the last pick came from. */
   let lastFolder: string | null = null
 
@@ -123,6 +172,14 @@ export function createWindowFileTranscriptions(
     )
   }
 
+  /** Forget the timings of results no longer on the page. */
+  function pruneTimings(): void {
+    const kept = new Set(finished.map((outcome) => outcome.id))
+    for (const id of timings.keys()) {
+      if (!kept.has(id)) timings.delete(id)
+    }
+  }
+
   async function settle(
     id: string,
     filePath: string,
@@ -135,7 +192,11 @@ export function createWindowFileTranscriptions(
       finishedAt: deps.now(),
       result,
     })
+    const timedTranscript =
+      result.status === 'ok' ? (result.timedTranscript ?? null) : null
+    if (timedTranscript !== null) timings.set(id, timedTranscript)
     finished = [outcome, ...finished].slice(0, FINISHED_LIMIT)
+    pruneTimings()
     push()
 
     if (outcome.status === 'ok' && belongsInHistory(outcome)) {
@@ -144,15 +205,25 @@ export function createWindowFileTranscriptions(
         saved = await deps.saveToHistory({
           transcript: outcome.text,
           fileName: outcome.fileName,
+          filePath: outcome.filePath,
           durationMs: outcome.audioSeconds * 1000,
+          processingSeconds: outcome.processingSeconds,
+          speechModelId: outcome.speechModelId,
+          language: outcome.language,
+          translated: outcome.translated,
+          timedTranscript,
         })
       } catch (err) {
         deps.log('history save failed', { id, err: String(err) })
       }
       if (saved) {
-        outcome = { ...outcome, savedToHistory: true }
-        replace(outcome)
-        push()
+        // Re-read: an export may have finished while History was being written.
+        const current = finished.find((existing) => existing.id === id)
+        if (current?.status === 'ok') {
+          outcome = { ...current, savedToHistory: true }
+          replace(outcome)
+          push()
+        }
       }
     }
     deps.onFinished?.(outcome)
@@ -173,11 +244,41 @@ export function createWindowFileTranscriptions(
     return queued
   }
 
-  function writeBeside(folder: string, fileName: string, text: string): string {
-    for (let attempt = 1; attempt <= TEXT_NAME_ATTEMPTS; attempt += 1) {
-      const path = join(folder, transcriptTextFileName(fileName, attempt))
+  async function resolveSource(target: TranscriptExportTarget): Promise<{
+    source: TranscriptExportSource
+    filePath: string | null
+  } | null> {
+    if (target.kind === 'history') {
+      return deps.loadHistoryExportSource(target.id)
+    }
+    const outcome = finished.find((existing) => existing.id === target.id)
+    if (outcome === undefined || outcome.status !== 'ok') return null
+    return {
+      filePath: outcome.filePath,
+      source: {
+        fileName: outcome.fileName,
+        speechModelId: outcome.speechModelId,
+        language: outcome.language,
+        translated: outcome.translated,
+        audioSeconds: outcome.audioSeconds,
+        processingSeconds: outcome.processingSeconds,
+        text: outcome.text,
+        timedTranscript: timings.get(outcome.id) ?? null,
+      },
+    }
+  }
+
+  /** The new file's path. Throws the write's own error for anything but a taken name. */
+  function writeUnder(
+    folder: string,
+    fileName: string,
+    format: TranscriptExportFormat,
+    content: string
+  ): string {
+    for (let attempt = 1; attempt <= EXPORT_NAME_ATTEMPTS; attempt += 1) {
+      const path = join(folder, exportFileName(fileName, format, attempt))
       try {
-        deps.writeNewFile(path, text)
+        deps.writeNewFile(path, content)
         return path
       } catch (err) {
         if (errorCode(err) === 'EEXIST') continue
@@ -187,31 +288,101 @@ export function createWindowFileTranscriptions(
     throw new Error(`No free name for ${fileName} in ${folder}`)
   }
 
-  function saveAsText(id: string): SaveTranscriptResult {
-    const outcome = finished.find((existing) => existing.id === id)
-    if (outcome === undefined || outcome.status !== 'ok') {
-      return { ok: false, message: "That transcript isn't here anymore." }
-    }
-    const text = outcome.text.endsWith('\n')
-      ? outcome.text
-      : `${outcome.text}\n`
-    let path: string
-    let location: 'source-folder' | 'fallback-folder' = 'source-folder'
+  async function runExport(
+    target: TranscriptExportTarget,
+    format: TranscriptExportFormat
+  ): Promise<TranscriptExportResult> {
+    let resolved: Awaited<ReturnType<typeof resolveSource>>
     try {
-      path = writeBeside(dirname(outcome.filePath), outcome.fileName, text)
+      resolved = await resolveSource(target)
     } catch (err) {
-      deps.log('save beside source failed', { id, err: String(err) })
-      try {
-        path = writeBeside(deps.fallbackFolder(), outcome.fileName, text)
-        location = 'fallback-folder'
-      } catch (fallbackErr) {
-        deps.log('save to fallback failed', { id, err: String(fallbackErr) })
-        return { ok: false, message: "Couldn't save the text file." }
+      deps.log('export source failed', { target, err: String(err) })
+      resolved = null
+    }
+    if (resolved === null) {
+      return { target, status: 'failed', format, message: GONE_MESSAGE }
+    }
+    const { source, filePath } = resolved
+
+    // Before the dialog: a Caption File without timings is refused without asking where.
+    let rendered: ReturnType<typeof render>
+    try {
+      rendered = render(format, source)
+    } catch (err) {
+      deps.log('export render failed', { target, format, err: String(err) })
+      return {
+        target,
+        status: 'failed',
+        format,
+        message: transcriptExportFailureMessage(null),
       }
     }
-    replace({ ...outcome, savedTextPath: path })
-    push()
-    return { ok: true, path, location }
+    if (!rendered.ok) {
+      return { target, status: 'failed', format, message: rendered.message }
+    }
+
+    const start = exportStartFolder({
+      lastExportFolder: deps.lastExportFolder(),
+      sourceFolder: filePath ? dirname(filePath) : null,
+      homeFolder: deps.homeFolder(),
+      isDirectory: (path) => deps.isDirectory(path),
+    })
+    let folder: string | null
+    try {
+      folder = await deps.chooseFolder(start)
+    } catch (err) {
+      deps.log('folder dialog failed', { err: String(err) })
+      return {
+        target,
+        status: 'failed',
+        format,
+        message: transcriptExportFailureMessage(null),
+      }
+    }
+    if (folder === null) return { target, status: 'cancelled' }
+
+    let path: string
+    try {
+      path = writeUnder(folder, source.fileName, format, rendered.content)
+    } catch (err) {
+      deps.log('export write failed', { target, format, err: String(err) })
+      return {
+        target,
+        status: 'failed',
+        format,
+        message: transcriptExportFailureMessage(errorCode(err)),
+      }
+    }
+
+    try {
+      await deps.rememberExportFolder(folder)
+    } catch (err) {
+      deps.log('remember export folder failed', { err: String(err) })
+    }
+    if (target.kind === 'history') {
+      historyExports.set(target.id, path)
+    } else {
+      const current = finished.find((existing) => existing.id === target.id)
+      if (current?.status === 'ok') {
+        replace({ ...current, lastExport: { format, path } })
+        push()
+      }
+    }
+    deps.log('transcript exported', { target, format })
+    return { target, status: 'saved', format, path }
+  }
+
+  async function exportTranscript(
+    target: TranscriptExportTarget,
+    format: TranscriptExportFormat
+  ): Promise<TranscriptExportResult> {
+    const result = await runExport(target, format)
+    try {
+      deps.pushExportResult(result)
+    } catch (err) {
+      deps.log('export result push failed', { err: String(err) })
+    }
+    return result
   }
 
   return {
@@ -233,14 +404,20 @@ export function createWindowFileTranscriptions(
       const before = finished.length
       finished = finished.filter((outcome) => outcome.id !== id)
       if (finished.length === before) return false
+      pruneTimings()
       push()
       return true
     },
-    saveAsText,
-    reveal(id) {
-      const outcome = finished.find((existing) => existing.id === id)
-      if (outcome?.status === 'ok' && outcome.savedTextPath !== null) {
-        deps.reveal(outcome.savedTextPath)
+    exportTranscript,
+    revealExport(target) {
+      if (target.kind === 'history') {
+        const path = historyExports.get(target.id)
+        if (path !== undefined) deps.reveal(path)
+        return
+      }
+      const outcome = finished.find((existing) => existing.id === target.id)
+      if (outcome?.status === 'ok' && outcome.lastExport !== null) {
+        deps.reveal(outcome.lastExport.path)
       }
     },
     state,

@@ -9,6 +9,7 @@ import {
   publicEngineName,
   resultLanguage,
   selectFileTranscription,
+  selectSpeechModelAndLanguage,
 } from './plan'
 
 const PARAKEET = 'parakeet-tdt-0.6b-v3'
@@ -22,16 +23,43 @@ const locations = {
   getParakeetInstallDir: (id: string) => `/models/${id}-coreml`,
 }
 
-function settings(speechModelId: string, transcriptionLanguageId = 'auto') {
+const TURBO = 'large-v3-turbo-q5_0'
+const SMALL = 'small-q5_1'
+
+function settings(
+  speechModelId: string,
+  transcriptionLanguageId = 'auto',
+  translateToEnglish = false,
+  translateDefaultLanguageId = 'auto'
+) {
   return {
-    getSpeechModelId: () => speechModelId,
-    getTranscriptionLanguageId: () => transcriptionLanguageId,
+    getFileTranscriptionSettings: () => ({
+      speechModelId,
+      transcriptionLanguageId,
+      translateToEnglish,
+    }),
+    getTranslateDefaultLanguageId: () => translateDefaultLanguageId,
   }
+}
+
+type Overrides = {
+  speechModelId?: string | null
+  languageId?: string | null
+  translateToEnglish?: boolean | null
+}
+
+function planned(
+  current: ReturnType<typeof settings>,
+  overrides: Overrides = {}
+) {
+  const selected = selectFileTranscription(current, overrides)
+  if (selected.status !== 'ok') throw new Error(selected.message)
+  return planFileTranscription(selected.selection, everythingInstalled)
 }
 
 function runnable(
   current: ReturnType<typeof settings>,
-  overrides: { speechModelId?: string | null; languageId?: string | null } = {}
+  overrides: Overrides = {}
 ) {
   const selected = selectFileTranscription(current, overrides)
   if (selected.status !== 'ok') throw new Error(selected.message)
@@ -129,6 +157,115 @@ describe('selectFileTranscription and planFileTranscription', () => {
       code: 'model_not_installed',
     })
     if (planned.status === 'failed') expect(planned.message).toContain(HVISKE)
+  })
+})
+
+describe('Translate to English', () => {
+  test('follows the File Transcription Settings when the request does not say', () => {
+    expect(runnable(settings(SMALL, 'da', true))).toMatchObject({
+      translateToEnglish: true,
+      transcriptionLanguageId: 'da',
+      languageCode: 'da',
+    })
+    for (const translateToEnglish of [null, undefined]) {
+      expect(
+        runnable(settings(SMALL, 'da', true), { translateToEnglish })
+      ).toMatchObject({ translateToEnglish: true })
+    }
+    expect(runnable(settings(SMALL, 'da'))).toMatchObject({
+      translateToEnglish: false,
+    })
+  })
+
+  test('the request forces it on or off for this call', () => {
+    expect(
+      runnable(settings(SMALL, 'da'), { translateToEnglish: true })
+    ).toMatchObject({ translateToEnglish: true })
+    expect(
+      runnable(settings(SMALL, 'da', true), { translateToEnglish: false })
+    ).toMatchObject({ translateToEnglish: false })
+  })
+
+  test('the selection fixes the translate default when the job is queued', () => {
+    const selected = selectFileTranscription(
+      settings(SMALL, 'auto', true, 'de'),
+      {}
+    )
+    expect(selected).toEqual({
+      status: 'ok',
+      selection: {
+        speechModelId: SMALL,
+        transcriptionLanguageId: 'auto',
+        translateToEnglish: true,
+        translateDefaultLanguageId: 'de',
+      },
+    })
+  })
+
+  test('from automatic detection, the translate default is the source language', () => {
+    const plan = runnable(settings(SMALL, 'auto', true, 'de'))
+    expect(plan).toMatchObject({
+      translateToEnglish: true,
+      transcriptionLanguageId: 'de',
+      languageCode: 'de',
+    })
+    expect(resultLanguage(plan)).toBe('de')
+  })
+
+  test('a Speech Model that cannot translate is cannot_translate, naming it, and nothing substitutes', () => {
+    for (const id of [TURBO, PARAKEET, HVISKE, EDDA]) {
+      const result = planned(settings(id, 'da'), { translateToEnglish: true })
+      expect(result).toMatchObject({
+        status: 'failed',
+        code: 'cannot_translate',
+      })
+      if (result.status === 'failed') {
+        expect(result.message).toContain("can't translate to English")
+      }
+    }
+    const turbo = planned(settings(TURBO, 'da', true))
+    if (turbo.status !== 'failed') throw new Error('expected a refusal')
+    expect(turbo.message).toBe(
+      "Large V3 Turbo can't translate to English. Choose a Whisper Small or Large Speech Model, or turn off Translate to English."
+    )
+  })
+
+  test('automatic detection with no translate default is cannot_translate', () => {
+    expect(planned(settings(SMALL, 'auto', true, 'auto'))).toEqual({
+      status: 'failed',
+      code: 'cannot_translate',
+      message:
+        'Translate to English needs a Transcription Language. Choose one instead of Auto-detect.',
+    })
+  })
+
+  test('missing weights come first: model_not_installed, not cannot_translate', () => {
+    const selected = selectFileTranscription(settings(TURBO, 'da', true), {})
+    if (selected.status !== 'ok') throw new Error('unexpected')
+    expect(
+      planFileTranscription(selected.selection, () => false)
+    ).toMatchObject({ code: 'model_not_installed' })
+  })
+})
+
+describe('selectSpeechModelAndLanguage', () => {
+  test('puts the overrides on the defaults it is given, as a command-line Dictation needs', () => {
+    const defaults = { speechModelId: LARGE_V3, transcriptionLanguageId: 'fr' }
+    expect(selectSpeechModelAndLanguage(defaults, {})).toEqual({
+      status: 'ok',
+      speechModelId: LARGE_V3,
+      transcriptionLanguageId: 'fr',
+    })
+    expect(
+      selectSpeechModelAndLanguage(defaults, { speechModelId: PARAKEET })
+    ).toEqual({
+      status: 'ok',
+      speechModelId: PARAKEET,
+      transcriptionLanguageId: 'auto',
+    })
+    expect(
+      selectSpeechModelAndLanguage(defaults, { languageId: 'nope' })
+    ).toMatchObject({ status: 'failed', code: 'unknown_language' })
   })
 })
 

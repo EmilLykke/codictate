@@ -5,8 +5,8 @@
  *
  *   bun test ./src/bun/file-transcription/file-transcription.manual.ts
  *
- * One case per Speech Engine kind, each skipped when its weights are not installed, plus a
- * cancel and a check that the engine runs at lowered priority. Needs `bun run build:native`
+ * One case per Speech Engine kind, each skipped when its weights are not installed, plus
+ * Translate to English, a cancel and a check that the engine runs at lowered priority. Needs `bun run build:native`
  * for the Media Helper. The video case needs ffmpeg and is skipped without it.
  */
 
@@ -14,6 +14,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { TRANSLATE_CAPABLE_MODEL_IDS } from '../../shared/dictation-plan'
+import { speechModelMakesTimedTranscript } from '../../shared/speech-models'
 import { modelManager } from '../utils/whisper/model-manager'
 import { createFileTranscriptionQueue } from './queue'
 import { productionFileTranscriptionDeps } from './production-deps'
@@ -83,12 +85,19 @@ afterAll(() => {
   if (dir) rmSync(dir, { recursive: true, force: true })
 })
 
-/** A queue whose "settings" select one Speech Model, with `en` asked on purpose. */
+/**
+ * A queue whose File Transcription Settings select one Speech Model, with `en` asked on
+ * purpose and Translate to English off.
+ */
 function queueFor(speechModelId: string) {
   return createFileTranscriptionQueue(
     productionFileTranscriptionDeps({
-      getSpeechModelId: () => speechModelId,
-      getTranscriptionLanguageId: () => 'en',
+      getFileTranscriptionSettings: () => ({
+        speechModelId,
+        transcriptionLanguageId: 'en',
+        translateToEnglish: false,
+      }),
+      getTranslateDefaultLanguageId: () => 'auto',
     })
   )
 }
@@ -136,12 +145,62 @@ describe('one Speech Model per engine', () => {
         expect(result.speechModelId).toBe(c.speechModelId)
         expect(result.language).toBe(c.danish ? 'da' : null)
         expect(result.text.length).toBeGreaterThan(0)
+        expect(result.translated).toBe(false)
+        expect(result.processingSeconds).toBeGreaterThan(0)
+        if (speechModelMakesTimedTranscript(c.speechModelId)) {
+          expect(result.timedTranscript?.text).toBe(result.text)
+        } else {
+          expect(result.timedTranscript).toBeNull()
+        }
         expect(events.some((e) => e.type === 'progress')).toBe(true)
         expect(queue.snapshot()).toEqual([])
       },
       300_000
     )
   }
+})
+
+/** A Whisper Speech Model that can translate, when one is installed. */
+const translateModel = TRANSLATE_CAPABLE_MODEL_IDS.find(installed)
+
+describe('Translate to English', () => {
+  test.skipIf(!translateModel)(
+    'translates Danish speech when the request asks, whatever the settings say',
+    async () => {
+      const job = queueFor(translateModel!).enqueue({
+        filePath: danishAudio,
+        languageId: 'da',
+        translateToEnglish: true,
+        origin: { kind: 'command-line', callerName: 'manual test' },
+      })
+      const result = await job.result
+      console.log(`[translate ${translateModel}]`, JSON.stringify(result))
+      expect(result).toMatchObject({
+        status: 'ok',
+        translated: true,
+        language: 'da',
+      })
+    },
+    300_000
+  )
+
+  test('a Speech Model that cannot translate is refused at once, as cannot_translate', async () => {
+    const cannot = ENGINE_CASES.find(
+      (c) =>
+        installed(c.speechModelId) &&
+        !TRANSLATE_CAPABLE_MODEL_IDS.includes(c.speechModelId)
+    )
+    if (!cannot) return
+    const job = queueFor(cannot.speechModelId).enqueue({
+      filePath: englishAudio,
+      translateToEnglish: true,
+      origin: { kind: 'window' },
+    })
+    expect(await job.result).toMatchObject({
+      status: 'failed',
+      code: 'cannot_translate',
+    })
+  })
 })
 
 const whisperCases = ENGINE_CASES.filter(

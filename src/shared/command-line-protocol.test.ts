@@ -38,7 +38,7 @@ function expectUsage(line: string) {
 describe('parseRequestLine', () => {
   test('reads the docs/CLI.md transcribe request', () => {
     const line =
-      '{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null},"caller":{"name":"Terminal","pid":4211}}'
+      '{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null,"translate":null,"format":null},"caller":{"name":"Terminal","pid":4211}}'
     const expected: CommandRequest = {
       contractVersion: 1,
       command: 'transcribe',
@@ -46,6 +46,8 @@ describe('parseRequestLine', () => {
         file: '/abs/path/memo.m4a',
         speechModelId: null,
         languageId: null,
+        translate: null,
+        format: null,
       },
       caller: { name: 'Terminal', pid: 4211 },
     }
@@ -68,10 +70,39 @@ describe('parseRequestLine', () => {
           file: '/a.wav',
           speechModelId: 'large-v3-q5_0',
           languageId: null,
+          translate: null,
+          format: null,
         },
         caller: null,
       },
     })
+  })
+
+  test('a request from a client that predates translate and format reads both as null', () => {
+    const parsed = parseRequestLine(
+      '{"contractVersion":1,"command":"transcribe","args":{"file":"/a.wav","speechModelId":null,"languageId":null}}'
+    )
+    expect(parsed.ok && parsed.request.args).toEqual({
+      file: '/a.wav',
+      speechModelId: null,
+      languageId: null,
+      translate: null,
+      format: null,
+    })
+  })
+
+  test('translate and format, when sent', () => {
+    for (const translate of [true, false]) {
+      for (const format of ['txt', 'srt', 'vtt', 'json'] as const) {
+        const parsed = parseRequestLine(
+          request('transcribe', { file: '/a.wav', translate, format })
+        )
+        expect(parsed.ok && parsed.request.args).toMatchObject({
+          translate,
+          format,
+        })
+      }
+    }
   })
 
   test('reads every command with its args', () => {
@@ -154,6 +185,10 @@ describe('parseRequestLine', () => {
     expectUsage(request('transcribe', {}))
     expectUsage(request('transcribe', { file: '' }))
     expectUsage(request('transcribe', { file: '/a', speechModelId: 3 }))
+    expectUsage(request('transcribe', { file: '/a', translate: 'yes' }))
+    expectUsage(request('transcribe', { file: '/a', translate: 1 }))
+    expectUsage(request('transcribe', { file: '/a', format: 'docx' }))
+    expectUsage(request('transcribe', { file: '/a', format: 'SRT' }))
     expectUsage(request('models.list', {}))
     expectUsage(request('models.use', { id: 1 }))
     expectUsage(
@@ -204,6 +239,8 @@ describe('error codes', () => {
       language_not_allowed: 2,
       unknown_formatting_mode: 2,
       model_bundled: 2,
+      cannot_translate: 2,
+      captions_unavailable: 2,
       input_unreadable: 3,
       no_audio: 3,
       model_not_installed: 4,
@@ -296,9 +333,33 @@ describe('docs/CLI.md examples fit the protocol types', () => {
       speechModelId: 'hviske-v5-tiny-q5_0',
       engine: 'hviske',
       audioSeconds: 61.2,
+      processingSeconds: 4.8,
+      translated: false,
     }
     roundTrips(
-      '{"type":"result","file":"/abs/path/memo.m4a","text":"…","language":"da","speechModelId":"hviske-v5-tiny-q5_0","engine":"hviske","audioSeconds":61.2}',
+      `{"type":"result","file":"/abs/path/memo.m4a","text":"…","language":"da","speechModelId":"hviske-v5-tiny-q5_0",
+ "engine":"hviske","audioSeconds":61.2,"processingSeconds":4.8,"translated":false}`,
+      typed
+    )
+  })
+
+  test('transcribe result with --format', () => {
+    const typed: TranscribeResult = {
+      type: 'result',
+      file: '/abs/path/memo.m4a',
+      text: 'Hej.',
+      language: 'da',
+      speechModelId: 'hviske-v5-tiny-q5_0',
+      engine: 'hviske',
+      audioSeconds: 61.2,
+      processingSeconds: 4.8,
+      translated: false,
+      formatted: '1\n00:00:00,000 --> 00:00:01,200\nHej.\n\n',
+    }
+    roundTrips(
+      `{"type":"result","file":"/abs/path/memo.m4a","text":"Hej.","language":"da","speechModelId":"hviske-v5-tiny-q5_0",
+ "engine":"hviske","audioSeconds":61.2,"processingSeconds":4.8,"translated":false,
+ "formatted":"1\\n00:00:00,000 --> 00:00:01,200\\nHej.\\n\\n"}`,
       typed
     )
   })

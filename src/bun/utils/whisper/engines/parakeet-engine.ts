@@ -15,7 +15,8 @@ import {
   decodeEngineStdout,
   stderrTail,
 } from './drain-stream'
-import { parseParakeetFinalText } from './parakeet-output'
+import { parseParakeetFinal } from './parakeet-output'
+import { parakeetTimedTranscript } from './parakeet-timings'
 import { lowerProcessPriority } from './process-priority'
 import { superviseProcess } from './process-supervisor'
 import {
@@ -161,8 +162,8 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
 
   // `null` is no `final` line at all, which means the helper died or changed protocol.
   // A `final` line carrying an empty string is a silent Dictation and a success.
-  const text = parseParakeetFinalText(stdoutText)
-  if (text === null) {
+  const final = parseParakeetFinal(stdoutText)
+  if (final === null) {
     log('parakeet', 'helper emitted no final line', {
       stdoutLength: stdoutText.length,
     })
@@ -174,12 +175,25 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     )
   }
 
-  const rawTranscript = text.trim()
+  const rawTranscript = final.text.trim()
+  // Timings that do not line up with the transcript leave it untimed, never wrong.
+  const timedTranscript = parakeetTimedTranscript(rawTranscript, final.timing)
+  if (
+    final.timing !== null &&
+    rawTranscript !== '' &&
+    timedTranscript === null
+  ) {
+    log('parakeet', 'timing did not line up with the transcript', {
+      unit: final.timing.unit,
+      items: final.timing.items.length,
+    })
+  }
 
   log('parakeet', 'transcription complete', {
     exitCode: supervised.exitCode,
     transcriptLength: rawTranscript.length,
+    timedParts: timedTranscript?.parts.length ?? 0,
   })
 
-  return { status: 'ok', rawTranscript }
+  return { status: 'ok', rawTranscript, timedTranscript }
 }

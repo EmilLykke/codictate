@@ -7,6 +7,8 @@
  * so renaming one is a breaking change for the `codictate` client (docs/CLI.md).
  */
 
+import type { TimedTranscript } from '../../shared/timed-transcript'
+
 /** Who asked. Shown to the user in the queue; never used to grant anything. */
 export type FileTranscriptionOrigin =
   | { kind: 'window' }
@@ -20,16 +22,21 @@ export interface FileTranscriptionRequest {
   /** Absolute path to an audio or video file. */
   filePath: string
   /**
-   * A Speech Model for this call only. `null` or absent uses the selected one. Settings do
-   * not change, and nothing is downloaded: it must be installed.
+   * A Speech Model for this call only. `null` or absent uses the File Transcription Settings'
+   * one. Settings do not change, and nothing is downloaded: it must be installed.
    */
   speechModelId?: string | null
   /**
-   * A Transcription Language id (`da`, `zh-cn`) or `auto`, for this call only. Coerced for
-   * the Speech Model exactly as a settings write would be: Parakeet is always `auto`, hviske
-   * and Edda are always `da`.
+   * A Transcription Language id (`da`, `zh-cn`) or `auto`, for this call only; `null` or
+   * absent uses the File Transcription Settings' one. Coerced for the Speech Model exactly as
+   * a settings write would be: Parakeet is always `auto`, hviske and Edda are always `da`.
    */
   languageId?: string | null
+  /**
+   * Translate to English for this call only. `null` or absent uses the File Transcription
+   * Settings.
+   */
+  translateToEnglish?: boolean | null
   origin: FileTranscriptionOrigin
 }
 
@@ -59,6 +66,7 @@ export type FileTranscriptionErrorCode =
   | 'unknown_language'
   | 'language_not_allowed'
   | 'engine_failed'
+  | 'cannot_translate'
   | 'cancelled'
   | 'internal'
 
@@ -77,6 +85,16 @@ export type FileTranscriptionResult =
       engine: PublicSpeechEngineName
       /** Length of the audio, not of the run. */
       audioSeconds: number
+      /** Whether `text` is Translate to English output. */
+      translated: boolean
+      /**
+       * Processing Time, in seconds rounded to 0.1: from when the job started reading the file
+       * until the transcript was ready. Time spent queued behind other File Transcriptions is
+       * not counted.
+       */
+      processingSeconds: number
+      /** When each part of `text` was spoken; `null` when the Speech Engine gave no usable timings. */
+      timedTranscript: TimedTranscript | null
     }
   | {
       status: 'failed'

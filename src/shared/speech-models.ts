@@ -111,6 +111,13 @@ export const EDDA_MIRROR_REVISION = 'a0b269db8f95e94a483a913e36ae1420e58d6819'
 /** Edda v0.2 is a Danish fine-tune, so a run pins `--language da` like hviske. */
 export const EDDA_TRANSCRIPTION_LANGUAGE_ID = 'da'
 
+/**
+ * How crispasr decodes a Whisper Speech Model (ADR-0010).
+ * - `timestamps`: no `-nt`; Raw Transcript and Timed Transcript come from crispasr's JSON.
+ * - `nt-vad`: `-nt` with `--backend whisper --vad` and the bundled Silero weights; no Timed Transcript.
+ */
+export type WhisperDecoding = 'timestamps' | 'nt-vad'
+
 export interface SpeechModel {
   id: string
   engine: SpeechEngineId
@@ -149,6 +156,12 @@ export interface SpeechModel {
   sha256?: string
   /** Transcription language ids (from transcription-languages) Parakeet v3 supports; empty = use Whisper rules */
   supportedTranscriptionLanguageIds?: readonly string[]
+  /**
+   * `whisper_cpp` only. `timestamps` only after the Speech Model passed the long-audio check
+   * (src/bun/utils/whisper/engines/long-audio.manual.ts); absent means `nt-vad`, Edda's path.
+   * Flip it here and nowhere else.
+   */
+  whisperDecoding?: WhisperDecoding
 }
 
 export const SPEECH_MODELS: SpeechModel[] = [
@@ -184,6 +197,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
     curated: true,
     translationSupport: false,
     sha256: 'bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30',
+    whisperDecoding: 'timestamps',
   },
   {
     id: 'medium.en-q5_0',
@@ -197,6 +211,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
     curated: true,
     translationSupport: false,
     sha256: '76733e26ad8fe1c7a5bf7531a9d41917b2adc0f20f2e4f5531688a8c6cd88eb0',
+    whisperDecoding: 'timestamps',
   },
   {
     id: 'small-q5_1',
@@ -210,6 +225,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
     curated: true,
     translationSupport: true,
     sha256: 'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
+    whisperDecoding: 'timestamps',
   },
   {
     id: 'large-v3-turbo-q5_0',
@@ -224,6 +240,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
     curated: true,
     translationSupport: false,
     sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
+    whisperDecoding: 'timestamps',
   },
   {
     id: 'large-v3-q5_0',
@@ -237,6 +254,8 @@ export const SPEECH_MODELS: SpeechModel[] = [
     curated: true,
     translationSupport: true,
     sha256: 'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
+    // No `whisperDecoding: 'timestamps'`: without `-nt` it loops on long Danish (repeated
+    // parts, the last utterance lost) and on translate, in long-audio.manual.ts.
   },
 
   // ── Extended Whisper models (visible via browse modal) ─────────────
@@ -809,6 +828,26 @@ export function supportsStreamMode(model: SpeechModel): boolean {
 /** True for the Danish hviske Speech Models, which run under crispasr `--backend cohere`. */
 export function isHviskeSpeechModelId(id: string): boolean {
   return getSpeechModel(id)?.engine === 'hviske'
+}
+
+/** `null` when the Speech Model is not a Whisper one (or unknown). */
+export function whisperDecodingForModel(
+  speechModelId: string
+): WhisperDecoding | null {
+  const model = getSpeechModel(speechModelId)
+  if (model?.engine !== 'whisper_cpp') return null
+  return model.whisperDecoding ?? 'nt-vad'
+}
+
+/** Whether a File Transcription with this Speech Model comes with a Timed Transcript. */
+export function speechModelMakesTimedTranscript(
+  speechModelId: string
+): boolean {
+  const model = getSpeechModel(speechModelId)
+  if (model === undefined) return false
+  if (model.engine === 'whisper_cpp')
+    return whisperDecodingForModel(speechModelId) === 'timestamps'
+  return true // Parakeet (both platforms) and hviske
 }
 
 /**

@@ -2,10 +2,17 @@ import { mkdirSync, existsSync, renameSync, unlinkSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { log } from '../logger'
 import type { HistoryEntry } from '../../../shared/types'
+import {
+  isTimedTranscript,
+  type TimedTranscript,
+} from '../../../shared/timed-transcript'
+import type { TranscriptExportSource } from '../../../shared/transcript-export'
 import { estimateWavDurationMsFromBytes } from '../../../shared/wav-duration'
 
 const INDEX_FILENAME = 'history.json'
 const RECORDINGS_DIR = 'recordings'
+/** A File Transcription's Timed Transcript, one `<id>.json` per entry, kept out of `history.json`. */
+const TIMINGS_DIR = 'timings'
 
 function isSubsequence(needle: string, haystack: string): boolean {
   let j = 0
@@ -24,8 +31,28 @@ function generateId(): string {
   return `${date}_${time}_${suffix}`
 }
 
+/** What `append` needs of an entry it stores as is. */
+type StoredEntry = Pick<HistoryEntry, 'id' | 'source' | 'audioFilename'>
+
 interface HistoryIndex {
   entries: HistoryEntry[]
+}
+
+/** Everything History keeps about a File Transcription asked for in Codictate's window. */
+export interface FileTranscriptionHistoryRecord {
+  /** The Raw Transcript. */
+  transcript: string
+  fileName: string
+  filePath: string
+  /** Length of the file's audio. */
+  durationMs: number
+  /** Processing Time. */
+  processingSeconds: number
+  speechModelId: string
+  /** The Transcription Language the run was fixed to, `null` when detected. */
+  language: string | null
+  translated: boolean
+  timedTranscript: TimedTranscript | null
 }
 
 /**
@@ -61,14 +88,10 @@ function storedId(raw: unknown): string | null {
   return typeof id === 'string' ? id : null
 }
 
-/**
- * The recording a stored entry owns, as a bare file name inside `recordings/`, or `null`.
- * Read from the raw entry so an entry that is otherwise unreadable still has its audio
- * removed with it. Anything with a path separator is not ours to delete.
- */
-export function storedAudioFilename(raw: unknown): string | null {
+/** `raw[key]` when it is a bare file name, `null` otherwise. */
+function storedBareFilename(raw: unknown, key: string): string | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const name = (raw as Record<string, unknown>).audioFilename
+  const name = (raw as Record<string, unknown>)[key]
   if (
     typeof name !== 'string' ||
     name === '' ||
@@ -78,6 +101,23 @@ export function storedAudioFilename(raw: unknown): string | null {
     return null
   }
   return basename(name) === name && !name.includes('\\') ? name : null
+}
+
+/**
+ * The recording a stored entry owns, as a bare file name inside `recordings/`, or `null`.
+ * Read from the raw entry so an entry that is otherwise unreadable still has its audio
+ * removed with it. Anything with a path separator is not ours to delete.
+ */
+export function storedAudioFilename(raw: unknown): string | null {
+  return storedBareFilename(raw, 'audioFilename')
+}
+
+/**
+ * The Timed Transcript sidecar a stored entry owns, as a bare file name inside `timings/`,
+ * or `null`. Same rules as `storedAudioFilename`, for the same reasons.
+ */
+export function storedTimingsFilename(raw: unknown): string | null {
+  return storedBareFilename(raw, 'timedTranscriptFile')
 }
 
 /**
@@ -102,10 +142,34 @@ export function normalizeHistoryEntry(raw: unknown): HistoryEntry | null {
     source,
   }
   if (typeof value.durationMs === 'number') entry.durationMs = value.durationMs
-  if (source === 'file' && typeof value.fileName === 'string') {
-    entry.fileName = value.fileName
-  }
+  if (source === 'file') readFileTranscriptionFields(value, entry)
   return entry
+}
+
+/** The File Transcription fields an entry has; an older entry has fewer, and none is required. */
+function readFileTranscriptionFields(
+  value: Record<string, unknown>,
+  entry: HistoryEntry
+): void {
+  if (typeof value.fileName === 'string') entry.fileName = value.fileName
+  if (typeof value.filePath === 'string' && value.filePath !== '') {
+    entry.filePath = value.filePath
+  }
+  if (
+    typeof value.processingSeconds === 'number' &&
+    Number.isFinite(value.processingSeconds) &&
+    value.processingSeconds >= 0
+  ) {
+    entry.processingSeconds = value.processingSeconds
+  }
+  if (typeof value.speechModelId === 'string' && value.speechModelId !== '') {
+    entry.speechModelId = value.speechModelId
+  }
+  if (typeof value.language === 'string' || value.language === null) {
+    entry.language = value.language
+  }
+  if (typeof value.translated === 'boolean') entry.translated = value.translated
+  entry.hasTimedTranscript = storedTimingsFilename(value) !== null
 }
 
 export function normalizeHistoryIndex(raw: unknown): HistoryIndex {
@@ -140,6 +204,10 @@ export class HistoryManager {
 
   private get recordingsDir(): string {
     return join(this.getStoragePath(), RECORDINGS_DIR)
+  }
+
+  private get timingsDir(): string {
+    return join(this.getStoragePath(), TIMINGS_DIR)
   }
 
   ensureStorageDir(): void {
@@ -190,14 +258,30 @@ export class HistoryManager {
     await Bun.write(this.indexPath, serializeStoredHistoryIndex(index))
   }
 
-  private deleteAudio(raw: unknown, context: string): void {
-    const name = storedAudioFilename(raw)
+  /** The files a stored entry owns: its recording and its Timed Transcript sidecar. */
+  private deleteOwnedFiles(raw: unknown, context: string): void {
+    this.deleteFile(this.recordingsDir, storedAudioFilename(raw), raw, {
+      context,
+      kind: 'audio',
+    })
+    this.deleteFile(this.timingsDir, storedTimingsFilename(raw), raw, {
+      context,
+      kind: 'timings',
+    })
+  }
+
+  private deleteFile(
+    dir: string,
+    name: string | null,
+    raw: unknown,
+    what: { context: string; kind: string }
+  ): void {
     if (name === null) return
     try {
-      const p = join(this.recordingsDir, name)
+      const p = join(dir, name)
       if (existsSync(p)) unlinkSync(p)
     } catch (err) {
-      log('history', `failed to delete ${context} audio file`, {
+      log('history', `failed to delete ${what.context} ${what.kind} file`, {
         id: storedId(raw),
         err: String(err),
       })
@@ -239,56 +323,142 @@ export class HistoryManager {
         durationMs = estimateWavDurationMsFromBytes(audioBuffer) ?? 0
       }
 
-      return this.append(
-        {
-          id,
-          timestamp: Date.now(),
-          transcript,
-          audioFilename,
-          durationMs,
-          source: 'dictation',
-        },
-        options?.maxEntries ?? 0
-      )
+      const entry: HistoryEntry = {
+        id,
+        timestamp: Date.now(),
+        transcript,
+        audioFilename,
+        durationMs,
+        source: 'dictation',
+      }
+      await this.append(entry, options?.maxEntries ?? 0)
+      return entry
     })
   }
 
   /**
    * A File Transcription asked for in Codictate's window. Transcript only: the file is the
    * user's own and stays where it is, so no audio is copied and no audio path is needed.
+   * Its Timed Transcript goes to a sidecar, `timings/<id>.json`, because `history.json` is
+   * rewritten on every Dictation and shipped whole to the window. A sidecar that cannot be
+   * written costs the captions, never the entry.
    */
   async saveFileTranscription(
-    transcript: string,
-    options: { fileName: string; durationMs: number; maxEntries?: number }
+    record: FileTranscriptionHistoryRecord,
+    options: { maxEntries?: number } = {}
   ): Promise<HistoryEntry> {
     return this.enqueue(async () => {
+      const id = generateId()
       this.ensureStorageDir()
-      return this.append(
-        {
-          id: generateId(),
-          timestamp: Date.now(),
-          transcript,
-          audioFilename: '',
-          durationMs: Math.max(0, Math.round(options.durationMs)),
-          source: 'file',
-          fileName: options.fileName,
-        },
-        options.maxEntries ?? 0
+      const timedTranscriptFile = await this.writeTimings(
+        id,
+        record.transcript,
+        record.timedTranscript
       )
+      const stored: StoredEntry & Record<string, unknown> = {
+        id,
+        timestamp: Date.now(),
+        transcript: record.transcript,
+        audioFilename: '',
+        durationMs: Math.max(0, Math.round(record.durationMs)),
+        source: 'file',
+        fileName: record.fileName,
+        filePath: record.filePath,
+        processingSeconds: record.processingSeconds,
+        speechModelId: record.speechModelId,
+        language: record.language,
+        translated: record.translated,
+      }
+      if (timedTranscriptFile !== null) {
+        stored.timedTranscriptFile = timedTranscriptFile
+      }
+      try {
+        await this.append(stored, options.maxEntries ?? 0)
+      } catch (err) {
+        this.deleteOwnedFiles(stored, 'the unsaved')
+        throw err
+      }
+      const entry = normalizeHistoryEntry(stored)
+      if (entry === null) throw new Error('unreachable: a saved entry is valid')
+      return entry
     })
   }
 
-  /** Runs inside the write queue. */
-  private async append(
-    entry: HistoryEntry,
-    maxEntries: number
-  ): Promise<HistoryEntry> {
+  /** The sidecar's file name, or `null` when there is none to keep (or it could not be written). */
+  private async writeTimings(
+    id: string,
+    transcript: string,
+    timed: TimedTranscript | null
+  ): Promise<string | null> {
+    if (timed === null) return null
+    if (!isTimedTranscript(timed) || timed.text !== transcript) {
+      log('history', 'not keeping a Timed Transcript that does not match', {
+        id,
+      })
+      return null
+    }
+    const name = `${id}.json`
+    try {
+      mkdirSync(this.timingsDir, { recursive: true })
+      await Bun.write(join(this.timingsDir, name), JSON.stringify(timed))
+      return name
+    } catch (err) {
+      log('history', 'failed to write the Timed Transcript', {
+        id,
+        err: String(err),
+      })
+      return null
+    }
+  }
+
+  /**
+   * What a Transcript Export of a History entry is made from. `null` when there is no File
+   * Transcription entry with that id. What an older entry never recorded is `null` (and
+   * `translated` is `false`); a sidecar that is gone or unreadable gives no Timed Transcript.
+   */
+  async loadExportSource(id: string): Promise<TranscriptExportSource | null> {
+    const stored = await this.readStored()
+    const raw = stored?.entries.find((e) => storedId(e) === id)
+    const entry = raw === undefined ? null : normalizeHistoryEntry(raw)
+    if (entry === null || entry.source !== 'file') return null
+    return {
+      fileName: entry.fileName ?? '',
+      speechModelId: entry.speechModelId ?? null,
+      language: entry.language ?? null,
+      translated: entry.translated ?? false,
+      audioSeconds: (entry.durationMs ?? 0) / 1000,
+      processingSeconds: entry.processingSeconds ?? null,
+      text: entry.transcript,
+      timedTranscript: await this.readTimings(raw, entry.transcript),
+    }
+  }
+
+  private async readTimings(
+    raw: unknown,
+    transcript: string
+  ): Promise<TimedTranscript | null> {
+    const name = storedTimingsFilename(raw)
+    if (name === null) return null
+    try {
+      const file = Bun.file(join(this.timingsDir, name))
+      if (!(await file.exists())) return null
+      const value: unknown = await file.json()
+      return isTimedTranscript(value) && value.text === transcript
+        ? value
+        : null
+    } catch {
+      return null
+    }
+  }
+
+  /** Runs inside the write queue. `entry` is stored as is. */
+  private async append(entry: StoredEntry, maxEntries: number): Promise<void> {
     const index = await this.readStoredForWrite()
     index.entries.push(entry)
 
     if (maxEntries > 0 && index.entries.length > maxEntries) {
       const removed = index.entries.splice(0, index.entries.length - maxEntries)
-      for (const old of removed) this.deleteAudio(old, 'old')
+      for (const old of removed) this.deleteOwnedFiles(old, 'old')
     }
 
     await this.writeStored(index)
@@ -298,7 +468,6 @@ export class HistoryManager {
       source: entry.source,
       audioFilename: entry.audioFilename || '(transcript only)',
     })
-    return entry
   }
 
   async loadEntries(search?: string): Promise<HistoryEntry[]> {
@@ -326,7 +495,7 @@ export class HistoryManager {
       const matching = index.entries.filter((raw) => storedId(raw) === id)
       if (matching.length === 0) return false
 
-      for (const raw of matching) this.deleteAudio(raw, 'the')
+      for (const raw of matching) this.deleteOwnedFiles(raw, 'the')
       index.entries = index.entries.filter((raw) => storedId(raw) !== id)
       await this.writeStored(index)
 

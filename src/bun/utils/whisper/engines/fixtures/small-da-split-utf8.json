@@ -1,0 +1,591 @@
+{
+	"systeminfo": "WHISPER : COREML = 0 | OPENVINO = 0 | MTL : EMBED_LIBRARY = 1 | CPU : NEON = 1 | ARM_FMA = 1 | FP16_VA = 1 | DOTPROD = 1 | LLAMAFILE = 1 | ACCELERATE = 1 | REPACK = 1 | ",
+	"model": {
+		"type": "small",
+		"multilingual": true,
+		"vocab": 51865,
+		"audio": {
+			"ctx": 1500,
+			"state": 768,
+			"head": 12,
+			"layer": 12
+		},
+		"text": {
+			"ctx": 448,
+			"state": 768,
+			"head": 12,
+			"layer": 12
+		},
+		"mels": 80,
+		"ftype": 9
+	},
+	"params": {
+		"model": "/models/ggml-small-q5_1.bin",
+		"language": "da",
+		"translate": false
+	},
+	"result": {
+		"language": "da"
+	},
+	"transcription": [
+		{
+			"timestamps": {
+				"from": "00:00:00,000",
+				"to": "00:00:09,000"
+			},
+			"offsets": {
+				"from": 0,
+				"to": 9000
+			},
+			"text": " Øgrummen ligger 120 km for Halløen, den største af King George Island med brugsættelsen Vilalas Estrædlas.",
+			"tokens": [
+				{
+					"text": "[_BEG_]",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,000"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 0
+					},
+					"id": 50364,
+					"p": 0.556948,
+					"t_dtw": -1
+				},
+				{
+					"text": " �",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,090"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 90
+					},
+					"id": 690,
+					"p": 0.237828,
+					"t_dtw": -1
+				},
+				{
+					"text": "�",
+					"timestamps": {
+						"from": "00:00:00,090",
+						"to": "00:00:00,180"
+					},
+					"offsets": {
+						"from": 90,
+						"to": 180
+					},
+					"id": 246,
+					"p": 0.996293,
+					"t_dtw": -1
+				},
+				{
+					"text": "g",
+					"timestamps": {
+						"from": "00:00:00,180",
+						"to": "00:00:00,270"
+					},
+					"offsets": {
+						"from": 180,
+						"to": 270
+					},
+					"id": 70,
+					"p": 0.2238,
+					"t_dtw": -1
+				},
+				{
+					"text": "rum",
+					"timestamps": {
+						"from": "00:00:00,270",
+						"to": "00:00:00,550"
+					},
+					"offsets": {
+						"from": 270,
+						"to": 550
+					},
+					"id": 6247,
+					"p": 0.187261,
+					"t_dtw": -1
+				},
+				{
+					"text": "men",
+					"timestamps": {
+						"from": "00:00:00,740",
+						"to": "00:00:00,830"
+					},
+					"offsets": {
+						"from": 740,
+						"to": 830
+					},
+					"id": 2558,
+					"p": 0.913457,
+					"t_dtw": -1
+				},
+				{
+					"text": " ligger",
+					"timestamps": {
+						"from": "00:00:00,830",
+						"to": "00:00:01,400"
+					},
+					"offsets": {
+						"from": 830,
+						"to": 1400
+					},
+					"id": 43187,
+					"p": 0.974065,
+					"t_dtw": -1
+				},
+				{
+					"text": " 120",
+					"timestamps": {
+						"from": "00:00:01,400",
+						"to": "00:00:02,240"
+					},
+					"offsets": {
+						"from": 1400,
+						"to": 2240
+					},
+					"id": 10411,
+					"p": 0.948014,
+					"t_dtw": -1
+				},
+				{
+					"text": " km",
+					"timestamps": {
+						"from": "00:00:02,240",
+						"to": "00:00:02,340"
+					},
+					"offsets": {
+						"from": 2240,
+						"to": 2340
+					},
+					"id": 10698,
+					"p": 0.574667,
+					"t_dtw": -1
+				},
+				{
+					"text": " for",
+					"timestamps": {
+						"from": "00:00:02,470",
+						"to": "00:00:02,650"
+					},
+					"offsets": {
+						"from": 2470,
+						"to": 2650
+					},
+					"id": 337,
+					"p": 0.450494,
+					"t_dtw": -1
+				},
+				{
+					"text": " Hall",
+					"timestamps": {
+						"from": "00:00:03,000",
+						"to": "00:00:03,100"
+					},
+					"offsets": {
+						"from": 3000,
+						"to": 3100
+					},
+					"id": 5434,
+					"p": 0.232894,
+					"t_dtw": -1
+				},
+				{
+					"text": "ø",
+					"timestamps": {
+						"from": "00:00:03,100",
+						"to": "00:00:03,280"
+					},
+					"offsets": {
+						"from": 3100,
+						"to": 3280
+					},
+					"id": 6715,
+					"p": 0.963133,
+					"t_dtw": -1
+				},
+				{
+					"text": "en",
+					"timestamps": {
+						"from": "00:00:03,280",
+						"to": "00:00:03,500"
+					},
+					"offsets": {
+						"from": 3280,
+						"to": 3500
+					},
+					"id": 268,
+					"p": 0.677134,
+					"t_dtw": -1
+				},
+				{
+					"text": ",",
+					"timestamps": {
+						"from": "00:00:03,500",
+						"to": "00:00:04,000"
+					},
+					"offsets": {
+						"from": 3500,
+						"to": 4000
+					},
+					"id": 11,
+					"p": 0.453209,
+					"t_dtw": -1
+				},
+				{
+					"text": " den",
+					"timestamps": {
+						"from": "00:00:04,000",
+						"to": "00:00:04,160"
+					},
+					"offsets": {
+						"from": 4000,
+						"to": 4160
+					},
+					"id": 1441,
+					"p": 0.860292,
+					"t_dtw": -1
+				},
+				{
+					"text": " st",
+					"timestamps": {
+						"from": "00:00:04,170",
+						"to": "00:00:04,280"
+					},
+					"offsets": {
+						"from": 4170,
+						"to": 4280
+					},
+					"id": 342,
+					"p": 0.99407,
+					"t_dtw": -1
+				},
+				{
+					"text": "ør",
+					"timestamps": {
+						"from": "00:00:04,280",
+						"to": "00:00:04,450"
+					},
+					"offsets": {
+						"from": 4280,
+						"to": 4450
+					},
+					"id": 15499,
+					"p": 0.995175,
+					"t_dtw": -1
+				},
+				{
+					"text": "ste",
+					"timestamps": {
+						"from": "00:00:04,450",
+						"to": "00:00:04,550"
+					},
+					"offsets": {
+						"from": 4450,
+						"to": 4550
+					},
+					"id": 2941,
+					"p": 0.973825,
+					"t_dtw": -1
+				},
+				{
+					"text": " af",
+					"timestamps": {
+						"from": "00:00:04,610",
+						"to": "00:00:04,730"
+					},
+					"offsets": {
+						"from": 4610,
+						"to": 4730
+					},
+					"id": 3238,
+					"p": 0.795173,
+					"t_dtw": -1
+				},
+				{
+					"text": " King",
+					"timestamps": {
+						"from": "00:00:04,730",
+						"to": "00:00:04,960"
+					},
+					"offsets": {
+						"from": 4730,
+						"to": 4960
+					},
+					"id": 3819,
+					"p": 0.67763,
+					"t_dtw": -1
+				},
+				{
+					"text": " George",
+					"timestamps": {
+						"from": "00:00:04,960",
+						"to": "00:00:05,310"
+					},
+					"offsets": {
+						"from": 4960,
+						"to": 5310
+					},
+					"id": 7136,
+					"p": 0.988749,
+					"t_dtw": -1
+				},
+				{
+					"text": " Island",
+					"timestamps": {
+						"from": "00:00:05,310",
+						"to": "00:00:05,650"
+					},
+					"offsets": {
+						"from": 5310,
+						"to": 5650
+					},
+					"id": 7637,
+					"p": 0.957444,
+					"t_dtw": -1
+				},
+				{
+					"text": " med",
+					"timestamps": {
+						"from": "00:00:05,820",
+						"to": "00:00:05,940"
+					},
+					"offsets": {
+						"from": 5820,
+						"to": 5940
+					},
+					"id": 1205,
+					"p": 0.793808,
+					"t_dtw": -1
+				},
+				{
+					"text": " br",
+					"timestamps": {
+						"from": "00:00:06,020",
+						"to": "00:00:06,190"
+					},
+					"offsets": {
+						"from": 6020,
+						"to": 6190
+					},
+					"id": 738,
+					"p": 0.463085,
+					"t_dtw": -1
+				},
+				{
+					"text": "ugs",
+					"timestamps": {
+						"from": "00:00:06,200",
+						"to": "00:00:06,470"
+					},
+					"offsets": {
+						"from": 6200,
+						"to": 6470
+					},
+					"id": 14950,
+					"p": 0.404042,
+					"t_dtw": -1
+				},
+				{
+					"text": "æ",
+					"timestamps": {
+						"from": "00:00:06,470",
+						"to": "00:00:06,650"
+					},
+					"offsets": {
+						"from": 6470,
+						"to": 6650
+					},
+					"id": 7303,
+					"p": 0.903217,
+					"t_dtw": -1
+				},
+				{
+					"text": "tt",
+					"timestamps": {
+						"from": "00:00:06,810",
+						"to": "00:00:06,860"
+					},
+					"offsets": {
+						"from": 6810,
+						"to": 6860
+					},
+					"id": 6319,
+					"p": 0.52046,
+					"t_dtw": -1
+				},
+				{
+					"text": "els",
+					"timestamps": {
+						"from": "00:00:06,860",
+						"to": "00:00:07,140"
+					},
+					"offsets": {
+						"from": 6860,
+						"to": 7140
+					},
+					"id": 1625,
+					"p": 0.956393,
+					"t_dtw": -1
+				},
+				{
+					"text": "en",
+					"timestamps": {
+						"from": "00:00:07,140",
+						"to": "00:00:07,330"
+					},
+					"offsets": {
+						"from": 7140,
+						"to": 7330
+					},
+					"id": 268,
+					"p": 0.998618,
+					"t_dtw": -1
+				},
+				{
+					"text": " Vil",
+					"timestamps": {
+						"from": "00:00:07,330",
+						"to": "00:00:07,620"
+					},
+					"offsets": {
+						"from": 7330,
+						"to": 7620
+					},
+					"id": 35653,
+					"p": 0.349313,
+					"t_dtw": -1
+				},
+				{
+					"text": "al",
+					"timestamps": {
+						"from": "00:00:07,620",
+						"to": "00:00:07,760"
+					},
+					"offsets": {
+						"from": 7620,
+						"to": 7760
+					},
+					"id": 304,
+					"p": 0.524716,
+					"t_dtw": -1
+				},
+				{
+					"text": "as",
+					"timestamps": {
+						"from": "00:00:07,810",
+						"to": "00:00:08,000"
+					},
+					"offsets": {
+						"from": 7810,
+						"to": 8000
+					},
+					"id": 296,
+					"p": 0.502397,
+					"t_dtw": -1
+				},
+				{
+					"text": " Est",
+					"timestamps": {
+						"from": "00:00:08,000",
+						"to": "00:00:08,260"
+					},
+					"offsets": {
+						"from": 8000,
+						"to": 8260
+					},
+					"id": 4410,
+					"p": 0.733056,
+					"t_dtw": -1
+				},
+				{
+					"text": "r",
+					"timestamps": {
+						"from": "00:00:08,290",
+						"to": "00:00:08,290"
+					},
+					"offsets": {
+						"from": 8290,
+						"to": 8290
+					},
+					"id": 81,
+					"p": 0.423724,
+					"t_dtw": -1
+				},
+				{
+					"text": "æ",
+					"timestamps": {
+						"from": "00:00:08,380",
+						"to": "00:00:08,390"
+					},
+					"offsets": {
+						"from": 8380,
+						"to": 8390
+					},
+					"id": 7303,
+					"p": 0.255106,
+					"t_dtw": -1
+				},
+				{
+					"text": "d",
+					"timestamps": {
+						"from": "00:00:08,390",
+						"to": "00:00:08,660"
+					},
+					"offsets": {
+						"from": 8390,
+						"to": 8660
+					},
+					"id": 67,
+					"p": 0.469131,
+					"t_dtw": -1
+				},
+				{
+					"text": "las",
+					"timestamps": {
+						"from": "00:00:08,660",
+						"to": "00:00:09,000"
+					},
+					"offsets": {
+						"from": 8660,
+						"to": 9000
+					},
+					"id": 7743,
+					"p": 0.880783,
+					"t_dtw": -1
+				},
+				{
+					"text": ".",
+					"timestamps": {
+						"from": "00:00:09,000",
+						"to": "00:00:09,000"
+					},
+					"offsets": {
+						"from": 9000,
+						"to": 9000
+					},
+					"id": 13,
+					"p": 0.716288,
+					"t_dtw": -1
+				},
+				{
+					"text": "[_TT_450]",
+					"timestamps": {
+						"from": "00:00:09,000",
+						"to": "00:00:09,000"
+					},
+					"offsets": {
+						"from": 9000,
+						"to": 9000
+					},
+					"id": 50814,
+					"p": 0.0463132,
+					"t_dtw": -1
+				}
+			]
+		}
+	]
+}

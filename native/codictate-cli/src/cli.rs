@@ -31,7 +31,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug, Clone, PartialEq)]
 pub enum Command {
-    /// Transcribe audio or video files with the selected Speech Model
+    /// Transcribe audio or video files with the File Transcription Settings
     Transcribe(TranscribeArgs),
     /// Record a Dictation from the microphone and print its text
     Dictate(DictateArgs),
@@ -74,8 +74,59 @@ pub struct TranscribeArgs {
     #[arg(long, value_name = "ID|auto")]
     pub language: Option<String>,
 
+    /// Translate to English for this call, whatever the File Transcription Settings say
+    #[arg(long, conflicts_with = "no_translate")]
+    pub translate: bool,
+
+    /// Do not translate for this call, whatever the File Transcription Settings say
+    #[arg(long = "no-translate")]
+    pub no_translate: bool,
+
+    /// Print the transcript as text, as captions (SRT or VTT) or as JSON
+    #[arg(long, value_enum, value_name = "FORMAT")]
+    pub format: Option<Format>,
+
+    /// Write the transcript to this file instead of printing it (one file only)
+    #[arg(short = 'o', long = "output", value_name = "PATH")]
+    pub output_file: Option<PathBuf>,
+
     #[command(flatten)]
     pub output: JsonFlag,
+}
+
+/// A Transcript Export format (docs/CLI.md "Captions and JSON").
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Format {
+    /// The transcript as plain text
+    Txt,
+    /// SubRip captions
+    Srt,
+    /// WebVTT captions
+    Vtt,
+    /// The transcript and what it was made with, as JSON
+    Json,
+}
+
+impl Format {
+    fn wire(self) -> &'static str {
+        match self {
+            Format::Txt => "txt",
+            Format::Srt => "srt",
+            Format::Vtt => "vtt",
+            Format::Json => "json",
+        }
+    }
+}
+
+impl TranscribeArgs {
+    /// `true` / `false` force Translate to English; `null` leaves it to the settings.
+    fn translate_wire(&self) -> Value {
+        match (self.translate, self.no_translate) {
+            (true, _) => json!(true),
+            (_, true) => json!(false),
+            _ => Value::Null,
+        }
+    }
 }
 
 #[derive(Args, Debug, Clone, PartialEq)]
@@ -213,6 +264,10 @@ pub struct Plan {
     pub kind: Kind,
     pub json: bool,
     pub jobs: Vec<Job>,
+    /// `transcribe -o`: the client writes the transcript here instead of printing it.
+    pub output_file: Option<PathBuf>,
+    /// `transcribe --format`: the result must carry `formatted`.
+    pub wants_formatted: bool,
 }
 
 pub fn request(command: &str, args: Value, caller: &Caller) -> Value {
@@ -246,9 +301,19 @@ pub fn plan(command: Command, caller: &Caller, cwd: &Path) -> Result<Plan, Failu
             label: None,
             request: request(name, args, caller),
         }],
+        output_file: None,
+        wants_formatted: false,
     };
     Ok(match command {
         Command::Transcribe(args) => {
+            if args.output_file.is_some() && args.files.len() > 1 {
+                return Err(Failure::usage(format!(
+                    "--output takes one file, but {} were given (see 'codictate --help')",
+                    args.files.len()
+                )));
+            }
+            let translate = args.translate_wire();
+            let format = args.format.map(Format::wire);
             let mut jobs = Vec::with_capacity(args.files.len());
             for file in &args.files {
                 let absolute = absolute_file(file, cwd)?;
@@ -260,6 +325,8 @@ pub fn plan(command: Command, caller: &Caller, cwd: &Path) -> Result<Plan, Failu
                             "file": absolute,
                             "speechModelId": args.model,
                             "languageId": args.language,
+                            "translate": translate,
+                            "format": format,
                         }),
                         caller,
                     ),
@@ -269,6 +336,8 @@ pub fn plan(command: Command, caller: &Caller, cwd: &Path) -> Result<Plan, Failu
                 kind: Kind::Transcribe,
                 json: args.output.json,
                 jobs,
+                output_file: args.output_file,
+                wants_formatted: args.format.is_some(),
             }
         }
         Command::Dictate(args) => single(
@@ -358,8 +427,12 @@ mod tests {
         }
     }
 
+    fn plan_of(args: &[&str]) -> Result<Plan, Failure> {
+        plan(command(args), &caller(), &cwd())
+    }
+
     fn planned(args: &[&str]) -> Plan {
-        plan(command(args), &caller(), &cwd()).unwrap()
+        plan_of(args).unwrap()
     }
 
     #[test]
@@ -435,9 +508,103 @@ mod tests {
                 files: vec!["a.m4a".into(), "b.mov".into()],
                 model: Some("large-v3-q5_0".into()),
                 language: Some("auto".into()),
+                translate: false,
+                no_translate: false,
+                format: None,
+                output_file: None,
                 output: JsonFlag { json: true },
             })
         );
+        assert_eq!(
+            command(&[
+                "transcribe",
+                "a.m4a",
+                "--translate",
+                "--format",
+                "srt",
+                "-o",
+                "a.srt"
+            ]),
+            Command::Transcribe(TranscribeArgs {
+                files: vec!["a.m4a".into()],
+                model: None,
+                language: None,
+                translate: true,
+                no_translate: false,
+                format: Some(Format::Srt),
+                output_file: Some("a.srt".into()),
+                output: JsonFlag { json: false },
+            })
+        );
+        let Command::Transcribe(long) =
+            command(&["transcribe", "a.m4a", "--no-translate", "--output", "a.txt"])
+        else {
+            panic!("expected transcribe");
+        };
+        assert!(long.no_translate && !long.translate);
+        assert_eq!(long.output_file, Some(PathBuf::from("a.txt")));
+    }
+
+    #[test]
+    fn transcribe_rejects_contradictions_and_unknown_formats() {
+        assert_eq!(
+            parse(&["transcribe", "a", "--translate", "--no-translate"])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::ArgumentConflict
+        );
+        assert!(parse(&["transcribe", "a", "--format", "docx"]).is_err());
+        assert!(parse(&["transcribe", "a", "--format", "SRT"]).is_err());
+        assert!(parse(&["transcribe", "a", "-o"]).is_err());
+    }
+
+    #[test]
+    fn transcribe_translate_is_null_unless_a_flag_says() {
+        for (flags, expected) in [
+            (&[][..], Value::Null),
+            (&["--translate"][..], json!(true)),
+            (&["--no-translate"][..], json!(false)),
+        ] {
+            let mut args = vec!["transcribe", "/a"];
+            args.extend_from_slice(flags);
+            assert_eq!(
+                planned(&args).jobs[0].request["args"]["translate"],
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn transcribe_format_goes_on_the_wire_and_the_plan_wants_it_back() {
+        let plain = planned(&["transcribe", "/a"]);
+        assert_eq!(plain.jobs[0].request["args"]["format"], Value::Null);
+        assert!(!plain.wants_formatted);
+        for (flag, wire) in [
+            ("txt", "txt"),
+            ("srt", "srt"),
+            ("vtt", "vtt"),
+            ("json", "json"),
+        ] {
+            let plan = planned(&["transcribe", "/a", "/b", "--format", flag]);
+            assert!(plan.wants_formatted);
+            for job in &plan.jobs {
+                assert_eq!(job.request["args"]["format"], wire);
+            }
+        }
+    }
+
+    #[test]
+    fn output_takes_one_file() {
+        let plan = planned(&["transcribe", "memo.m4a", "-o", "memo.srt"]);
+        assert_eq!(plan.output_file, Some(PathBuf::from("memo.srt")));
+        let err = plan_of(&["transcribe", "a.m4a", "b.m4a", "-o", "out.txt"]).unwrap_err();
+        assert_eq!(err.code, "usage");
+        assert_eq!(err.exit, 2);
+        assert_eq!(
+            err.message,
+            "--output takes one file, but 2 were given (see 'codictate --help')"
+        );
+        assert_eq!(planned(&["status"]).output_file, None);
     }
 
     #[test]
@@ -496,11 +663,21 @@ mod tests {
 
     #[test]
     fn transcribe_overrides_go_in_every_request() {
-        let plan = planned(&["transcribe", "/a", "/b", "--model", "m", "--language", "da"]);
+        let plan = planned(&[
+            "transcribe",
+            "/a",
+            "/b",
+            "--model",
+            "m",
+            "--language",
+            "da",
+            "--translate",
+        ]);
         for job in &plan.jobs {
             assert_eq!(job.request["command"], "transcribe");
             assert_eq!(job.request["args"]["speechModelId"], "m");
             assert_eq!(job.request["args"]["languageId"], "da");
+            assert_eq!(job.request["args"]["translate"], true);
         }
     }
 

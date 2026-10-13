@@ -28,7 +28,8 @@ Every command except `--help` and `--version` goes through the running app. When
 ## Commands
 
 ```
-codictate transcribe <file>... [--model <id>] [--language <id|auto>] [--json]
+codictate transcribe <file>... [--model <id>] [--language <id|auto>] [--translate | --no-translate]
+                     [--format txt|srt|vtt|json] [-o <path>] [--json]
 codictate dictate [--paste] [--raw] [--until enter|silence] [--max <seconds>]
                   [--model <id>] [--language <id|auto>] [--formatting-mode <id>] [--json]
 codictate stop [--json]
@@ -53,15 +54,27 @@ A command that records the microphone or changes what Codictate is doing needs *
 
 ### `transcribe` - File Transcription
 
-Transcribes audio or video files with the selected Speech Model, or the one `--model` names. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
+Transcribes audio or video files with the File Transcription Settings: the Speech Model, Transcription Language and Translate to English choice set for File Transcriptions on Codictate's Transcribe page, the same ones a File Transcription started in the window uses. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
 
 - `--model <id>` uses that Speech Model for this call only. It must be installed (exit `4` otherwise); nothing is downloaded implicitly. Settings do not change.
 - `--language <id|auto>` overrides the Transcription Language for this call only. It is coerced for the Speech Model exactly as a settings change would be (Parakeet is always `auto`; hviske and Edda are always `da`).
+- `models use` and `languages use` change the Dictation's Speech Model and Transcription Language, not the File Transcription Settings.
 - Several files run one after another. Each is its own File Transcription. A failure does not stop the rest (its error names the file as typed: `codictate: a.m4a: ...`); the exit code is the first failure's. Only an unreachable app or a contract mismatch stops the remaining files.
 - File Transcriptions run one at a time, shared with those started in Codictate's window, so a call may wait in a queue. A Dictation never waits for one.
 - Results from the command line are not kept in History.
 - An empty transcript (silence) is success with empty text.
-- No timestamps (see ADR-0008).
+
+**Translate.** With neither flag, Translate to English follows the File Transcription Settings. `--translate` turns it on for this call and `--no-translate` turns it off; the settings do not change, and the two flags together are a usage error. The result says whether the text was translated (`"translated"`). English-only and Turbo Whisper Speech Models cannot translate, and neither can Parakeet, hviske or Edda. Translating also needs a source language: a Transcription Language other than `auto`, unless one is set for translation in Codictate. Otherwise the call exits `2` with `cannot_translate`, and nothing is transcribed. When the File Transcription Settings turned translate on, that error says so and suggests `--no-translate`.
+
+**Captions and JSON.** `--format` renders the result as a Transcript Export, the same document Save writes in Codictate's window:
+
+- `txt`: the transcript and a newline, as without `--format`.
+- `srt`, `vtt`: a Caption File. It needs a Timed Transcript, which not every Speech Model makes (Edda does not). With one that never does, the call exits `2` with `captions_unavailable` before anything is transcribed; if a run gives no usable timings, it ends with the same error.
+- `json`: the transcript and what it was made with (file name, Speech Model, language, translated, audio length, Processing Time), plus the caption cues under `segments` when there is a Timed Transcript.
+
+The document is printed instead of the transcript, and under `--json` it is in the result's `formatted` field.
+
+**`-o, --output <path>`** writes the transcript (or the `--format` document) to that file, replacing it if it exists, and prints nothing on success. It takes one input file; with several it is a usage error. A path relative to the working directory is fine, since the client writes the file. If it cannot be written, the client prints `codictate: <path>: cannot write: <reason>` and exits `1` (`output_unwritable`); under `--json` the result line comes first, then that error.
 
 Human output: the transcript on stdout, followed by a newline. With several files, each transcript is preceded by a `==> <file> <==` line, as `tail` does; a file that fails gets no header, only its error on stderr.
 
@@ -130,7 +143,13 @@ Every event has a `type`. Consumers must ignore event types and fields they do n
 
 ```jsonc
 // transcribe (one per file)
-{"type":"result","file":"/abs/path/memo.m4a","text":"…","language":"da","speechModelId":"hviske-v5-tiny-q5_0","engine":"hviske","audioSeconds":61.2}
+{"type":"result","file":"/abs/path/memo.m4a","text":"…","language":"da","speechModelId":"hviske-v5-tiny-q5_0",
+ "engine":"hviske","audioSeconds":61.2,"processingSeconds":4.8,"translated":false}
+
+// transcribe --format srt: the same, plus the rendered document
+{"type":"result","file":"/abs/path/memo.m4a","text":"Hej.","language":"da","speechModelId":"hviske-v5-tiny-q5_0",
+ "engine":"hviske","audioSeconds":61.2,"processingSeconds":4.8,"translated":false,
+ "formatted":"1\n00:00:00,000 --> 00:00:01,200\nHej.\n\n"}
 
 // dictate
 {"type":"result","text":"…","rawText":"…","formattingMode":"email","pasted":false,"live":false,
@@ -165,6 +184,9 @@ Every event has a `type`. Consumers must ignore event types and fields they do n
 - `language` is the Transcription Language the run was fixed to, or `null` when the Speech Engine detected it.
 - `engine` is `whisper`, `parakeet` or `hviske`.
 - `audioSeconds` is the length of the audio, not of the run.
+- `processingSeconds` is the Processing Time, rounded to 0.1 s: from when Codictate began reading the file to when the transcript was ready. Time spent waiting behind other File Transcriptions does not count.
+- `translated` is whether `text` is Translate to English output. With it, `language` is the language that was translated from.
+- `formatted` is present only when `--format` was given.
 - `microphone` is `granted`, `denied`, `undetermined` or `unknown`.
 - `dictation.startedBy` is `shortcut`, `command-line` or `null`.
 
@@ -174,7 +196,10 @@ Every event has a `type`. Consumers must ignore event types and fields they do n
 |---|---|---|
 | 0 | | Success |
 | 1 | `internal` | Something in Codictate failed |
+| 1 | `output_unwritable` | The `-o` file could not be written (client only) |
 | 2 | `usage`, `unknown_model`, `unknown_language`, `language_not_allowed`, `unknown_formatting_mode`, `model_bundled` | The command was wrong |
+| 2 | `cannot_translate` | Translate to English cannot run with this Speech Model or Transcription Language |
+| 2 | `captions_unavailable` | Captions were asked for, and there is no Timed Transcript to make them from |
 | 3 | `input_unreadable`, `no_audio` | The file cannot be read, or has no audio track |
 | 4 | `model_not_installed` | The Speech Model's weights are not installed |
 | 5 | `engine_failed` | The Speech Engine failed |
@@ -202,14 +227,14 @@ The app creates it at startup, and only one app per user and identifier may: on 
 **Request.** The client's first line:
 
 ```json
-{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null},"caller":{"name":"Terminal","pid":4211}}
+{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null,"translate":null,"format":null},"caller":{"name":"Terminal","pid":4211}}
 ```
 
 `caller` is the client's parent process, self-reported. It is shown to the user (for example in the File Transcription queue) and never used to grant anything.
 
 | `command` | `args` |
 |---|---|
-| `transcribe` | `{file, speechModelId?, languageId?}`: one file; the client loops over several |
+| `transcribe` | `{file, speechModelId?, languageId?, translate?: true\|false, format?: "txt"\|"srt"\|"vtt"\|"json"}`: one file; the client loops over several. `translate` absent or `null` follows the File Transcription Settings |
 | `dictate` | `{output: "stdout"\|"cursor", raw, until: "enter"\|"silence", maxSeconds?, speechModelId?, languageId?, formattingModeId?}` |
 | `stop` | `{}` |
 | `status` | `{}` |
@@ -219,7 +244,7 @@ The app creates it at startup, and only one app per user and identifier may: on 
 | `languages.use` | `{id}` |
 | `app.show` | `{}`: internal, used by a second app instance; not a command-line command |
 
-The client resolves relative file paths to absolute ones before sending them. Unset optional `args` are sent as `null`; `maxSeconds` is a number of seconds and may be fractional. `caller.name` is `"unknown"` when the parent process cannot be read, and a Windows name drops its `.exe`.
+The client resolves relative file paths to absolute ones before sending them. Unset optional `args` are sent as `null`, and the app reads an absent one as `null` too, so a client that predates `translate` and `format` still works; `maxSeconds` is a number of seconds and may be fractional. `caller.name` is `"unknown"` when the parent process cannot be read, and a Windows name drops its `.exe`.
 
 **Development overrides** (client only, not in `--help`): `CODICTATE_APP_BUNDLE` points the client at an app bundle or install directory instead of the one it ships in; `CODICTATE_DATA_DIR` moves the socket and the hidden-launch marker, for tests.
 

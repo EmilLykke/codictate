@@ -4,7 +4,9 @@ import {
   formatAudioClock,
   queueItemCallerLabel,
   queueItemStatusLine,
-  transcribeSettingsSummary,
+  resultSummaryLine,
+  transcriptExportFailureMessage,
+  transcriptExportSavedLine,
 } from './file-transcription-copy'
 import type { FileTranscriptionFailureCode } from './types'
 
@@ -73,6 +75,7 @@ describe('describeFileTranscriptionFailure', () => {
     'unknown_language',
     'language_not_allowed',
     'engine_failed',
+    'cannot_translate',
     'cancelled',
     'internal',
   ]
@@ -103,20 +106,61 @@ describe('describeFileTranscriptionFailure', () => {
   })
 })
 
-describe('transcribeSettingsSummary', () => {
-  test('the selected model and language', () => {
-    expect(transcribeSettingsSummary('large-v3-turbo-q5_0', 'da')).toEqual({
-      model: 'Large V3 Turbo',
-      language: 'Danish',
-    })
+describe('cannot_translate', () => {
+  test('a neutral title, so the needs-a-language case reads right', () => {
+    const copy = describeFileTranscriptionFailure(
+      'cannot_translate',
+      'Translate to English needs a Transcription Language. Choose one instead of Auto-detect.'
+    )
+    expect(copy.title).toBe("Can't translate this file")
+    expect(copy.detail).toContain('needs a Transcription Language')
+  })
+})
+
+describe('resultSummaryLine', () => {
+  test('audio length and Processing Time', () => {
+    expect(resultSummaryLine(250, 14)).toBe(
+      '4:10 of audio · transcribed in 0:14'
+    )
+    expect(resultSummaryLine(3725, 612.4)).toBe(
+      '1:02:05 of audio · transcribed in 10:12'
+    )
   })
 
-  test('Parakeet always detects, hviske is always Danish', () => {
-    expect(
-      transcribeSettingsSummary('parakeet-tdt-0.6b-v3', 'da').language
-    ).toBe('Auto-detect')
-    expect(
-      transcribeSettingsSummary('hviske-v5-tiny-q8_0', 'auto').language
-    ).toBe('Danish')
+  test('rounded to the second, never 0:00', () => {
+    expect(resultSummaryLine(5, 0.2)).toBe(
+      '0:05 of audio · transcribed in 0:01'
+    )
+    expect(resultSummaryLine(5, 0)).toBe('0:05 of audio · transcribed in 0:01')
+    expect(resultSummaryLine(60, 13.6)).toBe(
+      '1:00 of audio · transcribed in 0:14'
+    )
+  })
+
+  test('an entry saved before Processing Time was recorded', () => {
+    expect(resultSummaryLine(250, null)).toBe('4:10 of audio')
+  })
+})
+
+describe('Transcript Export lines', () => {
+  test('saved, by file name only', () => {
+    expect(transcriptExportSavedLine('/Users/me/Talks/memo 2.srt')).toBe(
+      'Saved as memo 2.srt.'
+    )
+    expect(transcriptExportSavedLine('C:\\Users\\me\\memo.vtt')).toBe(
+      'Saved as memo.vtt.'
+    )
+  })
+
+  test('an unwritable folder asks for another one', () => {
+    for (const code of ['EACCES', 'EPERM', 'EROFS']) {
+      expect(transcriptExportFailureMessage(code)).toBe(
+        "Codictate can't save in that folder. Choose another folder."
+      )
+    }
+    expect(transcriptExportFailureMessage('EIO')).toBe(
+      "Couldn't save the file."
+    )
+    expect(transcriptExportFailureMessage(null)).toBe("Couldn't save the file.")
   })
 })

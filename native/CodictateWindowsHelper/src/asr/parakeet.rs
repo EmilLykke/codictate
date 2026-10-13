@@ -3,7 +3,9 @@ use crate::audio::resample::{RECORDING_SAMPLE_RATE, StreamingResampler};
 use crate::ipc::emit_json;
 use crate::keyboard::inject;
 use arboard::Clipboard;
-use parakeet_rs::{ExecutionConfig, ExecutionProvider, ParakeetTDT, TimestampMode, Transcriber};
+use parakeet_rs::{
+    ExecutionConfig, ExecutionProvider, ParakeetTDT, TimedToken, TimestampMode, Transcriber,
+};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::io::{self, BufRead, Write};
@@ -18,6 +20,32 @@ const STREAM_RECV_TIMEOUT: Duration = Duration::from_millis(100);
 struct FinalTranscriptMessage {
     kind: &'static str,
     text: String,
+    /// When each sentence of `text` was spoken. Omitted when there is no transcript or no
+    /// timings, so readers that do not know the field see the line they always did.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timing: Option<Timing>,
+}
+
+/// The batch `final` line's `timing` (`src/shared/command-line-protocol.ts`). Windows times
+/// whole sentences: the same `TimestampMode::Sentences` tokens `text` is joined from.
+#[derive(Serialize, Debug, PartialEq)]
+struct Timing {
+    unit: &'static str,
+    items: Vec<TimedItem>,
+}
+
+/// One timed span of `text`, in seconds from the start of the audio, rounded to ms.
+#[derive(Serialize, Debug, PartialEq)]
+struct TimedItem {
+    text: String,
+    start: f64,
+    end: f64,
+}
+
+/// A batch transcript and its sentence timing.
+struct TimedTranscription {
+    text: String,
+    timing: Option<Timing>,
 }
 
 #[derive(Serialize)]
@@ -150,6 +178,68 @@ fn transcribe_samples(model: &mut ParakeetTDT, samples: Vec<f32>) -> Result<Stri
     Ok(clean_transcript(&result.text))
 }
 
+fn round_ms(seconds: f32) -> f64 {
+    (f64::from(seconds) * 1000.0).round() / 1000.0
+}
+
+/// The `timing` for a batch transcript: each sentence token cleaned the way `text` is, empty
+/// and non-finite ones skipped. `None` when `text` is empty or nothing is left.
+fn sentence_timing(text: &str, tokens: &[TimedToken]) -> Option<Timing> {
+    if text.is_empty() {
+        return None;
+    }
+    let items: Vec<TimedItem> = tokens
+        .iter()
+        .filter(|token| token.start.is_finite() && token.end.is_finite() && token.start >= 0.0)
+        .filter_map(|token| {
+            let text = clean_transcript(&token.text);
+            if text.is_empty() {
+                return None;
+            }
+            let start = round_ms(token.start);
+            Some(TimedItem {
+                text,
+                start,
+                end: round_ms(token.end).max(start),
+            })
+        })
+        .collect();
+    if items.is_empty() {
+        None
+    } else {
+        Some(Timing {
+            unit: "sentence",
+            items,
+        })
+    }
+}
+
+/// `transcribe_samples` that also keeps the sentence timings. Still `Sentences` mode: in
+/// parakeet-rs 0.3.8 `result.text` depends on the mode (`Words` drops repeated words), and
+/// the sentence tokens are what that text is joined from.
+fn transcribe_samples_timed(
+    model: &mut ParakeetTDT,
+    samples: Vec<f32>,
+) -> Result<TimedTranscription, String> {
+    if samples.is_empty() {
+        return Ok(TimedTranscription {
+            text: String::new(),
+            timing: None,
+        });
+    }
+    let result = model
+        .transcribe_samples(
+            samples,
+            RECORDING_SAMPLE_RATE,
+            1,
+            Some(TimestampMode::Sentences),
+        )
+        .map_err(|err| format!("Parakeet transcription failed: {err}"))?;
+    let text = clean_transcript(&result.text);
+    let timing = sentence_timing(&text, &result.tokens);
+    Ok(TimedTranscription { text, timing })
+}
+
 fn transcribe_for_stream(model: &mut ParakeetTDT, samples: &[f32]) -> Option<String> {
     match transcribe_samples(model, samples.to_vec()) {
         Ok(text) => Some(text),
@@ -234,10 +324,20 @@ fn resample_to_recording_rate(samples: &[f32], sample_rate: u32) -> Result<Vec<f
     Ok(out)
 }
 
-fn transcribe_wav(model: &mut ParakeetTDT, wav_path: &str) -> Result<String, String> {
+fn load_wav_for_transcription(wav_path: &str) -> Result<Vec<f32>, String> {
     let (samples, sample_rate) = load_wav_mono_f32(wav_path)?;
-    let samples = resample_to_recording_rate(&samples, sample_rate)?;
-    transcribe_samples(model, samples)
+    resample_to_recording_rate(&samples, sample_rate)
+}
+
+fn transcribe_wav(model: &mut ParakeetTDT, wav_path: &str) -> Result<String, String> {
+    transcribe_samples(model, load_wav_for_transcription(wav_path)?)
+}
+
+fn transcribe_wav_timed(
+    model: &mut ParakeetTDT,
+    wav_path: &str,
+) -> Result<TimedTranscription, String> {
+    transcribe_samples_timed(model, load_wav_for_transcription(wav_path)?)
 }
 
 fn rms(samples: &[f32]) -> f32 {
@@ -292,16 +392,17 @@ pub fn handle_transcribe(args: &[String]) -> ExitCode {
 
     let wav_path = &args[2];
     let model_dir = &args[3];
-    let result = (|| -> Result<String, String> {
+    let result = (|| -> Result<TimedTranscription, String> {
         let mut model = load_model(model_dir)?;
         log_phase("transcribing wav...");
-        transcribe_wav(&mut model, wav_path)
+        transcribe_wav_timed(&mut model, wav_path)
     })();
 
     match result {
-        Ok(text) => match emit_json(&FinalTranscriptMessage {
+        Ok(TimedTranscription { text, timing }) => match emit_json(&FinalTranscriptMessage {
             kind: "final",
             text,
+            timing,
         }) {
             Ok(()) => ExitCode::SUCCESS,
             Err(err) => {
@@ -627,6 +728,76 @@ mod tests {
             final_response,
             r#"{"kind":"final","id":7,"text":"hej verden"}"#
         );
+    }
+
+    fn token(text: &str, start: f32, end: f32) -> TimedToken {
+        TimedToken {
+            text: text.to_string(),
+            start,
+            end,
+        }
+    }
+
+    #[test]
+    fn batch_final_carries_sentence_timing() {
+        let text = "Hello there. How are you?".to_string();
+        let timing = sentence_timing(
+            &text,
+            &[
+                token("Hello there.", 0.0, 1.2),
+                token(" How  are you? ", 1.4567, 2.0004),
+            ],
+        );
+        let line = serde_json::to_string(&FinalTranscriptMessage {
+            kind: "final",
+            text,
+            timing,
+        })
+        .expect("final line should encode");
+
+        assert_eq!(
+            line,
+            r#"{"kind":"final","text":"Hello there. How are you?","timing":{"unit":"sentence","items":[{"text":"Hello there.","start":0.0,"end":1.2},{"text":"How are you?","start":1.457,"end":2.0}]}}"#
+        );
+    }
+
+    #[test]
+    fn batch_final_omits_timing_when_there_is_none() {
+        let line = serde_json::to_string(&FinalTranscriptMessage {
+            kind: "final",
+            text: String::new(),
+            timing: sentence_timing("", &[token("Hello.", 0.0, 1.0)]),
+        })
+        .expect("final line should encode");
+
+        assert_eq!(line, r#"{"kind":"final","text":""}"#);
+    }
+
+    #[test]
+    fn sentence_timing_skips_empty_and_unusable_tokens() {
+        let timing = sentence_timing(
+            "Hi.",
+            &[
+                token("  ", 0.0, 0.5),
+                token("Hi.", 0.5, 0.4),
+                token("Gone.", f32::NAN, 1.0),
+                token("Before.", -1.0, 1.0),
+            ],
+        )
+        .expect("one usable sentence");
+
+        assert_eq!(
+            timing,
+            Timing {
+                unit: "sentence",
+                items: vec![TimedItem {
+                    text: "Hi.".to_string(),
+                    start: 0.5,
+                    end: 0.5,
+                }],
+            }
+        );
+        assert_eq!(sentence_timing("Hi.", &[token(" ", 0.0, 1.0)]), None);
     }
 
     #[test]
