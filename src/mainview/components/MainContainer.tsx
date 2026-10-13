@@ -22,6 +22,7 @@ import type {
   StreamTranscriptionMode,
   TranscriptionSettingsPatch,
 } from "../../shared/types";
+import { AnimatePresence, motion } from "motion/react";
 import { appEvents, takePendingNavigation } from "../app-events";
 import {
   addDroppedFiles,
@@ -83,27 +84,45 @@ export function MainContainer({
     }
   }, []);
 
-  // Files dropped on any other page go to Transcribe. On the Transcribe page its drop zone
-  // takes the drop itself (and lights up), so this steps aside there.
+  // Files dropped on any other page go to Transcribe, with a full-window "Drop to
+  // transcribe" overlay while they are dragged over. On the Transcribe page its drop zone
+  // takes the drop itself (and lights up), so this steps aside there. `dragleave` fires on
+  // every child element, so the overlay lets go after a short pause in `dragover` instead.
+  const [fileDragOver, setFileDragOver] = useState(false);
   useEffect(() => {
     if (activeTab === "transcribe") return;
+    let idle: ReturnType<typeof setTimeout> | null = null;
+    const release = () => {
+      if (idle) clearTimeout(idle);
+      idle = null;
+      setFileDragOver(false);
+    };
     const onDragOver = (event: DragEvent) => {
       if (!dragHasFiles(event)) return;
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      setFileDragOver(true);
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(release, 250);
     };
     const onDrop = (event: DragEvent) => {
       if (!dragHasFiles(event) || !event.dataTransfer) return;
       event.preventDefault();
+      release();
       const { files, folders } = readDrop(event.dataTransfer);
       addDroppedFiles(files, folders);
       setActiveTab("transcribe");
     };
+    window.addEventListener("dragenter", onDragOver);
     window.addEventListener("dragover", onDragOver);
     window.addEventListener("drop", onDrop);
+    window.addEventListener("blur", release);
     return () => {
+      window.removeEventListener("dragenter", onDragOver);
       window.removeEventListener("dragover", onDragOver);
       window.removeEventListener("drop", onDrop);
+      window.removeEventListener("blur", release);
+      release();
     };
   }, [activeTab]);
 
@@ -426,6 +445,28 @@ export function MainContainer({
 
   return (
     <>
+      <AnimatePresence>
+        {fileDragOver && (
+          <motion.div
+            key="file-drop-overlay"
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center bg-codictate-page/70 p-6 backdrop-blur-sm"
+          >
+            <div className="flex h-full w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-accent-blue/60 bg-accent-blue/8">
+              <p className="text-[20px] font-medium text-overlay/85">
+                Drop to transcribe
+              </p>
+              <p className="mt-1.5 text-[14px] text-overlay/45">
+                Audio and video files
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AppLayout
         platform={settings.capabilities.platform}
         activeTab={activeTab}
