@@ -1,6 +1,8 @@
 /**
- * File paths for the Transcribe page: what the native dialog and a file drop hand back, and
- * where "Save as text" writes. Pure, so both platforms are tested on any host.
+ * File paths for the Transcribe page: what the native open dialog hands back, the main
+ * window's navigation rules, and the Transcript Export Save dialog's start folder, argv and
+ * answer. Pure, so both platforms are tested on any host. A dropped file has no path here:
+ * the page sends its bytes (dropped-files.ts).
  */
 
 /**
@@ -35,8 +37,8 @@ export function splitDialogPaths(
  * The navigation rules for the main window's webview (Electrobun: a `^` rule blocks, the
  * last matching rule wins, no match allows). Everything is blocked except the bundled views
  * and, in HMR dev, the Vite dev server the window was pointed at. The page never navigates
- * on its own, so any navigation is either a dropped file (read from `will-navigate`, see
- * `droppedFilePath`) or something that must not replace the app.
+ * on its own, so any navigation is something that must not replace the app: a link, a
+ * script, or a file dropped where the page did not cancel the drop.
  */
 export function mainWindowNavigationRules(viewUrl: string): string[] {
   const rules = ['^*', 'views://*']
@@ -52,53 +54,77 @@ export function mainWindowNavigationRules(viewUrl: string): string[] {
 }
 
 /**
- * The local path a dropped file navigated the webview to, or `null` for anything that is
- * not a local file URL.
- *
- * A file dropped on WKWebView or WebView2 that the page does not handle makes the webview
- * navigate to its `file://` URL. The main window blocks that navigation (with every other
- * one, `mainWindowNavigationRules`) and reads the path from the `will-navigate` event
- * instead: the only place either webview exposes a dropped file's real path.
- *
- * Only a URL with no host or `localhost` is a dropped file. On Windows only a drive path
- * is: a UNC or remote host is refused, so a drop never makes the app touch a network share.
+ * Where the Transcript Export Save dialog opens: the last folder a transcript was saved to,
+ * if it is still there; otherwise the transcribed file's own folder, if that is still there;
+ * otherwise the home folder. A dropped file has no folder of its own (`sourceFolder: null`),
+ * since Codictate transcribed a temporary copy of it.
  */
-export function droppedFilePath(
-  url: string,
-  platform: 'macos' | 'windows' | 'linux'
-): string | null {
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return null
+export function exportStartFolder(args: {
+  lastExportFolder: string | null
+  sourceFolder: string | null
+  homeFolder: string
+  isDirectory: (path: string) => boolean
+}): string {
+  for (const folder of [args.lastExportFolder, args.sourceFolder]) {
+    if (folder !== null && folder.trim() !== '' && args.isDirectory(folder)) {
+      return folder
+    }
   }
-  if (parsed.protocol !== 'file:') return null
-  const host = parsed.hostname
-  if (host !== '' && host !== 'localhost') return null
-  let pathname: string
-  try {
-    pathname = decodeURIComponent(parsed.pathname)
-  } catch {
-    return null
-  }
-  if (platform === 'windows') {
-    // `/C:/Users/...`; `//server/share` (a `file:////server` URL) is a UNC path in disguise.
-    if (!/^\/[A-Za-z]:\//.test(pathname)) return null
-    return pathname.slice(1).replace(/\//g, '\\')
-  }
-  return pathname
+  return args.homeFolder
+}
+
+export interface SaveDialogRequest {
+  /** The name the dialog starts with, extension included: `talk.srt`. */
+  defaultName: string
+  /** The folder it opens in. */
+  directory: string
+  /** Without the dot: `srt`. */
+  extension: string
+}
+
+/** What the dialog says in its title bar. */
+export const SAVE_DIALOG_TITLE = 'Save Transcript'
+
+/**
+ * The media Native Helper's `save-dialog` argv after the executable, the same on macOS
+ * (`CodictateMediaHelper`, NSSavePanel) and Windows (`CodictateWindowsHelper`,
+ * IFileSaveDialog).
+ */
+export function saveDialogArgs(request: SaveDialogRequest): string[] {
+  return [
+    'save-dialog',
+    '--name',
+    request.defaultName,
+    '--directory',
+    request.directory,
+    '--extension',
+    request.extension,
+    '--title',
+    SAVE_DIALOG_TITLE,
+  ]
 }
 
 /**
- * The `.txt` names "Save as text" tries, in order: `talk.txt`, then `talk 2.txt`, `talk
- * 3.txt` and so on, so an existing file is never overwritten.
+ * The helper's one JSON line: `{"path":"..."}` is the chosen path, `{"cancelled":true}` is
+ * `null`. Anything else throws, so a broken helper is reported, not taken for a cancel.
  */
-export function transcriptTextFileName(
-  sourceFileName: string,
-  attempt: number
-): string {
-  const dot = sourceFileName.lastIndexOf('.')
-  const stem = dot > 0 ? sourceFileName.slice(0, dot) : sourceFileName
-  return attempt <= 1 ? `${stem}.txt` : `${stem} ${attempt}.txt`
+export function parseSaveDialogAnswer(stdout: string): string | null {
+  const line = stdout.trim()
+  let answer: unknown
+  try {
+    answer = JSON.parse(line)
+  } catch {
+    throw new Error(`The Save dialog gave no answer: ${line.slice(0, 200)}`)
+  }
+  if (typeof answer === 'object' && answer !== null) {
+    if ('cancelled' in answer && answer.cancelled === true) return null
+    if (
+      'path' in answer &&
+      typeof answer.path === 'string' &&
+      answer.path.trim() !== ''
+    ) {
+      return answer.path
+    }
+  }
+  throw new Error(`The Save dialog gave no answer: ${line.slice(0, 200)}`)
 }

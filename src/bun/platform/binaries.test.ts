@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import {
+  SILERO_VAD,
+  SILERO_VAD_VENDOR_DIR,
+} from '../../../scripts/vendor-manifest'
 import {
   BINARY_MANIFEST,
   binaryBuildCopy,
@@ -65,6 +69,8 @@ describe('packaging and runtime binary contract', () => {
       'vendors/llama/llama-completion.exe':
         'native-helpers/llama-completion.exe',
       'vendors/crispasr/crispasr.exe': 'native-helpers/crispasr/crispasr.exe',
+      'vendors/silero-vad/ggml-silero-v6.2.0.bin':
+        'native-helpers/crispasr/ggml-silero-v6.2.0.bin',
     })
     const paths = location('windows', [
       '/package/Resources/native-helpers/CodictateWindowsHelper.exe',
@@ -85,6 +91,27 @@ describe('packaging and runtime binary contract', () => {
     expect(binaryBuildCopy('macos')['vendors/llama/llama-completion']).toBe(
       'native-helpers/llama-completion'
     )
+  })
+
+  test('the Silero VAD weights ship beside crispasr on every platform, from the pinned file', () => {
+    for (const platform of ['macos', 'windows', 'linux'] as const) {
+      const vad = BINARY_MANIFEST[platform]['silero-vad']!
+      const crispasr = BINARY_MANIFEST[platform].crispasr!
+      expect(vad.source).toBe(
+        `vendors/${SILERO_VAD_VENDOR_DIR}/${SILERO_VAD.name}`
+      )
+      expect(dirname(vad.destination)).toBe(dirname(crispasr.destination))
+      expect(binaryBuildCopy(platform)[vad.source]).toBe(vad.destination)
+    }
+    const packaged = location('windows', [
+      '/package/Resources/native-helpers/crispasr/ggml-silero-v6.2.0.bin',
+    ])
+    expect(requireRuntimeBinary('silero-vad', packaged)).toBe(
+      '/package/Resources/native-helpers/crispasr/ggml-silero-v6.2.0.bin'
+    )
+    expect(() =>
+      requireRuntimeBinary('silero-vad', location('macos', []))
+    ).toThrow('crispasr-only')
   })
 
   test('unsupported helpers stay unavailable even if another platform binary exists', () => {

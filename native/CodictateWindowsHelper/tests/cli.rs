@@ -39,6 +39,15 @@ fn extract_audio_of_a_missing_file_is_unreadable_media() {
 }
 
 #[test]
+fn save_dialog_without_flags_is_a_usage_error() {
+    let output = helper_command().arg("save-dialog").output().unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.trim().starts_with("usage: "));
+}
+
+#[test]
 fn list_devices_smoke_test_when_available() {
     let output = helper_command().arg("--list-devices").output().unwrap();
     if !output.status.success() {

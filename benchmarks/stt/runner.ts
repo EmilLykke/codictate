@@ -1,5 +1,6 @@
 import { requireRuntimeBinary } from "../../src/bun/platform/binaries";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MODELS_DIR } from "../../src/bun/platform/runtime";
 import {
@@ -1019,31 +1020,39 @@ async function measureModelMemory(
   const speech = getSpeechModel(modelId);
   if (!speech) return null;
 
-  let command: string[];
+  // crispasr writes its JSON here (ADR-0010). Peak RSS ignores it; it only must not litter.
+  const outputDir = mkdtempSync(join(tmpdir(), "codictate-bench-crispasr-"));
+  try {
+    let command: string[];
 
-  if (speech.engine === PARAKEET_ENGINE_ID) {
-    // The adapter's argv, not a second copy of it: peak RSS has to be measured on the
-    // command the Benchmark Run actually transcribed with.
-    command = parakeetTranscribeArgv(
-      requireRuntimeBinary("parakeet"),
-      sampleEntry.audioPath,
-      modelPath,
-    );
-  } else {
-    command = (
-      await buildWhisperHarnessCommand({
-        ...harnessInvocationFor(modelId, harness, null),
+    if (speech.engine === PARAKEET_ENGINE_ID) {
+      // The adapter's argv, not a second copy of it: peak RSS has to be measured on the
+      // command the Benchmark Run actually transcribed with.
+      command = parakeetTranscribeArgv(
+        requireRuntimeBinary("parakeet"),
+        sampleEntry.audioPath,
         modelPath,
-        audioPath: sampleEntry.audioPath,
-      })
-    ).argv;
-  }
+      );
+    } else {
+      command = (
+        await buildWhisperHarnessCommand({
+          ...harnessInvocationFor(modelId, harness, null),
+          speechModelId: modelId,
+          jsonOutputBase: join(outputDir, "transcript"),
+          modelPath,
+          audioPath: sampleEntry.audioPath,
+        })
+      ).argv;
+    }
 
-  const result = await measurePeakRss(command);
-  if (result.peakRssBytes !== null) {
-    return Math.round(result.peakRssBytes / 1024 / 1024);
+    const result = await measurePeakRss(command);
+    if (result.peakRssBytes !== null) {
+      return Math.round(result.peakRssBytes / 1024 / 1024);
+    }
+    return null;
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true });
   }
-  return null;
 }
 
 export interface BenchmarkModelOptions {

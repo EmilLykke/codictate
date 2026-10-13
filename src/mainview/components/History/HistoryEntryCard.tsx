@@ -3,6 +3,7 @@ import type { HistoryEntry } from "../../../shared/types";
 import { AudioPlayer } from "./AudioPlayer";
 import { HistoryFileBadge } from "./HistoryFileBadge";
 import { deleteHistoryEntry } from "../../rpc";
+import { TranscriptSaveMenu } from "../Transcribe/TranscriptSaveMenu";
 
 interface Props {
   entry: HistoryEntry;
@@ -136,6 +137,19 @@ export function HistoryEntryCard({ entry, onDeleted }: Props) {
           </span>
         )}
       </div>
+
+      {entry.source === "file" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <TranscriptSaveMenu
+            target={{ kind: "history", id: entry.id }}
+            facts={{
+              speechModelId: entry.speechModelId ?? null,
+              // Entries saved before timings were kept have none.
+              hasTimedTranscript: entry.hasTimedTranscript ?? false,
+            }}
+          />
+        </div>
+      )}
 
       {entry.source !== "file" && entry.audioFilename && (
         <AudioPlayer entryId={entry.id} durationMs={entry.durationMs ?? 0} />

@@ -11,13 +11,15 @@ pub const EXIT_SIGTERM: i32 = 143;
 /// Maps an `error.code` to the process exit code. An unknown code is an `internal` failure.
 pub fn exit_code_for(code: &str) -> i32 {
     match code {
-        "internal" => 1,
+        "internal" | "output_unwritable" => 1,
         "usage"
         | "unknown_model"
         | "unknown_language"
         | "language_not_allowed"
         | "unknown_formatting_mode"
-        | "model_bundled" => 2,
+        | "model_bundled"
+        | "cannot_translate"
+        | "captions_unavailable" => 2,
         "input_unreadable" | "no_audio" => 3,
         "model_not_installed" => 4,
         "engine_failed" => 5,
@@ -33,7 +35,7 @@ pub fn exit_code_for(code: &str) -> i32 {
 }
 
 /// A command that did not succeed: either an `error` event from the app or one the client
-/// raises itself (`usage`, `app_unavailable`, `cancelled`).
+/// raises itself (`usage`, `app_unavailable`, `cancelled`, `output_unwritable`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Failure {
     pub code: String,
@@ -59,6 +61,14 @@ impl Failure {
 
     pub fn app_unavailable(message: impl Into<String>) -> Self {
         Self::new("app_unavailable", message)
+    }
+
+    /// `-o` could not be written: `<path>: cannot write: <reason>`.
+    pub fn output_unwritable(path: &std::path::Path, err: &std::io::Error) -> Self {
+        Self::new(
+            "output_unwritable",
+            format!("{}: cannot write: {err}", path.display()),
+        )
     }
 
     /// Cancelled by the user: exit 130 for SIGINT (Ctrl-C), 143 for SIGTERM.
@@ -100,12 +110,15 @@ mod tests {
     fn every_documented_code_maps_to_its_exit() {
         let table: &[(&str, i32)] = &[
             ("internal", 1),
+            ("output_unwritable", 1),
             ("usage", 2),
             ("unknown_model", 2),
             ("unknown_language", 2),
             ("language_not_allowed", 2),
             ("unknown_formatting_mode", 2),
             ("model_bundled", 2),
+            ("cannot_translate", 2),
+            ("captions_unavailable", 2),
             ("input_unreadable", 3),
             ("no_audio", 3),
             ("model_not_installed", 4),

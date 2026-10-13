@@ -20,7 +20,7 @@ fn line(text: &str) -> String {
 /// What a `result` event prints on stdout, newline included; empty for nothing.
 pub fn result(kind: Kind, result: &Value) -> String {
     match kind {
-        Kind::Transcribe => line(str_field(result, "text").unwrap_or("")),
+        Kind::Transcribe => transcript(result),
         Kind::Dictate { paste: true } => String::new(),
         Kind::Dictate { paste: false } => str_field(result, "text").map(line).unwrap_or_default(),
         Kind::Stop => line(if bool_field(result, "stopped") {
@@ -35,6 +35,16 @@ pub fn result(kind: Kind, result: &Value) -> String {
         Kind::ModelsRemove => id_line("Removed", result, "speechModelId"),
         Kind::LanguagesList => languages(result),
         Kind::LanguagesUse => id_line("Selected", result, "transcriptionLanguageId"),
+    }
+}
+
+/// A `transcribe` result as printed or written by `-o`: the `--format` document when the app
+/// rendered one, otherwise the transcript; always ending in a newline.
+pub fn transcript(result: &Value) -> String {
+    match str_field(result, "formatted") {
+        Some(formatted) if formatted.ends_with('\n') => formatted.to_string(),
+        Some(formatted) => line(formatted),
+        None => line(str_field(result, "text").unwrap_or("")),
     }
 }
 
@@ -283,6 +293,22 @@ mod tests {
     fn transcribe_prints_the_transcript() {
         let value = fixture(include_str!("../tests/fixtures/transcribe.json"));
         assert_eq!(result(Kind::Transcribe, &value), "…\n");
+    }
+
+    #[test]
+    fn a_formatted_result_prints_the_document_as_rendered() {
+        let value = fixture(include_str!("../tests/fixtures/transcribe-formatted.json"));
+        assert_eq!(
+            result(Kind::Transcribe, &value),
+            "1\n00:00:00,000 --> 00:00:01,200\nHej.\n\n"
+        );
+        assert_eq!(transcript(&value), result(Kind::Transcribe, &value));
+    }
+
+    #[test]
+    fn a_formatted_document_without_a_final_newline_gets_one() {
+        let value = fixture(r#"{"type":"result","text":"x","formatted":"{\"text\":\"x\"}"}"#);
+        assert_eq!(transcript(&value), "{\"text\":\"x\"}\n");
     }
 
     #[test]

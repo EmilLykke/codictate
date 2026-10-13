@@ -45,6 +45,20 @@ export function removeStaleWorkDirs(
   parent: string,
   options: { now: number; staleMs?: number }
 ): string[] {
+  return removeStaleDirs(parent, isWorkDirName, options)
+}
+
+/**
+ * Removes the directories in `parent` that `isOurs` claims by name and that nothing has
+ * written to for `staleMs` (default `STALE_WORK_DIR_MS`). Only real directories, never
+ * symlinks. Shared with the copies of dropped files (window-file-transcriptions/dropped-files.ts).
+ * Returns the paths removed.
+ */
+export function removeStaleDirs(
+  parent: string,
+  isOurs: (name: string) => boolean,
+  options: { now: number; staleMs?: number }
+): string[] {
   const staleMs = options.staleMs ?? STALE_WORK_DIR_MS
   let names: string[]
   try {
@@ -54,7 +68,7 @@ export function removeStaleWorkDirs(
   }
   const removed: string[] = []
   for (const name of names) {
-    if (!isWorkDirName(name)) continue
+    if (!isOurs(name)) continue
     const dir = join(parent, name)
     try {
       const stat = lstatSync(dir)

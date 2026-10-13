@@ -57,6 +57,7 @@ import {
   getSpeechModel,
 } from '../../shared/speech-models'
 import { TRANSCRIPTION_LANGUAGE_OPTIONS } from '../../shared/transcription-languages'
+import { renderTranscript } from '../../shared/transcript-export'
 import { cliBinarySource } from '../../../scripts/build-native-cli'
 import type {
   CommandLineDictationControl,
@@ -112,12 +113,22 @@ interface AudioSpec {
   hold?: boolean
   transcribeMs?: number
   seconds?: number
+  /** What a translate run returns instead of `text`. */
+  translation?: string
+  /** The engine times its transcript: one part, the whole audio. */
+  timed?: boolean
 }
 
 const state = {
   commandLineControl: false,
   speechModelId: DEFAULT_MODEL_ID,
   transcriptionLanguageId: 'auto',
+  /** The File Transcription Settings, apart from the Dictation's. */
+  file: {
+    speechModelId: DEFAULT_MODEL_ID,
+    transcriptionLanguageId: 'auto',
+    translateToEnglish: false,
+  },
   installed: new Set<string>(),
   notifications: [] as { title: string; body: string }[],
   downloadError: null as string | null,
@@ -316,6 +327,28 @@ const store: SpeechModelStore = (() => {
   }
 })()
 
+/**
+ * Whether the Transcript Export renderer is in this checkout yet. The `--format` cases need it;
+ * everything else in this suite does not.
+ */
+const RENDERER_READY = (() => {
+  try {
+    renderTranscript('txt', {
+      fileName: 'a.wav',
+      speechModelId: SMALL_ID,
+      language: null,
+      translated: false,
+      audioSeconds: 1,
+      processingSeconds: 1,
+      text: 'a',
+      timedTranscript: null,
+    })
+    return true
+  } catch {
+    return false
+  }
+})()
+
 // ── The fake app tree and the server ──────────────────────────────────────
 
 let root = ''
@@ -331,7 +364,12 @@ function writeVersionJson(bundle: string) {
   mkdirSync(join(resources, 'app', 'bin'), { recursive: true })
   writeFileSync(
     join(resources, 'version.json'),
-    JSON.stringify({ ...IDENTITY, hash: 'e2e', baseUrl: '', name: 'Codictate' })
+    JSON.stringify({
+      ...IDENTITY,
+      hash: 'e2e',
+      baseUrl: '',
+      name: 'Codictate',
+    })
   )
   return resources
 }
@@ -384,8 +422,8 @@ beforeAll(async () => {
   let jobCounter = 0
   queue = createFileTranscriptionQueue({
     settings: {
-      getSpeechModelId: () => state.speechModelId,
-      getTranscriptionLanguageId: () => state.transcriptionLanguageId,
+      getFileTranscriptionSettings: () => ({ ...state.file }),
+      getTranslateDefaultLanguageId: () => 'auto',
     },
     isModelAvailable: (id) => state.installed.has(id),
     locations: {
@@ -421,7 +459,11 @@ beforeAll(async () => {
         }
       }
       if (spec.decode === 'no_audio') {
-        return { status: 'failed', code: 'no_audio', message: 'no audio track' }
+        return {
+          status: 'failed',
+          code: 'no_audio',
+          message: 'no audio track',
+        }
       }
       writeFileSync(output, JSON.stringify(spec))
       return { status: 'ok' }
@@ -441,7 +483,21 @@ beforeAll(async () => {
           'segfault'
         )
       }
-      return { status: 'ok', rawTranscript: spec.text ?? '' }
+      const text =
+        request.engineId === 'whisper_cpp' && request.translateToEnglish
+          ? (spec.translation ?? '')
+          : (spec.text ?? '')
+      return {
+        status: 'ok',
+        rawTranscript: text,
+        timedTranscript:
+          spec.timed && text !== ''
+            ? {
+                text,
+                parts: [{ text, start: 0, end: spec.seconds ?? 2.5 }],
+              }
+            : null,
+      }
     },
     clock: {
       now: () => Date.now(),
@@ -465,6 +521,9 @@ beforeAll(async () => {
     getTranscriptionLanguageId: () => state.transcriptionLanguageId,
     isModelAvailable: (id) => state.installed.has(id),
     fileTranscriptions: queue,
+    fileSettings: {
+      getFileTranscriptionSettings: () => ({ ...state.file }),
+    },
     showMainWindow: () => {},
     getStreamMode: () => false,
     updateTranscriptionSettings: async (patch) => {
@@ -499,6 +558,11 @@ beforeEach(() => {
   state.commandLineControl = false
   state.speechModelId = DEFAULT_MODEL_ID
   state.transcriptionLanguageId = 'auto'
+  state.file = {
+    speechModelId: DEFAULT_MODEL_ID,
+    transcriptionLanguageId: 'auto',
+    translateToEnglish: false,
+  }
   state.installed = new Set([
     ...SPEECH_MODELS.filter((m) => m.bundled).map((m) => m.id),
     SMALL_ID,
@@ -745,8 +809,8 @@ describe.skipIf(process.platform === 'win32')(
 
       test('one file, --json: progress events, then the documented result', async () => {
         const file = audio('memo.json', { text: 'Hej.', seconds: 61.2 })
-        state.speechModelId = HVISKE_ID
-        state.transcriptionLanguageId = 'da'
+        state.file.speechModelId = HVISKE_ID
+        state.file.transcriptionLanguageId = 'da'
         const ran = await codictate(['transcribe', 'memo.json', '--json'])
         expectQuietSuccess(ran)
         const lines = events(ran.stdout)
@@ -759,7 +823,10 @@ describe.skipIf(process.platform === 'win32')(
           speechModelId: HVISKE_ID,
           engine: 'hviske',
           audioSeconds: 61.2,
+          processingSeconds: expect.any(Number),
+          translated: false,
         })
+        expect(result.processingSeconds as number).toBeGreaterThanOrEqual(0)
         const progress = lines.slice(0, -1)
         expect(progress.map((e) => e.type)).toEqual(
           progress.map(() => 'progress')
@@ -848,7 +915,10 @@ describe.skipIf(process.platform === 'win32')(
           const ran = await codictate([...args, '--json'])
           expect({ args, exit: ran.code }).toEqual({ args, exit })
           const lines = events(ran.stdout)
-          expect(lines[lines.length - 1]).toMatchObject({ type: 'error', code })
+          expect(lines[lines.length - 1]).toMatchObject({
+            type: 'error',
+            code,
+          })
           expectOneErrorLine(ran.stderr)
         }
       })
@@ -871,7 +941,7 @@ describe.skipIf(process.platform === 'win32')(
           language: 'da',
           engine: 'hviske',
         })
-        expect(state.speechModelId).toBe(DEFAULT_MODEL_ID)
+        expect(state.file.speechModelId).toBe(DEFAULT_MODEL_ID)
       })
 
       test('waits in the queue behind a window job: queued event, and status counts it', async () => {
@@ -952,6 +1022,214 @@ describe.skipIf(process.platform === 'win32')(
           )
         })
       }
+
+      test('Translate to English follows the File Transcription Settings; --translate and --no-translate force it', async () => {
+        audio('da.json', { text: 'Hej.', translation: 'Hello.' })
+        state.file = {
+          speechModelId: SMALL_ID,
+          transcriptionLanguageId: 'da',
+          translateToEnglish: true,
+        }
+        const cases: [string[], string, boolean][] = [
+          [[], 'Hello.', true],
+          [['--no-translate'], 'Hej.', false],
+        ]
+        for (const [flags, text, translated] of cases) {
+          const ran = await codictate([
+            'transcribe',
+            'da.json',
+            ...flags,
+            '--json',
+          ])
+          expectQuietSuccess(ran)
+          const lines = events(ran.stdout)
+          expect(lines[lines.length - 1]).toMatchObject({ text, translated })
+        }
+        state.file.translateToEnglish = false
+        const asked = await codictate(['transcribe', 'da.json', '--translate'])
+        expectQuietSuccess(asked)
+        expect(asked.stdout).toBe('Hello.\n')
+        expect(state.file.translateToEnglish).toBe(false)
+      })
+
+      test('cannot_translate: exit 2, and a setting the caller never chose is named with its way out', async () => {
+        audio('ok.json', { text: 'x' })
+        state.file.translateToEnglish = true
+        const fromSettings = await codictate(['transcribe', 'ok.json'])
+        expect(fromSettings.code).toBe(2)
+        expectOneErrorLine(fromSettings.stderr, '--no-translate')
+        state.file.translateToEnglish = false
+        const asked = await codictate([
+          'transcribe',
+          'ok.json',
+          '--translate',
+          '--json',
+        ])
+        expect(asked.code).toBe(2)
+        const lines = events(asked.stdout)
+        expect(lines[lines.length - 1]).toMatchObject({
+          type: 'error',
+          code: 'cannot_translate',
+        })
+        expect(asked.stderr).not.toContain('--no-translate')
+      })
+
+      test('--translate with --no-translate is a usage error, and nothing is sent', async () => {
+        audio('ok.json', { text: 'x' })
+        const ran = await codictate([
+          'transcribe',
+          'ok.json',
+          '--translate',
+          '--no-translate',
+        ])
+        expect(ran.code).toBe(2)
+        expectOneErrorLine(ran.stderr, "(see 'codictate --help')")
+        expect(state.decodeStarted).toEqual([])
+      })
+
+      test('captions from a Speech Model that never times its transcript: captions_unavailable, exit 2, nothing decoded', async () => {
+        audio('ok.json', { text: 'x' })
+        const ran = await codictate([
+          'transcribe',
+          'ok.json',
+          '--model',
+          'edda-v0.2-q5_0',
+          '--format',
+          'srt',
+          '--json',
+        ])
+        expect(ran.code).toBe(2)
+        expect(events(ran.stdout)).toEqual([
+          expect.objectContaining({
+            type: 'error',
+            code: 'captions_unavailable',
+          }),
+        ])
+        expectOneErrorLine(ran.stderr, 'cannot make captions')
+        expect(state.decodeStarted).toEqual([])
+      })
+
+      test('-o writes the transcript to the file and prints nothing', async () => {
+        audio('memo.json', { text: 'Hello there.' })
+        const ran = await codictate([
+          'transcribe',
+          'memo.json',
+          '-o',
+          'out.txt',
+        ])
+        expectQuietSuccess(ran)
+        expect(ran.stdout).toBe('')
+        expect(readFileSync(join(work, 'out.txt'), 'utf8')).toBe(
+          'Hello there.\n'
+        )
+      })
+
+      test('-o with several files is a usage error, and nothing is sent', async () => {
+        audio('a.json', { text: 'a' })
+        audio('b.json', { text: 'b' })
+        const ran = await codictate([
+          'transcribe',
+          'a.json',
+          'b.json',
+          '--output',
+          'out.txt',
+        ])
+        expect(ran.code).toBe(2)
+        expectOneErrorLine(ran.stderr, "(see 'codictate --help')")
+        expect(state.decodeStarted).toEqual([])
+      })
+
+      test('-o that cannot be written: output_unwritable, exit 1, naming the path', async () => {
+        audio('memo.json', { text: 'Hello there.' })
+        const ran = await codictate([
+          'transcribe',
+          'memo.json',
+          '-o',
+          'no-such-dir/out.txt',
+          '--json',
+        ])
+        expect(ran.code).toBe(1)
+        expectOneErrorLine(
+          ran.stderr,
+          'codictate: no-such-dir/out.txt: cannot write: '
+        )
+        const lines = events(ran.stdout)
+        expect(lines[lines.length - 2]).toMatchObject({ type: 'result' })
+        expect(lines[lines.length - 1]).toMatchObject({
+          type: 'error',
+          code: 'output_unwritable',
+        })
+      })
+
+      // These go through the real Transcript Export renderer, so they assert only what
+      // docs/CLI.md promises about each format, never the renderer's exact layout.
+      describe.skipIf(!RENDERER_READY)('--format', () => {
+        test('txt: the transcript and a newline, as without --format', async () => {
+          audio('memo.json', { text: 'Hello there.' })
+          const ran = await codictate([
+            'transcribe',
+            'memo.json',
+            '--format',
+            'txt',
+          ])
+          expectQuietSuccess(ran)
+          expect(ran.stdout).toBe('Hello there.\n')
+        })
+
+        test('srt and vtt into -o: a Caption File holding the transcript', async () => {
+          audio('memo.json', { text: 'Hello there.', timed: true, seconds: 2 })
+          for (const format of ['srt', 'vtt']) {
+            const out = `memo.${format}`
+            const ran = await codictate([
+              'transcribe',
+              'memo.json',
+              '--format',
+              format,
+              '-o',
+              out,
+            ])
+            expectQuietSuccess(ran)
+            expect(ran.stdout).toBe('')
+            const caption = readFileSync(join(work, out), 'utf8')
+            expect(caption).toContain('-->')
+            expect(caption).toContain('Hello there.')
+            if (format === 'vtt')
+              expect(caption.startsWith('WEBVTT')).toBe(true)
+          }
+        })
+
+        test('json under --json: the result carries the document in formatted', async () => {
+          audio('memo.json', { text: 'Hello there.', timed: true })
+          const ran = await codictate([
+            'transcribe',
+            'memo.json',
+            '--format',
+            'json',
+            '--json',
+          ])
+          expectQuietSuccess(ran)
+          const lines = events(ran.stdout)
+          const result = lines[lines.length - 1]
+          expect(JSON.parse(String(result.formatted))).toMatchObject({
+            text: 'Hello there.',
+            fileName: 'memo.json',
+            translated: false,
+          })
+        })
+
+        test('captions when this run gave no timings: captions_unavailable, exit 2', async () => {
+          audio('memo.json', { text: 'Hello there.' })
+          const ran = await codictate([
+            'transcribe',
+            'memo.json',
+            '--format',
+            'srt',
+          ])
+          expect(ran.code).toBe(2)
+          expect(ran.stdout).toBe('')
+          expectOneErrorLine(ran.stderr)
+        })
+      })
 
       test('SIGINT while queued takes the job out of the queue', async () => {
         const blocker = audio('window.json', { hold: true, text: 'w' })
@@ -1588,6 +1866,8 @@ describe.skipIf(process.platform === 'win32')(
                 file: join(work, 'a.json'),
                 speechModelId: null,
                 languageId: null,
+                translate: null,
+                format: null,
               },
               caller: { name: 'bun', pid: process.pid },
             },

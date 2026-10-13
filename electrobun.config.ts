@@ -35,6 +35,7 @@ const buildCopy: Record<string, string> = {
   "docs/licenses/s1-mini": "licenses/s1-mini",
   "docs/licenses/edda": "licenses/edda",
   "docs/licenses/tinyld": "licenses/tinyld",
+  "docs/licenses/silero-vad": "licenses/silero-vad",
   ...binaryBuildCopy(isWindowsHost ? "windows" : "macos"),
   // The `codictate` command line (docs/CLI.md). Its path inside the bundle is part of the
   // contract: the client finds its app from it, and callers run it from there.

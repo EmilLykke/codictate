@@ -1,0 +1,255 @@
+{
+	"systeminfo": "WHISPER : COREML = 0 | OPENVINO = 0 | MTL : EMBED_LIBRARY = 1 | CPU : NEON = 1 | ARM_FMA = 1 | FP16_VA = 1 | DOTPROD = 1 | LLAMAFILE = 1 | ACCELERATE = 1 | REPACK = 1 | ",
+	"model": {
+		"type": "large",
+		"multilingual": true,
+		"vocab": 51866,
+		"audio": {
+			"ctx": 1500,
+			"state": 1280,
+			"head": 20,
+			"layer": 32
+		},
+		"text": {
+			"ctx": 448,
+			"state": 1280,
+			"head": 20,
+			"layer": 4
+		},
+		"mels": 128,
+		"ftype": 8
+	},
+	"params": {
+		"model": "/models/ggml-large-v3-turbo-q5_0.bin",
+		"language": "en",
+		"translate": false
+	},
+	"result": {
+		"language": "en"
+	},
+	"transcription": [
+		{
+			"timestamps": {
+				"from": "00:00:00,000",
+				"to": "00:00:02,800"
+			},
+			"offsets": {
+				"from": 0,
+				"to": 2800
+			},
+			"text": " \"'Stuff it into you,' his belly counseled him.",
+			"tokens": [
+				{
+					"text": "[_BEG_]",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,000"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 0
+					},
+					"id": 50365,
+					"p": 0.679834,
+					"t_dtw": -1
+				},
+				{
+					"text": " \"'",
+					"timestamps": {
+						"from": "00:00:00,000",
+						"to": "00:00:00,160"
+					},
+					"offsets": {
+						"from": 0,
+						"to": 160
+					},
+					"id": 24543,
+					"p": 0.647849,
+					"t_dtw": -1
+				},
+				{
+					"text": "St",
+					"timestamps": {
+						"from": "00:00:00,310",
+						"to": "00:00:00,310"
+					},
+					"offsets": {
+						"from": 310,
+						"to": 310
+					},
+					"id": 4520,
+					"p": 0.888116,
+					"t_dtw": -1
+				},
+				{
+					"text": "uff",
+					"timestamps": {
+						"from": "00:00:00,370",
+						"to": "00:00:00,490"
+					},
+					"offsets": {
+						"from": 370,
+						"to": 490
+					},
+					"id": 1245,
+					"p": 0.997837,
+					"t_dtw": -1
+				},
+				{
+					"text": " it",
+					"timestamps": {
+						"from": "00:00:00,580",
+						"to": "00:00:00,680"
+					},
+					"offsets": {
+						"from": 580,
+						"to": 680
+					},
+					"id": 309,
+					"p": 0.950447,
+					"t_dtw": -1
+				},
+				{
+					"text": " into",
+					"timestamps": {
+						"from": "00:00:00,770",
+						"to": "00:00:01,000"
+					},
+					"offsets": {
+						"from": 770,
+						"to": 1000
+					},
+					"id": 666,
+					"p": 0.997031,
+					"t_dtw": -1
+				},
+				{
+					"text": " you",
+					"timestamps": {
+						"from": "00:00:01,050",
+						"to": "00:00:01,260"
+					},
+					"offsets": {
+						"from": 1050,
+						"to": 1260
+					},
+					"id": 291,
+					"p": 0.999214,
+					"t_dtw": -1
+				},
+				{
+					"text": ",'",
+					"timestamps": {
+						"from": "00:00:01,260",
+						"to": "00:00:01,520"
+					},
+					"offsets": {
+						"from": 1260,
+						"to": 1520
+					},
+					"id": 12529,
+					"p": 0.903556,
+					"t_dtw": -1
+				},
+				{
+					"text": " his",
+					"timestamps": {
+						"from": "00:00:01,520",
+						"to": "00:00:01,680"
+					},
+					"offsets": {
+						"from": 1520,
+						"to": 1680
+					},
+					"id": 702,
+					"p": 0.982233,
+					"t_dtw": -1
+				},
+				{
+					"text": " belly",
+					"timestamps": {
+						"from": "00:00:01,680",
+						"to": "00:00:01,950"
+					},
+					"offsets": {
+						"from": 1680,
+						"to": 1950
+					},
+					"id": 11696,
+					"p": 0.999344,
+					"t_dtw": -1
+				},
+				{
+					"text": " counsel",
+					"timestamps": {
+						"from": "00:00:01,950",
+						"to": "00:00:02,330"
+					},
+					"offsets": {
+						"from": 1950,
+						"to": 2330
+					},
+					"id": 10351,
+					"p": 0.4687,
+					"t_dtw": -1
+				},
+				{
+					"text": "ed",
+					"timestamps": {
+						"from": "00:00:02,330",
+						"to": "00:00:02,380"
+					},
+					"offsets": {
+						"from": 2330,
+						"to": 2380
+					},
+					"id": 292,
+					"p": 0.99963,
+					"t_dtw": -1
+				},
+				{
+					"text": " him",
+					"timestamps": {
+						"from": "00:00:02,450",
+						"to": "00:00:02,560"
+					},
+					"offsets": {
+						"from": 2450,
+						"to": 2560
+					},
+					"id": 796,
+					"p": 0.999441,
+					"t_dtw": -1
+				},
+				{
+					"text": ".",
+					"timestamps": {
+						"from": "00:00:02,600",
+						"to": "00:00:02,770"
+					},
+					"offsets": {
+						"from": 2600,
+						"to": 2770
+					},
+					"id": 13,
+					"p": 0.757678,
+					"t_dtw": -1
+				},
+				{
+					"text": "[_TT_140]",
+					"timestamps": {
+						"from": "00:00:02,800",
+						"to": "00:00:02,800"
+					},
+					"offsets": {
+						"from": 2800,
+						"to": 2800
+					},
+					"id": 50505,
+					"p": 0.255257,
+					"t_dtw": -1
+				}
+			]
+		}
+	]
+}

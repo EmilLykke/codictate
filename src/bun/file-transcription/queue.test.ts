@@ -61,6 +61,8 @@ function harness(
   options: {
     speechModelId?: string
     transcriptionLanguageId?: string
+    translateToEnglish?: boolean
+    translateDefaultLanguageId?: string
     installed?: (id: string) => boolean
     files?: Record<string, 'file' | 'missing' | 'not_a_file'>
     audioSeconds?: number | null
@@ -74,13 +76,18 @@ function harness(
   const created: string[] = []
   const removed: string[] = []
   let installed = options.installed ?? (() => true)
+  let translateToEnglish = options.translateToEnglish ?? false
   let jobCounter = 0
 
   const deps: FileTranscriptionDeps = {
     settings: {
-      getSpeechModelId: () => options.speechModelId ?? HVISKE,
-      getTranscriptionLanguageId: () =>
-        options.transcriptionLanguageId ?? 'auto',
+      getFileTranscriptionSettings: () => ({
+        speechModelId: options.speechModelId ?? HVISKE,
+        transcriptionLanguageId: options.transcriptionLanguageId ?? 'auto',
+        translateToEnglish,
+      }),
+      getTranslateDefaultLanguageId: () =>
+        options.translateDefaultLanguageId ?? 'auto',
     },
     isModelAvailable: (id) => installed(id),
     locations: {
@@ -149,6 +156,9 @@ function harness(
     timers,
     setInstalled(next: (id: string) => boolean) {
       installed = next
+    },
+    setTranslateToEnglish(next: boolean) {
+      translateToEnglish = next
     },
     /** Advance the clock by whole seconds, firing the progress timer once per second. */
     tick(seconds: number) {
@@ -231,6 +241,9 @@ describe('one job', () => {
       speechModelId: HVISKE,
       engine: 'hviske',
       audioSeconds: 61.2,
+      translated: false,
+      processingSeconds: 0,
+      timedTranscript: null,
     })
     expect(h.removed).toEqual(['/tmp/job-1'])
     expect(h.queue.snapshot()).toEqual([])
@@ -293,6 +306,141 @@ describe('one job', () => {
         audioSeconds: 61.2,
       },
     ])
+  })
+})
+
+describe('result fields', () => {
+  test('Processing Time runs from the start of decoding, not from when the job was queued', async () => {
+    const h = harness()
+    const a = h.enqueue('/files/a.wav')
+    const b = h.enqueue('/files/b.wav')
+    // a: 2 s decoding, 3 s transcribing; b waits all 5 s of it.
+    h.tick(2)
+    h.decodes[0].done.resolve(decoded)
+    await flush()
+    h.tick(3)
+    h.transcribes[0].done.resolve(transcript('a'))
+    expect(await a.job.result).toMatchObject({ processingSeconds: 5 })
+    await flush()
+    h.tick(1)
+    h.decodes[1].done.resolve(decoded)
+    await flush()
+    h.tick(1)
+    h.transcribes[1].done.resolve(transcript('b'))
+    expect(await b.job.result).toMatchObject({ processingSeconds: 2 })
+  })
+
+  test('the Timed Transcript is passed through as the Speech Engine gave it', async () => {
+    const timed = {
+      text: 'Hej med dig',
+      parts: [{ text: 'Hej med dig', start: 0.2, end: 1.4 }],
+    }
+    const h = harness()
+    const { job } = h.enqueue('/files/a.wav')
+    h.decodes[0].done.resolve(decoded)
+    await flush()
+    h.transcribes[0].done.resolve({
+      status: 'ok',
+      rawTranscript: 'Hej med dig',
+      timedTranscript: timed,
+    })
+    expect(await job.result).toMatchObject({ timedTranscript: timed })
+  })
+
+  test('no timings is null, never absent', async () => {
+    const h = harness()
+    const { job } = h.enqueue('/files/a.wav')
+    h.decodes[0].done.resolve(decoded)
+    await flush()
+    h.transcribes[0].done.resolve({
+      status: 'ok',
+      rawTranscript: 'x',
+      timedTranscript: null,
+    })
+    const result = await job.result
+    expect(result.status === 'ok' && result.timedTranscript).toBeNull()
+  })
+})
+
+describe('Translate to English', () => {
+  test('follows the File Transcription Settings, and says so in the result', async () => {
+    const h = harness({
+      speechModelId: LARGE_V3,
+      transcriptionLanguageId: 'da',
+      translateToEnglish: true,
+    })
+    const { job } = h.enqueue('/files/a.wav')
+    h.decodes[0].done.resolve(decoded)
+    await flush()
+    expect(h.transcribes[0].request).toMatchObject({
+      translateToEnglish: true,
+      languageCode: 'da',
+    })
+    h.transcribes[0].done.resolve(transcript('Hello with you'))
+    expect(await job.result).toMatchObject({
+      status: 'ok',
+      text: 'Hello with you',
+      language: 'da',
+      translated: true,
+    })
+  })
+
+  test('the request forces it off, or on, for this call only', async () => {
+    const h = harness({
+      speechModelId: LARGE_V3,
+      transcriptionLanguageId: 'da',
+      translateToEnglish: true,
+    })
+    const off = h.enqueue('/files/a.wav', { translateToEnglish: false })
+    h.decodes[0].done.resolve(decoded)
+    await flush()
+    expect(h.transcribes[0].request).toMatchObject({
+      translateToEnglish: false,
+    })
+    h.transcribes[0].done.resolve(transcript('Hej'))
+    expect(await off.job.result).toMatchObject({ translated: false })
+
+    h.setTranslateToEnglish(false)
+    const on = h.enqueue('/files/b.wav', { translateToEnglish: true })
+    await flush()
+    h.decodes[1].done.resolve(decoded)
+    await flush()
+    h.transcribes[1].done.resolve(transcript('Hello'))
+    expect(await on.job.result).toMatchObject({ translated: true })
+  })
+
+  test('the settings are read when the job is queued, not when it starts', async () => {
+    const h = harness({
+      speechModelId: LARGE_V3,
+      transcriptionLanguageId: 'da',
+    })
+    const a = h.enqueue('/files/a.wav')
+    const b = h.enqueue('/files/b.wav')
+    h.setTranslateToEnglish(true)
+    h.decodes[0].done.resolve(decoded)
+    await flush()
+    h.transcribes[0].done.resolve(transcript('a'))
+    await a.job.result
+    await flush()
+    h.decodes[1].done.resolve(decoded)
+    await flush()
+    expect(h.transcribes[1].request).toMatchObject({
+      translateToEnglish: false,
+    })
+    h.transcribes[1].done.resolve(transcript('b'))
+    expect(await b.job.result).toMatchObject({ translated: false })
+  })
+
+  test('a Speech Model that cannot translate is refused at once, never queued', async () => {
+    const h = harness({ speechModelId: HVISKE, translateToEnglish: true })
+    const { job, events } = h.enqueue('/files/a.wav')
+    expect(await job.result).toMatchObject({
+      status: 'failed',
+      code: 'cannot_translate',
+    })
+    expect(events).toEqual([])
+    expect(h.decodes).toHaveLength(0)
+    expect(h.queue.snapshot()).toEqual([])
   })
 })
 

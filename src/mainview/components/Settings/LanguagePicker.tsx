@@ -3,7 +3,11 @@ import {
   PARAKEET_TRANSCRIPTION_LANGUAGE_LOCK_TOOLTIP,
   TRANSCRIPTION_LANGUAGE_OPTIONS,
 } from "../../../shared/transcription-languages";
-import { speechModelLocksTranscriptionLanguage } from "../../../shared/speech-models";
+import {
+  getSpeechModel,
+  pinnedTranscriptionLanguageId,
+  speechModelLocksTranscriptionLanguage,
+} from "../../../shared/speech-models";
 import { InstantTooltip } from "../Common/InstantTooltip";
 import { SearchableSelect } from "../Common/SearchableSelect";
 
@@ -38,6 +42,15 @@ export function LanguagePicker({
   const languageLocked =
     speechModelId != null &&
     speechModelLocksTranscriptionLanguage(speechModelId);
+  // hviske and Edda only transcribe one language, which runs whatever the setting says.
+  const pinnedLanguageId =
+    speechModelId != null ? pinnedTranscriptionLanguageId(speechModelId) : null;
+  const pinnedLanguage =
+    pinnedLanguageId === null
+      ? null
+      : (TRANSCRIPTION_LANGUAGE_OPTIONS.find(
+          (o) => o.id === pinnedLanguageId,
+        ) ?? null);
 
   const langOptions = useMemo(
     () =>
@@ -57,20 +70,22 @@ export function LanguagePicker({
   }, [languageLocked, value, onChange]);
 
   useLayoutEffect(() => {
-    if (languageLocked || valueAllowed) return;
+    if (languageLocked || pinnedLanguage || valueAllowed) return;
     const fallback = excludeAuto ? langOptions[0]?.id : "auto";
     if (fallback != null && fallback !== value) onChange(fallback);
   }, [languageLocked, valueAllowed, value, excludeAuto, langOptions, onChange]);
 
   const selectValue = languageLocked
     ? "auto"
-    : leadingDisabledOption && value === leadingDisabledOption.value
-      ? value
-      : langOptions.some((o) => o.id === value)
+    : pinnedLanguage
+      ? pinnedLanguage.id
+      : leadingDisabledOption && value === leadingDisabledOption.value
         ? value
-        : excludeAuto
-          ? (langOptions[0]?.id ?? value)
-          : "auto";
+        : langOptions.some((o) => o.id === value)
+          ? value
+          : excludeAuto
+            ? (langOptions[0]?.id ?? value)
+            : "auto";
 
   const dropdownOptions = useMemo(() => {
     const opts = [];
@@ -101,6 +116,28 @@ export function LanguagePicker({
       }
     />
   );
+
+  if (pinnedLanguage) {
+    const modelLabel =
+      getSpeechModel(speechModelId ?? "")?.label ?? "This model";
+    return (
+      <InstantTooltip
+        text={`${modelLabel} only transcribes ${pinnedLanguage.label}.`}
+        side="bottom"
+        floatInViewport
+        className="block w-full max-w-full"
+      >
+        <SearchableSelect
+          value={pinnedLanguage.id}
+          options={[{ value: pinnedLanguage.id, label: pinnedLanguage.label }]}
+          onChange={onChange}
+          disabled
+          searchPlaceholder="Search languages…"
+          ariaLabel={`${ariaLabel}: ${pinnedLanguage.label} only with ${modelLabel}`}
+        />
+      </InstantTooltip>
+    );
+  }
 
   if (languageLocked) {
     return (

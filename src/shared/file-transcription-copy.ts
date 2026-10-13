@@ -1,19 +1,13 @@
 /**
- * What the Transcribe page says about a File Transcription: the queue line, the error in
- * plain words, and which Speech Model and Transcription Language a new file will use.
- * Pure, so every line is tested without a webview.
+ * What the Transcribe page says about a File Transcription: the queue line, the finished
+ * card's summary, the error in plain words, and how a Transcript Export went. Pure, so
+ * every line is tested without a webview.
  */
 
 import type {
   FileTranscriptionFailureCode,
   FileTranscriptionQueueItem,
 } from './types'
-import {
-  coerceTranscriptionLanguageIdForModel,
-  getSpeechModel,
-  pinnedTranscriptionLanguageId,
-} from './speech-models'
-import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
 
 /** `42` -> `0:42`, `3121.5` -> `52:01`, `4000` -> `1:06:40`. */
 export function formatAudioClock(seconds: number): string {
@@ -106,6 +100,13 @@ export function describeFileTranscriptionFailure(
         detail: message || null,
         action: null,
       }
+    case 'cannot_translate':
+      // The queue's line says why: the Speech Model, or Auto-detect as the language.
+      return {
+        title: "Can't translate this file",
+        detail: message || null,
+        action: null,
+      }
     case 'cancelled':
       return { title: 'Cancelled', detail: null, action: null }
     case 'internal':
@@ -118,24 +119,36 @@ export function describeFileTranscriptionFailure(
 }
 
 /**
- * The Speech Model and Transcription Language a new file will use: the selected ones,
- * with the language as the Speech Model would run it (Parakeet detects it; hviske and Edda
- * are always Danish).
+ * The finished card's summary, e.g. `4:10 of audio · transcribed in 0:14`. Processing Time
+ * is rounded to the second and never shows as `0:00`. `null` (a History entry saved before
+ * Processing Time was recorded) leaves it out.
  */
-export function transcribeSettingsSummary(
-  speechModelId: string,
-  transcriptionLanguageId: string
-): { model: string; language: string } {
-  const languageId =
-    pinnedTranscriptionLanguageId(speechModelId) ??
-    coerceTranscriptionLanguageIdForModel(
-      speechModelId,
-      transcriptionLanguageId
-    )
-  return {
-    model: getSpeechModel(speechModelId)?.label ?? speechModelId,
-    language:
-      TRANSCRIPTION_LANGUAGE_OPTIONS.find((o) => o.id === languageId)?.label ??
-      languageId,
+export function resultSummaryLine(
+  audioSeconds: number,
+  processingSeconds: number | null
+): string {
+  const audio = `${formatAudioClock(audioSeconds)} of audio`
+  if (processingSeconds === null || !Number.isFinite(processingSeconds)) {
+    return audio
   }
+  const took = formatAudioClock(Math.max(1, Math.round(processingSeconds)))
+  return `${audio} · transcribed in ${took}`
+}
+
+/** What a saved Transcript Export says, e.g. `Saved as memo.srt.` */
+export function transcriptExportSavedLine(path: string): string {
+  const name = path.split(/[\\/]/).pop() || path
+  return `Saved as ${name}.`
+}
+
+/** The folder refused the write: no permission, or a read-only disk. */
+const UNWRITABLE_FOLDER_CODES = new Set(['EACCES', 'EPERM', 'EROFS'])
+
+/** Why a Transcript Export could not be written, from the file system's error code. */
+export function transcriptExportFailureMessage(
+  errorCode: string | null
+): string {
+  return errorCode !== null && UNWRITABLE_FOLDER_CODES.has(errorCode)
+    ? "Codictate can't save in that folder. Choose another folder."
+    : "Couldn't save the file."
 }

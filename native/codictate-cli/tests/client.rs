@@ -253,6 +253,74 @@ fn transcribe_human_puts_headers_between_files() {
 }
 
 #[test]
+fn transcribe_sends_translate_and_format_and_prints_the_formatted_document() {
+    let fixture = Fixture::new("tformat");
+    let server = serve(fixture.listen(), 1, |_, conn, _| {
+        conn.send(&[include_str!("fixtures/transcribe-formatted.json").trim_end()]);
+    });
+    let output = fixture.run(&[
+        "transcribe",
+        "memo.m4a",
+        "--no-translate",
+        "--format",
+        "srt",
+    ]);
+    let requests = server.join().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(
+        stdout(&output),
+        "1\n00:00:00,000 --> 00:00:01,200\nHej.\n\n"
+    );
+    assert_eq!(requests[0]["args"]["translate"], false);
+    assert_eq!(requests[0]["args"]["format"], "srt");
+}
+
+#[test]
+fn transcribe_output_writes_the_file_and_prints_nothing() {
+    let fixture = Fixture::new("tout");
+    let server = serve(fixture.listen(), 1, |_, conn, _| {
+        conn.send(&[include_str!("fixtures/transcribe-formatted.json").trim_end()]);
+    });
+    let output = fixture.run(&[
+        "transcribe",
+        "memo.m4a",
+        "--format",
+        "srt",
+        "-o",
+        "memo.srt",
+    ]);
+    let requests = server.join().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(stderr(&output), "");
+    assert_eq!(
+        std::fs::read_to_string(fixture.root.join("memo.srt")).unwrap(),
+        "1\n00:00:00,000 --> 00:00:01,200\nHej.\n\n"
+    );
+    assert_eq!(requests[0]["args"]["translate"], Value::Null);
+}
+
+#[test]
+fn transcribe_output_that_cannot_be_written_exits_1() {
+    let fixture = Fixture::new("tunwritable");
+    let server = serve(fixture.listen(), 1, |_, conn, _| {
+        conn.send(&[include_str!("fixtures/transcribe.json").trim_end()]);
+    });
+    let output = fixture.run(&["transcribe", "memo.m4a", "-o", "missing/memo.txt", "--json"]);
+    server.join().unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        stderr(&output).starts_with("codictate: missing/memo.txt: cannot write: "),
+        "{}",
+        stderr(&output)
+    );
+    let text = stdout(&output);
+    let last: Value = serde_json::from_str(text.lines().last().unwrap()).unwrap();
+    assert_eq!(last["type"], "error");
+    assert_eq!(last["code"], "output_unwritable");
+}
+
+#[test]
 fn a_contract_mismatch_exits_11() {
     let fixture = Fixture::new("contract");
     let server = serve(fixture.listen(), 1, |_, conn, _| {

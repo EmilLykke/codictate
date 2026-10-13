@@ -2,22 +2,11 @@ import { useState } from "react";
 import type { FileTranscriptionOutcome } from "../../../shared/types";
 import {
   describeFileTranscriptionFailure,
-  formatAudioClock,
+  resultSummaryLine,
 } from "../../../shared/file-transcription-copy";
-import {
-  dismissFileTranscription,
-  revealSavedTranscript,
-  saveTranscriptAsText,
-} from "../../rpc";
+import { dismissFileTranscription } from "../../rpc";
+import { TranscriptSaveMenu } from "./TranscriptSaveMenu";
 import { BUTTON, CARD, LINK } from "./transcribe-styles";
-
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path;
-}
-
-function folderOf(path: string): string {
-  return path.slice(0, Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")));
-}
 
 function DismissButton({ id }: { id: string }) {
   return (
@@ -53,7 +42,6 @@ export function TranscribeResultCard({
   onOpenModels: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (outcome.status === "failed") {
     const copy = describeFileTranscriptionFailure(
@@ -105,16 +93,6 @@ export function TranscribeResultCard({
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const handleSave = async () => {
-    setSaveError(null);
-    const result = await saveTranscriptAsText(outcome.id);
-    if (!result.ok) setSaveError(result.message);
-  };
-
-  const savedBeside =
-    outcome.savedTextPath !== null &&
-    folderOf(outcome.savedTextPath) === folderOf(outcome.filePath);
-
   return (
     <div className={CARD}>
       <div className="flex items-start gap-3 px-4 pt-3.5">
@@ -126,7 +104,7 @@ export function TranscribeResultCard({
             {outcome.fileName}
           </p>
           <p className="mt-0.5 text-[13px] text-overlay/40 tabular-nums">
-            {formatAudioClock(outcome.audioSeconds)} of audio
+            {resultSummaryLine(outcome.audioSeconds, outcome.processingSeconds)}
             {outcome.savedToHistory && " · Saved to History"}
           </p>
         </div>
@@ -150,28 +128,14 @@ export function TranscribeResultCard({
           <button type="button" className={BUTTON} onClick={handleCopy}>
             {copied ? "Copied" : "Copy"}
           </button>
-          <button type="button" className={BUTTON} onClick={handleSave}>
-            Save as text
-          </button>
-          {saveError ? (
-            <span className="text-[13px] text-accent-red/80">{saveError}</span>
-          ) : (
-            outcome.savedTextPath && (
-              <span className="min-w-0 text-[13px] text-overlay/45">
-                Saved as {baseName(outcome.savedTextPath)}{" "}
-                {savedBeside
-                  ? "next to the original."
-                  : "in Downloads, since it couldn't go next to the original."}{" "}
-                <button
-                  type="button"
-                  onClick={() => revealSavedTranscript(outcome.id)}
-                  className={LINK}
-                >
-                  Show
-                </button>
-              </span>
-            )
-          )}
+          <TranscriptSaveMenu
+            target={{ kind: "window", id: outcome.id }}
+            facts={{
+              speechModelId: outcome.speechModelId,
+              hasTimedTranscript: outcome.hasTimedTranscript,
+            }}
+            lastExport={outcome.lastExport}
+          />
         </div>
       )}
     </div>

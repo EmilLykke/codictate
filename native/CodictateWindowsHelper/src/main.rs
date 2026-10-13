@@ -7,6 +7,7 @@ mod indicator;
 mod ipc;
 mod keyboard;
 mod media;
+mod save_dialog;
 
 fn print_help() {
     println!("CodictateWindowsHelper");
@@ -19,6 +20,9 @@ fn print_help() {
     println!("  indicator");
     println!("  keyboard-hook");
     println!("  record <path> <deviceIndexOrEndpointId> <maxSeconds>");
+    println!(
+        "  save-dialog --name <file name> --directory <folder> --extension <ext> [--title <title>]"
+    );
     println!("  transcribe <wavPath> <parakeetModelDir>");
     println!("  transcribe-session <parakeetModelDir>");
     println!("  stream <vad|live> <parakeetModelDir> [deviceIndexOrEndpointId]");
@@ -41,6 +45,7 @@ fn main() -> ExitCode {
         Some("indicator") => indicator::handle_indicator(),
         Some("keyboard-hook") => keyboard::handle_keyboard_hook(),
         Some("record") => audio::handle_record(&args),
+        Some("save-dialog") => save_dialog::handle_save_dialog(&args),
         Some("transcribe") => asr::handle_transcribe(&args),
         Some("transcribe-session") => asr::handle_transcribe_session(&args),
         Some("stream") => asr::handle_stream(&args),

@@ -4,6 +4,7 @@
 // - MicRecorder:       built from Swift via `bun run build:native` (Core Audio capture + device list)
 // - llama-completion:  downloaded prebuilt from the pinned upstream llama.cpp release
 // - crispasr:          downloaded prebuilt from the pinned CrispASR release (the ASR Harness)
+// - ggml-silero-v6.2.0.bin: Silero VAD weights crispasr loads on the `-nt --vad` path (ADR-0010)
 // - CodictateParakeetHelper: Swift + FluidAudio + NeMo ITN (text-processing-rs static lib)
 // - ggml-large-v3-turbo-q5_0.bin: Whisper multilingual model from Hugging Face
 //
@@ -27,6 +28,8 @@ import {
   CRISPASR_WINDOWS_ARCHIVE,
   CRISPASR_MACOS_DYLIBS,
   CRISPASR_WINDOWS_DLLS,
+  SILERO_VAD,
+  SILERO_VAD_VENDOR_DIR,
   type VendorArchive,
 } from "./vendor-manifest";
 import { SPEECH_MODELS, whisperModelDownloadUrl } from "../src/shared/speech-models";
@@ -906,6 +909,30 @@ async function vendorObserverHelper() {
   console.log("[pre-build] CodictateObserverHelper vendored successfully");
 }
 
+const SILERO_VAD_DIR = join(VENDORS_DIR, SILERO_VAD_VENDOR_DIR);
+const SILERO_VAD_PATH = join(SILERO_VAD_DIR, SILERO_VAD.name);
+
+function sha256OfFile(path: string): string {
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(readFileSync(path));
+  return hasher.digest("hex");
+}
+
+/**
+ * The Silero VAD weights crispasr loads with `--vad -vm` when a Whisper Speech Model keeps
+ * `-nt` (Edda; ADR-0010). Shipped beside crispasr on every platform, so crispasr never fetches
+ * them at runtime. Re-downloaded when the vendored copy does not match the pin.
+ */
+async function vendorSileroVad() {
+  if (existsSync(SILERO_VAD_PATH) && sha256OfFile(SILERO_VAD_PATH) === SILERO_VAD.sha256) {
+    console.log(`[pre-build] ${SILERO_VAD.name} already vendored, skipping`);
+    return;
+  }
+  mkdirSync(SILERO_VAD_DIR, { recursive: true });
+  await downloadAndVerify(SILERO_VAD.url, SILERO_VAD_PATH, SILERO_VAD.sha256, SILERO_VAD.name);
+  console.log(`[pre-build] ${SILERO_VAD.name} vendored successfully`);
+}
+
 const MODEL_NAME = "ggml-large-v3-turbo-q5_0.bin";
 const MODEL_PATH = join(WHISPER_DIR, MODEL_NAME);
 
@@ -939,6 +966,7 @@ if (process.argv.includes("--llama-only")) {
 
 if (process.argv.includes("--crispasr-only")) {
   await vendorCrispasrBinaries();
+  await vendorSileroVad();
   console.log("[pre-build] crispasr ready");
   process.exit(0);
 }
@@ -961,6 +989,7 @@ if (process.platform === "win32") {
   syncWindowsAppIconFromIconset();
   await vendorLlamaBinaries();
   await vendorCrispasrBinaries();
+  await vendorSileroVad();
   await vendorWhisperModel();
   console.log("[pre-build] Windows dependencies ready");
   process.exit(0);
@@ -971,6 +1000,7 @@ if (process.platform === "linux") {
   // Prints the "no crispasr asset" skip rather than leaving a Linux build silently
   // without any ASR Harness now that the whisper.cpp source build is gone.
   await vendorCrispasrBinaries();
+  await vendorSileroVad();
   await vendorWhisperModel();
   console.log("[pre-build] Linux dependencies ready");
   process.exit(0);
@@ -988,6 +1018,7 @@ syncWindowsAppIconFromIconset();
 
 await vendorLlamaBinaries();
 await vendorCrispasrBinaries();
+await vendorSileroVad();
 await vendorParakeetHelper();
 await vendorObserverHelper();
 await vendorWhisperModel();

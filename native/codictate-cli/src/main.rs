@@ -16,6 +16,7 @@ use std::path::Path;
 
 use clap::Parser;
 use clap::error::ErrorKind;
+use serde_json::Value;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
 use crate::app::AppInfo;
@@ -219,7 +220,10 @@ async fn run(plan: Plan, app: &AppInfo, data_dir: &Path, out: &mut Output) -> i3
         match outcome {
             Outcome::Result(result) => {
                 out.clear_progress();
-                if !out.json {
+                if let Some(failure) = delivery_failure(&plan, &result) {
+                    out.failure(&failure, context);
+                    first_failure.get_or_insert(failure.exit);
+                } else if plan.output_file.is_none() && !out.json {
                     if several {
                         out.stdout(&render::file_header(
                             job.label.as_deref().unwrap_or(""),
@@ -249,6 +253,22 @@ async fn run(plan: Plan, app: &AppInfo, data_dir: &Path, out: &mut Output) -> i3
     first_failure.unwrap_or(0)
 }
 
+/// What can still go wrong with a `transcribe` result: an app too old to know `--format`
+/// (it would silently send plain text), or a `-o` file that cannot be written. Writes the
+/// `-o` file; `None` when the result is delivered or is printed as usual.
+fn delivery_failure(plan: &Plan, result: &Value) -> Option<Failure> {
+    if plan.wants_formatted && result.get("formatted").and_then(Value::as_str).is_none() {
+        return Some(Failure::new(
+            "internal",
+            "the running Codictate does not support --format. Quit and reopen Codictate, then try again.",
+        ));
+    }
+    let path = plan.output_file.as_ref()?;
+    std::fs::write(path, render::transcript(result))
+        .err()
+        .map(|e| Failure::output_unwritable(path, &e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,6 +287,67 @@ mod tests {
             "codictate 0.0.62 (app.codictate, contract 1)"
         );
         assert!(version_line(None).ends_with("(no app, contract 1)"));
+    }
+
+    fn transcribe_plan(output_file: Option<PathBuf>, wants_formatted: bool) -> Plan {
+        Plan {
+            kind: Kind::Transcribe,
+            json: false,
+            jobs: Vec::new(),
+            output_file,
+            wants_formatted,
+        }
+    }
+
+    #[test]
+    fn output_writes_the_formatted_document_or_the_transcript() {
+        let dir = std::env::temp_dir().join(format!("cdx-out-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("memo.srt");
+        let formatted =
+            serde_json::json!({"type": "result", "text": "Hej.", "formatted": "1\nHej.\n\n"});
+        assert_eq!(
+            delivery_failure(&transcribe_plan(Some(path.clone()), true), &formatted),
+            None
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "1\nHej.\n\n");
+        let plain = serde_json::json!({"type": "result", "text": "Hej."});
+        assert_eq!(
+            delivery_failure(&transcribe_plan(Some(path.clone()), false), &plain),
+            None
+        );
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "Hej.\n");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn an_unwritable_output_is_output_unwritable_naming_the_path() {
+        let path = PathBuf::from("/nonexistent-cdx-dir/memo.txt");
+        let failure = delivery_failure(
+            &transcribe_plan(Some(path), false),
+            &serde_json::json!({"type": "result", "text": "x"}),
+        )
+        .unwrap();
+        assert_eq!(failure.code, "output_unwritable");
+        assert_eq!(failure.exit, 1);
+        assert!(
+            failure
+                .message
+                .starts_with("/nonexistent-cdx-dir/memo.txt: cannot write: "),
+            "{}",
+            failure.message
+        );
+    }
+
+    #[test]
+    fn a_format_the_app_did_not_render_is_never_printed_as_plain_text() {
+        let plain = serde_json::json!({"type": "result", "text": "x"});
+        let failure = delivery_failure(&transcribe_plan(None, true), &plain).unwrap();
+        assert_eq!(failure.code, "internal");
+        assert_eq!(
+            delivery_failure(&transcribe_plan(None, false), &plain),
+            None
+        );
     }
 
     #[test]

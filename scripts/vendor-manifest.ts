@@ -135,3 +135,28 @@ export const CRISPASR_WINDOWS_DLLS = [
   "ggml-cpu.dll",
   "ggml-vulkan.dll",
 ];
+
+// -- Silero VAD ----------------------------------------------------------------
+
+export interface VendorFile {
+  /** File name in `vendors/<dir>/` and in the bundle. */
+  name: string;
+  /** Pinned download URL (a Hugging Face `resolve/<commit sha>` path, never `main`). */
+  url: string;
+  sha256: string;
+}
+
+/**
+ * The Silero VAD weights crispasr loads with `--vad -vm <path>` when a Whisper Speech Model
+ * keeps `-nt` (Edda, and any model not yet checked without it; ADR-0010). Shipped in the
+ * bundle beside crispasr on both platforms so crispasr never downloads them at runtime.
+ * 885098 bytes. MIT, see docs/licenses/silero-vad/LICENSE.
+ */
+export const SILERO_VAD: VendorFile = {
+  name: "ggml-silero-v6.2.0.bin",
+  url: "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v6.2.0.bin",
+  sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
+};
+
+/** `vendors/` subdirectory the Silero VAD weights are vendored into. */
+export const SILERO_VAD_VENDOR_DIR = "silero-vad";

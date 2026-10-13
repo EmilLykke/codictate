@@ -1,26 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 import { chooseFilesToTranscribe } from "../../rpc";
+import {
+  addDroppedFiles,
+  dragHasFiles as hasFiles,
+  readDrop,
+  cancelDroppedFileUpload,
+  dismissDroppedFileUpload,
+  useDroppedFileUploads,
+  type DroppedFileUpload,
+} from "./dropped-file-uploads";
 import { BUTTON } from "./transcribe-styles";
 
 /** How long after the last `dragover` the highlight lets go. */
 const DRAG_IDLE_MS = 250;
 
-function hasFiles(event: DragEvent): boolean {
-  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
+function percent(upload: DroppedFileUpload): number {
+  if (upload.size === 0) return 100;
+  return Math.floor((upload.sent / upload.size) * 100);
 }
 
 /**
- * Drop a file, or choose some.
+ * Drop files, or choose some.
  *
- * The drop itself is not handled here. WKWebView and WebView2 never give a page a dropped
- * file's real path, so the page deliberately leaves `dragover` uncancelled: the webview then
- * tries to open the file, the main process blocks that navigation and queues the path it
- * names (setup-window.ts). This component only lights up while a file is over the window.
- * One file per drop; "Choose files" takes several.
+ * Neither WKWebView (macOS) nor WebView2 (Windows) tells a page where a dropped file is on
+ * disk, and Electrobun has no native file-drop API, so the page takes the drop itself: it
+ * cancels `dragover` and `drop` on the window whenever files are dragged, reads each dropped
+ * `File` in chunks and sends the bytes to the main process, which queues a temporary copy
+ * (dropped-file-uploads.ts, src/shared/dropped-file-upload.ts). Several files per drop. A
+ * drag that carries no files is left alone, so text still drops into a text field.
  */
 export function TranscribeDropZone({ compact }: { compact: boolean }) {
   const [dragging, setDragging] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uploads = useDroppedFileUploads();
 
   useEffect(() => {
     const release = () => {
@@ -30,22 +42,39 @@ export function TranscribeDropZone({ compact }: { compact: boolean }) {
     };
     const onDrag = (event: DragEvent) => {
       if (!hasFiles(event)) return;
+      // Cancelling `dragover` is what makes the window a drop target.
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
       setDragging(true);
       if (idleTimer.current) clearTimeout(idleTimer.current);
       idleTimer.current = setTimeout(release, DRAG_IDLE_MS);
     };
+    const onDrop = (event: DragEvent) => {
+      if (!hasFiles(event) || !event.dataTransfer) return;
+      // Never let the webview open the file itself.
+      event.preventDefault();
+      release();
+      const { files, folders } = readDrop(event.dataTransfer);
+      addDroppedFiles(files, folders);
+    };
     window.addEventListener("dragenter", onDrag);
     window.addEventListener("dragover", onDrag);
+    window.addEventListener("drop", onDrop);
     window.addEventListener("dragend", release);
     window.addEventListener("blur", release);
     return () => {
       window.removeEventListener("dragenter", onDrag);
       window.removeEventListener("dragover", onDrag);
+      window.removeEventListener("drop", onDrop);
       window.removeEventListener("dragend", release);
       window.removeEventListener("blur", release);
       if (idleTimer.current) clearTimeout(idleTimer.current);
     };
   }, []);
+
+  const adding = uploads.find((u) => u.state === "adding");
+  const waiting = uploads.filter((u) => u.state === "waiting");
+  const failed = uploads.filter((u) => u.state === "failed");
 
   return (
     <div
@@ -80,9 +109,7 @@ export function TranscribeDropZone({ compact }: { compact: boolean }) {
         </div>
       )}
       <p className="text-[15px] text-overlay/70">
-        {dragging
-          ? "Let go to transcribe it"
-          : "Drop an audio or video file here"}
+        {dragging ? "Let go to transcribe" : "Drop audio or video files here"}
       </p>
       <div className="mt-3 flex items-center gap-3">
         <span className="text-[13px] text-overlay/35">or</span>
@@ -94,6 +121,58 @@ export function TranscribeDropZone({ compact }: { compact: boolean }) {
           Choose files
         </button>
       </div>
+
+      {(adding || waiting.length > 0 || failed.length > 0) && (
+        <div className="mt-5 flex w-full max-w-md flex-col gap-2 text-left">
+          {adding && (
+            <div className="flex items-center gap-3">
+              <p
+                className="min-w-0 flex-1 truncate text-[13px] text-overlay/62 tabular-nums"
+                title={adding.name}
+              >
+                Adding {adding.name}… {percent(adding)}%
+                {waiting.length > 0 && (
+                  <span className="text-overlay/40">
+                    {" "}
+                    ({waiting.length} more waiting)
+                  </span>
+                )}
+              </p>
+              <button
+                type="button"
+                className={BUTTON}
+                onClick={() => cancelDroppedFileUpload(adding.key)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {failed.map((upload) => (
+            <div key={upload.key} className="flex items-center gap-3">
+              <p
+                className="min-w-0 flex-1 text-[13px] text-accent-red/80"
+                title={upload.name}
+              >
+                <span className="block truncate">
+                  Couldn't add {upload.name}
+                </span>
+                {upload.message && (
+                  <span className="block text-overlay/45">
+                    {upload.message}
+                  </span>
+                )}
+              </p>
+              <button
+                type="button"
+                className={BUTTON}
+                onClick={() => dismissDroppedFileUpload(upload.key)}
+              >
+                Dismiss
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

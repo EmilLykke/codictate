@@ -268,3 +268,262 @@ describe('getDictationPlanFor (command-line overrides)', () => {
     ).toMatchObject({ status: 'blocked', reason: 'speech_model_not_installed' })
   })
 })
+
+describe('File Transcription Settings', () => {
+  const SMALL = 'small-q5_1'
+  const PARAKEET = 'parakeet-tdt-0.6b-v3'
+
+  /** A mutable install set, so a test can delete weights between two heal passes. */
+  function installs(initial: string[]) {
+    const installed = new Set([DEFAULT_MODEL_ID, ...initial])
+    const dependencies = testDependencies({
+      isModelAvailable: (id) => installed.has(id),
+      getModelAvailability: () =>
+        Object.fromEntries([...installed].map((id) => [id, true])),
+    })
+    return { installed, dependencies }
+  }
+
+  function persisted(path: string): Record<string, unknown> {
+    return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+  }
+
+  test('follow the Dictation settings until the user changes one, and persist nothing meanwhile', async () => {
+    const { dependencies } = installs([SMALL])
+    writeFileSync(
+      dependencies.paths.mainConfig,
+      JSON.stringify({
+        speechModelId: SMALL,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      })
+    )
+    const config = new AppConfig(dependencies)
+    await config.load()
+
+    const expected = {
+      speechModelId: SMALL,
+      transcriptionLanguageId: 'da',
+      translateToEnglish: true,
+    }
+    expect(config.getFileTranscriptionSettings()).toEqual(expected)
+    expect(config.getSettings().fileTranscription).toMatchObject({
+      ...expected,
+      translateReadiness: { ready: true },
+      healAnnouncements: [],
+    })
+
+    // A Dictation change carries over while they follow.
+    expect(
+      await config.updateTranscriptionSettings({
+        speechModelId: DEFAULT_MODEL_ID,
+        translateToEnglish: false,
+      })
+    ).toBe(true)
+    expect(config.getFileTranscriptionSettings()).toEqual({
+      speechModelId: DEFAULT_MODEL_ID,
+      transcriptionLanguageId: 'da',
+      translateToEnglish: false,
+    })
+    expect(
+      persisted(dependencies.paths.mainConfig).fileTranscription
+    ).toBeNull()
+  })
+
+  test('the first accepted write makes them their own, from the Dictation values plus the patch', async () => {
+    const { dependencies } = installs([SMALL])
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(
+      await config.updateTranscriptionSettings({
+        transcriptionLanguageId: 'da',
+      })
+    ).toBe(true)
+
+    expect(
+      await config.updateFileTranscriptionSettings({ speechModelId: SMALL })
+    ).toBe(true)
+    const expected = {
+      speechModelId: SMALL,
+      transcriptionLanguageId: 'da',
+      translateToEnglish: false,
+    }
+    expect(config.getFileTranscriptionSettings()).toEqual(expected)
+    expect(persisted(dependencies.paths.mainConfig).fileTranscription).toEqual(
+      expected
+    )
+
+    // No longer following.
+    expect(
+      await config.updateTranscriptionSettings({
+        transcriptionLanguageId: 'en',
+      })
+    ).toBe(true)
+    expect(config.getFileTranscriptionSettings()).toEqual(expected)
+  })
+
+  test('a refused first write leaves them following', async () => {
+    const { dependencies } = installs([])
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(
+      await config.updateFileTranscriptionSettings({ speechModelId: SMALL })
+    ).toBe(false)
+    expect(
+      await config.updateTranscriptionSettings({
+        transcriptionLanguageId: 'da',
+      })
+    ).toBe(true)
+    expect(config.getFileTranscriptionSettings().transcriptionLanguageId).toBe(
+      'da'
+    )
+  })
+
+  test('are chosen apart from the Dictation settings and round-trip through the file', async () => {
+    const { dependencies } = installs([SMALL])
+    const config = new AppConfig(dependencies)
+    await config.load()
+
+    expect(
+      await config.updateFileTranscriptionSettings({
+        speechModelId: SMALL,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      })
+    ).toBe(true)
+    await config.setLastTranscriptExportFolder('/Users/someone/Exports')
+
+    expect(config.getSpeechModelId()).toBe(DEFAULT_MODEL_ID)
+    expect(config.getSettings().translateToEnglish).toBe(false)
+
+    const reloaded = new AppConfig(dependencies)
+    await reloaded.load()
+    expect(reloaded.getFileTranscriptionSettings()).toEqual({
+      speechModelId: SMALL,
+      transcriptionLanguageId: 'da',
+      translateToEnglish: true,
+    })
+    expect(reloaded.getLastTranscriptExportFolder()).toBe(
+      '/Users/someone/Exports'
+    )
+    // Changing the Dictation's leaves them alone.
+    expect(
+      await reloaded.updateTranscriptionSettings({ speechModelId: SMALL })
+    ).toBe(true)
+    expect(reloaded.getFileTranscriptionSettings().speechModelId).toBe(SMALL)
+  })
+
+  test('refuse a write that cannot run, and write nothing', async () => {
+    const { dependencies } = installs([])
+    writeFileSync(dependencies.paths.mainConfig, '{}')
+    const config = new AppConfig(dependencies)
+    await config.load()
+    const before = readFileSync(dependencies.paths.mainConfig, 'utf8')
+
+    expect(
+      await config.updateFileTranscriptionSettings({ speechModelId: SMALL })
+    ).toBe(false)
+    expect(
+      await config.updateFileTranscriptionSettings({ translateToEnglish: true })
+    ).toBe(false)
+    expect(
+      await config.updateFileTranscriptionSettings({
+        translateToEnglish: 'yes' as unknown as boolean,
+      })
+    ).toBe(false)
+    expect(config.getFileTranscriptionSettings().speechModelId).toBe(
+      DEFAULT_MODEL_ID
+    )
+    expect(readFileSync(dependencies.paths.mainConfig, 'utf8')).toBe(before)
+  })
+
+  test("heal after a Speech Model is deleted: fall back to the Dictation's, announce, dismiss", async () => {
+    const { installed, dependencies } = installs([SMALL, PARAKEET])
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(
+      await config.updateTranscriptionSettings({ speechModelId: PARAKEET })
+    ).toBe(true)
+    expect(
+      await config.updateFileTranscriptionSettings({
+        speechModelId: SMALL,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      })
+    ).toBe(true)
+
+    installed.delete(SMALL)
+    await config.healRunnableSettings({ retireSettledAnnouncements: true })
+
+    const state = config.getSettings().fileTranscription
+    expect(state).toMatchObject({
+      speechModelId: PARAKEET,
+      transcriptionLanguageId: 'auto',
+      translateToEnglish: false,
+      translateReadiness: { ready: false },
+    })
+    expect(state.healAnnouncements.map((n) => n.target)).toEqual([
+      'speech_model',
+      'translate_to_english',
+    ])
+    // The Dictation's own announcements are untouched: nothing about them changed.
+    expect(config.getSettings().healAnnouncements).toEqual([])
+    expect(
+      persisted(dependencies.paths.mainConfig).fileTranscription
+    ).toMatchObject({ speechModelId: PARAKEET })
+
+    expect(config.dismissFileTranscriptionHealAnnouncements()).toBe(true)
+    expect(config.getSettings().fileTranscription.healAnnouncements).toEqual([])
+    expect(config.dismissFileTranscriptionHealAnnouncements()).toBe(false)
+  })
+
+  test('heal at boot when the persisted Speech Model is gone', async () => {
+    const { dependencies } = installs([])
+    writeFileSync(
+      dependencies.paths.mainConfig,
+      JSON.stringify({
+        fileTranscription: {
+          speechModelId: SMALL,
+          transcriptionLanguageId: 'da',
+          translateToEnglish: false,
+        },
+      })
+    )
+    const config = new AppConfig(dependencies)
+    await config.load()
+    const state = config.getSettings().fileTranscription
+    expect(state.speechModelId).toBe(DEFAULT_MODEL_ID)
+    expect(state.transcriptionLanguageId).toBe('da')
+    expect(state.healAnnouncements.map((n) => n.reason)).toEqual([
+      'speech_model_not_installed',
+    ])
+  })
+
+  test('a Dictation write that removes the translate source turns file Translate off', async () => {
+    const { dependencies } = installs([SMALL])
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(
+      await config.updateTranscriptionSettings({
+        translateDefaultLanguageId: 'da',
+      })
+    ).toBe(true)
+    expect(
+      await config.updateFileTranscriptionSettings({
+        speechModelId: SMALL,
+        translateToEnglish: true,
+      })
+    ).toBe(true)
+
+    expect(
+      await config.updateTranscriptionSettings({
+        translateDefaultLanguageId: 'auto',
+      })
+    ).toBe(true)
+    const state = config.getSettings().fileTranscription
+    expect(state.translateToEnglish).toBe(false)
+    expect(state.healAnnouncements.map((n) => n.reason)).toEqual([
+      'no_translate_source_language',
+    ])
+  })
+})

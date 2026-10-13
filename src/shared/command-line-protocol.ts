@@ -9,6 +9,11 @@
  */
 
 import type { SpeechEngineId } from './speech-models'
+import {
+  TRANSCRIPT_EXPORT_FORMATS,
+  isTranscriptExportFormat,
+  type TranscriptExportFormat,
+} from './transcript-export'
 
 export const CONTRACT_VERSION = 1
 
@@ -33,12 +38,32 @@ export type CommandName = (typeof COMMAND_NAMES)[number]
 export type DictateOutput = 'stdout' | 'cursor'
 export type DictateUntil = 'enter' | 'silence'
 
+/*
+ * Not this protocol, recorded here beside it: the Parakeet Native Helper's batch `final`
+ * line carries an optional `timing`, ignored by readers that do not know it. Omitted when
+ * there is no transcript or no timings; times in seconds, rounded to ms.
+ *
+ *   macOS, pre-ITN spoken words:
+ *   {"kind":"final","text":"<Raw Transcript>","timing":{"unit":"spoken-word",
+ *    "items":[{"text":"twenty","start":0.32,"end":0.61}]}}
+ *   Windows, sentences:
+ *   {"kind":"final","text":"<Raw Transcript>","timing":{"unit":"sentence",
+ *    "items":[{"text":"Hello there.","start":0.0,"end":1.2}]}}
+ */
+
 /** `args` per command, after parsing: optional fields the client omitted read as `null`. */
 export interface CommandArgs {
   transcribe: {
     file: string
     speechModelId: string | null
     languageId: string | null
+    /**
+     * `true` / `false` force Translate to English on / off for this call; `null` (absent on
+     * the wire) uses the File Transcription Settings, as the window does.
+     */
+    translate: boolean | null
+    /** Render the result as this Transcript Export into `formatted`; `null`: no rendering. */
+    format: TranscriptExportFormat | null
   }
   dictate: {
     output: DictateOutput
@@ -139,6 +164,12 @@ export interface TranscribeResult {
   speechModelId: string
   engine: PublicEngineName
   audioSeconds: number
+  /** Processing Time in seconds, rounded to 0.1. Excludes waiting in the queue. */
+  processingSeconds: number
+  /** Whether `text` is Translate to English output. */
+  translated: boolean
+  /** The rendered Transcript Export; present only when the request asked for a `format`. */
+  formatted?: string
 }
 
 export interface DictateResult {
@@ -241,6 +272,8 @@ export type ResultEvent = CommandResults[CommandName]
  * Every `error.code`, with the exit code the client maps it to. `cancelled` is 130 for SIGINT;
  * the client uses 143 instead when SIGTERM caused it. `app_unavailable` and
  * `contract_mismatch` are mostly the client's own, but the app sends `contract_mismatch` too.
+ * `output_unwritable` (exit 1, `-o` could not be written) is the client's alone, so the app
+ * never sends it and it is not listed here.
  */
 export const EXIT_CODE_BY_ERROR = {
   internal: 1,
@@ -250,6 +283,8 @@ export const EXIT_CODE_BY_ERROR = {
   language_not_allowed: 2,
   unknown_formatting_mode: 2,
   model_bundled: 2,
+  cannot_translate: 2,
+  captions_unavailable: 2,
   input_unreadable: 3,
   no_audio: 3,
   model_not_installed: 4,
@@ -356,6 +391,31 @@ function oneOf<T extends string>(
   return value as T
 }
 
+/** Absent and `null` both read as `null`. */
+function optionalBoolean(args: JsonObject, key: string): boolean | null {
+  const value = args[key]
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'boolean') {
+    throw new UsageError(`args.${key} must be true, false or null`)
+  }
+  return value
+}
+
+/** Absent and `null` both read as `null`. */
+function optionalFormat(
+  args: JsonObject,
+  key: string
+): TranscriptExportFormat | null {
+  const value = args[key]
+  if (value === undefined || value === null) return null
+  if (!isTranscriptExportFormat(value)) {
+    throw new UsageError(
+      `args.${key} must be one of ${TRANSCRIPT_EXPORT_FORMATS.join(', ')} or null`
+    )
+  }
+  return value
+}
+
 function optionalPositiveNumber(args: JsonObject, key: string): number | null {
   const value = args[key]
   if (value === undefined || value === null) return null
@@ -374,6 +434,8 @@ function parseArgs<C extends CommandName>(
       file: requiredString(args, 'file'),
       speechModelId: optionalString(args, 'speechModelId'),
       languageId: optionalString(args, 'languageId'),
+      translate: optionalBoolean(args, 'translate'),
+      format: optionalFormat(args, 'format'),
     }),
     dictate: () => ({
       output: oneOf(args, 'output', ['stdout', 'cursor'] as const),

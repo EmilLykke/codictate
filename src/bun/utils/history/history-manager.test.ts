@@ -16,7 +16,10 @@ import {
   normalizeHistoryIndex,
   parseStoredHistoryIndex,
   storedAudioFilename,
+  storedTimingsFilename,
+  type FileTranscriptionHistoryRecord,
 } from './history-manager'
+import { timedTranscriptFromPieces } from '../../../shared/timed-transcript'
 
 const tempDirs: string[] = []
 
@@ -172,9 +175,16 @@ describe('History entry sources', () => {
       })
     )
 
-    const entry = await manager.saveFileTranscription('the quarterly numbers', {
+    const entry = await manager.saveFileTranscription({
+      transcript: 'the quarterly numbers',
       fileName: 'board-call.m4a',
+      filePath: '/Users/me/board-call.m4a',
       durationMs: 3_121_500.4,
+      processingSeconds: 42.3,
+      speechModelId: 'large-v3-turbo-q5_0',
+      language: null,
+      translated: false,
+      timedTranscript: null,
     })
 
     expect(entry).toMatchObject({
@@ -297,5 +307,287 @@ describe('history.json back-compat', () => {
     expect(storedAudioFilename({ audioFilename: 'a\\b.wav' })).toBeNull()
     expect(storedAudioFilename({ audioFilename: '..' })).toBeNull()
     expect(storedAudioFilename(null)).toBeNull()
+  })
+})
+
+function fileRecord(
+  overrides: Partial<FileTranscriptionHistoryRecord> = {}
+): FileTranscriptionHistoryRecord {
+  const transcript = overrides.transcript ?? 'Hello there. How are you?'
+  return {
+    transcript,
+    fileName: 'memo.m4a',
+    filePath: '/Users/me/memo.m4a',
+    durationMs: 5_200,
+    processingSeconds: 1.4,
+    speechModelId: 'large-v3-turbo-q5_0',
+    language: 'en',
+    translated: false,
+    timedTranscript: timedTranscriptFromPieces(transcript, [
+      { text: 'Hello there.', start: 0.5, end: 1.25 },
+      { text: 'How are you?', start: 3, end: 4.1 },
+    ]),
+    ...overrides,
+  }
+}
+
+describe('File Transcription details and the Timed Transcript sidecar', () => {
+  const readIndexFile = (storage: string) =>
+    JSON.parse(readFileSync(join(storage, 'history.json'), 'utf8')) as {
+      entries: Record<string, unknown>[]
+    }
+  const sidecar = (storage: string, id: string) =>
+    join(storage, 'timings', `${id}.json`)
+
+  test('keeps the whole record, with the Timed Transcript in a sidecar', async () => {
+    const { manager, storage } = createManager()
+    const record = fileRecord()
+
+    const entry = await manager.saveFileTranscription(record)
+
+    expect(entry).toEqual({
+      id: entry.id,
+      timestamp: expect.any(Number),
+      transcript: record.transcript,
+      audioFilename: '',
+      durationMs: 5_200,
+      source: 'file',
+      fileName: 'memo.m4a',
+      filePath: '/Users/me/memo.m4a',
+      processingSeconds: 1.4,
+      speechModelId: 'large-v3-turbo-q5_0',
+      language: 'en',
+      translated: false,
+      hasTimedTranscript: true,
+    })
+    expect((await manager.loadEntries())[0]).toEqual(entry)
+
+    const [stored] = readIndexFile(storage).entries
+    expect(stored.timedTranscriptFile).toBe(`${entry.id}.json`)
+    expect(stored).not.toHaveProperty('timedTranscript')
+    expect(stored).not.toHaveProperty('hasTimedTranscript')
+    expect(
+      JSON.parse(readFileSync(sidecar(storage, entry.id), 'utf8'))
+    ).toEqual(record.timedTranscript)
+
+    expect(await manager.loadExportSource(entry.id)).toEqual({
+      fileName: 'memo.m4a',
+      speechModelId: 'large-v3-turbo-q5_0',
+      language: 'en',
+      translated: false,
+      audioSeconds: 5.2,
+      processingSeconds: 1.4,
+      text: record.transcript,
+      timedTranscript: record.timedTranscript,
+    })
+  })
+
+  test('a dropped file keeps its name and no path', async () => {
+    const { manager, storage } = createManager()
+    const entry = await manager.saveFileTranscription(
+      fileRecord({ fileName: 'Interview.mov', filePath: null })
+    )
+    expect(entry.fileName).toBe('Interview.mov')
+    expect(entry).not.toHaveProperty('filePath')
+    const [stored] = readIndexFile(storage).entries
+    expect(stored).not.toHaveProperty('filePath')
+    expect((await manager.loadEntries())[0]).not.toHaveProperty('filePath')
+  })
+
+  test('no Timed Transcript, no sidecar', async () => {
+    const { manager, storage } = createManager()
+    const entry = await manager.saveFileTranscription(
+      fileRecord({ timedTranscript: null, language: null, translated: true })
+    )
+
+    expect(entry).toMatchObject({
+      hasTimedTranscript: false,
+      language: null,
+      translated: true,
+    })
+    expect(readIndexFile(storage).entries[0]).not.toHaveProperty(
+      'timedTranscriptFile'
+    )
+    expect(existsSync(join(storage, 'timings'))).toBe(false)
+    expect(await manager.loadExportSource(entry.id)).toMatchObject({
+      language: null,
+      translated: true,
+      timedTranscript: null,
+    })
+  })
+
+  test('a Timed Transcript that does not say the transcript is not kept', async () => {
+    const { manager, storage } = createManager()
+    const entry = await manager.saveFileTranscription(
+      fileRecord({
+        timedTranscript: timedTranscriptFromPieces('Something else.', [
+          { text: 'Something else.', start: 0, end: 1 },
+        ]),
+      })
+    )
+    expect(entry.hasTimedTranscript).toBe(false)
+    expect(existsSync(sidecar(storage, entry.id))).toBe(false)
+  })
+
+  test('deleting the entry deletes its sidecar', async () => {
+    const { manager, storage } = createManager()
+    const entry = await manager.saveFileTranscription(fileRecord())
+    expect(existsSync(sidecar(storage, entry.id))).toBe(true)
+
+    expect(await manager.deleteEntry(entry.id)).toBe(true)
+
+    expect(existsSync(sidecar(storage, entry.id))).toBe(false)
+    expect(await manager.loadExportSource(entry.id)).toBeNull()
+  })
+
+  test('trimming to maxEntries deletes the sidecar of the entry it drops', async () => {
+    const { manager, storage } = createManager()
+    const first = await manager.saveFileTranscription(fileRecord())
+    const second = await manager.saveFileTranscription(fileRecord(), {
+      maxEntries: 1,
+    })
+
+    expect(existsSync(sidecar(storage, first.id))).toBe(false)
+    expect(existsSync(sidecar(storage, second.id))).toBe(true)
+    expect((await manager.loadEntries()).map((e) => e.id)).toEqual([second.id])
+  })
+
+  test('a missing or unreadable sidecar gives no Timed Transcript, and the rest still exports', async () => {
+    const { manager, storage } = createManager()
+    const garbled = await manager.saveFileTranscription(fileRecord())
+    const gone = await manager.saveFileTranscription(fileRecord())
+    const wrongShape = await manager.saveFileTranscription(fileRecord())
+    writeFileSync(sidecar(storage, garbled.id), '{"text": "Hello', 'utf8')
+    rmSync(sidecar(storage, gone.id))
+    writeFileSync(
+      sidecar(storage, wrongShape.id),
+      JSON.stringify({ text: 'Hello there. How are you?', parts: [] })
+    )
+
+    for (const id of [garbled.id, gone.id, wrongShape.id]) {
+      expect(await manager.loadExportSource(id)).toMatchObject({
+        text: 'Hello there. How are you?',
+        speechModelId: 'large-v3-turbo-q5_0',
+        timedTranscript: null,
+      })
+    }
+  })
+
+  test('an entry saved before these fields existed exports with nulls', async () => {
+    const { manager, storage } = createManager()
+    writeFileSync(
+      join(storage, 'history.json'),
+      JSON.stringify({
+        entries: [
+          {
+            id: 'old-file',
+            timestamp: 1,
+            transcript: 'the quarterly numbers',
+            audioFilename: '',
+            durationMs: 3_121_500,
+            source: 'file',
+            fileName: 'board-call.m4a',
+          },
+          {
+            id: 'a-dictation',
+            timestamp: 2,
+            transcript: 'hello',
+            audioFilename: '',
+          },
+        ],
+      })
+    )
+
+    const [, oldFile] = await manager.loadEntries()
+    expect(oldFile).toEqual({
+      id: 'old-file',
+      timestamp: 1,
+      transcript: 'the quarterly numbers',
+      audioFilename: '',
+      durationMs: 3_121_500,
+      source: 'file',
+      fileName: 'board-call.m4a',
+      hasTimedTranscript: false,
+    })
+    expect(await manager.loadExportSource('old-file')).toEqual({
+      fileName: 'board-call.m4a',
+      speechModelId: null,
+      language: null,
+      translated: false,
+      audioSeconds: 3_121.5,
+      processingSeconds: null,
+      text: 'the quarterly numbers',
+      timedTranscript: null,
+    })
+    expect(await manager.loadExportSource('a-dictation')).toBeNull()
+    expect(await manager.loadExportSource('nope')).toBeNull()
+  })
+
+  test('File Transcription fields are read only on File Transcriptions, and only when well-formed', () => {
+    const shown = {
+      filePath: '/x/a.m4a',
+      processingSeconds: 2,
+      speechModelId: 'small-q5_1',
+      language: 'da',
+      translated: true,
+    }
+    const fields = { ...shown, timedTranscriptFile: 'd.json' }
+    expect(
+      normalizeHistoryEntry({
+        id: 'd',
+        transcript: 't',
+        source: 'dictation',
+        ...fields,
+      })
+    ).toEqual({
+      id: 'd',
+      timestamp: 0,
+      transcript: 't',
+      audioFilename: '',
+      source: 'dictation',
+    })
+    const file = normalizeHistoryEntry({
+      id: 'f',
+      transcript: 't',
+      source: 'file',
+      ...fields,
+    })
+    expect(file).toMatchObject({ ...shown, hasTimedTranscript: true })
+    expect(file).not.toHaveProperty('timedTranscriptFile')
+    expect(
+      normalizeHistoryEntry({
+        id: 'g',
+        transcript: 't',
+        source: 'file',
+        filePath: 3,
+        processingSeconds: -1,
+        speechModelId: '',
+        language: 7,
+        translated: 'yes',
+        timedTranscriptFile: '../escape.json',
+      })
+    ).toEqual({
+      id: 'g',
+      timestamp: 0,
+      transcript: 't',
+      audioFilename: '',
+      source: 'file',
+      hasTimedTranscript: false,
+    })
+  })
+
+  test('storedTimingsFilename only names a file inside timings/', () => {
+    expect(storedTimingsFilename({ timedTranscriptFile: 'a.json' })).toBe(
+      'a.json'
+    )
+    expect(storedTimingsFilename({ timedTranscriptFile: '' })).toBeNull()
+    expect(
+      storedTimingsFilename({ timedTranscriptFile: '../a.json' })
+    ).toBeNull()
+    expect(
+      storedTimingsFilename({ timedTranscriptFile: 'a\\b.json' })
+    ).toBeNull()
+    expect(storedTimingsFilename({ audioFilename: 'a.wav' })).toBeNull()
+    expect(storedTimingsFilename(null)).toBeNull()
   })
 })

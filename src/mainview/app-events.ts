@@ -7,6 +7,7 @@ import type {
   NavigateRequest,
   PermissionState,
   SettingsPane,
+  TranscriptExportResult,
   UpdateCheckState,
 } from '../shared/types'
 
@@ -30,6 +31,7 @@ type EventMap = {
   }
   historyEntryAdded: void
   fileTranscriptions: FileTranscriptionsState
+  transcriptExportFinished: TranscriptExportResult
 }
 
 type Unsubscribe = () => void

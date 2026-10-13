@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { RPCSchema } from 'electrobun'
 import type { PlatformCapabilities } from './platform'
-import type { BlockedDictationPlan, DictationReadiness } from './dictation-plan'
+import type {
+  BlockedDictationPlan,
+  DictationReadiness,
+  TranslateReadiness,
+} from './dictation-plan'
 import type { SettingsHealAnnouncement } from './settings-heal'
+import type { TranscriptExportFormat } from './transcript-export'
 import type {
   FormattingModeId,
   FormattingEmailGreetingStyle,
@@ -194,6 +199,22 @@ export type ShortcutId =
   /** Modifier-only: Control + Option on macOS, Ctrl + Alt on Windows. */
   | 'control-option'
 
+/** The Speech Model, Transcription Language and Translate to English that File Transcriptions use. */
+export interface FileTranscriptionSettings {
+  speechModelId: string
+  transcriptionLanguageId: string
+  translateToEnglish: boolean
+}
+export type FileTranscriptionSettingsPatch = Partial<FileTranscriptionSettings>
+
+/** As the Transcribe page is shipped it: computed in the main process, rendered as is. */
+export interface FileTranscriptionSettingsState extends FileTranscriptionSettings {
+  /** Can Translate to English run with these settings, and the sentence when it cannot. */
+  translateReadiness: TranslateReadiness
+  /** What the last heal pass changed in these settings. Shown on the Transcribe page. */
+  healAnnouncements: SettingsHealAnnouncement[]
+}
+
 export interface AppSettings {
   capabilities: PlatformCapabilities
   /** Tap-or-hold smart shortcut (500ms gate + second press to stop). */
@@ -274,6 +295,11 @@ export interface AppSettings {
    * Model is downloaded or deleted, which is what keeps it live without a refresh.
    */
   dictationReadiness: DictationReadiness
+  /**
+   * The File Transcription Settings, chosen apart from the Dictation's, with their readiness
+   * and heal announcements. Kept runnable by the same heal pass.
+   */
+  fileTranscription: FileTranscriptionSettingsState
   /**
    * The last Dictation that refused to start, or `null`. Reached only when the world changed
    * behind the app's back - weights deleted in Finder, a failed disk, a cloud-storage
@@ -403,6 +429,21 @@ export interface HistoryEntry {
   source: HistoryEntrySource
   /** The transcribed file's name, for `source: 'file'`. */
   fileName?: string
+  /**
+   * The transcribed file's absolute path, for `source: 'file'`. Absent for a file dropped on
+   * the window, which was transcribed from a temporary copy.
+   */
+  filePath?: string
+  /** Processing Time, for `source: 'file'`. Absent on entries saved before it was recorded. */
+  processingSeconds?: number
+  /** The Speech Model that ran it, for `source: 'file'`. */
+  speechModelId?: string
+  /** The Transcription Language the run was fixed to, `null` when detected. For `source: 'file'`. */
+  language?: string | null
+  /** Whether the transcript is Translate to English output, for `source: 'file'`. */
+  translated?: boolean
+  /** Whether a Timed Transcript was kept with it, for `source: 'file'`. */
+  hasTimedTranscript?: boolean
 }
 
 export interface HistorySettings {
@@ -564,6 +605,7 @@ export type FileTranscriptionFailureCode =
   | 'unknown_language'
   | 'language_not_allowed'
   | 'engine_failed'
+  | 'cannot_translate'
   | 'cancelled'
   | 'internal'
 
@@ -586,8 +628,14 @@ export interface FileTranscriptionQueueItem {
 
 interface FileTranscriptionOutcomeBase {
   id: string
+  /** The name the user knows the file by: a dropped file's own name, not its copy's. */
   fileName: string
-  filePath: string
+  /**
+   * Where the transcribed file is on the user's disk. `null` for a file dropped on the
+   * window: the page sent its bytes and Codictate transcribed a temporary copy, so there is
+   * no folder the user knows it from.
+   */
+  sourcePath: string | null
   /** Epoch milliseconds. */
   finishedAt: number
 }
@@ -601,8 +649,16 @@ export type FileTranscriptionOutcome =
       audioSeconds: number
       speechModelId: string
       savedToHistory: boolean
-      /** Where "Save as text" last wrote it, if it did. */
-      savedTextPath: string | null
+      /** Processing Time. */
+      processingSeconds: number
+      /** The Transcription Language the run was fixed to, `null` when detected. */
+      language: string | null
+      /** Whether `text` is Translate to English output. */
+      translated: boolean
+      /** Whether the main process holds a Timed Transcript for it. The timings stay there. */
+      hasTimedTranscript: boolean
+      /** The last Transcript Export of it this session, if any. */
+      lastExport: { format: TranscriptExportFormat; path: string } | null
     })
   | (FileTranscriptionOutcomeBase & {
       status: 'failed'
@@ -617,14 +673,43 @@ export interface FileTranscriptionsState {
   finished: FileTranscriptionOutcome[]
 }
 
-export type SaveTranscriptResult =
+/** Which transcript a Transcript Export is of: a session result in the window, or a History entry. */
+export type TranscriptExportTarget =
+  { kind: 'window'; id: string } | { kind: 'history'; id: string }
+
+/** How a Transcript Export ended, pushed to the window as `transcriptExportFinished`. */
+export type TranscriptExportResult =
   | {
-      ok: true
+      target: TranscriptExportTarget
+      status: 'saved'
+      format: TranscriptExportFormat
       path: string
-      /** `source-folder`: beside the original file. `fallback-folder`: it could not be written there. */
-      location: 'source-folder' | 'fallback-folder'
     }
-  | { ok: false; message: string }
+  | { target: TranscriptExportTarget; status: 'cancelled' }
+  | {
+      target: TranscriptExportTarget
+      status: 'failed'
+      format: TranscriptExportFormat
+      /** One finished sentence for the user. */
+      message: string
+    }
+
+/**
+ * A file dropped on the window reaches the main process as its bytes, in order, because
+ * neither WKWebView nor WebView2 tells the page where a dropped file is on disk
+ * (src/shared/dropped-file-upload.ts, src/bun/window-file-transcriptions/dropped-files.ts).
+ * A refusal carries one finished sentence for the user.
+ */
+export type BeginDroppedFileReply =
+  { ok: true; uploadId: string } | { ok: false; message: string }
+
+/** How many bytes the copy holds so far. A refusal has already ended the upload. */
+export type AppendDroppedFileChunkReply =
+  { ok: true; received: number } | { ok: false; message: string }
+
+/** `ok` means the copy is queued as a window File Transcription. A refusal ended the upload. */
+export type FinishDroppedFileReply =
+  { ok: true } | { ok: false; message: string }
 
 export type WebviewRPCType = {
   bun: RPCSchema<{
@@ -725,10 +810,38 @@ export type WebviewRPCType = {
         params: { id: string }
         response: boolean
       }
-      /** Write a finished transcript to a `.txt` beside the original file. */
-      saveTranscriptAsText: {
-        params: { id: string }
-        response: SaveTranscriptResult
+      /** Change the File Transcription Settings. `false` when the result would not be runnable. */
+      updateFileTranscriptionSettings: {
+        params: { patch: FileTranscriptionSettingsPatch }
+        response: boolean
+      }
+      /** Dismiss the File Transcription Settings heal announcements on the Transcribe page. */
+      dismissFileTranscriptionNotice: { params: {}; response: boolean }
+      /**
+       * Start receiving a file dropped on the window: `name` is its own name, `size` its
+       * length in bytes. The bytes follow with `appendDroppedFileChunk`.
+       */
+      beginDroppedFile: {
+        params: { name: string; size: number }
+        response: BeginDroppedFileReply
+      }
+      /**
+       * The next piece of a dropped file, base64. `offset` must be exactly the bytes received
+       * so far, so the page sends one chunk at a time and waits for this answer.
+       */
+      appendDroppedFileChunk: {
+        params: { uploadId: string; offset: number; data: string }
+        response: AppendDroppedFileChunkReply
+      }
+      /** Every byte is in: queue the copy as a window File Transcription. */
+      finishDroppedFile: {
+        params: { uploadId: string }
+        response: FinishDroppedFileReply
+      }
+      /** Stop receiving a dropped file and delete what arrived. `false` when there was none. */
+      cancelDroppedFile: {
+        params: { uploadId: string }
+        response: boolean
       }
       /** Ephemeral: show the floating indicator during onboarding to preview the chosen mode. */
       setOnboardingIndicatorPreview: {
@@ -767,8 +880,18 @@ export type WebviewRPCType = {
        * wait. The result arrives as `fileTranscriptionsChanged`.
        */
       chooseFilesToTranscribe: {}
-      /** Show a transcript saved by `saveTranscriptAsText` in Finder / Explorer. */
-      revealSavedTranscript: { id: string }
+      /**
+       * Ask where to save in the system Save dialog and save the transcript there in `format`.
+       * A message, not a request, for the same reason as `chooseFilesToTranscribe`: the Save
+       * dialog must never be awaited inside a request (#156). The result arrives as
+       * `transcriptExportFinished`.
+       */
+      exportTranscript: {
+        target: TranscriptExportTarget
+        format: TranscriptExportFormat
+      }
+      /** Show the file the last Transcript Export of `target` wrote, in Finder / Explorer. */
+      revealExportedTranscript: { target: TranscriptExportTarget }
     }
   }>
   webview: RPCSchema<{
@@ -794,6 +917,8 @@ export type WebviewRPCType = {
       statsUpdated: {}
       /** The File Transcription queue changed, or a window File Transcription finished. */
       fileTranscriptionsChanged: FileTranscriptionsState
+      /** A Transcript Export asked for with `exportTranscript` was saved, cancelled or failed. */
+      transcriptExportFinished: TranscriptExportResult
     }
   }>
 }

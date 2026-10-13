@@ -27,6 +27,7 @@ import {
   TRANSCRIPTION_LANGUAGE_OPTIONS,
   isValidTranscriptionLanguageId,
 } from '../../shared/transcription-languages'
+import type { FileTranscriptionSettings } from '../../shared/types'
 import {
   transcriptionRequestFromPlan,
   type SpeechModelLocations,
@@ -40,12 +41,13 @@ import type {
 } from './types'
 
 /**
- * The two settings a File Transcription reads. `AppConfig` satisfies it structurally
- * (`getSpeechModelId()`, `getTranscriptionLanguageId()`), already healed and validated.
+ * What a File Transcription reads from the config: the File Transcription Settings (already
+ * healed and validated) and the translate default, the source language a translate run from
+ * automatic detection uses. `AppConfig` satisfies it structurally.
  */
 export interface FileTranscriptionSettingsReader {
-  getSpeechModelId(): string
-  getTranscriptionLanguageId(): string
+  getFileTranscriptionSettings(): FileTranscriptionSettings
+  getTranslateDefaultLanguageId(): string
 }
 
 export interface FileTranscriptionFailure {
@@ -61,11 +63,15 @@ export function fileTranscriptionFailure(
   return { status: 'failed', code, message: oneLine(message) }
 }
 
-/** The Speech Model and Transcription Language one request asks for, fixed when it is queued. */
+/** What one request runs with, fixed when it is queued. */
 export interface FileTranscriptionSelection {
   speechModelId: string
   /** Already coerced for the Speech Model, as a settings write would leave it. */
   transcriptionLanguageId: string
+  /** The request's own choice, or the File Transcription Settings' one. */
+  translateToEnglish: boolean
+  /** The source language a translate run from automatic detection uses. */
+  translateDefaultLanguageId: string
 }
 
 function override(value: string | null | undefined): string | null {
@@ -78,7 +84,9 @@ function languageLabel(id: string): string {
 }
 
 /**
- * The current settings with the request's overrides on top.
+ * A Speech Model and Transcription Language: `defaults` with the request's overrides on top.
+ * Shared by File Transcription (defaults: the File Transcription Settings) and a command-line
+ * Dictation (defaults: the Dictation's settings), so both check overrides the same way.
  *
  * The overrides are validated the way a settings write validates them: an id the catalog
  * does not know is refused, and a Transcription Language the Speech Model cannot take is
@@ -86,11 +94,11 @@ function languageLabel(id: string): string {
  * it allowed. With today's catalog coercion always lands on an allowed language, so
  * `language_not_allowed` is the guard for a catalog entry that would break that.
  */
-export function selectFileTranscription(
-  settings: FileTranscriptionSettingsReader,
+export function selectSpeechModelAndLanguage(
+  defaults: { speechModelId: string; transcriptionLanguageId: string },
   request: Pick<FileTranscriptionRequest, 'speechModelId' | 'languageId'>
 ):
-  | { status: 'ok'; selection: FileTranscriptionSelection }
+  | { status: 'ok'; speechModelId: string; transcriptionLanguageId: string }
   | FileTranscriptionFailure {
   const modelOverride = override(request.speechModelId)
   if (modelOverride !== null && getSpeechModel(modelOverride) === undefined) {
@@ -99,7 +107,7 @@ export function selectFileTranscription(
       `There is no Speech Model called "${modelOverride}". Run codictate models list --all to see them.`
     )
   }
-  const speechModelId = modelOverride ?? settings.getSpeechModelId()
+  const speechModelId = modelOverride ?? defaults.speechModelId
   if (getSpeechModel(speechModelId) === undefined) {
     // The setting is validated on every load and write, so this is a broken installation.
     return fileTranscriptionFailure(
@@ -115,7 +123,7 @@ export function selectFileTranscription(
       `There is no Transcription Language called "${rawLanguage}". Run codictate languages list to see them.`
     )
   }
-  const requestedLanguage = rawLanguage ?? settings.getTranscriptionLanguageId()
+  const requestedLanguage = rawLanguage ?? defaults.transcriptionLanguageId
   const transcriptionLanguageId = coerceTranscriptionLanguageIdForModel(
     speechModelId,
     requestedLanguage
@@ -133,16 +141,47 @@ export function selectFileTranscription(
     )
   }
 
-  return { status: 'ok', selection: { speechModelId, transcriptionLanguageId } }
+  return { status: 'ok', speechModelId, transcriptionLanguageId }
+}
+
+/**
+ * The File Transcription Settings with the request's overrides on top, read once, when the
+ * job is queued: a settings change while it waits does not change what it runs.
+ *
+ * Translate to English is the request's when it says (`true` or `false`), otherwise the File
+ * Transcription Settings' one. Whether it can run is the plan's question, not this one's.
+ */
+export function selectFileTranscription(
+  settings: FileTranscriptionSettingsReader,
+  request: Pick<
+    FileTranscriptionRequest,
+    'speechModelId' | 'languageId' | 'translateToEnglish'
+  >
+):
+  | { status: 'ok'; selection: FileTranscriptionSelection }
+  | FileTranscriptionFailure {
+  const current = settings.getFileTranscriptionSettings()
+  const selected = selectSpeechModelAndLanguage(current, request)
+  if (selected.status === 'failed') return selected
+  return {
+    status: 'ok',
+    selection: {
+      speechModelId: selected.speechModelId,
+      transcriptionLanguageId: selected.transcriptionLanguageId,
+      translateToEnglish:
+        request.translateToEnglish ?? current.translateToEnglish,
+      translateDefaultLanguageId: settings.getTranslateDefaultLanguageId(),
+    },
+  }
 }
 
 /**
  * The selection as a runnable batch plan, or why there is none.
  *
- * Two differences from a press of the Dictation Shortcut, each because a file is not a
- * Dictation: always batch (Live Transcription is a microphone session), and never
- * Translate to English (the command transcribes what was said). With both off, the only way
- * a batch plan blocks is weights that are not installed.
+ * Always batch, because a file is not a Dictation and Live Transcription is a microphone
+ * session. Translate to English runs exactly as a Dictation's would: the plan refuses a
+ * Speech Model that cannot translate, and a translate run from automatic detection takes
+ * the translate default as its source language. Nothing substitutes.
  */
 export function planFileTranscription(
   selection: FileTranscriptionSelection,
@@ -154,27 +193,41 @@ export function planFileTranscription(
     {
       speechModelId: selection.speechModelId,
       transcriptionLanguageId: selection.transcriptionLanguageId,
-      translateDefaultLanguageId: 'auto',
-      translateToEnglish: false,
+      translateDefaultLanguageId: selection.translateDefaultLanguageId,
+      translateToEnglish: selection.translateToEnglish,
       streamMode: false,
     },
     // Batch only, so whether this platform can stream never comes up.
     { isModelAvailable, streamSupported: false }
   )
   if (plan.status === 'runnable') return { status: 'runnable', plan }
-  return fileTranscriptionFailure(
-    'model_not_installed',
-    `Speech Model ${selection.speechModelId} is not installed. Download it in Codictate's Settings, or run codictate models download ${selection.speechModelId}.`
-  )
+  const label = modelLabel(selection.speechModelId)
+  switch (plan.reason) {
+    case 'speech_model_not_installed':
+      return fileTranscriptionFailure(
+        'model_not_installed',
+        `Speech Model ${selection.speechModelId} is not installed. Download it in Codictate's Settings, or run codictate models download ${selection.speechModelId}.`
+      )
+    case 'model_cannot_translate':
+      return fileTranscriptionFailure(
+        'cannot_translate',
+        `${label} can't translate to English. Choose a Whisper Small or Large Speech Model, or turn off Translate to English.`
+      )
+    case 'no_translate_source_language':
+      return fileTranscriptionFailure(
+        'cannot_translate',
+        'Translate to English needs a Transcription Language. Choose one instead of Auto-detect.'
+      )
+    default:
+      // Live Transcription reasons: unreachable for a batch plan.
+      return fileTranscriptionFailure('internal', plan.message)
+  }
 }
 
 /**
  * The plan as a Transcription Request, through the derivation a Dictation uses, plus what
  * only File Transcription needs: a way to cancel, and lowered OS priority so a Dictation
  * never waits behind it.
- *
- * No timestamps. whisper.cpp only prints usable segment times when `-nt` is dropped, and
- * dropping it changes decoding: measured on Edda, the transcript turned to noise.
  */
 export function fileTranscriptionRequest(
   plan: RunnableDictationPlan,

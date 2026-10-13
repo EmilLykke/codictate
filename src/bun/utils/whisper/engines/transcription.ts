@@ -31,6 +31,7 @@ import {
   PARAKEET_ENGINE_ID,
   type SpeechEngineId,
 } from '../../../../shared/speech-models'
+import type { TimedTranscript } from '../../../../shared/timed-transcript'
 
 /**
  * A Whisper or hviske run on the crispasr ASR Harness.
@@ -168,7 +169,13 @@ export interface FailedTranscription {
  * recording trains the user to ignore the error chime.
  */
 export type TranscriptionResult =
-  { status: 'ok'; rawTranscript: string } | FailedTranscription
+  | {
+      status: 'ok'
+      rawTranscript: string
+      /** When each part of `rawTranscript` was spoken. `text === rawTranscript`. Absent/null: no usable timings. */
+      timedTranscript?: TimedTranscript | null
+    }
+  | FailedTranscription
 
 /**
  * One sentence per failure reason, written here rather than at the surfaces that show it.

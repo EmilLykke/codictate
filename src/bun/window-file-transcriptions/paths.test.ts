@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import {
-  droppedFilePath,
   mainWindowNavigationRules,
   splitDialogPaths,
-  transcriptTextFileName,
+  exportStartFolder,
+  parseSaveDialogAnswer,
+  saveDialogArgs,
 } from './paths'
 
 describe('splitDialogPaths', () => {
@@ -33,42 +34,6 @@ describe('splitDialogPaths', () => {
       '/a/one.m4a',
       '/a/gone.wav',
     ])
-  })
-})
-
-describe('droppedFilePath', () => {
-  test('macOS file URL, percent-encoded', () => {
-    expect(
-      droppedFilePath('file:///Users/me/Voice%20Memos/a%2C%20b.m4a', 'macos')
-    ).toBe('/Users/me/Voice Memos/a, b.m4a')
-    expect(droppedFilePath('file://localhost/tmp/x.wav', 'macos')).toBe(
-      '/tmp/x.wav'
-    )
-  })
-
-  test('Windows drive paths', () => {
-    expect(
-      droppedFilePath('file:///C:/Users/me/My%20Music/talk.mp3', 'windows')
-    ).toBe('C:\\Users\\me\\My Music\\talk.mp3')
-    expect(
-      droppedFilePath('file://localhost/D:/S%C3%B8ren/a.wav', 'windows')
-    ).toBe('D:\\Søren\\a.wav')
-  })
-
-  test('Windows refuses UNC and remote hosts, so a drop never reaches a share', () => {
-    expect(droppedFilePath('file://server/share/a.wav', 'windows')).toBeNull()
-    expect(droppedFilePath('file:////server/share/a.wav', 'windows')).toBeNull()
-    expect(
-      droppedFilePath('file://192.168.1.5/share/a.wav', 'windows')
-    ).toBeNull()
-    expect(droppedFilePath('file:///share/a.wav', 'windows')).toBeNull()
-  })
-
-  test('anything that is not a local file', () => {
-    expect(droppedFilePath('views://mainview/index.html', 'macos')).toBeNull()
-    expect(droppedFilePath('https://example.com/a.mp3', 'windows')).toBeNull()
-    expect(droppedFilePath('file://server/share/a.wav', 'macos')).toBeNull()
-    expect(droppedFilePath('not a url', 'macos')).toBeNull()
   })
 })
 
@@ -114,15 +79,112 @@ describe('mainWindowNavigationRules', () => {
   })
 })
 
-describe('transcriptTextFileName', () => {
-  test('swaps the extension, then numbers', () => {
-    expect(transcriptTextFileName('board call.m4a', 1)).toBe('board call.txt')
-    expect(transcriptTextFileName('board call.m4a', 2)).toBe('board call 2.txt')
-    expect(transcriptTextFileName('a.b.mov', 1)).toBe('a.b.txt')
+describe('exportStartFolder', () => {
+  const folders = new Set(['/Users/me', '/Users/me/Exports', '/Users/me/Talks'])
+  const isDirectory = (path: string) => folders.has(path)
+
+  test('the last export folder first', () => {
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Users/me/Exports',
+        sourceFolder: '/Users/me/Talks',
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me/Exports')
   })
 
-  test('no extension, or a dot file', () => {
-    expect(transcriptTextFileName('recording', 1)).toBe('recording.txt')
-    expect(transcriptTextFileName('.hidden', 3)).toBe('.hidden 3.txt')
+  test("then the file's own folder, then home", () => {
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Volumes/Gone',
+        sourceFolder: '/Users/me/Talks',
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me/Talks')
+    expect(
+      exportStartFolder({
+        lastExportFolder: null,
+        sourceFolder: '/Volumes/Card',
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me')
+    expect(
+      exportStartFolder({
+        lastExportFolder: null,
+        sourceFolder: null,
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me')
+  })
+
+  test('a dropped file has no folder of its own: the last export folder, else home', () => {
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Users/me/Exports',
+        sourceFolder: null,
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me/Exports')
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Volumes/Gone',
+        sourceFolder: null,
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me')
+  })
+})
+
+describe('the Save dialog helper', () => {
+  test('the same flags on both platforms, spaces and all', () => {
+    expect(
+      saveDialogArgs({
+        defaultName: 'board call.srt',
+        directory: 'C:\\Users\\me\\Talks, 2026',
+        extension: 'srt',
+      })
+    ).toEqual([
+      'save-dialog',
+      '--name',
+      'board call.srt',
+      '--directory',
+      'C:\\Users\\me\\Talks, 2026',
+      '--extension',
+      'srt',
+      '--title',
+      'Save Transcript',
+    ])
+  })
+
+  test('a path is the choice and a cancel is null', () => {
+    expect(
+      parseSaveDialogAnswer('{"path":"/Users/me/Talks, 2026/board call.srt"}\n')
+    ).toBe('/Users/me/Talks, 2026/board call.srt')
+    expect(
+      parseSaveDialogAnswer('{"path":"C:\\\\Users\\\\me\\\\talk.vtt"}')
+    ).toBe('C:\\Users\\me\\talk.vtt')
+    expect(parseSaveDialogAnswer('{"cancelled":true}\n')).toBeNull()
+  })
+
+  test('anything else is an error, never a quiet cancel', () => {
+    for (const stdout of [
+      '',
+      'not json',
+      '{}',
+      '{"cancelled":false}',
+      '{"path":""}',
+      '{"path":42}',
+      'null',
+    ]) {
+      expect(() => parseSaveDialogAnswer(stdout)).toThrow(
+        'The Save dialog gave no answer'
+      )
+    }
   })
 })

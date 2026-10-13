@@ -52,9 +52,19 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Translate to English** - a mode where the Speech Engine outputs English regardless of the spoken language, rather than transcribing verbatim. Distinct from Transcription Language, which selects the input language.
 
-**File Transcription** - transcribing an existing audio or video file with the selected Speech Model, or one the request names. Asked for from the command line or in Codictate's window. Not a Dictation: no Dictation Shortcut, no microphone, no Dictionary or Formatting Mode, and nothing is pasted; the result is the Raw Transcript. File Transcriptions run one at a time, and never make a Dictation wait. Only those asked for in Codictate's window are kept in History; one asked for from the command line belongs to whoever asked.
+**File Transcription** - transcribing an existing audio or video file with the File Transcription Settings, or with a Speech Model and Transcription Language the request names. Asked for from the command line or in Codictate's window. Not a Dictation: no Dictation Shortcut, no microphone, no Dictionary or Formatting Mode, and nothing is pasted; the result is the Raw Transcript, in English when Translate to English is on. File Transcriptions run one at a time, and never make a Dictation wait. Only those asked for in Codictate's window are kept in History; one asked for from the command line belongs to whoever asked.
+
+**File Transcription Settings** - the Speech Model, Transcription Language and Translate to English choice that File Transcriptions use, chosen apart from the ones Dictations use. They start out as the Dictation's, so they differ only once the user picks otherwise. Kept runnable the same way: when the chosen Speech Model goes away, they fall back to the Dictation's.
 
 **History** - the user's record of past Dictations and of File Transcriptions asked for in Codictate's window.
+
+**Timed Transcript** - a Raw Transcript together with when each part of it was spoken in the file. Its text is always exactly the Raw Transcript, never a variant of it. Not every Speech Model can produce one. Avoid "segments" and "timestamps" when talking about the domain.
+
+**Caption File** - an SRT or VTT file made from a Timed Transcript, for showing the words on screen alongside the audio or video.
+
+**Transcript Export** - saving a File Transcription as a file the user names and places in the system Save dialog, as text, as a Caption File, or as JSON. A Caption File, and the timing inside JSON, need a Timed Transcript.
+
+**Processing Time** - how long a File Transcription took, from when Codictate began reading the file to when the transcript was ready. Time spent waiting behind other File Transcriptions does not count. Distinct from the audio's own length.
 
 **Live Transcription** - a mode where partial text appears while the user is still speaking, rather than only after the Dictation ends. Requires Parakeet, and a Transcription Language that Parakeet supports. Only a Dictation that places its text at the cursor can be a Live Transcription, since a Live Transcription produces no Dictation Outcome to hand back. Parakeet detects the spoken language itself, so the user does not choose one: the Transcription Language is automatic for the whole time Parakeet is the selected Speech Model. Previously labelled "Stream mode".
 

@@ -8,6 +8,7 @@ Single Rust helper binary for Codictate's Windows-native features.
 - `--mic-authorization`: reports whether a default input device is available.
 - `record <path> <deviceIndexOrEndpointId> <maxSeconds>`: records mono `16 kHz` `16-bit PCM` WAV.
 - `extract-audio <input> <output.wav>`: decodes any audio or video file Media Foundation can read (every audio stream mixed down) to mono `16 kHz` `16-bit PCM` WAV for File Transcription. Same argv, output, exit codes (0 ok, 2 usage, 3 unreadable media, 4 no audio track, 5 write failure or Media Foundation unavailable) and one-line stderr reason as `native/CodictateMediaHelper` on macOS.
+- `save-dialog --name <file name> --directory <folder> --extension <ext> [--title <title>]`: the system Save As dialog (IFileSaveDialog) for a Transcript Export, with the overwrite prompt on. Prints one JSON line, `{"path":"..."}` or `{"cancelled":true}`, and exits 0 either way (1 the dialog failed, 2 usage). Same argv and output as `native/CodictateMediaHelper save-dialog` (NSSavePanel) on macOS.
 - `transcribe <wavPath> <parakeetModelDir>`: transcribes a WAV with ONNX Parakeet and prints `{ "kind": "final", "text": "..." }`.
 - `stream <vad|live> <parakeetModelDir> [deviceIndexOrEndpointId]`: captures the selected microphone, transcribes with ONNX Parakeet, and injects text into the focused app.
 - `keyboard-hook`: starts the low-level keyboard hook and paste IPC loop.
@@ -21,6 +22,7 @@ Single Rust helper binary for Codictate's Windows-native features.
 - `keyboard/`: keyboard protocol, hook, shortcut swallowing, clipboard, and text injection.
 - `indicator/`: indicator protocol, drawing, and UI-thread-owned Win32 window state.
 - `asr/`: ONNX Parakeet batch and stream transcription, using DirectML when available with CPU fallback.
+- `save_dialog.rs`: `save-dialog`, on its own single-threaded COM apartment.
 - `ipc.rs`: stdout JSON-line emission shared by helper modes.
 
 ## Integration Contract

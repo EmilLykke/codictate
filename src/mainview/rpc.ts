@@ -10,6 +10,7 @@ import type {
   DictionaryCandidate,
   DictionaryEntry,
   DictationNoticeKind,
+  FileTranscriptionSettingsPatch,
   FileTranscriptionsState,
   FormatterModelTier,
   HistoryEntry,
@@ -27,9 +28,12 @@ import type {
   UpdateCheckState,
   RecordingIndicatorMode,
   AppStatus,
-  SaveTranscriptResult,
+  TranscriptExportResult,
+  TranscriptExportTarget,
   WindowResizeEdge,
 } from '../shared/types'
+import type { TranscriptExportFormat } from '../shared/transcript-export'
+import type { DroppedFileTransport } from '../shared/dropped-file-upload'
 import { appEvents, dispatchNavigation } from './app-events'
 import { SPEECH_MODELS } from '../shared/speech-models'
 
@@ -47,7 +51,10 @@ queryClient.setQueryData(
 // goes through the typed helpers below.
 const rpc = Electroview.defineRPC<WebviewRPCType>({
   // Electrobun gives up on a request after 1 s by default. Asking the login shell for its
-  // PATH, or PowerShell for a Path write, can take a few seconds on a cold start.
+  // PATH, or PowerShell for a Path write, can take a few seconds on a cold start. It is also
+  // the timeout of each dropped-file chunk (`appendDroppedFileChunk`, 2 MiB): Electrobun has
+  // no per-request timeout, and encrypting, sending and writing one chunk takes well under a
+  // second, so 20 s only ever fires when the main process is gone.
   maxRequestTime: 20_000,
   handlers: {
     messages: {
@@ -106,6 +113,9 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
       fileTranscriptionsChanged: (data: FileTranscriptionsState) => {
         queryClient.setQueryData(['fileTranscriptions'], data)
         appEvents.emit('fileTranscriptions', data)
+      },
+      transcriptExportFinished: (data: TranscriptExportResult) => {
+        appEvents.emit('transcriptExportFinished', data)
       },
       updateModelAvailability: (data: {
         modelId: string
@@ -666,12 +676,36 @@ export async function dismissFileTranscription(id: string): Promise<boolean> {
   return rpc.request.dismissFileTranscription({ id })
 }
 
-export async function saveTranscriptAsText(
-  id: string
-): Promise<SaveTranscriptResult> {
-  return rpc.request.saveTranscriptAsText({ id })
+/** `false` when the main process refused the change; the settings push has the truth either way. */
+export async function updateFileTranscriptionSettings(
+  patch: FileTranscriptionSettingsPatch
+): Promise<boolean> {
+  return rpc.request.updateFileTranscriptionSettings({ patch })
 }
 
-export function revealSavedTranscript(id: string): void {
-  rpc.send.revealSavedTranscript({ id })
+export async function dismissFileTranscriptionNotice(): Promise<boolean> {
+  return rpc.request.dismissFileTranscriptionNotice({})
+}
+
+/** Opens the system Save dialog and saves there. The result arrives as `transcriptExportFinished`. */
+export function exportTranscript(
+  target: TranscriptExportTarget,
+  format: TranscriptExportFormat
+): void {
+  rpc.send.exportTranscript({ target, format })
+}
+
+export function revealExportedTranscript(target: TranscriptExportTarget): void {
+  rpc.send.revealExportedTranscript({ target })
+}
+
+/**
+ * The main process's side of a file dropped on the window: the page streams its bytes
+ * (src/shared/dropped-file-upload.ts). Each request runs under `maxRequestTime` above.
+ */
+export const droppedFileTransport: DroppedFileTransport = {
+  begin: (params) => rpc.request.beginDroppedFile(params),
+  append: (params) => rpc.request.appendDroppedFileChunk(params),
+  finish: (params) => rpc.request.finishDroppedFile(params),
+  cancel: (params) => rpc.request.cancelDroppedFile(params),
 }

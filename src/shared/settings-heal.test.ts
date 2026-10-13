@@ -8,9 +8,13 @@
 import { describe, expect, test } from 'bun:test'
 import type { DictationAvailability } from './dictation-plan'
 import {
+  applyFileTranscriptionSettingsPatch,
   applyRunnableDictationPatch,
+  fileTranscriptionTranslateReadiness,
   healDictationSettings,
+  healFileTranscriptionSettings,
   isRunnableDictationSettings,
+  type FileTranscriptionHealContext,
   type RunnableDictationSettings,
   type SettingsHealReason,
 } from './settings-heal'
@@ -19,6 +23,7 @@ import {
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
   getSpeechModel,
 } from './speech-models'
+import type { FileTranscriptionSettings } from './types'
 
 /** Model ids used below, named so the intent survives a catalog edit. */
 const TRANSLATE_CAPABLE = 'small-q5_1'
@@ -677,5 +682,358 @@ describe('isRunnableDictationSettings', () => {
         availability([])
       )
     ).toBe(false)
+  })
+})
+
+describe('healFileTranscriptionSettings', () => {
+  function file(
+    overrides: Partial<FileTranscriptionSettings> = {}
+  ): FileTranscriptionSettings {
+    return {
+      speechModelId: DEFAULT_MODEL_ID,
+      transcriptionLanguageId: 'auto',
+      translateToEnglish: false,
+      ...overrides,
+    }
+  }
+  function context(
+    overrides: Partial<FileTranscriptionHealContext> = {}
+  ): FileTranscriptionHealContext {
+    return {
+      dictationSpeechModelId: DEFAULT_MODEL_ID,
+      translateDefaultLanguageId: 'auto',
+      ...overrides,
+    }
+  }
+
+  test('leaves runnable settings untouched and silent', () => {
+    const input = file({
+      speechModelId: TRANSLATE_CAPABLE,
+      transcriptionLanguageId: 'da',
+      translateToEnglish: true,
+    })
+    const result = healFileTranscriptionSettings(
+      input,
+      context(),
+      availability([TRANSLATE_CAPABLE])
+    )
+    expect(result).toEqual({
+      settings: input,
+      announcements: [],
+      unchanged: true,
+    })
+  })
+
+  test("falls back to the Dictation's Speech Model, not the bundled default, and says so", () => {
+    const input = file({ speechModelId: TRANSLATE_CAPABLE })
+    const result = healFileTranscriptionSettings(
+      input,
+      context({ dictationSpeechModelId: PARAKEET }),
+      availability([PARAKEET])
+    )
+    expect(result.settings.speechModelId).toBe(PARAKEET)
+    expect(result.unchanged).toBe(false)
+    expect(result.announcements).toEqual([
+      {
+        target: 'speech_model',
+        reason: 'speech_model_not_installed',
+        message: `File transcription switched to ${getSpeechModel(PARAKEET)?.label} because the ${getSpeechModel(TRANSLATE_CAPABLE)?.label} weights are no longer installed.`,
+      },
+    ])
+    expect(input.speechModelId).toBe(TRANSLATE_CAPABLE)
+  })
+
+  test('an unknown Speech Model id falls back the same way', () => {
+    const result = healFileTranscriptionSettings(
+      file({ speechModelId: 'retired-model' }),
+      context(),
+      availability([])
+    )
+    expect(result.settings.speechModelId).toBe(DEFAULT_MODEL_ID)
+    expect(result.announcements.map((n) => n.reason)).toEqual([
+      'speech_model_not_installed',
+    ])
+  })
+
+  test('turns Translate off for turbo and says so', () => {
+    const result = healFileTranscriptionSettings(
+      file({
+        speechModelId: TRANSCRIBE_ONLY,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      context(),
+      availability([])
+    )
+    expect(result.settings.translateToEnglish).toBe(false)
+    expect(result.announcements).toEqual([
+      {
+        target: 'translate_to_english',
+        reason: 'model_cannot_translate',
+        message: `Translate to English for files turned off because ${getSpeechModel(TRANSCRIBE_ONLY)?.label} cannot translate.`,
+      },
+    ])
+  })
+
+  test('a fallback to a Speech Model that cannot translate turns Translate off too', () => {
+    const result = healFileTranscriptionSettings(
+      file({
+        speechModelId: TRANSLATE_CAPABLE,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      context(),
+      availability([])
+    )
+    expect(result.settings).toEqual(
+      file({ transcriptionLanguageId: 'da', translateToEnglish: false })
+    )
+    expect(result.announcements.map((n) => n.target)).toEqual([
+      'speech_model',
+      'translate_to_english',
+    ])
+  })
+
+  test('turns Translate off when no source language is fixed', () => {
+    const result = healFileTranscriptionSettings(
+      file({ speechModelId: TRANSLATE_CAPABLE, translateToEnglish: true }),
+      context(),
+      availability([TRANSLATE_CAPABLE])
+    )
+    expect(result.settings.translateToEnglish).toBe(false)
+    expect(result.announcements).toEqual([
+      {
+        target: 'translate_to_english',
+        reason: 'no_translate_source_language',
+        message:
+          'Translate to English for files turned off because it needs a source language rather than automatic detection.',
+      },
+    ])
+  })
+
+  test("the Dictation's translate default is a good enough source", () => {
+    const result = healFileTranscriptionSettings(
+      file({ speechModelId: TRANSLATE_CAPABLE, translateToEnglish: true }),
+      context({ translateDefaultLanguageId: 'da' }),
+      availability([TRANSLATE_CAPABLE])
+    )
+    expect(result.unchanged).toBe(true)
+  })
+
+  test('quietly coerces the language for Parakeet', () => {
+    const result = healFileTranscriptionSettings(
+      file({ speechModelId: PARAKEET, transcriptionLanguageId: 'da' }),
+      context(),
+      availability([PARAKEET])
+    )
+    expect(result.settings.transcriptionLanguageId).toBe('auto')
+    expect(result.announcements).toEqual([])
+    expect(result.unchanged).toBe(false)
+  })
+
+  test('quietly coerces a language hviske does not speak, and keeps Danish', () => {
+    const coerced = healFileTranscriptionSettings(
+      file({ speechModelId: HVISKE, transcriptionLanguageId: 'en' }),
+      context(),
+      availability([HVISKE])
+    )
+    expect(coerced.settings.transcriptionLanguageId).toBe('auto')
+    expect(coerced.announcements).toEqual([])
+
+    const kept = healFileTranscriptionSettings(
+      file({ speechModelId: HVISKE, transcriptionLanguageId: 'da' }),
+      context(),
+      availability([HVISKE])
+    )
+    expect(kept.unchanged).toBe(true)
+  })
+
+  test('turns Translate off under hviske with its single-language reason', () => {
+    const result = healFileTranscriptionSettings(
+      file({
+        speechModelId: HVISKE,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      context(),
+      availability([HVISKE])
+    )
+    expect(result.settings.translateToEnglish).toBe(false)
+    expect(result.announcements.map((n) => n.reason)).toEqual([
+      'model_cannot_translate',
+    ])
+  })
+
+  test('readiness is the same one the heal pass asks', () => {
+    expect(
+      fileTranscriptionTranslateReadiness(
+        file({
+          speechModelId: TRANSLATE_CAPABLE,
+          transcriptionLanguageId: 'da',
+        }),
+        context(),
+        availability([TRANSLATE_CAPABLE])
+      ).ready
+    ).toBe(true)
+    expect(
+      fileTranscriptionTranslateReadiness(file(), context(), availability([]))
+    ).toMatchObject({ ready: false, reason: 'model_cannot_translate' })
+  })
+
+  test('user-facing sentences have no em dashes', () => {
+    const result = healFileTranscriptionSettings(
+      file({ speechModelId: 'small-q5_1', translateToEnglish: true }),
+      context(),
+      availability([])
+    )
+    for (const announcement of result.announcements) {
+      expect(announcement.message).not.toContain('\u2014')
+    }
+  })
+})
+
+describe('applyFileTranscriptionSettingsPatch', () => {
+  const current: FileTranscriptionSettings = {
+    speechModelId: DEFAULT_MODEL_ID,
+    transcriptionLanguageId: 'da',
+    translateToEnglish: false,
+  }
+  const context: FileTranscriptionHealContext = {
+    dictationSpeechModelId: DEFAULT_MODEL_ID,
+    translateDefaultLanguageId: 'auto',
+  }
+
+  test('accepts a runnable switch', () => {
+    const outcome = applyFileTranscriptionSettingsPatch(
+      current,
+      { speechModelId: TRANSLATE_CAPABLE, translateToEnglish: true },
+      context,
+      availability([TRANSLATE_CAPABLE])
+    )
+    expect(outcome).toEqual({
+      kind: 'accepted',
+      settings: {
+        speechModelId: TRANSLATE_CAPABLE,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      },
+      announcements: [],
+    })
+  })
+
+  test('refuses a Speech Model that is not installed, rather than falling back', () => {
+    const outcome = applyFileTranscriptionSettingsPatch(
+      current,
+      { speechModelId: TRANSLATE_CAPABLE },
+      context,
+      availability([])
+    )
+    expect(outcome.kind).toBe('refused')
+    expect(outcome.kind === 'refused' && outcome.refusedTargets).toEqual([
+      'speech_model',
+    ])
+  })
+
+  test('refuses an unknown Speech Model id', () => {
+    expect(
+      applyFileTranscriptionSettingsPatch(
+        current,
+        { speechModelId: 'nope' },
+        context,
+        availability([])
+      ).kind
+    ).toBe('refused')
+  })
+
+  test('refuses Translate to English where it cannot run', () => {
+    const outcome = applyFileTranscriptionSettingsPatch(
+      current,
+      { translateToEnglish: true },
+      context,
+      availability([])
+    )
+    expect(outcome.kind).toBe('refused')
+    expect(outcome.kind === 'refused' && outcome.refusedTargets).toEqual([
+      'translate_to_english',
+    ])
+  })
+
+  test('refuses Translate to English from automatic detection with no default', () => {
+    const outcome = applyFileTranscriptionSettingsPatch(
+      { ...current, speechModelId: TRANSLATE_CAPABLE },
+      { transcriptionLanguageId: 'auto', translateToEnglish: true },
+      context,
+      availability([TRANSLATE_CAPABLE])
+    )
+    expect(outcome.kind).toBe('refused')
+  })
+
+  test('refuses an invalid language id, and one the Speech Model cannot take', () => {
+    expect(
+      applyFileTranscriptionSettingsPatch(
+        current,
+        { transcriptionLanguageId: 'klingon' },
+        context,
+        availability([])
+      ).kind
+    ).toBe('refused')
+    expect(
+      applyFileTranscriptionSettingsPatch(
+        current,
+        { speechModelId: HVISKE, transcriptionLanguageId: 'en' },
+        context,
+        availability([HVISKE])
+      ).kind
+    ).toBe('refused')
+  })
+
+  test('switching to Parakeet coerces the language quietly', () => {
+    const outcome = applyFileTranscriptionSettingsPatch(
+      current,
+      { speechModelId: PARAKEET },
+      context,
+      availability([PARAKEET])
+    )
+    expect(outcome).toEqual({
+      kind: 'accepted',
+      settings: {
+        speechModelId: PARAKEET,
+        transcriptionLanguageId: 'auto',
+        translateToEnglish: false,
+      },
+      announcements: [],
+    })
+  })
+
+  test('switching to a Speech Model that cannot translate turns Translate off and announces it', () => {
+    const outcome = applyFileTranscriptionSettingsPatch(
+      {
+        ...current,
+        speechModelId: TRANSLATE_CAPABLE,
+        translateToEnglish: true,
+      },
+      { speechModelId: ENGLISH_ONLY },
+      context,
+      availability([TRANSLATE_CAPABLE, ENGLISH_ONLY])
+    )
+    expect(outcome.kind).toBe('accepted')
+    expect(outcome.kind === 'accepted' && outcome.settings).toMatchObject({
+      speechModelId: ENGLISH_ONLY,
+      translateToEnglish: false,
+    })
+    expect(outcome.announcements.map((n) => n.target)).toEqual([
+      'translate_to_english',
+    ])
+  })
+
+  test('turning Translate off is never refused', () => {
+    expect(
+      applyFileTranscriptionSettingsPatch(
+        { ...current, translateToEnglish: true },
+        { translateToEnglish: false },
+        context,
+        availability([])
+      ).kind
+    ).toBe('accepted')
   })
 })
