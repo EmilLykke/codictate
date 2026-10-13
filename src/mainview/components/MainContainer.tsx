@@ -24,6 +24,11 @@ import type {
 } from "../../shared/types";
 import { appEvents, takePendingNavigation } from "../app-events";
 import {
+  addDroppedFiles,
+  dragHasFiles,
+  readDrop,
+} from "./Transcribe/dropped-file-uploads";
+import {
   LARGE_V3_Q5_MODEL_ID,
   SPEECH_MODELS,
 } from "../../shared/speech-models";
@@ -77,6 +82,30 @@ export function MainContainer({
       setIsSettingsModalOpen(true);
     }
   }, []);
+
+  // Files dropped on any other page go to Transcribe. On the Transcribe page its drop zone
+  // takes the drop itself (and lights up), so this steps aside there.
+  useEffect(() => {
+    if (activeTab === "transcribe") return;
+    const onDragOver = (event: DragEvent) => {
+      if (!dragHasFiles(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!dragHasFiles(event) || !event.dataTransfer) return;
+      event.preventDefault();
+      const { files, folders } = readDrop(event.dataTransfer);
+      addDroppedFiles(files, folders);
+      setActiveTab("transcribe");
+    };
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     const pending = takePendingNavigation();

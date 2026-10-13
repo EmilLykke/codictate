@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { chooseFilesToTranscribe } from "../../rpc";
 import {
   addDroppedFiles,
+  dragHasFiles as hasFiles,
+  readDrop,
   cancelDroppedFileUpload,
   dismissDroppedFileUpload,
   useDroppedFileUploads,
@@ -11,36 +13,6 @@ import { BUTTON } from "./transcribe-styles";
 
 /** How long after the last `dragover` the highlight lets go. */
 const DRAG_IDLE_MS = 250;
-
-function hasFiles(event: DragEvent): boolean {
-  return Array.from(event.dataTransfer?.types ?? []).includes("Files");
-}
-
-/**
- * The dropped files, and the names of dropped folders. Read during the `drop` event: the
- * data transfer is empty afterwards. A folder comes through as a `File` too, so the entry
- * tells it apart (WebKit and Chromium both have `webkitGetAsEntry`).
- */
-function readDrop(transfer: DataTransfer): {
-  files: File[];
-  folders: string[];
-} {
-  const files: File[] = [];
-  const folders: string[] = [];
-  const items = Array.from(transfer.items ?? []).filter(
-    (item) => item.kind === "file",
-  );
-  if (items.length === 0) {
-    return { files: Array.from(transfer.files), folders };
-  }
-  for (const item of items) {
-    const file = item.getAsFile();
-    if (file === null) continue;
-    if (item.webkitGetAsEntry?.()?.isDirectory) folders.push(file.name);
-    else files.push(file);
-  }
-  return { files, folders };
-}
 
 function percent(upload: DroppedFileUpload): number {
   if (upload.size === 0) return 100;

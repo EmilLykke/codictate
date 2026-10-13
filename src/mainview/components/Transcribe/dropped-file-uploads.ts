@@ -129,3 +129,34 @@ function subscribe(listener: () => void): () => void {
 export function useDroppedFileUploads(): DroppedFileUpload[] {
   return useSyncExternalStore(subscribe, () => uploads)
 }
+
+/** Whether a drag carries files (text and links are left alone). */
+export function dragHasFiles(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+}
+
+/**
+ * The dropped files, and the names of dropped folders. Read during the `drop` event: the
+ * data transfer is empty afterwards. A folder comes through as a `File` too, so the entry
+ * tells it apart (WebKit and Chromium both have `webkitGetAsEntry`).
+ */
+export function readDrop(transfer: DataTransfer): {
+  files: File[]
+  folders: string[]
+} {
+  const files: File[] = []
+  const folders: string[] = []
+  const items = Array.from(transfer.items ?? []).filter(
+    (item) => item.kind === 'file'
+  )
+  if (items.length === 0) {
+    return { files: Array.from(transfer.files), folders }
+  }
+  for (const item of items) {
+    const file = item.getAsFile()
+    if (file === null) continue
+    if (item.webkitGetAsEntry?.()?.isDirectory) folders.push(file.name)
+    else files.push(file)
+  }
+  return { files, folders }
+}
