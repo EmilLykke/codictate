@@ -22,6 +22,11 @@ export interface FileTranscriptionRequest {
   /** Absolute path to an audio or video file. */
   filePath: string
   /**
+   * The name the queue shows for the file. Absent uses the path's own name. The window sets
+   * it for a dropped file, which is transcribed from a temporary copy.
+   */
+  fileName?: string
+  /**
    * A Speech Model for this call only. `null` or absent uses the File Transcription Settings'
    * one. Settings do not change, and nothing is downloaded: it must be installed.
    */

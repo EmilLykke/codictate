@@ -159,7 +159,7 @@ export function createFileTranscriptionQueue(
   function snapshotOf(record: JobRecord): FileTranscriptionJobSnapshot {
     return {
       id: record.id,
-      fileName: basename(record.request.filePath),
+      fileName: record.request.fileName ?? basename(record.request.filePath),
       filePath: record.request.filePath,
       origin: record.request.origin,
       state: record.state,

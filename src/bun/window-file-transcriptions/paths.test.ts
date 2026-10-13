@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
 import {
-  droppedFilePath,
   mainWindowNavigationRules,
   splitDialogPaths,
   exportStartFolder,
@@ -35,42 +34,6 @@ describe('splitDialogPaths', () => {
       '/a/one.m4a',
       '/a/gone.wav',
     ])
-  })
-})
-
-describe('droppedFilePath', () => {
-  test('macOS file URL, percent-encoded', () => {
-    expect(
-      droppedFilePath('file:///Users/me/Voice%20Memos/a%2C%20b.m4a', 'macos')
-    ).toBe('/Users/me/Voice Memos/a, b.m4a')
-    expect(droppedFilePath('file://localhost/tmp/x.wav', 'macos')).toBe(
-      '/tmp/x.wav'
-    )
-  })
-
-  test('Windows drive paths', () => {
-    expect(
-      droppedFilePath('file:///C:/Users/me/My%20Music/talk.mp3', 'windows')
-    ).toBe('C:\\Users\\me\\My Music\\talk.mp3')
-    expect(
-      droppedFilePath('file://localhost/D:/S%C3%B8ren/a.wav', 'windows')
-    ).toBe('D:\\Søren\\a.wav')
-  })
-
-  test('Windows refuses UNC and remote hosts, so a drop never reaches a share', () => {
-    expect(droppedFilePath('file://server/share/a.wav', 'windows')).toBeNull()
-    expect(droppedFilePath('file:////server/share/a.wav', 'windows')).toBeNull()
-    expect(
-      droppedFilePath('file://192.168.1.5/share/a.wav', 'windows')
-    ).toBeNull()
-    expect(droppedFilePath('file:///share/a.wav', 'windows')).toBeNull()
-  })
-
-  test('anything that is not a local file', () => {
-    expect(droppedFilePath('views://mainview/index.html', 'macos')).toBeNull()
-    expect(droppedFilePath('https://example.com/a.mp3', 'windows')).toBeNull()
-    expect(droppedFilePath('file://server/share/a.wav', 'macos')).toBeNull()
-    expect(droppedFilePath('not a url', 'macos')).toBeNull()
   })
 })
 
@@ -151,6 +114,25 @@ describe('exportStartFolder', () => {
     expect(
       exportStartFolder({
         lastExportFolder: null,
+        sourceFolder: null,
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me')
+  })
+
+  test('a dropped file has no folder of its own: the last export folder, else home', () => {
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Users/me/Exports',
+        sourceFolder: null,
+        homeFolder: '/Users/me',
+        isDirectory,
+      })
+    ).toBe('/Users/me/Exports')
+    expect(
+      exportStartFolder({
+        lastExportFolder: '/Volumes/Gone',
         sourceFolder: null,
         homeFolder: '/Users/me',
         isDirectory,

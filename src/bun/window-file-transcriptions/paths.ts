@@ -1,7 +1,8 @@
 /**
- * File paths for the Transcribe page: what the native dialog and a file drop hand back, and
- * the Transcript Export Save dialog's start folder, argv and answer. Pure, so both platforms
- * are tested on any host.
+ * File paths for the Transcribe page: what the native open dialog hands back, the main
+ * window's navigation rules, and the Transcript Export Save dialog's start folder, argv and
+ * answer. Pure, so both platforms are tested on any host. A dropped file has no path here:
+ * the page sends its bytes (dropped-files.ts).
  */
 
 /**
@@ -36,8 +37,8 @@ export function splitDialogPaths(
  * The navigation rules for the main window's webview (Electrobun: a `^` rule blocks, the
  * last matching rule wins, no match allows). Everything is blocked except the bundled views
  * and, in HMR dev, the Vite dev server the window was pointed at. The page never navigates
- * on its own, so any navigation is either a dropped file (read from `will-navigate`, see
- * `droppedFilePath`) or something that must not replace the app.
+ * on its own, so any navigation is something that must not replace the app: a link, a
+ * script, or a file dropped where the page did not cancel the drop.
  */
 export function mainWindowNavigationRules(viewUrl: string): string[] {
   const rules = ['^*', 'views://*']
@@ -53,48 +54,10 @@ export function mainWindowNavigationRules(viewUrl: string): string[] {
 }
 
 /**
- * The local path a dropped file navigated the webview to, or `null` for anything that is
- * not a local file URL.
- *
- * A file dropped on WKWebView or WebView2 that the page does not handle makes the webview
- * navigate to its `file://` URL. The main window blocks that navigation (with every other
- * one, `mainWindowNavigationRules`) and reads the path from the `will-navigate` event
- * instead: the only place either webview exposes a dropped file's real path.
- *
- * Only a URL with no host or `localhost` is a dropped file. On Windows only a drive path
- * is: a UNC or remote host is refused, so a drop never makes the app touch a network share.
- */
-export function droppedFilePath(
-  url: string,
-  platform: 'macos' | 'windows' | 'linux'
-): string | null {
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return null
-  }
-  if (parsed.protocol !== 'file:') return null
-  const host = parsed.hostname
-  if (host !== '' && host !== 'localhost') return null
-  let pathname: string
-  try {
-    pathname = decodeURIComponent(parsed.pathname)
-  } catch {
-    return null
-  }
-  if (platform === 'windows') {
-    // `/C:/Users/...`; `//server/share` (a `file:////server` URL) is a UNC path in disguise.
-    if (!/^\/[A-Za-z]:\//.test(pathname)) return null
-    return pathname.slice(1).replace(/\//g, '\\')
-  }
-  return pathname
-}
-
-/**
  * Where the Transcript Export Save dialog opens: the last folder a transcript was saved to,
  * if it is still there; otherwise the transcribed file's own folder, if that is still there;
- * otherwise the home folder.
+ * otherwise the home folder. A dropped file has no folder of its own (`sourceFolder: null`),
+ * since Codictate transcribed a temporary copy of it.
  */
 export function exportStartFolder(args: {
   lastExportFolder: string | null

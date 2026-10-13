@@ -429,7 +429,10 @@ export interface HistoryEntry {
   source: HistoryEntrySource
   /** The transcribed file's name, for `source: 'file'`. */
   fileName?: string
-  /** The transcribed file's absolute path, for `source: 'file'`. */
+  /**
+   * The transcribed file's absolute path, for `source: 'file'`. Absent for a file dropped on
+   * the window, which was transcribed from a temporary copy.
+   */
   filePath?: string
   /** Processing Time, for `source: 'file'`. Absent on entries saved before it was recorded. */
   processingSeconds?: number
@@ -625,8 +628,14 @@ export interface FileTranscriptionQueueItem {
 
 interface FileTranscriptionOutcomeBase {
   id: string
+  /** The name the user knows the file by: a dropped file's own name, not its copy's. */
   fileName: string
-  filePath: string
+  /**
+   * Where the transcribed file is on the user's disk. `null` for a file dropped on the
+   * window: the page sent its bytes and Codictate transcribed a temporary copy, so there is
+   * no folder the user knows it from.
+   */
+  sourcePath: string | null
   /** Epoch milliseconds. */
   finishedAt: number
 }
@@ -684,6 +693,23 @@ export type TranscriptExportResult =
       /** One finished sentence for the user. */
       message: string
     }
+
+/**
+ * A file dropped on the window reaches the main process as its bytes, in order, because
+ * neither WKWebView nor WebView2 tells the page where a dropped file is on disk
+ * (src/shared/dropped-file-upload.ts, src/bun/window-file-transcriptions/dropped-files.ts).
+ * A refusal carries one finished sentence for the user.
+ */
+export type BeginDroppedFileReply =
+  { ok: true; uploadId: string } | { ok: false; message: string }
+
+/** How many bytes the copy holds so far. A refusal has already ended the upload. */
+export type AppendDroppedFileChunkReply =
+  { ok: true; received: number } | { ok: false; message: string }
+
+/** `ok` means the copy is queued as a window File Transcription. A refusal ended the upload. */
+export type FinishDroppedFileReply =
+  { ok: true } | { ok: false; message: string }
 
 export type WebviewRPCType = {
   bun: RPCSchema<{
@@ -791,6 +817,32 @@ export type WebviewRPCType = {
       }
       /** Dismiss the File Transcription Settings heal announcements on the Transcribe page. */
       dismissFileTranscriptionNotice: { params: {}; response: boolean }
+      /**
+       * Start receiving a file dropped on the window: `name` is its own name, `size` its
+       * length in bytes. The bytes follow with `appendDroppedFileChunk`.
+       */
+      beginDroppedFile: {
+        params: { name: string; size: number }
+        response: BeginDroppedFileReply
+      }
+      /**
+       * The next piece of a dropped file, base64. `offset` must be exactly the bytes received
+       * so far, so the page sends one chunk at a time and waits for this answer.
+       */
+      appendDroppedFileChunk: {
+        params: { uploadId: string; offset: number; data: string }
+        response: AppendDroppedFileChunkReply
+      }
+      /** Every byte is in: queue the copy as a window File Transcription. */
+      finishDroppedFile: {
+        params: { uploadId: string }
+        response: FinishDroppedFileReply
+      }
+      /** Stop receiving a dropped file and delete what arrived. `false` when there was none. */
+      cancelDroppedFile: {
+        params: { uploadId: string }
+        response: boolean
+      }
       /** Ephemeral: show the floating indicator during onboarding to preview the chosen mode. */
       setOnboardingIndicatorPreview: {
         params: { active: boolean; mode?: RecordingIndicatorMode }

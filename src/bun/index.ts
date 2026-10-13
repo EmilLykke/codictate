@@ -846,6 +846,7 @@ startDeviceMonitor()
 Electrobun.events.on('before-quit', () => {
   // First, and synchronously: a decoder or Speech Engine left running would outlive the app.
   fileTranscriptions.cancelAll()
+  win.removeDroppedFiles()
   trayHandlers.setTrayIdle()
   void (async () => {
     await keyboard.stopActiveParakeetStream()

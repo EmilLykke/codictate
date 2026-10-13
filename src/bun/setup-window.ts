@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { BrowserView, BrowserWindow, Utils } from 'electrobun/bun'
 import { getPlatform } from './platform'
@@ -52,10 +52,11 @@ import {
   isDirectory,
   writeTextFile,
 } from './window-file-transcriptions/native'
+import { mainWindowNavigationRules } from './window-file-transcriptions/paths'
 import {
-  droppedFilePath,
-  mainWindowNavigationRules,
-} from './window-file-transcriptions/paths'
+  createDroppedFiles,
+  type DroppedFiles,
+} from './window-file-transcriptions/dropped-files'
 import { createModelOperations, type ModelOperations } from './model-operations'
 import { log } from './utils/logger'
 
@@ -129,6 +130,11 @@ export interface WindowHandle {
    * Resolves how many were queued; 0 when the user cancelled.
    */
   chooseAndTranscribeFiles: () => Promise<number>
+  /**
+   * Delete every temporary copy of a dropped file, synchronously. For quitting, after the
+   * File Transcription queue has cancelled its jobs.
+   */
+  removeDroppedFiles: () => void
   /**
    * Returns (or creates) the main window.
    * `onAction` is invoked once the window is ready to receive messages —
@@ -267,6 +273,22 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         log: (message, data) => log('file-transcription', message, data),
       })
     : null
+
+  // Files dropped on the window arrive as bytes from the page and are queued as temporary
+  // copies (window-file-transcriptions/dropped-files.ts). Made at boot, so it sweeps the
+  // copies a crash left behind.
+  const droppedFiles: DroppedFiles | null = windowFiles
+    ? createDroppedFiles({
+        parentDir: tmpdir(),
+        transcribe: (copy) => windowFiles.transcribeDroppedCopy(copy),
+        now: () => Date.now(),
+        log: (message, data) => log('file-transcription', message, data),
+      })
+    : null
+  const noDroppedFiles = {
+    ok: false as const,
+    message: "Codictate can't transcribe files right now.",
+  }
 
   const emptyFileTranscriptions: FileTranscriptionsState = {
     active: [],
@@ -469,6 +491,16 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           }
           return true
         },
+        // The page awaits each of these before sending the next chunk. Each answers as soon
+        // as its chunk is written: the File Transcription itself runs in the queue.
+        beginDroppedFile: async (params) =>
+          droppedFiles?.begin(params) ?? noDroppedFiles,
+        appendDroppedFileChunk: async (params) =>
+          droppedFiles?.append(params) ?? noDroppedFiles,
+        finishDroppedFile: async (params) =>
+          droppedFiles?.finish(params) ?? noDroppedFiles,
+        cancelDroppedFile: async (params) =>
+          droppedFiles?.cancel(params) ?? false,
         getHistoryEntries: async ({ search }) => {
           if (!deps.historyManager) return []
           return deps.historyManager.loadEntries(search)
@@ -664,27 +696,11 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
       rpc,
     })
     setWindowsWindowIcon(win)
-    // Every navigation away from the app is blocked. A file dropped on the window makes the
-    // webview navigate to its `file://` URL, since neither WKWebView nor WebView2 gives the
-    // page a dropped file's real path; blocking keeps the app on screen and `will-navigate`
-    // carries the path. Set on the webview after creation: Electrobun 1.18 ignores the
-    // `navigationRules` constructor option.
+    // Every navigation away from the app is blocked, as a security measure: the page never
+    // navigates on its own. A file dropped on the window does not navigate either; the page
+    // cancels the drop and sends the file's bytes (dropped-files.ts). Set on the webview
+    // after creation: Electrobun 1.18 ignores the `navigationRules` constructor option.
     win.webview.setNavigationRules(mainWindowNavigationRules(deps.url))
-    win.webview.on('will-navigate', (event) => {
-      const detail = (event as { data?: { detail?: unknown } }).data?.detail
-      if (typeof detail !== 'string') return
-      let url: unknown
-      try {
-        url = (JSON.parse(detail) as { url?: unknown }).url
-      } catch {
-        return
-      }
-      if (typeof url !== 'string') return
-      const path = droppedFilePath(url, getPlatformRuntime())
-      if (path === null || windowFiles === null) return
-      windowFiles.transcribe([path])
-      sendIfWindowAlive(() => rpc.send.navigate({ tab: 'transcribe' }))
-    })
     return win
   }
 
@@ -752,6 +768,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
     models,
     chooseAndTranscribeFiles: async () =>
       (await windowFiles?.chooseAndTranscribe()) ?? 0,
+    removeDroppedFiles: () => droppedFiles?.removeAll(),
     getOrCreateWindow,
   }
 }

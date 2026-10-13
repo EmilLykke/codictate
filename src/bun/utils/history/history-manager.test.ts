@@ -382,6 +382,18 @@ describe('File Transcription details and the Timed Transcript sidecar', () => {
     })
   })
 
+  test('a dropped file keeps its name and no path', async () => {
+    const { manager, storage } = createManager()
+    const entry = await manager.saveFileTranscription(
+      fileRecord({ fileName: 'Interview.mov', filePath: null })
+    )
+    expect(entry.fileName).toBe('Interview.mov')
+    expect(entry).not.toHaveProperty('filePath')
+    const [stored] = readIndexFile(storage).entries
+    expect(stored).not.toHaveProperty('filePath')
+    expect((await manager.loadEntries())[0]).not.toHaveProperty('filePath')
+  })
+
   test('no Timed Transcript, no sidecar', async () => {
     const { manager, storage } = createManager()
     const entry = await manager.saveFileTranscription(

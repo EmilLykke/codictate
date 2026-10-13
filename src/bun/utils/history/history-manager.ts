@@ -43,7 +43,11 @@ export interface FileTranscriptionHistoryRecord {
   /** The Raw Transcript. */
   transcript: string
   fileName: string
-  filePath: string
+  /**
+   * Where the file is on the user's disk. `null` for a file dropped on the window, which was
+   * transcribed from a temporary copy: no path is kept for it.
+   */
+  filePath: string | null
   /** Length of the file's audio. */
   durationMs: number
   /** Processing Time. */
@@ -363,7 +367,7 @@ export class HistoryManager {
         durationMs: Math.max(0, Math.round(record.durationMs)),
         source: 'file',
         fileName: record.fileName,
-        filePath: record.filePath,
+        ...(record.filePath !== null ? { filePath: record.filePath } : {}),
         processingSeconds: record.processingSeconds,
         speechModelId: record.speechModelId,
         language: record.language,

@@ -206,7 +206,7 @@ describe('window File Transcriptions', () => {
       {
         id: 'job-1',
         fileName: 'one.m4a',
-        filePath: '/a/one.m4a',
+        sourcePath: '/a/one.m4a',
         finishedAt: 1_000,
         status: 'ok',
         text: 'hello there',
@@ -488,6 +488,114 @@ describe('window File Transcriptions', () => {
     expect(await controller.chooseAndTranscribe()).toBe(1)
     expect(await controller.chooseAndTranscribe()).toBe(1)
     expect(asked).toEqual([null, '/b'])
+  })
+
+  test('a dropped copy shows its own name, and History keeps no path for it', async () => {
+    const { controller, fake, history } = setup()
+    const copy = '/tmp/codictate-dropped-file-abc123/interview.mov'
+    let settledCopy = false
+    void controller
+      .transcribeDroppedCopy({ filePath: copy, fileName: 'Interview.mov' })
+      .then(() => {
+        settledCopy = true
+      })
+    expect(fake.jobs.map((job) => job.request)).toEqual([
+      { filePath: copy, fileName: 'Interview.mov', origin: { kind: 'window' } },
+    ])
+    fake.jobs[0].resolve(ok(copy, 'hello', timed('hello')))
+    await settled()
+
+    expect(settledCopy).toBe(true)
+    expect(history).toEqual([
+      expect.objectContaining({ fileName: 'Interview.mov', filePath: null }),
+    ])
+    expect(controller.state().finished[0]).toMatchObject({
+      fileName: 'Interview.mov',
+      sourcePath: null,
+      savedToHistory: true,
+    })
+  })
+
+  test('a dropped copy settles on failure and cancel too', async () => {
+    const { controller, fake, history } = setup()
+    const done: string[] = []
+    for (const name of ['a.mov', 'b.mov']) {
+      void controller
+        .transcribeDroppedCopy({ filePath: `/tmp/x/${name}`, fileName: name })
+        .then(() => done.push(name))
+    }
+    fake.jobs[0].resolve({
+      status: 'failed',
+      code: 'no_audio',
+      message: 'no audio',
+    })
+    fake.jobs[1].resolve({
+      status: 'failed',
+      code: 'cancelled',
+      message: 'cancelled',
+    })
+    await settled()
+    expect(done.sort()).toEqual(['a.mov', 'b.mov'])
+    expect(history).toEqual([])
+  })
+
+  test("a dropped copy's export starts in the last export folder, else home, never the temp folder", async () => {
+    const { controller, fake, saveAsks } = setup({
+      isDirectory: () => true,
+    })
+    void controller.transcribeDroppedCopy({
+      filePath: '/tmp/codictate-dropped-file-abc123/talk.m4a',
+      fileName: 'talk.m4a',
+    })
+    fake.jobs[0].resolve(ok('/tmp/codictate-dropped-file-abc123/talk.m4a', 'x'))
+    await settled()
+    const target = { kind: 'window', id: 'job-1' } as const
+    await controller.exportTranscript(target, 'txt')
+    await controller.exportTranscript(target, 'txt')
+    expect(saveAsks.map((ask) => ask.directory)).toEqual([
+      '/Users/me',
+      '/Users/me/Exports',
+    ])
+    expect(saveAsks[0]?.defaultName).toBe('talk.txt')
+  })
+
+  test('a History entry kept without a path exports from the last export folder, else home', async () => {
+    const source: TranscriptExportSource = {
+      fileName: 'dropped.m4a',
+      speechModelId: null,
+      language: null,
+      translated: false,
+      audioSeconds: 3,
+      processingSeconds: 1,
+      text: 'x',
+      timedTranscript: null,
+    }
+    const { controller, saveAsks } = setup({
+      loadHistoryExportSource: async () => ({ source, filePath: null }),
+    })
+    const target = { kind: 'history', id: 'h1' } as const
+    await controller.exportTranscript(target, 'txt')
+    await controller.exportTranscript(target, 'txt')
+    expect(saveAsks.map((ask) => ask.directory)).toEqual([
+      '/Users/me',
+      '/Users/me/Exports',
+    ])
+  })
+
+  test('a dropped copy never moves where the open dialog starts', async () => {
+    const asked: (string | null)[] = []
+    const { controller } = setup({
+      chooseFiles: async (folder) => {
+        asked.push(folder)
+        return []
+      },
+    })
+    void controller.transcribeDroppedCopy({
+      filePath: '/tmp/codictate-dropped-file-abc123/a.m4a',
+      fileName: 'a.m4a',
+    })
+    await controller.chooseAndTranscribe()
+    expect(asked).toEqual([null])
   })
 
   test('queue changes are pushed, command-line jobs included', () => {

@@ -1,6 +1,9 @@
 /**
  * File Transcription in Codictate's window: the Transcribe page, the tray's "Transcribe
- * File…" and a file dropped on the window all come through here.
+ * File…" and a file dropped on the window all come through here. A dropped file arrives as
+ * a temporary copy (dropped-files.ts) with no source folder: its results carry
+ * `sourcePath: null`, so History keeps no path for it and its Transcript Export does not
+ * start in the temporary folder.
  *
  * It sits on the one File Transcription queue it shares with the command line
  * (docs/adr/0009-command-line-talks-to-the-running-app.md). Every job it adds has origin
@@ -96,6 +99,15 @@ export interface WindowFileTranscriptionsDeps {
 export interface WindowFileTranscriptions {
   /** Queue each file as its own File Transcription. Returns how many were queued. */
   transcribe(paths: readonly string[]): number
+  /**
+   * Queue Codictate's temporary copy of a file dropped on the window. `fileName` is the
+   * original name, shown on the page and kept in History; the copy's path is never kept.
+   * Resolves once the job has settled and History has had its say, when the copy can go.
+   */
+  transcribeDroppedCopy(copy: {
+    filePath: string
+    fileName: string
+  }): Promise<void>
   /** Open the native dialog and queue what is chosen. Resolves how many were queued. */
   chooseAndTranscribe(): Promise<number>
   cancel(id: string): boolean
@@ -183,13 +195,13 @@ export function createWindowFileTranscriptions(
 
   async function settle(
     id: string,
-    filePath: string,
+    file: { fileName: string; sourcePath: string | null },
     result: FileTranscriptionResult
   ): Promise<void> {
     let outcome = outcomeFromResult({
       id,
-      filePath,
-      fileName: basename(filePath),
+      sourcePath: file.sourcePath,
+      fileName: file.fileName,
       finishedAt: deps.now(),
       result,
     })
@@ -206,7 +218,7 @@ export function createWindowFileTranscriptions(
         saved = await deps.saveToHistory({
           transcript: outcome.text,
           fileName: outcome.fileName,
-          filePath: outcome.filePath,
+          filePath: outcome.sourcePath,
           durationMs: outcome.audioSeconds * 1000,
           processingSeconds: outcome.processingSeconds,
           speechModelId: outcome.speechModelId,
@@ -239,10 +251,27 @@ export function createWindowFileTranscriptions(
       const job = deps.queue.enqueue({ filePath, origin: { kind: 'window' } })
       queued += 1
       lastFolder = dirname(filePath)
-      void job.result.then((result) => settle(job.id, filePath, result))
+      const file = { fileName: basename(filePath), sourcePath: filePath }
+      void job.result.then((result) => settle(job.id, file, result))
     }
     deps.log('window files queued', { count: queued })
     return queued
+  }
+
+  function transcribeDroppedCopy(copy: {
+    filePath: string
+    fileName: string
+  }): Promise<void> {
+    // No `lastFolder`: the open dialog must not start in the temporary folder.
+    const job = deps.queue.enqueue({
+      filePath: copy.filePath,
+      fileName: copy.fileName,
+      origin: { kind: 'window' },
+    })
+    deps.log('dropped file queued', { id: job.id })
+    return job.result.then((result) =>
+      settle(job.id, { fileName: copy.fileName, sourcePath: null }, result)
+    )
   }
 
   async function resolveSource(target: TranscriptExportTarget): Promise<{
@@ -255,7 +284,7 @@ export function createWindowFileTranscriptions(
     const outcome = finished.find((existing) => existing.id === target.id)
     if (outcome === undefined || outcome.status !== 'ok') return null
     return {
-      filePath: outcome.filePath,
+      filePath: outcome.sourcePath,
       source: {
         fileName: outcome.fileName,
         speechModelId: outcome.speechModelId,
@@ -283,6 +312,7 @@ export function createWindowFileTranscriptions(
     if (resolved === null) {
       return { target, status: 'failed', format, message: GONE_MESSAGE }
     }
+    // A dropped file has no source folder (`null`): the last export folder, then home.
     const { source, filePath } = resolved
 
     // Before the dialog: a Caption File without timings is refused without asking where.
@@ -371,6 +401,7 @@ export function createWindowFileTranscriptions(
 
   return {
     transcribe,
+    transcribeDroppedCopy,
     async chooseAndTranscribe() {
       let paths: string[]
       try {

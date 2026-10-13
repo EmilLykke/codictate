@@ -36,17 +36,18 @@ export function queueItemsFromSnapshot(
 
 export function outcomeFromResult(args: {
   id: string
-  filePath: string
+  /** `null` for a dropped file: Codictate transcribed a temporary copy. */
+  sourcePath: string | null
   fileName: string
   finishedAt: number
   result: FileTranscriptionResult
 }): FileTranscriptionOutcome {
-  const { id, filePath, fileName, finishedAt, result } = args
+  const { id, sourcePath, fileName, finishedAt, result } = args
   if (result.status === 'failed') {
     return {
       id,
       fileName,
-      filePath,
+      sourcePath,
       finishedAt,
       status: 'failed',
       code: result.code,
@@ -56,7 +57,7 @@ export function outcomeFromResult(args: {
   return {
     id,
     fileName,
-    filePath,
+    sourcePath,
     finishedAt,
     status: 'ok',
     text: result.text,

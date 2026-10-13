@@ -33,6 +33,7 @@ import type {
   WindowResizeEdge,
 } from '../shared/types'
 import type { TranscriptExportFormat } from '../shared/transcript-export'
+import type { DroppedFileTransport } from '../shared/dropped-file-upload'
 import { appEvents, dispatchNavigation } from './app-events'
 import { SPEECH_MODELS } from '../shared/speech-models'
 
@@ -50,7 +51,10 @@ queryClient.setQueryData(
 // goes through the typed helpers below.
 const rpc = Electroview.defineRPC<WebviewRPCType>({
   // Electrobun gives up on a request after 1 s by default. Asking the login shell for its
-  // PATH, or PowerShell for a Path write, can take a few seconds on a cold start.
+  // PATH, or PowerShell for a Path write, can take a few seconds on a cold start. It is also
+  // the timeout of each dropped-file chunk (`appendDroppedFileChunk`, 2 MiB): Electrobun has
+  // no per-request timeout, and encrypting, sending and writing one chunk takes well under a
+  // second, so 20 s only ever fires when the main process is gone.
   maxRequestTime: 20_000,
   handlers: {
     messages: {
@@ -693,4 +697,15 @@ export function exportTranscript(
 
 export function revealExportedTranscript(target: TranscriptExportTarget): void {
   rpc.send.revealExportedTranscript({ target })
+}
+
+/**
+ * The main process's side of a file dropped on the window: the page streams its bytes
+ * (src/shared/dropped-file-upload.ts). Each request runs under `maxRequestTime` above.
+ */
+export const droppedFileTransport: DroppedFileTransport = {
+  begin: (params) => rpc.request.beginDroppedFile(params),
+  append: (params) => rpc.request.appendDroppedFileChunk(params),
+  finish: (params) => rpc.request.finishDroppedFile(params),
+  cancel: (params) => rpc.request.cancelDroppedFile(params),
 }
