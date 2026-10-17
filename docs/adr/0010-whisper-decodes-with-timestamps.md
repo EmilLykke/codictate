@@ -20,13 +20,31 @@ Up to 30 s the two paths hear the same words at the same speed, within about 0.0
 
 ## Edda keeps `-nt`
 
-Without `-nt`, Edda emits foreign-script noise. It keeps `-nt` and runs `--backend whisper --vad`, which splits the audio at pauses instead of every 30 s. That costs about 2x on long audio, and it stops the loss. The Silero VAD weights (`ggml-silero-v6.2.0.bin`, 864 KB) ship in `vendors/` on both platforms, so crispasr never downloads them at runtime. Edda has no Timed Transcript, because its segment times are not usable with `-nt`.
+Without `-nt`, Edda emits foreign-script noise. It keeps `-nt` and runs `--backend whisper --vad`, which splits the audio at pauses instead of every 30 s. That costs about 2x on long audio, and it stops the loss where the speaker pauses (below). The Silero VAD weights (`ggml-silero-v6.2.0.bin`, 864 KB) ship in `vendors/` on both platforms, so crispasr never downloads them at runtime. Edda has no Timed Transcript, because its segment times are not usable with `-nt`.
+
+## Open: this path still loses long unbroken speech
+
+**This path still loses speech, and it is not accepted.** The VAD only helps where the speaker pauses. The crispasr dispatcher packs the VAD's speech regions into slices of up to 30 s and decodes each with `-nt`; a region longer than 30 s is cut at 30 s wherever that falls. Measured 2026-10-17 on about 90 s of speech with the pauses cut out (utterances trimmed and joined with 0.05 s, the long-audio check's `*_continuous_90s` clips), the VAD found one 93 s region. large-v3, large-v3-q5_0 and large-v1 lost 29-60 s of the English clip (large-v3 wrote the first slice's text again instead), large-v1 also 71-93 s, and Edda lost the last Danish utterance, 78-94 s. The long-audio check fails on all of them.
+
+`-vmsd` (VAD max speech duration) cannot fix it in crispasr v0.8.41. whisper.cpp's VAD does split a region at the cap, at the last silence of at least 98 ms or else at the current frame, but a later pass merges every two regions less than 200 ms apart, which rejoins those splits: the region stays at 93 s and the transcript does not change. `-ck`, `-mc 0`, `-vsd` and `-vo` change nothing either, and fixed 15 or 20 s chunks without the VAD lost more Danish.
+
+The planned fix is for Codictate to choose the cut points itself, at real pauses, in slices of 20 s or less, and pass them with `--vad-import`, which crispasr honours. On the same clips, cut between utterances, nothing was lost: large-v3-q5_0 98.9%, large-v3 99.3% and large-v1 98.2% of English heard, Edda 95.5% and large-v3-q5_0 92.1% of Danish. Hard 10 s cuts mid-speech did not work: large-v3 wrote "♪♪" for three slices. The `timestamps` path lost nothing on the continuous clips, and neither did large-v3-q5_0 and large-v2-q5_0 forced onto it.
+
+The `-vt 0.25` threshold of the `timestamps` path (ADR-0011) waits for that fix too. On this path it fixed base and tiny clipping a first word ("Duffered into you") and lost nothing more on Edda, but large-v2, large-v2-q5_0 and large-v2-q8_0 lost one 5 min Danish utterance (128-137 s) at any `-vt` from 0.2 to 0.4 that they keep at the default 0.5. That is not the VAD: the slice there holds a 0.5 s tail of the previous utterance and the lost one, its edges move by 0.06 s, and `-nt` then writes 2 of its 8 words. Which speech `-nt` loses moves with small changes like that, which is why this path needs cut points it controls.
 
 ## Every Whisper Speech Model is checked before it drops `-nt`
 
 Edda showed that a fine-tune can break without `-nt`, so dropping it is a per-model fact, not a default. A model drops `-nt` only after it passes the long-audio check (`.manual.ts`): no utterance lost, short clips unchanged or within one word, no foreign-script noise, and sane segment times. Translate to English is checked too. Until a model has been checked, it takes Edda's path: `-nt` with VAD, and no Timed Transcript.
 
-First check, 2026-10-13: small.en-q5_1, medium.en-q5_0, small-q5_1 and large-v3-turbo-q5_0 pass and decode with timestamps. large-v3-q5_0 fails. Without `-nt` it loops on long Danish, repeating parts up to four times and losing the last utterance of the 5 min clip, and it loops on translate too. So it stays on Edda's path, where it loses nothing. Every browse-only Whisper model is still unchecked.
+First check, 2026-10-13: small.en-q5_1, medium.en-q5_0, small-q5_1 and large-v3-turbo-q5_0 pass and decode with timestamps. large-v3-q5_0 fails. Without `-nt` it loops on long Danish, repeating parts up to four times and losing the last utterance of the 5 min clip, and it loops on translate too. So it stays on Edda's path, where it loses nothing.
+
+Second check, 2026-10-17, every Whisper Speech Model with the VAD at `-vt 0.25` (ADR-0011). These pass and now decode with timestamps: large-v3-turbo, large-v3-turbo-q8_0, small, small-q8_0, small.en, small.en-q8_0, medium, medium-q5_0, medium-q8_0, medium.en, medium.en-q8_0, base.en, base.en-q5_1, base.en-q8_0, tiny.en, tiny.en-q5_1 and tiny.en-q8_0. These fail and stay on Edda's path:
+
+- large-v3-q5_0: a repeated part on 5 min Danish.
+- large-v3: lost 111-144 s of 5 min English, and repeats on Danish.
+- large-v2, large-v2-q5_0 and large-v2-q8_0: with the dictation prompt they drop opening words ("After a while" on LibriSpeech 2033-164916-0005); the f16 also wrote Chinese and once wrote the Danish prompt into the transcript.
+- large-v1: a short Danish clip came out 3 words worse than on `-nt`.
+- base, base-q5_1, base-q8_0, tiny, tiny-q5_1 and tiny-q8_0: with the Danish prompt and the VAD they skip the whole first utterance (0-8 s) of a Danish clip.
 
 hviske and Parakeet were never affected. On the cohere backend `-nt` only changes how stdout is printed, and Parakeet chunks with overlap. hviske switches to the JSON output so every crispasr run is read the same way.
 

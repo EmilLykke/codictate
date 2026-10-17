@@ -172,7 +172,7 @@ describe('buildWhisperHarnessCommand', () => {
     expect(command.argv).toContain('-bs')
   })
 
-  test('a stock Whisper Speech Model not yet checked takes the -nt and VAD path', async () => {
+  test('a stock Whisper Speech Model that failed the long-audio check takes the -nt and VAD path', async () => {
     const command = await buildWhisperHarnessCommand(
       {
         ...common,

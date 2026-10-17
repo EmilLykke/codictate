@@ -7,7 +7,8 @@
  *
  * Test audio is built in a temp directory from `benchmarks/datasets`: LibriSpeech test-clean
  * and FLEURS `da_dk` utterances joined with 1 s of silence into 60 s and 5 min English, and
- * 2 min and 5 min Danish. With no `CODICTATE_LONG_AUDIO_MODELS`, every installed curated
+ * 2 min and 5 min Danish, plus about 90 s of each with the utterances' own silence trimmed and
+ * 0.05 s between them, so the VAD finds no pause to split at (`*_continuous_90s`). With no `CODICTATE_LONG_AUDIO_MODELS`, every installed curated
  * Whisper Speech Model, Edda and hviske runs through `runTranscription`, exactly as a
  * Dictation or a File Transcription would. `CODICTATE_LONG_AUDIO_MODELS` (comma separated
  * Speech Model ids) picks the run instead, and may name any Whisper Speech Model, curated or
@@ -77,6 +78,18 @@ const LIBRISPEECH = join(DATASETS, 'librispeech')
 const FLEURS_DA = join(DATASETS, 'fleurs/da_dk')
 const SAMPLE_RATE = 16_000
 const GAP_SECONDS = 1
+/**
+ * The continuous clips: utterances trimmed of their own silence and joined with 0.05 s, so
+ * the VAD finds no pause and hands Whisper one long region. With `-nt`, 2026-10-17, large-v3
+ * lost 29-60 s of the English one and Edda the last utterance of the Danish one. They start
+ * at the recordings it was found on: which speech is lost moves with the audio, and another
+ * recording of the first Danish sentence hid Edda's loss.
+ */
+const CONTINUOUS_GAP_SECONDS = 0.05
+const CONTINUOUS_FROM = {
+  en: '1320-122612-0000',
+  da: '4524951591374662777',
+} as const
 const MAX_CLIP_SECONDS = 25
 /**
  * Clips the VAD-loss check always runs, because the VAD lost speech on them at `-vt 0.35`
@@ -241,27 +254,52 @@ function writeWav(path: string, samples: Int16Array): void {
   )
 }
 
-/** Utterances joined with 1 s of silence until `targetSeconds`, and where each one sits. */
+/**
+ * The samples without their leading and trailing 20 ms frames quieter than 2% of the
+ * loudest frame.
+ */
+function trimSilence(samples: Int16Array): Int16Array {
+  const frame = SAMPLE_RATE / 50
+  const rms: number[] = []
+  for (let i = 0; i + frame <= samples.length; i += frame) {
+    let energy = 0
+    for (let j = i; j < i + frame; j += 1) energy += samples[j] * samples[j]
+    rms.push(Math.sqrt(energy / frame))
+  }
+  const quiet = Math.max(0, ...rms) * 0.02
+  let first = 0
+  let last = rms.length - 1
+  while (first < last && rms[first] < quiet) first += 1
+  while (last > first && rms[last] < quiet) last -= 1
+  return samples.slice(first * frame, (last + 1) * frame)
+}
+
+/**
+ * Utterances joined with `gapSeconds` of silence (1 s by default) until `targetSeconds`, and
+ * where each one sits. `trim` cuts each utterance's own leading and trailing silence first.
+ */
 function buildLongClip(
   dir: string,
   name: string,
   lang: Lang,
   pool: readonly Utterance[],
-  targetSeconds: number
+  targetSeconds: number,
+  { gapSeconds = GAP_SECONDS, trim = false } = {}
 ): LongClip {
   const pieces: Int16Array[] = []
   const windows: Window[] = []
-  const gap = new Int16Array(GAP_SECONDS * SAMPLE_RATE)
+  const gap = new Int16Array(Math.round(gapSeconds * SAMPLE_RATE))
   let at = 0
   for (const utterance of pool) {
-    const samples = readWavSamples(utterance.wav)
-    if (samples === null) continue
+    const read = readWavSamples(utterance.wav)
+    if (read === null) continue
+    const samples = trim ? trimSilence(read) : read
     const seconds = samples.length / SAMPLE_RATE
     if (seconds > MAX_CLIP_SECONDS || at + seconds > targetSeconds * 1.05)
       continue
     if (pieces.length > 0) {
       pieces.push(gap)
-      at += GAP_SECONDS
+      at += gap.length / SAMPLE_RATE
     }
     pieces.push(samples)
     windows.push({ text: utterance.text, start: at, end: at + seconds })
@@ -305,12 +343,19 @@ function librispeechPool(
     .map((id) => ({ wav: join(wavDir, `${id}.wav`), text: text.get(id)! }))
 }
 
-function fleursDanishPool(): Utterance[] {
+/** One recording per sentence, in `test.tsv` order; with `fromFile`, from that recording on. */
+function fleursDanishPool(fromFile?: string): Utterance[] {
   const seen = new Set<string>()
   const out: Utterance[] = []
-  for (const line of readFileSync(join(FLEURS_DA, 'test.tsv'), 'utf8').split(
-    '\n'
-  )) {
+  const lines = readFileSync(join(FLEURS_DA, 'test.tsv'), 'utf8').split('\n')
+  const from =
+    fromFile === undefined
+      ? 0
+      : Math.max(
+          0,
+          lines.findIndex((line) => line.split('\t')[1] === `${fromFile}.wav`)
+        )
+  for (const line of lines.slice(from)) {
     const [sentenceId, file, text] = line.split('\t')
     if (!file || !text || seen.has(sentenceId) || seen.has(file)) continue
     seen.add(sentenceId)
@@ -757,6 +802,20 @@ beforeAll(() => {
     buildLongClip(dir, 'da_2min', 'da', da, 120),
     buildLongClip(dir, 'da_5min', 'da', da, 300)
   )
+  const enFrom = en.findIndex(
+    (u) => basename(u.wav, '.wav') === CONTINUOUS_FROM.en
+  )
+  for (const [lang, pool] of [
+    ['en', en.slice(Math.max(0, enFrom))],
+    ['da', fleursDanishPool(CONTINUOUS_FROM.da)],
+  ] as const) {
+    longClips.push(
+      buildLongClip(dir, `${lang}_continuous_90s`, lang, pool, 90, {
+        gapSeconds: CONTINUOUS_GAP_SECONDS,
+        trim: true,
+      })
+    )
+  }
   for (const [lang, pool] of [
     ['en', en],
     ['da', da],

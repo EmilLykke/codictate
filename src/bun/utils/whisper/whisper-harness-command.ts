@@ -93,6 +93,18 @@ function dictationPrompt(
   return null
 }
 
+/**
+ * `-vt` on the `timestamps` path (ADR-0011). Above it the VAD starts a speech region late or
+ * skips quiet speech, and Whisper never hears it. At the default 0.5, and still at 0.35, small
+ * and turbo turned "Stuff it into you" into "Stuffed into you", and medium.en dropped seven
+ * words at the start of a LibriSpeech clip. At 0.25 both are back, no model missed more
+ * reference words on 40 clips than at 0.35, and sentence breaks on real dictations did not
+ * change. A wider `-vp` pad fixes a first word too but keeps more of each pause, and the full
+ * stops come back. Not on `nt-vad`: there it fixed base and tiny clipping first words but lost
+ * a Danish utterance on large-v2, so it waits for that path's cut-point fix (ADR-0010).
+ */
+const VAD_THRESHOLD = '0.25'
+
 function crispasrDecoding(
   options: WhisperHarnessCommandOptions
 ): CrispasrDecoding {
@@ -120,10 +132,11 @@ function crispasrDecoding(
  *   original timeline for segment times, `-bs 5` beam search, and a punctuated `--prompt` in
  *   the language Whisper will write (`dictationPrompt`). No `--backend`: the dispatcher's VAD
  *   decodes each slice on its own and breaks sentences more, not less.
- * - `nt-vad`, for Edda and every Whisper Speech Model not yet checked without `-nt`: keeps
- *   `-nt` (Edda turns to foreign-script noise without it) and runs `--backend whisper --vad`
- *   with the bundled Silero weights, which splits at pauses instead of every 30 s. The VAD
- *   path is passed explicitly so crispasr never downloads it at runtime.
+ * - `nt-vad`, for Edda and every Whisper Speech Model that has not passed the check without
+ *   `-nt`: keeps `-nt` (Edda turns to foreign-script noise without it) and runs
+ *   `--backend whisper --vad` with the bundled Silero weights, which splits at pauses instead
+ *   of every 30 s. Speech with no pause for over 30 s still loses words there (ADR-0010, an
+ *   open follow-up). The VAD path is passed explicitly so crispasr never downloads it.
  * - `cohere`, hviske: `--backend cohere -nt`. There `-nt` only changes how stdout is printed.
  *
  * Translate needs no special-casing. `-tr` was measured equivalent across Harnesses on a
@@ -179,18 +192,12 @@ export async function buildWhisperHarnessCommand(
   )
 
   if (decoding === 'timestamps') {
-    // `-vt 0.25`: above it the VAD starts a region late or skips quiet speech, and Whisper
-    // never hears it. At the default 0.5, and still at 0.35, small and turbo turned "Stuff it
-    // into you" into "Stuffed into you", and medium.en dropped seven words at the start of a
-    // LibriSpeech clip. At 0.25 both are back, and on 40 clips no model missed more reference
-    // words than at 0.35. Sentence breaks on real dictations did not change. A wider `-vp`
-    // pad fixes the first word too but keeps more of each pause, and the full stops come back.
     argv.push(
       '--vad',
       '-vm',
       dependencies.resolveVadModel(),
       '-vt',
-      '0.25',
+      VAD_THRESHOLD,
       '-bs',
       '5'
     )
