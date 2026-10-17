@@ -7,12 +7,13 @@
  *
  * Test audio is built in a temp directory from `benchmarks/datasets`: LibriSpeech test-clean
  * and FLEURS `da_dk` utterances joined with 1 s of silence into 60 s and 5 min English, and
- * 2 min and 5 min Danish. Every installed curated Whisper Speech Model, Edda and hviske runs
- * through `runTranscription`, exactly as a Dictation or a File Transcription would. Weights
- * are looked for in the app's models directory and `vendors/whisper`, plus any directory in
- * `CODICTATE_LONG_AUDIO_MODEL_DIRS` (path-delimiter separated). `CODICTATE_LONG_AUDIO_MODELS`
- * (comma separated Speech Model ids) narrows the run. Missing datasets, crispasr or weights
- * skip with a message.
+ * 2 min and 5 min Danish. With no `CODICTATE_LONG_AUDIO_MODELS`, every installed curated
+ * Whisper Speech Model, Edda and hviske runs through `runTranscription`, exactly as a
+ * Dictation or a File Transcription would. `CODICTATE_LONG_AUDIO_MODELS` (comma separated
+ * Speech Model ids) picks the run instead, and may name any Whisper Speech Model, curated or
+ * not. Weights are looked for in the app's models directory and `vendors/whisper`, plus any
+ * directory in `CODICTATE_LONG_AUDIO_MODEL_DIRS` (path-delimiter separated). Missing
+ * datasets, crispasr or weights skip with a message.
  *
  * Asserted per Speech Model:
  * - No utterance lost: at least 30% of each utterance's reference words heard, in order.
@@ -22,8 +23,16 @@
  * - With a Timed Transcript: times in order and inside the audio (+0.5 s), every
  *   utterance's window overlaps a part, and no part of three words or more repeats the one
  *   before it (a decoding loop, which the heard share alone does not catch).
- * - Translate (each installed of small-q5_1 and large-v3-q5_0, `-tr` on Danish): English;
- *   when timed, no utterance window without a part and no repeated parts.
+ * - Translate (every selected installed model with `translationSupport`, `-tr` on Danish):
+ *   English; when timed, no utterance window without a part and no repeated parts.
+ * - On the `timestamps` path, the VAD loses nothing (ADR-0011): 20 short LibriSpeech clips,
+ *   and 10 FLEURS `da_dk` clips for a multilingual model, run with the app's argv and with
+ *   the same argv minus `--vad -vm <path> -vt <x>`. Each transcript is aligned against the
+ *   reference, and a clip fails when, where the VAD run misses reference words the other run
+ *   heard, the VAD run has 3 or more words fewer, or the clip's first word is gone. A
+ *   misheard stretch has about as many words either way, so it does not count.
+ * - On the `timestamps` path, no transcript repeats the dictation `--prompt` (four of its
+ *   words in a row): without the VAD, small-q5_1 once wrote the Danish prompt out three times.
  *
  * A table is printed at the end. A Speech Model gets `whisperDecoding: 'timestamps'` in
  * src/shared/speech-models.ts only after its rows pass here.
@@ -31,15 +40,19 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import {
+  closeSync,
   existsSync,
   mkdtempSync,
+  openSync,
   readFileSync,
+  readSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, join, resolve } from 'node:path'
+import { basename, delimiter, join, resolve } from 'node:path'
 import { computeWer, tokenizeForWer } from '../../../../../benchmarks/stt/wer'
 import {
   pinnedTranscriptionLanguageId,
@@ -50,6 +63,11 @@ import {
 import type { TimedTranscript } from '../../../../shared/timed-transcript'
 import { findBinary } from '../../../platform/binaries'
 import { MODELS_DIR } from '../../../platform/runtime'
+import {
+  buildWhisperHarnessCommand,
+  DICTATION_PROMPT,
+} from '../whisper-harness-command'
+import { crispasrTranscript, parseCrispasrJson } from './crispasr-json'
 import { runTranscription } from './run-transcription'
 import type { HarnessTranscriptionRequest } from './transcription'
 
@@ -60,6 +78,14 @@ const FLEURS_DA = join(DATASETS, 'fleurs/da_dk')
 const SAMPLE_RATE = 16_000
 const GAP_SECONDS = 1
 const MAX_CLIP_SECONDS = 25
+/**
+ * Clips the VAD-loss check always runs, because the VAD lost speech on them at `-vt 0.35`
+ * (ADR-0011): small and turbo clipped "Stuff it into you", and medium.en lost seven words.
+ */
+const VAD_LOSS_CLIPS = ['1089-134686-0001', '5764-299665-0017']
+const VAD_LOSS_ENGLISH_CLIPS = 20
+const VAD_LOSS_DANISH_CLIPS = 10
+const VAD_LOSS_MAX_SECONDS = 20
 const RUN_TIMEOUT_MS = 15 * 60_000
 
 type Lang = 'en' | 'da'
@@ -108,6 +134,9 @@ interface Row {
 }
 
 const rows: Row[] = []
+const vadLossRows: VadLoss[] = []
+const vadChecked: { model: string; clips: number; flagged: number }[] = []
+const promptEchoes: { model: string; clip: string; phrase: string }[] = []
 const parity: {
   model: string
   clip: string
@@ -169,6 +198,23 @@ function readWavSamples(path: string): Int16Array | null {
     offset = body + size + (size & 1)
   }
   return null
+}
+
+/**
+ * A WAV's length from its size and the bits per sample in its header, without reading the
+ * samples: 16 kHz mono with `fmt ` first, as both datasets are. Close enough to pick short
+ * clips from a pool of thousands.
+ */
+function wavSeconds(path: string): number {
+  const header = Buffer.alloc(36)
+  const fd = openSync(path, 'r')
+  try {
+    readSync(fd, header, 0, 36, 0)
+  } finally {
+    closeSync(fd)
+  }
+  const bytesPerSample = Math.max(1, header.readUInt16LE(34) / 8)
+  return statSync(path).size / (SAMPLE_RATE * bytesPerSample)
 }
 
 function writeWav(path: string, samples: Int16Array): void {
@@ -235,9 +281,11 @@ function buildLongClip(
 
 // -- Datasets -------------------------------------------------------------------------
 
-function librispeechPool(): Utterance[] {
+function librispeechPool(
+  subset: 'test-clean' | 'test-other' = 'test-clean'
+): Utterance[] {
   const text = new Map<string, string>()
-  const root = join(LIBRISPEECH, 'test-clean')
+  const root = join(LIBRISPEECH, subset)
   for (const speaker of readdirSync(root).sort()) {
     const speakerDir = join(root, speaker)
     for (const chapter of readdirSync(speakerDir).sort()) {
@@ -250,7 +298,7 @@ function librispeechPool(): Utterance[] {
       }
     }
   }
-  const wavDir = join(LIBRISPEECH, 'wav/test-clean')
+  const wavDir = join(LIBRISPEECH, 'wav', subset)
   return [...text.keys()]
     .sort()
     .filter((id) => existsSync(join(wavDir, `${id}.wav`)))
@@ -373,6 +421,115 @@ function shareOf(words: readonly string[], set: Set<string>): number {
     : words.filter((w) => set.has(w)).length / words.length
 }
 
+interface Alignment {
+  /** Per reference word: matched by a hypothesis word. */
+  heard: boolean[]
+  /**
+   * Per hypothesis word, the reference position it sits at: the word it matches or
+   * replaces, or, for an inserted word, half a step before the next reference word.
+   */
+  at: number[]
+}
+
+/** A minimum-edit alignment of the hypothesis words against the reference words. */
+function alignWords(ref: readonly string[], hyp: readonly string[]): Alignment {
+  const n = ref.length
+  const m = hyp.length
+  const width = m + 1
+  const d = new Uint32Array((n + 1) * width)
+  for (let i = 0; i <= n; i += 1) d[i * width] = i
+  for (let j = 0; j <= m; j += 1) d[j] = j
+  for (let i = 1; i <= n; i += 1) {
+    for (let j = 1; j <= m; j += 1) {
+      const sub =
+        d[(i - 1) * width + j - 1] + (ref[i - 1] === hyp[j - 1] ? 0 : 1)
+      d[i * width + j] = Math.min(
+        d[(i - 1) * width + j] + 1,
+        d[i * width + j - 1] + 1,
+        sub
+      )
+    }
+  }
+  const heard = ref.map(() => false)
+  const at = hyp.map(() => 0)
+  let i = n
+  let j = m
+  while (i > 0 || j > 0) {
+    const same = i > 0 && j > 0 && ref[i - 1] === hyp[j - 1]
+    if (
+      i > 0 &&
+      j > 0 &&
+      d[i * width + j] === d[(i - 1) * width + j - 1] + (same ? 0 : 1)
+    ) {
+      heard[i - 1] = same
+      at[j - 1] = i - 1
+      i -= 1
+      j -= 1
+    } else if (i > 0 && d[i * width + j] === d[(i - 1) * width + j] + 1) {
+      i -= 1
+    } else {
+      at[j - 1] = i - 0.5
+      j -= 1
+    }
+  }
+  return { heard, at }
+}
+
+interface VadLoss {
+  model: string
+  clip: string
+  /** The reference words the VAD run lost. */
+  missing: string
+  withoutVad: string
+  withVad: string
+}
+
+/**
+ * The stretches of reference words the VAD run lost, as text. A stretch is a run of
+ * reference words the VAD run did not hear; it counts as lost when the run without the VAD
+ * wrote 3 or more words more there, or when it is the start of the clip and the run without
+ * the VAD heard the first word there and wrote more words. A misheard stretch ("ved at give"
+ * as "når jeg giver") has about as many words either way and does not count.
+ */
+function vadLosses(
+  reference: string,
+  withoutVad: string,
+  withVad: string
+): string[] {
+  const ref = tokenizeForWer(reference)
+  const plain = alignWords(ref, tokenizeForWer(withoutVad))
+  const vad = alignWords(ref, tokenizeForWer(withVad))
+  const wordsIn = (a: Alignment, from: number, to: number) =>
+    a.at.filter((p) => p >= from && p <= to).length
+  const losses: string[] = []
+  let from = 0
+  while (from < ref.length) {
+    if (vad.heard[from]) {
+      from += 1
+      continue
+    }
+    let to = from
+    while (to + 1 < ref.length && !vad.heard[to + 1]) to += 1
+    const drop = wordsIn(plain, from, to) - wordsIn(vad, from, to)
+    const startGone = from === 0 && plain.heard[0] && drop >= 1
+    if (drop >= 3 || startGone) losses.push(ref.slice(from, to + 1).join(' '))
+    from = to + 1
+  }
+  return losses
+}
+
+/** Every four words in a row of each dictation prompt, normalised like the transcripts. */
+const PROMPT_PHRASES = Object.values(DICTATION_PROMPT).flatMap((prompt) => {
+  const words = tokenizeForWer(prompt)
+  return words.slice(0, -3).map((_, i) => words.slice(i, i + 4).join(' '))
+})
+
+/** The dictation prompt phrase the transcript repeats, or `null`. */
+function echoedPrompt(transcript: string): string | null {
+  const text = ` ${tokenizeForWer(transcript).join(' ')} `
+  return PROMPT_PHRASES.find((phrase) => text.includes(` ${phrase} `)) ?? null
+}
+
 // -- Speech Models -------------------------------------------------------------------
 
 interface InstalledModel {
@@ -397,13 +554,14 @@ function installedModels(): InstalledModel[] {
   for (const model of SPEECH_MODELS) {
     const isEdda = model.id.startsWith('edda-')
     const isHviske = model.engine === 'hviske'
-    if (!(
-      isHviske ||
-      isEdda ||
-      (model.engine === 'whisper_cpp' && model.curated)
-    ))
-      continue
-    if (only.length > 0 && !only.includes(model.id)) continue
+    const isWhisper = model.engine === 'whisper_cpp'
+    // Named models may be any Whisper one, so a browse-only model can be checked before it
+    // gets `whisperDecoding: 'timestamps'`. Without names, the curated set.
+    const selected =
+      only.length > 0
+        ? only.includes(model.id) && (isWhisper || isHviske)
+        : isHviske || isEdda || (isWhisper && model.curated)
+    if (!selected) continue
     const path = modelDirs()
       .map((dir) => join(dir, model.artifactName))
       .find((candidate) => existsSync(candidate))
@@ -443,6 +601,68 @@ function decodingOf(installed: InstalledModel): string {
   return installed.model.engine === 'hviske'
     ? 'cohere'
     : (whisperDecodingForModel(installed.model.id) ?? 'nt-vad')
+}
+
+/**
+ * One `timestamps` run, spawned here so the argv can be changed: the app's argv as
+ * `buildWhisperHarnessCommand` makes it, or, with `withoutVad`, the same minus
+ * `--vad -vm <path> -vt <x>`. Returns the Raw Transcript.
+ */
+async function timestampsTranscript(
+  installed: InstalledModel,
+  audioPath: string,
+  lang: Lang,
+  outputBase: string,
+  withoutVad: boolean
+): Promise<string> {
+  const command = await buildWhisperHarnessCommand({
+    speechModelId: installed.model.id,
+    modelPath: installed.path,
+    language: installed.pinnedLanguage ?? lang,
+    audioPath,
+    jsonOutputBase: outputBase,
+  })
+  let argv = command.argv
+  if (withoutVad) {
+    const vadAt = argv.indexOf('--vad')
+    const vmAt = argv.indexOf('-vm')
+    const vtAt = argv.indexOf('-vt')
+    if (vadAt === -1 || vmAt === -1 || vtAt === -1)
+      throw new Error(
+        `no --vad -vm -vt in the timestamps argv: ${argv.join(' ')}`
+      )
+    const drop = new Set([vadAt, vmAt, vmAt + 1, vtAt, vtAt + 1])
+    argv = argv.filter((_, i) => !drop.has(i))
+  }
+  // The same UTF-8 locale `transcribeWithCrispasr` spawns with.
+  const proc = Bun.spawnSync(argv, {
+    stdout: 'ignore',
+    stderr: 'pipe',
+    env: { ...process.env, LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' },
+  })
+  if (proc.exitCode !== 0)
+    throw new Error(
+      `${withoutVad ? 'no-VAD' : 'app'} argv exited ${proc.exitCode}`
+    )
+  if (!existsSync(command.jsonPath)) {
+    if (new TextDecoder().decode(proc.stderr).includes('no speech detected'))
+      return ''
+    throw new Error(`no JSON at ${command.jsonPath}`)
+  }
+  const parsed = parseCrispasrJson(
+    new Uint8Array(readFileSync(command.jsonPath))
+  )
+  if (!parsed.ok) throw new Error(parsed.detail)
+  return crispasrTranscript(parsed, command.decoding).rawTranscript
+}
+
+/** `count` items spread evenly over `pool`. */
+function spread<T>(pool: readonly T[], count: number): T[] {
+  if (pool.length <= count) return [...pool]
+  return Array.from(
+    { length: count },
+    (_, i) => pool[Math.floor((i * pool.length) / count)]
+  )
 }
 
 /** The argv every crispasr run used before ADR-0010, for the short-clip comparison. */
@@ -494,6 +714,37 @@ if (skipReason !== null) console.warn(`[long-audio] skipped: ${skipReason}`)
 let dir = ''
 const longClips: LongClip[] = []
 const shortClips: ShortClip[] = []
+/** Single utterances for the VAD-loss check: English, then Danish. */
+const vadClips: ShortClip[] = []
+
+/** A clip of one utterance, or `null` when it is unreadable or too long. */
+function singleClip(
+  name: string,
+  lang: Lang,
+  utterance: Utterance
+): ShortClip | null {
+  const clip = buildLongClip(dir, name, lang, [utterance], MAX_CLIP_SECONDS)
+  return clip.windows.length === 1
+    ? { name, lang, path: clip.path, text: utterance.text }
+    : null
+}
+
+/**
+ * Fails, and records, a transcript on the `timestamps` path that writes the dictation
+ * prompt back out.
+ */
+function checkPromptEcho(
+  installed: InstalledModel,
+  clip: string,
+  transcript: string,
+  failures: string[]
+): void {
+  if (decodingOf(installed) !== 'timestamps') return
+  const phrase = echoedPrompt(transcript)
+  if (phrase === null) return
+  promptEchoes.push({ model: installed.model.id, clip, phrase })
+  failures.push(`${clip}: repeats the prompt ("${phrase}")`)
+}
 
 beforeAll(() => {
   if (skipReason !== null) return
@@ -526,6 +777,33 @@ beforeAll(() => {
       })
     }
   }
+
+  const clean = en
+  const other = librispeechPool('test-other')
+  const idOf = (u: Utterance) => basename(u.wav, '.wav')
+  const forced = [...clean, ...other].filter((u) =>
+    VAD_LOSS_CLIPS.includes(idOf(u))
+  )
+  const short = (u: Utterance) => wavSeconds(u.wav) < VAD_LOSS_MAX_SECONDS
+  const rest = (pool: Utterance[]) =>
+    pool.filter((u) => !VAD_LOSS_CLIPS.includes(idOf(u)) && short(u))
+  const perSubset = (VAD_LOSS_ENGLISH_CLIPS - forced.length) / 2
+  for (const utterance of [
+    ...forced,
+    ...spread(rest(clean), Math.ceil(perSubset)),
+    ...spread(rest(other), Math.floor(perSubset)),
+  ]) {
+    const clip = singleClip(`en_${idOf(utterance)}`, 'en', utterance)
+    if (clip !== null) vadClips.push(clip)
+  }
+  for (const utterance of spread(da.filter(short), VAD_LOSS_DANISH_CLIPS)) {
+    const clip = singleClip(
+      `da_${basename(utterance.wav, '.wav')}`,
+      'da',
+      utterance
+    )
+    if (clip !== null) vadClips.push(clip)
+  }
 }, 120_000)
 
 afterAll(() => {
@@ -548,7 +826,30 @@ afterAll(() => {
         `| ${p.model} | ${p.clip} | ${p.diff} | ${p.legacyErrors} | ${p.newErrors} |`
     ),
   ]
-  console.log(`\n[long-audio]\n${[...lines, ...parityLines].join('\n')}\n`)
+  const vadLines = [
+    '',
+    '| Speech Model | VAD-loss clips | Clips where the VAD lost speech |',
+    '|---|---|---|',
+    ...vadChecked.map((v) => `| ${v.model} | ${v.clips} | ${v.flagged} |`),
+    ...(vadLossRows.length === 0
+      ? []
+      : [
+          '',
+          '| Speech Model | Clip | Lost with VAD | Without VAD | With VAD |',
+          '|---|---|---|---|---|',
+          ...vadLossRows.map(
+            (v) =>
+              `| ${v.model} | ${v.clip} | ${v.missing} | ${v.withoutVad} | ${v.withVad} |`
+          ),
+        ]),
+    '',
+    promptEchoes.length === 0
+      ? 'Prompt echoes: none'
+      : `Prompt echoes: ${promptEchoes.map((e) => `${e.model} ${e.clip} ("${e.phrase}")`).join('; ')}`,
+  ]
+  console.log(
+    `\n[long-audio]\n${[...lines, ...parityLines, ...vadLines].join('\n')}\n`
+  )
 })
 
 describe('long-audio check', () => {
@@ -575,6 +876,7 @@ describe('long-audio check', () => {
             )
             continue
           }
+          checkPromptEcho(installed, clip.name, result.rawTranscript, failures)
           const heard = heardPerWindow(clip.windows, result.rawTranscript)
           const lost = heard
             .map((share, index) => ({ share, index }))
@@ -649,6 +951,7 @@ describe('long-audio check', () => {
             failures.push(`${clip.name}: ${result.reason}`)
             continue
           }
+          checkPromptEcho(installed, clip.name, result.rawTranscript, failures)
           const legacy = legacyTranscript(crispasr!, installed, clip)
           const diff = wordEdits(legacy, result.rawTranscript)
           const legacyErrors = wordEdits(clip.text, legacy)
@@ -672,11 +975,9 @@ describe('long-audio check', () => {
     )
   }
 
-  // Every installed translate-capable one: a timed one must keep its timings sane while
-  // translating, and one on Edda's path must still translate without losing speech.
-  const translators = ['small-q5_1', 'large-v3-q5_0']
-    .map((id) => models.find((m) => m.model.id === id))
-    .filter((m) => m !== undefined)
+  // Every selected installed translate-capable one: a timed one must keep its timings sane
+  // while translating, and one on Edda's path must still translate without losing speech.
+  const translators = models.filter((m) => m.model.translationSupport)
   test.skipIf(skipReason !== null || translators.length > 0)(
     'translate to English on Danish (no translate-capable model installed)',
     () => {}
@@ -717,6 +1018,14 @@ describe('long-audio check', () => {
               : `${clip.windows.length - uncovered.length}/${clip.windows.length}`,
           note: `English words ${(english * 100).toFixed(0)}%, Danish ${(danish * 100).toFixed(0)}%`,
         })
+        const echoes: string[] = []
+        checkPromptEcho(
+          translator,
+          `${clip.name} -tr`,
+          result.rawTranscript,
+          echoes
+        )
+        expect(echoes).toEqual([])
         expect(english).toBeGreaterThan(0.2)
         expect(danish).toBeLessThan(0.05)
         if (decodingOf(translator) !== 'timestamps') {
@@ -728,6 +1037,54 @@ describe('long-audio check', () => {
         expect(repeatedParts(timed!)).toBe(0)
       },
       RUN_TIMEOUT_MS
+    )
+  }
+
+  // ADR-0011: the VAD must not cost a word the same argv without it hears.
+  for (const installed of models.filter(
+    (m) => decodingOf(m) === 'timestamps'
+  )) {
+    const id = installed.model.id
+    test.skipIf(skipReason !== null)(
+      `${id}: the VAD loses no speech and the prompt is not repeated`,
+      async () => {
+        const failures: string[] = []
+        const clips = vadClips.filter((c) => installed.langs.includes(c.lang))
+        let flagged = 0
+        for (const clip of clips) {
+          const base = join(dir, `vad-${id}-${clip.name}`)
+          const withVad = await timestampsTranscript(
+            installed,
+            clip.path,
+            clip.lang,
+            `${base}-app`,
+            false
+          )
+          const withoutVad = await timestampsTranscript(
+            installed,
+            clip.path,
+            clip.lang,
+            `${base}-novad`,
+            true
+          )
+          checkPromptEcho(installed, clip.name, withVad, failures)
+          const losses = vadLosses(clip.text, withoutVad, withVad)
+          if (losses.length > 0) flagged += 1
+          for (const missing of losses) {
+            vadLossRows.push({
+              model: id,
+              clip: clip.name,
+              missing,
+              withoutVad,
+              withVad,
+            })
+            failures.push(`${clip.name}: the VAD lost "${missing}"`)
+          }
+        }
+        vadChecked.push({ model: id, clips: clips.length, flagged })
+        expect(failures).toEqual([])
+      },
+      RUN_TIMEOUT_MS * 2
     )
   }
 })

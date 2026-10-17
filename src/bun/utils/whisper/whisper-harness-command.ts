@@ -75,8 +75,9 @@ function whisperHarnessThreadCount(): number {
  * language Whisper will write, so beam search keeps capitals and full stops instead of
  * running on with commas. English also covers auto-detect (a Danish clip stayed Danish under
  * it) and Translate to English. Any other pinned language gets none: untested, so unbiased.
+ * Exported for the long-audio check, which fails a Speech Model that writes it back out.
  */
-const DICTATION_PROMPT = {
+export const DICTATION_PROMPT = {
   en: 'Hello, this is a dictation. I write in full sentences, with commas where I pause.',
   da: 'Hej, dette er en diktering. Jeg skriver i hele sætninger, med kommaer hvor jeg holder pause.',
 } as const
@@ -178,15 +179,18 @@ export async function buildWhisperHarnessCommand(
   )
 
   if (decoding === 'timestamps') {
-    // `-vt 0.35`: at the default 0.5 the VAD starts a region late and clips the first word
-    // when speech begins at once ("Stuff it into you" became "Stuffed into you"). A wider
-    // `-vp` pad fixes that too but keeps more of each pause, and the full stops come back.
+    // `-vt 0.25`: above it the VAD starts a region late or skips quiet speech, and Whisper
+    // never hears it. At the default 0.5, and still at 0.35, small and turbo turned "Stuff it
+    // into you" into "Stuffed into you", and medium.en dropped seven words at the start of a
+    // LibriSpeech clip. At 0.25 both are back, and on 40 clips no model missed more reference
+    // words than at 0.35. Sentence breaks on real dictations did not change. A wider `-vp`
+    // pad fixes the first word too but keeps more of each pause, and the full stops come back.
     argv.push(
       '--vad',
       '-vm',
       dependencies.resolveVadModel(),
       '-vt',
-      '0.35',
+      '0.25',
       '-bs',
       '5'
     )
