@@ -18,11 +18,12 @@
  * `CODICTATE_LONG_AUDIO_MODEL_DIRS` (path-delimiter separated). Missing datasets, crispasr or
  * weights skip with a message.
  *
- * Two knobs change the `nt-vad` decode, for measuring it (issue #83); unset, the run is the
+ * Three knobs change the `nt-vad` decode, for measuring it (issue #83); unset, the run is the
  * app's:
- * - `CODICTATE_LONG_AUDIO_SLICE_SECONDS`: the slice cap, in seconds (the app cuts at 20; the
- *   issue measures 25 against it).
+ * - `CODICTATE_LONG_AUDIO_SLICE_SECONDS`: the slice cap, in seconds (the app cuts at 30).
  * - `CODICTATE_LONG_AUDIO_NT_BEAM=0`: greedy decoding instead of `-bs 5`.
+ * - `CODICTATE_LONG_AUDIO_NT_PROMPT=0`: no dictation `--prompt`, whatever the Speech Model's
+ *   `ntVadPrompt` says.
  * The printed table starts with the values the run used.
  *
  * Asserted per Speech Model:
@@ -56,8 +57,21 @@
  *   reference, and a clip fails when, where the VAD run misses reference words the other run
  *   heard, the VAD run has 3 or more words fewer, or the clip's first word is gone. A
  *   misheard stretch has about as many words either way, so it does not count.
- * - On the `timestamps` path, no transcript repeats the dictation `--prompt` (four of its
- *   words in a row): without the VAD, small-q5_1 once wrote the Danish prompt out three times.
+ * - On the `timestamps` and `nt-vad` paths, no transcript repeats the dictation `--prompt`
+ *   (four of its words in a row): without the VAD, small-q5_1 once wrote the Danish prompt out
+ *   three times.
+ * - Punctuation, printed for every long clip: sentence ends (`.`, `!`, `?`) and commas per 100
+ *   words, with the reference's sentence ends beside them. On `nt-vad` a clip with real pauses
+ *   fails when the reference has 4 or more sentence ends per 100 words and the transcript
+ *   under 2. Only FLEURS references are punctuated (LibriSpeech's are upper case without
+ *   punctuation), so in practice that gates `da_2min` and `da_5min`; English is printed, not
+ *   judged. At a 20 s cap Edda wrote no full stop in a 65 s real dictation (ADR-0010).
+ * - The local dictation, when `benchmarks/datasets/local/edda-dictation-da-65s.wav` exists:
+ *   a real 65 s Danish dictation, private and never committed, so absent everywhere but the
+ *   machine that recorded it and skipped without a word there. Every Danish-capable Speech
+ *   Model transcribes it through the adapter, and fails when fewer than 4 sentence ends come
+ *   out or any of `LOCAL_DICTATION_PHRASES` is missing (case and punctuation ignored). Words,
+ *   sentence ends and commas are printed.
  *
  * A table is printed at the end. A Speech Model gets `whisperDecoding: 'timestamps'` in
  * src/shared/speech-models.ts only after its rows pass here.
@@ -144,6 +158,24 @@ const SOLO_SLICE_OPTIONS: Partial<VadSliceOptions> = {
   maxSliceSeconds: 30,
   maxMergeGapMs: 30_000,
 }
+/**
+ * The punctuation gate on `nt-vad`, per 100 words: a transcript under `minSentenceEnds` fails
+ * where the reference has `referenceSentenceEnds` or more (FLEURS has about 5).
+ */
+const PUNCTUATION_GATE = { minSentenceEnds: 2, referenceSentenceEnds: 4 }
+/** A real dictation (see the header). Never committed. */
+const LOCAL_DICTATION = join(DATASETS, 'local/edda-dictation-da-65s.wav')
+/**
+ * What the local dictation must keep. "mangler penge" ends the sentence Edda lost when it
+ * stopped early in a 12 s slice at the 20 s cap.
+ */
+const LOCAL_DICTATION_PHRASES = [
+  'mangler penge',
+  'mette frederiksen',
+  'bruxellesboblen',
+  'økonomiske problemer',
+]
+const LOCAL_DICTATION_MIN_SENTENCE_ENDS = 4
 
 /** The `nt-vad` knobs from the environment (see the header). */
 function ntVadTuning(): NtVadTuning {
@@ -163,6 +195,8 @@ function ntVadTuning(): NtVadTuning {
     sliceOptions:
       maxSliceSeconds === undefined ? undefined : { maxSliceSeconds },
     beamSearch: process.env.CODICTATE_LONG_AUDIO_NT_BEAM !== '0',
+    prompt:
+      process.env.CODICTATE_LONG_AUDIO_NT_PROMPT === '0' ? false : undefined,
   }
 }
 
@@ -247,6 +281,11 @@ interface Row {
   windowsCovered: string
   /** Parts of three words or more that repeat the part before them: a decoding loop. */
   repeats: number | null
+  /** Per 100 words of the transcript. */
+  sentenceEnds: number
+  commas: number
+  /** Per 100 words of the reference, or `null` without one (translate). */
+  referenceSentenceEnds: number | null
   note: string
 }
 
@@ -254,6 +293,15 @@ const rows: Row[] = []
 const vadLossRows: VadLoss[] = []
 const vadChecked: { model: string; clips: number; flagged: number }[] = []
 const promptEchoes: { model: string; clip: string; phrase: string }[] = []
+const localDictationRows: {
+  model: string
+  decoding: string
+  wallSeconds: number
+  words: number
+  sentenceEnds: number
+  commas: number
+  missing: string[]
+}[] = []
 const cutLossRows: CutLoss[] = []
 const cutChecked: {
   model: string
@@ -546,6 +594,35 @@ function heardPerWindow(
     const words = tokenizeForWer(w.text).length
     return words === 0 ? 1 : hits[index] / words
   })
+}
+
+/**
+ * Words, sentence ends and commas in a text. A sentence end is a run of `.`, `!` and `?`, and
+ * a comma a `,`, before whitespace, a closing quote or bracket, or the end: "4.5" and "4,5"
+ * are numbers, not punctuation.
+ */
+function punctuation(text: string): {
+  words: number
+  sentenceEnds: number
+  commas: number
+} {
+  return {
+    words: tokenizeForWer(text).length,
+    sentenceEnds: (text.match(/[.!?]+(?=["'”»)\]]*(?:\s|$))/gu) ?? []).length,
+    commas: (text.match(/,(?=["'”»)\]]*(?:\s|$))/gu) ?? []).length,
+  }
+}
+
+function per100(count: number, words: number): number {
+  return words === 0 ? 0 : (count * 100) / words
+}
+
+/** The phrases of `LOCAL_DICTATION_PHRASES` the transcript lacks, case and punctuation ignored. */
+function missingPhrases(transcript: string): string[] {
+  const text = ` ${tokenizeForWer(transcript).join(' ')} `
+  return LOCAL_DICTATION_PHRASES.filter(
+    (phrase) => !text.includes(` ${tokenizeForWer(phrase).join(' ')} `)
+  )
 }
 
 function nonLatinShare(text: string): number {
@@ -927,8 +1004,8 @@ function singleClip(
 }
 
 /**
- * Fails, and records, a transcript on the `timestamps` path that writes the dictation
- * prompt back out.
+ * Fails, and records, a transcript on a Whisper path (`timestamps` or `nt-vad`, both of which
+ * pass the dictation prompt) that writes the prompt back out.
  */
 function checkPromptEcho(
   installed: InstalledModel,
@@ -936,7 +1013,7 @@ function checkPromptEcho(
   transcript: string,
   failures: string[]
 ): void {
-  if (decodingOf(installed) !== 'timestamps') return
+  if (decodingOf(installed) === 'cohere') return
   const phrase = echoedPrompt(transcript)
   if (phrase === null) return
   promptEchoes.push({ model: installed.model.id, clip, phrase })
@@ -984,6 +1061,11 @@ function cutsOf(clip: LongClip): Cut[] {
  * the loss. Those losses are reported, not gated.
  */
 function cutLossGated(clip: LongClip): boolean {
+  return hasPauses(clip)
+}
+
+/** Whether the clip's gaps between utterances are pauses the planner counts. */
+function hasPauses(clip: LongClip): boolean {
   return clip.gapSeconds * 1000 >= DEFAULT_VAD_SLICE_OPTIONS.minPauseMs
 }
 
@@ -1163,11 +1245,11 @@ afterAll(() => {
   if (dir !== '') rmSync(dir, { recursive: true, force: true })
   if (rows.length === 0) return
   const lines = [
-    '| Speech Model | Clip | Decoding | Audio s | Wall s | Heard | Lost utterances | Non-Latin | Parts | Repeats | Times | Windows covered | Note |',
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    '| Speech Model | Clip | Decoding | Audio s | Wall s | Heard | Lost utterances | Stops/100 (ref) | Commas/100 | Non-Latin | Parts | Repeats | Times | Windows covered | Note |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...rows.map(
       (r) =>
-        `| ${r.model} | ${r.clip} | ${r.decoding} | ${r.seconds.toFixed(0)} | ${r.wallSeconds.toFixed(1)} | ${Number.isNaN(r.heard) ? '-' : `${(r.heard * 100).toFixed(0)}%`} | ${r.lost.length === 0 ? 'none' : r.lost.join(', ')} | ${r.nonLatin === null ? '-' : `${(r.nonLatin * 100).toFixed(2)}%`} | ${r.parts ?? '-'} | ${r.repeats ?? '-'} | ${r.timesOk === null ? '-' : r.timesOk ? 'ok' : 'BAD'} | ${r.windowsCovered} | ${r.note} |`
+        `| ${r.model} | ${r.clip} | ${r.decoding} | ${r.seconds.toFixed(0)} | ${r.wallSeconds.toFixed(1)} | ${Number.isNaN(r.heard) ? '-' : `${(r.heard * 100).toFixed(0)}%`} | ${r.lost.length === 0 ? 'none' : r.lost.join(', ')} | ${r.sentenceEnds.toFixed(1)}${r.referenceSentenceEnds === null ? '' : ` (${r.referenceSentenceEnds.toFixed(1)})`} | ${r.commas.toFixed(1)} | ${r.nonLatin === null ? '-' : `${(r.nonLatin * 100).toFixed(2)}%`} | ${r.parts ?? '-'} | ${r.repeats ?? '-'} | ${r.timesOk === null ? '-' : r.timesOk ? 'ok' : 'BAD'} | ${r.windowsCovered} | ${r.note} |`
     ),
   ]
   const parityLines = [
@@ -1228,9 +1310,21 @@ afterAll(() => {
             return `Cuts in ${clip.name} (${inside.length} of ${cuts.length} inside an utterance${cutLossGated(clip) ? '' : '; reported, not gated: continuous clip'}): ${cuts.map((cut) => `${cutLabel(cut)} ${utteranceCut(clip, cut) === -1 ? 'between' : 'inside'}`).join(', ')}`
           }),
         ]
-  const tuning = `nt-vad: slices of ${NT_VAD_TUNING.sliceOptions?.maxSliceSeconds ?? DEFAULT_VAD_SLICE_OPTIONS.maxSliceSeconds} s or less, ${NT_VAD_TUNING.beamSearch === false ? 'greedy' : '-bs 5'}`
+  const localLines =
+    localDictationRows.length === 0
+      ? []
+      : [
+          '',
+          '| Speech Model | Local dictation | Decoding | Wall s | Words | Sentence ends | Commas | Missing phrases |',
+          '|---|---|---|---|---|---|---|---|',
+          ...localDictationRows.map(
+            (l) =>
+              `| ${l.model} | ${basename(LOCAL_DICTATION)} | ${l.decoding} | ${l.wallSeconds.toFixed(1)} | ${l.words} | ${l.sentenceEnds} | ${l.commas} | ${l.missing.length === 0 ? 'none' : l.missing.join(', ')} |`
+          ),
+        ]
+  const tuning = `nt-vad: slices of ${NT_VAD_TUNING.sliceOptions?.maxSliceSeconds ?? DEFAULT_VAD_SLICE_OPTIONS.maxSliceSeconds} s or less, ${NT_VAD_TUNING.beamSearch === false ? 'greedy' : '-bs 5'}, ${NT_VAD_TUNING.prompt === false ? 'no prompt' : 'prompt unless the Speech Model opts out'}`
   console.log(
-    `\n[long-audio] ${tuning}\n${[...lines, ...parityLines, ...vadLines, ...cutLines].join('\n')}\n`
+    `\n[long-audio] ${tuning}\n${[...lines, ...parityLines, ...vadLines, ...cutLines, ...localLines].join('\n')}\n`
   )
 })
 
@@ -1277,6 +1371,15 @@ describe('long-audio check', () => {
             (n, w, i) => n + heard[i] * tokenizeForWer(w.text).length,
             0
           )
+          const said = punctuation(result.rawTranscript)
+          const reference = punctuation(
+            clip.windows.map((w) => w.text).join(' ')
+          )
+          const sentenceEnds = per100(said.sentenceEnds, said.words)
+          const referenceSentenceEnds = per100(
+            reference.sentenceEnds,
+            reference.words
+          )
           const timed = result.timedTranscript ?? null
           const nonLatin =
             clip.lang === 'da' ? nonLatinShare(result.rawTranscript) : null
@@ -1296,6 +1399,9 @@ describe('long-audio check', () => {
             parts: timed?.parts.length ?? null,
             timesOk,
             repeats: timed === null ? null : repeatedParts(timed),
+            sentenceEnds,
+            commas: per100(said.commas, said.words),
+            referenceSentenceEnds,
             windowsCovered:
               uncovered === null
                 ? '-'
@@ -1304,6 +1410,15 @@ describe('long-audio check', () => {
           })
           if (lost.length > 0)
             failures.push(`${clip.name}: lost ${lost.join(', ')}`)
+          if (
+            decoding === 'nt-vad' &&
+            hasPauses(clip) &&
+            referenceSentenceEnds >= PUNCTUATION_GATE.referenceSentenceEnds &&
+            sentenceEnds < PUNCTUATION_GATE.minSentenceEnds
+          )
+            failures.push(
+              `${clip.name}: ${sentenceEnds.toFixed(1)} sentence ends per 100 words, against ${referenceSentenceEnds.toFixed(1)} in the reference`
+            )
           if (nonLatin !== null && nonLatin >= 0.01)
             failures.push(
               `${clip.name}: ${(nonLatin * 100).toFixed(2)}% non-Latin`
@@ -1464,6 +1579,50 @@ describe('long-audio check', () => {
     )
   }
 
+  // A real dictation, where one exists (see the header): registered only then, so a machine
+  // without it runs nothing and says nothing.
+  const localDictation = existsSync(LOCAL_DICTATION)
+    ? models.filter((m) => m.langs.includes('da'))
+    : []
+  for (const installed of localDictation) {
+    const id = installed.model.id
+    test.skipIf(skipReason !== null)(
+      `${id}: the local Danish dictation keeps its sentences`,
+      async () => {
+        const started = performance.now()
+        const result = await transcribe(
+          request(installed, LOCAL_DICTATION, 'da')
+        )
+        const wallSeconds = (performance.now() - started) / 1000
+        expect(result.status).toBe('ok')
+        if (result.status !== 'ok') return
+        const said = punctuation(result.rawTranscript)
+        const missing = missingPhrases(result.rawTranscript)
+        localDictationRows.push({
+          model: id,
+          decoding: decodingOf(installed),
+          wallSeconds,
+          words: said.words,
+          sentenceEnds: said.sentenceEnds,
+          commas: said.commas,
+          missing,
+        })
+        const failures: string[] = []
+        checkPromptEcho(
+          installed,
+          'local dictation',
+          result.rawTranscript,
+          failures
+        )
+        if (missing.length > 0) failures.push(`missing ${missing.join(', ')}`)
+        if (said.sentenceEnds < LOCAL_DICTATION_MIN_SENTENCE_ENDS)
+          failures.push(`${said.sentenceEnds} sentence ends`)
+        expect(failures).toEqual([])
+      },
+      RUN_TIMEOUT_MS
+    )
+  }
+
   // Every selected installed translate-capable one: a timed one must keep its timings sane
   // while translating, and one on Edda's path must still translate without losing speech.
   const translators = models.filter((m) => m.model.translationSupport)
@@ -1489,6 +1648,7 @@ describe('long-audio check', () => {
         const timed = result.timedTranscript ?? null
         const uncovered =
           timed === null ? null : uncoveredWindows(timed, clip.windows)
+        const said = punctuation(result.rawTranscript)
         rows.push({
           model: translator.model.id,
           clip: `${clip.name} -tr`,
@@ -1501,6 +1661,9 @@ describe('long-audio check', () => {
           parts: timed?.parts.length ?? null,
           timesOk: timed === null ? null : timesInOrder(timed, clip.seconds),
           repeats: timed === null ? null : repeatedParts(timed),
+          sentenceEnds: per100(said.sentenceEnds, said.words),
+          commas: per100(said.commas, said.words),
+          referenceSentenceEnds: null,
           windowsCovered:
             uncovered === null
               ? '-'
