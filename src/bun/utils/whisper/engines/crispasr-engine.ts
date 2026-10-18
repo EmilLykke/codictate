@@ -7,11 +7,18 @@
  * spawn, the drain, and turning what came back into a Transcription Result.
  *
  * The transcript comes from the JSON file crispasr writes into a directory made for this one
- * run (ADR-0010), never from stdout, which is drained and ignored. The directory is removed on
- * every way out.
+ * run (ADR-0010), never from stdout, which is drained and ignored. On the `nt-vad` path the
+ * same directory holds the slices Codictate cut the recording into (`slices.json`, read by
+ * `--vad-import`). The directory is removed on every way out.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { log } from '../../logger'
@@ -25,18 +32,85 @@ import {
   type HarnessTranscriptionRequest,
   type SpeechEngineAdapter,
 } from './transcription'
+import {
+  planVadSlices,
+  readWavSamples,
+  vadImportJson,
+  type VadSliceOptions,
+} from './vad-slices'
 
 /**
- * crispasr's own words when a `--backend` VAD run (`nt-vad`) found no speech: it exits 0 and
- * writes no JSON file (upstream #311, `crispasr_run.cpp`). A silent recording is a success
- * with an empty transcript, so this one missing file is not a failure. The `timestamps` path
- * writes `"transcription": []` instead.
+ * crispasr's own words when a `--backend` run (`nt-vad`) has no speech to decode: it exits 0
+ * and writes no JSON file (upstream #311, `crispasr_run.cpp`). A silent recording is a
+ * success with an empty transcript, so this one missing file is not a failure. Codictate
+ * does not spawn for a recording it cut into no slices, so on `nt-vad` this is only reached
+ * if crispasr dropped every imported slice as out of range. The `timestamps` path writes
+ * `"transcription": []` instead.
  */
 const NO_SPEECH_DETECTED = 'no speech detected'
 
+/** What cutting a recording for an `nt-vad` decode came to. */
+export type NtVadSlicing =
+  | { status: 'written'; slices: number }
+  /** Nothing loud enough to be speech: an empty transcript, and nothing to spawn. */
+  | { status: 'no_speech' }
+  | { status: 'failed'; detail: string }
+
+/**
+ * Cuts the recording at pauses into slices of 20 s or less (`planVadSlices`, issue #83) and
+ * writes them where the `nt-vad` argv reads them with `--vad-import`.
+ *
+ * Every recording that reaches the adapter is a WAV Codictate wrote or chose: MicRecorder and
+ * the Windows Helper's `record` write 16 kHz mono 16-bit, the Media Helper and the Windows
+ * Helper's `extract-audio` decode every File Transcription (the command line's too) to the
+ * same, and the benchmark and the long-audio check read their datasets' WAVs. So a recording
+ * that does not read as a WAV is a failure, not a format to hand to crispasr's own reader
+ * without cuts: that is the decode that loses speech (ADR-0005, no fallbacks).
+ */
+export function writeNtVadSlices(
+  audioPath: string,
+  slicesPath: string,
+  options?: Partial<VadSliceOptions>
+): NtVadSlicing {
+  let audio: ReturnType<typeof readWavSamples>
+  try {
+    audio = readWavSamples(new Uint8Array(readFileSync(audioPath)))
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    return {
+      status: 'failed',
+      detail: `audio is not a readable WAV: ${detail}`,
+    }
+  }
+  const slices = planVadSlices(audio.samples, audio.sampleRate, options)
+  if (slices.length === 0) return { status: 'no_speech' }
+  try {
+    writeFileSync(slicesPath, vadImportJson(slices, audio.sampleRate))
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    return { status: 'failed', detail: `no slices file: ${detail}` }
+  }
+  return { status: 'written', slices: slices.length }
+}
+
+/**
+ * Knobs the long-audio check measures with (issue #83): the slice cap and beam search on
+ * `nt-vad`. The app never passes any, so it runs the defaults.
+ */
+export interface NtVadTuning {
+  sliceOptions?: Partial<VadSliceOptions>
+  beamSearch?: boolean
+}
+
 export const transcribeWithCrispasr: SpeechEngineAdapter<
   HarnessTranscriptionRequest
-> = async (request) => {
+> = (request) => transcribeWithCrispasrTuned(request, {})
+
+/** `transcribeWithCrispasr` with `nt-vad` measurement knobs. Only the long-audio check. */
+export async function transcribeWithCrispasrTuned(
+  request: HarnessTranscriptionRequest,
+  tuning: NtVadTuning
+): ReturnType<SpeechEngineAdapter<HarnessTranscriptionRequest>> {
   // The pre-spawn race check, weights half. The plan said these were installed; a Finder
   // delete, a failed disk or a cloud-storage eviction between then and now is exactly the
   // gap ADR-0005 keeps a last check for.
@@ -65,7 +139,7 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
     )
   }
   try {
-    return await transcribeInto(outputDir, request)
+    return await transcribeInto(outputDir, request, tuning)
   } finally {
     rmSync(outputDir, { recursive: true, force: true })
   }
@@ -73,19 +147,22 @@ export const transcribeWithCrispasr: SpeechEngineAdapter<
 
 async function transcribeInto(
   outputDir: string,
-  request: HarnessTranscriptionRequest
+  request: HarnessTranscriptionRequest,
+  tuning: NtVadTuning
 ): ReturnType<SpeechEngineAdapter<HarnessTranscriptionRequest>> {
   let command
   try {
     // The binary half of the same check: `findAsrHarnessBinary` throws with its remediation
-    // when crispasr is not in the bundle, and so does the Silero VAD lookup (`timestamps` and
-    // `nt-vad`) when the bundled weights are missing. The other throw in here - translate on a
-    // pinned backend - is a last-resort invariant that settings-heal and the plan builder make
+    // when crispasr is not in the bundle, and so does the Silero VAD lookup (`timestamps`)
+    // when the bundled weights are missing. The other throw in here - translate on a pinned
+    // backend - is a last-resort invariant that settings-heal and the plan builder make
     // unreachable, so it lands on the same reason rather than earning a fifth one.
     command = await buildWhisperHarnessCommand({
       crispasrBackend: request.crispasrBackend ?? undefined,
       speechModelId: request.speechModelId,
       jsonOutputBase: join(outputDir, 'transcript'),
+      vadImportPath: join(outputDir, 'slices.json'),
+      ntVadBeamSearch: tuning.beamSearch,
       modelPath: request.modelPath,
       language: request.languageCode,
       audioPath: request.audioPath,
@@ -108,6 +185,40 @@ async function transcribeInto(
     return failedTranscription('cancelled', request.speechModelId)
   }
 
+  // `nt-vad` decodes Codictate's own cuts. A recording with nothing to cut is silent, and
+  // gets the same empty transcript crispasr's `no speech detected` does, without a spawn. One
+  // that cannot be read lands where the temp directory failure does: Codictate could not read
+  // what this run needs, before crispasr ever started.
+  let slices: number | undefined
+  if (command.vadImportPath !== null) {
+    const slicing = writeNtVadSlices(
+      request.audioPath,
+      command.vadImportPath,
+      tuning.sliceOptions
+    )
+    if (slicing.status === 'no_speech') {
+      log('whisper', 'transcription complete: no speech detected', {
+        harness: command.harness,
+        decoding: command.decoding,
+        slices: 0,
+      })
+      return { status: 'ok', rawTranscript: '', timedTranscript: null }
+    }
+    if (slicing.status === 'failed') {
+      log('whisper', 'no slices for the nt-vad decode', {
+        modelId: request.speechModelId,
+        audioPath: request.audioPath,
+        err: slicing.detail,
+      })
+      return failedTranscription(
+        'engine_output_unreadable',
+        request.speechModelId,
+        slicing.detail
+      )
+    }
+    slices = slicing.slices
+  }
+
   log('whisper', 'spawning ASR harness', {
     harness: command.harness,
     backend: command.crispasrBackend,
@@ -119,6 +230,7 @@ async function transcribeInto(
     modelId: request.speechModelId,
     translateToEnglish: request.translateToEnglish,
     lowPriority: request.lowPriority === true,
+    slices,
   })
 
   const proc = Bun.spawn(command.argv, {

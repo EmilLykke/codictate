@@ -115,7 +115,8 @@ export const EDDA_TRANSCRIPTION_LANGUAGE_ID = 'da'
  * How crispasr decodes a Whisper Speech Model (ADR-0010).
  * - `timestamps`: no `-nt`, with whisper.cpp's own VAD, beam search and a prompt (ADR-0011);
  *   Raw Transcript and Timed Transcript (segment times, no words) come from crispasr's JSON.
- * - `nt-vad`: `-nt` with `--backend whisper --vad` and the bundled Silero weights; no Timed Transcript.
+ * - `nt-vad`: `-nt` with `--backend whisper`, decoding the slices Codictate cut at pauses
+ *   (`--vad-import`, issue #83); no Timed Transcript.
  */
 export type WhisperDecoding = 'timestamps' | 'nt-vad'
 

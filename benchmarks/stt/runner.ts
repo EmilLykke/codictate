@@ -18,6 +18,7 @@ import {
 import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-harness-command";
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
 import { parakeetTranscribeArgv } from "../../src/bun/utils/whisper/engines/parakeet-engine";
+import { writeNtVadSlices } from "../../src/bun/utils/whisper/engines/crispasr-engine";
 import { runTranscription } from "../../src/bun/utils/whisper/engines/run-transcription";
 import { engineProcessTimeoutMs } from "../../src/bun/utils/whisper/engines/process-supervisor";
 import type {
@@ -1020,7 +1021,8 @@ async function measureModelMemory(
   const speech = getSpeechModel(modelId);
   if (!speech) return null;
 
-  // crispasr writes its JSON here (ADR-0010). Peak RSS ignores it; it only must not litter.
+  // crispasr writes its JSON here (ADR-0010), and reads an `nt-vad` run's slices from it.
+  // Peak RSS ignores both; they only must not litter.
   const outputDir = mkdtempSync(join(tmpdir(), "codictate-bench-crispasr-"));
   try {
     let command: string[];
@@ -1034,15 +1036,26 @@ async function measureModelMemory(
         modelPath,
       );
     } else {
-      command = (
-        await buildWhisperHarnessCommand({
-          ...harnessInvocationFor(modelId, harness, null),
-          speechModelId: modelId,
-          jsonOutputBase: join(outputDir, "transcript"),
-          modelPath,
-          audioPath: sampleEntry.audioPath,
-        })
-      ).argv;
+      const harnessCommand = await buildWhisperHarnessCommand({
+        ...harnessInvocationFor(modelId, harness, null),
+        speechModelId: modelId,
+        jsonOutputBase: join(outputDir, "transcript"),
+        vadImportPath: join(outputDir, "slices.json"),
+        modelPath,
+        audioPath: sampleEntry.audioPath,
+      });
+      // The adapter's own cuts, so `nt-vad` is measured decoding what it decodes in a run.
+      if (harnessCommand.vadImportPath !== null) {
+        const slicing = writeNtVadSlices(
+          sampleEntry.audioPath,
+          harnessCommand.vadImportPath,
+        );
+        if (slicing.status === "no_speech") return null;
+        if (slicing.status === "failed") {
+          throw new Error(`${sampleEntry.audioPath}: ${slicing.detail}`);
+        }
+      }
+      command = harnessCommand.argv;
     }
 
     const result = await measurePeakRss(command);

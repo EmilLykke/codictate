@@ -13,6 +13,7 @@ const dependencies: WhisperHarnessCommandDependencies = {
 const common = {
   audioPath: '/audio/input.wav',
   jsonOutputBase: '/tmp/run/transcript',
+  vadImportPath: '/tmp/run/slices.json',
 }
 
 const ENGLISH_PROMPT =
@@ -87,6 +88,7 @@ describe('buildWhisperHarnessCommand', () => {
       crispasrBackend: undefined,
       decoding: 'timestamps',
       jsonPath: '/tmp/run/transcript.json',
+      vadImportPath: null,
     })
   })
 
@@ -172,7 +174,7 @@ describe('buildWhisperHarnessCommand', () => {
     expect(command.argv).toContain('-bs')
   })
 
-  test('a stock Whisper Speech Model that failed the long-audio check takes the -nt and VAD path', async () => {
+  test('a stock Whisper Speech Model that failed the long-audio check takes the -nt path on its own cuts', async () => {
     const command = await buildWhisperHarnessCommand(
       {
         ...common,
@@ -198,20 +200,98 @@ describe('buildWhisperHarnessCommand', () => {
       '/audio/input.wav',
       '--no-prints',
       '-nt',
-      '--vad',
-      '-vm',
-      '/test/bin/ggml-silero-v6.2.0.bin',
+      '--vad-import',
+      '/tmp/run/slices.json',
+      '-sns',
+      '-bs',
+      '5',
       '-ojf',
       '-of',
       '/tmp/run/transcript',
       '-tr',
     ])
     expect(command.crispasrBackend).toBeUndefined()
-    expect(command.argv).not.toContain('-bs')
+    expect(command.vadImportPath).toBe('/tmp/run/slices.json')
     expect(command.argv).not.toContain('--prompt')
   })
 
-  test('Edda keeps -nt on --backend whisper with the bundled Silero VAD', async () => {
+  test('nt-vad runs no Silero VAD: --vad-import replaces it, so the weights are never asked for', async () => {
+    let vadLookups = 0
+    const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'edda-v0.2-q5_0',
+        modelPath: '/models/edda.bin',
+        language: 'da',
+      },
+      {
+        ...dependencies,
+        resolveVadModel: () => {
+          vadLookups++
+          return '/test/bin/ggml-silero-v6.2.0.bin'
+        },
+      }
+    )
+    expect(command.argv).not.toContain('--vad')
+    expect(command.argv).not.toContain('-vm')
+    expect(command.argv).not.toContain('-vt')
+    expect(vadLookups).toBe(0)
+  })
+
+  test('nt-vad without a slices file is refused', async () => {
+    const rejected = buildWhisperHarnessCommand(
+      {
+        ...common,
+        vadImportPath: undefined,
+        speechModelId: 'edda-v0.2-q5_0',
+        modelPath: '/models/edda.bin',
+        language: 'da',
+      },
+      dependencies
+    )
+    expect(
+      await rejected.then(
+        () => '',
+        (error) => String(error)
+      )
+    ).toContain('needs a --vad-import slices file')
+  })
+
+  test('nt-vad decodes greedily when the long-audio check turns beam search off', async () => {
+    const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'edda-v0.2-q5_0',
+        modelPath: '/models/edda.bin',
+        language: 'da',
+        ntVadBeamSearch: false,
+      },
+      dependencies
+    )
+    expect(command.argv).toContain('-sns')
+    expect(command.argv).not.toContain('-bs')
+  })
+
+  test('the slices file is ignored off nt-vad', async () => {
+    const timestamps = await timestampsCommand('en')
+    expect(timestamps.argv).not.toContain('--vad-import')
+    expect(timestamps.argv).not.toContain('-sns')
+    expect(timestamps.vadImportPath).toBeNull()
+    const hviske = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'hviske-v5-tiny-q5_0',
+        modelPath: '/models/hviske.gguf',
+        language: 'da',
+        crispasrBackend: 'cohere',
+      },
+      dependencies
+    )
+    expect(hviske.argv).not.toContain('--vad-import')
+    expect(hviske.vadImportPath).toBeNull()
+  })
+
+  test("Edda keeps -nt on --backend whisper and decodes Codictate's slices", async () => {
     const command = await buildWhisperHarnessCommand(
       {
         ...common,
@@ -236,9 +316,11 @@ describe('buildWhisperHarnessCommand', () => {
       '/audio/input.wav',
       '--no-prints',
       '-nt',
-      '--vad',
-      '-vm',
-      '/test/bin/ggml-silero-v6.2.0.bin',
+      '--vad-import',
+      '/tmp/run/slices.json',
+      '-sns',
+      '-bs',
+      '5',
       '-ojf',
       '-of',
       '/tmp/run/transcript',
@@ -246,7 +328,7 @@ describe('buildWhisperHarnessCommand', () => {
     expect(command.jsonPath).toBe('/tmp/run/transcript.json')
   })
 
-  test('an unknown Speech Model id is unchecked, so it takes the VAD path', async () => {
+  test('an unknown Speech Model id is unchecked, so it takes the nt-vad path', async () => {
     const command = await buildWhisperHarnessCommand(
       {
         ...common,
@@ -301,6 +383,7 @@ describe('buildWhisperHarnessCommand', () => {
         language: 'da',
         audioPath: 'C:\\Temp\\in.wav',
         jsonOutputBase: 'C:\\Temp\\codictate-crispasr-x\\transcript',
+        vadImportPath: 'C:\\Temp\\codictate-crispasr-x\\slices.json',
       },
       {
         resolveBinary: async () =>
@@ -314,7 +397,7 @@ describe('buildWhisperHarnessCommand', () => {
       'C:\\Codictate\\native-helpers\\crispasr\\crispasr.exe'
     )
     expect(command.argv).toContain(
-      'C:\\Codictate\\native-helpers\\crispasr\\ggml-silero-v6.2.0.bin'
+      'C:\\Temp\\codictate-crispasr-x\\slices.json'
     )
     expect(command.jsonPath).toBe(
       'C:\\Temp\\codictate-crispasr-x\\transcript.json'

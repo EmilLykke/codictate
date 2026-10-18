@@ -8,13 +8,22 @@
  * Test audio is built in a temp directory from `benchmarks/datasets`: LibriSpeech test-clean
  * and FLEURS `da_dk` utterances joined with 1 s of silence into 60 s and 5 min English, and
  * 2 min and 5 min Danish, plus about 90 s of each with the utterances' own silence trimmed and
- * 0.05 s between them, so the VAD finds no pause to split at (`*_continuous_90s`). With no `CODICTATE_LONG_AUDIO_MODELS`, every installed curated
- * Whisper Speech Model, Edda and hviske runs through `runTranscription`, exactly as a
- * Dictation or a File Transcription would. `CODICTATE_LONG_AUDIO_MODELS` (comma separated
- * Speech Model ids) picks the run instead, and may name any Whisper Speech Model, curated or
- * not. Weights are looked for in the app's models directory and `vendors/whisper`, plus any
- * directory in `CODICTATE_LONG_AUDIO_MODEL_DIRS` (path-delimiter separated). Missing
- * datasets, crispasr or weights skip with a message.
+ * 0.05 s between them, so the VAD finds no pause to split at (`*_continuous_90s`). With no
+ * `CODICTATE_LONG_AUDIO_MODELS`, every installed curated Whisper Speech Model, Edda and hviske
+ * runs through the crispasr Speech Engine Adapter, exactly as a Dictation or a File
+ * Transcription would, so an `nt-vad` model decodes Codictate's own cuts (`--vad-import`,
+ * issue #83). `CODICTATE_LONG_AUDIO_MODELS` (comma separated Speech Model ids) picks the run
+ * instead, and may name any Whisper Speech Model, curated or not. Weights are looked for in
+ * the app's models directory and `vendors/whisper`, plus any directory in
+ * `CODICTATE_LONG_AUDIO_MODEL_DIRS` (path-delimiter separated). Missing datasets, crispasr or
+ * weights skip with a message.
+ *
+ * Two knobs change the `nt-vad` decode, for measuring it (issue #83); unset, the run is the
+ * app's:
+ * - `CODICTATE_LONG_AUDIO_SLICE_SECONDS`: the slice cap, in seconds (the app cuts at 20; the
+ *   issue measures 25 against it).
+ * - `CODICTATE_LONG_AUDIO_NT_BEAM=0`: greedy decoding instead of `-bs 5`.
+ * The printed table starts with the values the run used.
  *
  * Asserted per Speech Model:
  * - No utterance lost: at least 30% of each utterance's reference words heard, in order.
@@ -68,9 +77,13 @@ import {
   buildWhisperHarnessCommand,
   DICTATION_PROMPT,
 } from '../whisper-harness-command'
+import {
+  transcribeWithCrispasrTuned,
+  type NtVadTuning,
+} from './crispasr-engine'
 import { crispasrTranscript, parseCrispasrJson } from './crispasr-json'
-import { runTranscription } from './run-transcription'
 import type { HarnessTranscriptionRequest } from './transcription'
+import { DEFAULT_VAD_SLICE_OPTIONS } from './vad-slices'
 
 const REPO = resolve(import.meta.dir, '../../../../..')
 const DATASETS = join(REPO, 'benchmarks/datasets')
@@ -100,6 +113,34 @@ const VAD_LOSS_ENGLISH_CLIPS = 20
 const VAD_LOSS_DANISH_CLIPS = 10
 const VAD_LOSS_MAX_SECONDS = 20
 const RUN_TIMEOUT_MS = 15 * 60_000
+
+/** The `nt-vad` knobs from the environment (see the header). */
+function ntVadTuning(): NtVadTuning {
+  const sliceSeconds = process.env.CODICTATE_LONG_AUDIO_SLICE_SECONDS
+  const maxSliceSeconds =
+    sliceSeconds === undefined || sliceSeconds === ''
+      ? undefined
+      : Number(sliceSeconds)
+  if (
+    maxSliceSeconds !== undefined &&
+    !(Number.isFinite(maxSliceSeconds) && maxSliceSeconds > 0)
+  )
+    throw new Error(
+      `CODICTATE_LONG_AUDIO_SLICE_SECONDS is not a positive number: ${sliceSeconds}`
+    )
+  return {
+    sliceOptions:
+      maxSliceSeconds === undefined ? undefined : { maxSliceSeconds },
+    beamSearch: process.env.CODICTATE_LONG_AUDIO_NT_BEAM !== '0',
+  }
+}
+
+const NT_VAD_TUNING = ntVadTuning()
+
+/** One run through the crispasr adapter, with the `nt-vad` knobs. */
+function transcribe(request: HarnessTranscriptionRequest) {
+  return transcribeWithCrispasrTuned(request, NT_VAD_TUNING)
+}
 
 type Lang = 'en' | 'da'
 
@@ -906,8 +947,9 @@ afterAll(() => {
       ? 'Prompt echoes: none'
       : `Prompt echoes: ${promptEchoes.map((e) => `${e.model} ${e.clip} ("${e.phrase}")`).join('; ')}`,
   ]
+  const tuning = `nt-vad: slices of ${NT_VAD_TUNING.sliceOptions?.maxSliceSeconds ?? DEFAULT_VAD_SLICE_OPTIONS.maxSliceSeconds} s or less, ${NT_VAD_TUNING.beamSearch === false ? 'greedy' : '-bs 5'}`
   console.log(
-    `\n[long-audio]\n${[...lines, ...parityLines, ...vadLines].join('\n')}\n`
+    `\n[long-audio] ${tuning}\n${[...lines, ...parityLines, ...vadLines].join('\n')}\n`
   )
 })
 
@@ -925,7 +967,7 @@ describe('long-audio check', () => {
           installed.langs.includes(c.lang)
         )) {
           const started = performance.now()
-          const result = await runTranscription(
+          const result = await transcribe(
             request(installed, clip.path, clip.lang)
           )
           const wallSeconds = (performance.now() - started) / 1000
@@ -1003,7 +1045,7 @@ describe('long-audio check', () => {
         for (const clip of shortClips.filter((c) =>
           installed.langs.includes(c.lang)
         )) {
-          const result = await runTranscription(
+          const result = await transcribe(
             request(installed, clip.path, clip.lang)
           )
           if (result.status !== 'ok') {
@@ -1047,7 +1089,7 @@ describe('long-audio check', () => {
       async () => {
         const clip = longClips.find((c) => c.name === 'da_2min')!
         const started = performance.now()
-        const result = await runTranscription(
+        const result = await transcribe(
           request(translator, clip.path, 'da', true)
         )
         const wallSeconds = (performance.now() - started) / 1000

@@ -16,8 +16,8 @@ export type BinaryId =
    */
   | 'media'
   /**
-   * The Silero VAD weights crispasr loads with `--vad -vm <path>` on the `nt-vad` path
-   * (ADR-0010). Not an executable: a pinned data file shipped next to crispasr, so it is never
+   * The Silero VAD weights crispasr loads with `--vad -vm <path>` on the `timestamps` path
+   * (ADR-0011). Not an executable: a pinned data file shipped next to crispasr, so it is never
    * downloaded at runtime.
    */
   | 'silero-vad'

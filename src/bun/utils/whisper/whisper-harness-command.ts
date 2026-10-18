@@ -33,6 +33,17 @@ export interface WhisperHarnessCommandOptions {
    * `<base>.json`. A path in a directory the caller made for this one run and removes after.
    */
   jsonOutputBase: string
+  /**
+   * The `--vad-import` file Codictate wrote for this run: where the audio is cut before an
+   * `nt-vad` decode (`planVadSlices`, issue #83). Required on `nt-vad`, ignored on the other
+   * paths. In the same per-run directory as the JSON.
+   */
+  vadImportPath?: string
+  /**
+   * `-bs 5` on `nt-vad`. Defaults to on, which is what the app runs; only the long-audio
+   * check turns it off, to measure beam search against greedy decoding.
+   */
+  ntVadBeamSearch?: boolean
 }
 
 /**
@@ -40,8 +51,9 @@ export interface WhisperHarnessCommandOptions {
  * - `timestamps`: stock Whisper without `-nt`, so nothing is lost at 30 s window edges, with
  *   whisper.cpp's own VAD, beam search and a punctuated prompt, so a pause mid-sentence does
  *   not end the sentence.
- * - `nt-vad`: `-nt` on `--backend whisper`, with the audio split at pauses by the bundled
- *   Silero VAD. Edda, and every Whisper Speech Model not yet checked without `-nt`.
+ * - `nt-vad`: `-nt` on `--backend whisper`, decoding the slices Codictate cut at pauses and
+ *   passed with `--vad-import`. Edda, and every Whisper Speech Model not yet checked without
+ *   `-nt`.
  * - `cohere`: hviske. `-nt` only changes the stdout display on that backend.
  */
 export type CrispasrDecoding = 'timestamps' | 'nt-vad' | 'cohere'
@@ -57,12 +69,17 @@ export interface WhisperHarnessCommand {
   decoding: CrispasrDecoding
   /** The JSON file crispasr writes: `${jsonOutputBase}.json`. */
   jsonPath: string
+  /**
+   * The `--vad-import` file the argv reads, which the caller writes before spawning, or
+   * `null` off the `nt-vad` path.
+   */
+  vadImportPath: string | null
 }
 
 export interface WhisperHarnessCommandDependencies {
   resolveBinary: (harness: AsrHarnessId) => Promise<string>
   threadCount: () => number
-  /** The bundled Silero VAD weights. Asked for on the `timestamps` and `nt-vad` paths. */
+  /** The bundled Silero VAD weights. Asked for on the `timestamps` path only. */
   resolveVadModel: () => string
 }
 
@@ -100,8 +117,8 @@ function dictationPrompt(
  * words at the start of a LibriSpeech clip. At 0.25 both are back, no model missed more
  * reference words on 40 clips than at 0.35, and sentence breaks on real dictations did not
  * change. A wider `-vp` pad fixes a first word too but keeps more of each pause, and the full
- * stops come back. Not on `nt-vad`: there it fixed base and tiny clipping first words but lost
- * a Danish utterance on large-v2, so it waits for that path's cut-point fix (ADR-0010).
+ * stops come back. Not on `nt-vad`: that path runs no Silero VAD, because `--vad-import`
+ * replaces it with Codictate's own cuts.
  */
 const VAD_THRESHOLD = '0.25'
 
@@ -133,10 +150,15 @@ function crispasrDecoding(
  *   the language Whisper will write (`dictationPrompt`). No `--backend`: the dispatcher's VAD
  *   decodes each slice on its own and breaks sentences more, not less.
  * - `nt-vad`, for Edda and every Whisper Speech Model that has not passed the check without
- *   `-nt`: keeps `-nt` (Edda turns to foreign-script noise without it) and runs
- *   `--backend whisper --vad` with the bundled Silero weights, which splits at pauses instead
- *   of every 30 s. Speech with no pause for over 30 s still loses words there (ADR-0010, an
- *   open follow-up). The VAD path is passed explicitly so crispasr never downloads it.
+ *   `-nt`: keeps `-nt` (Edda turns to foreign-script noise without it) on `--backend whisper`,
+ *   and decodes the slices in `vadImportPath` (issue #83). With `-nt`, whisper.cpp always
+ *   skips ahead a whole 30 s window after an early end-of-text, so any slice over 30 s loses
+ *   speech; Codictate cuts at pauses into slices of 20 s or less instead. crispasr uses
+ *   imported chunks as written (no merge, no re-pack), and `--vad-import` turns its VAD on by
+ *   itself without loading a VAD model, so there is no `--vad` and no `-vm` (checked on
+ *   v0.8.41: same transcript with them, Silero never loaded, nothing downloaded). Also
+ *   `-sns`, which suppresses non-speech tokens as OpenAI whisper, faster-whisper and WhisperX
+ *   do by default, and `-bs 5`, from Edda's model card. Temperature fallback stays on.
  * - `cohere`, hviske: `--backend cohere -nt`. There `-nt` only changes how stdout is printed.
  *
  * Translate needs no special-casing. `-tr` was measured equivalent across Harnesses on a
@@ -171,6 +193,12 @@ export async function buildWhisperHarnessCommand(
   }
 
   const decoding = crispasrDecoding(options)
+  const vadImportPath = options.vadImportPath
+  if (decoding === 'nt-vad' && !vadImportPath) {
+    throw new Error(
+      `${options.speechModelId} decodes on nt-vad, which needs a --vad-import slices file`
+    )
+  }
   const binary = await dependencies.resolveBinary(harness)
   const languageArg = asrHarnessLanguageArg(options.language)
   const jsonPath = `${options.jsonOutputBase}.json`
@@ -204,8 +232,9 @@ export async function buildWhisperHarnessCommand(
     const prompt = dictationPrompt(languageArg, options.translateToEnglish)
     if (prompt !== null) argv.push('--prompt', prompt)
   }
-  if (decoding === 'nt-vad') {
-    argv.push('-nt', '--vad', '-vm', dependencies.resolveVadModel())
+  if (decoding === 'nt-vad' && vadImportPath) {
+    argv.push('-nt', '--vad-import', vadImportPath, '-sns')
+    if (options.ntVadBeamSearch !== false) argv.push('-bs', '5')
   }
   if (decoding === 'cohere') argv.push('-nt')
 
@@ -221,5 +250,6 @@ export async function buildWhisperHarnessCommand(
     crispasrBackend: pinnedBackend,
     decoding,
     jsonPath,
+    vadImportPath: decoding === 'nt-vad' ? (vadImportPath ?? null) : null,
   }
 }

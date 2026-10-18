@@ -148,7 +148,7 @@ export interface VendorFile {
 
 /**
  * The Silero VAD weights crispasr loads with `--vad -vm <path>` when a Whisper Speech Model
- * keeps `-nt` (Edda, and any model not yet checked without it; ADR-0010). Shipped in the
+ * decodes with timestamps (ADR-0011). Shipped in the
  * bundle beside crispasr on both platforms so crispasr never downloads them at runtime.
  * 885098 bytes. MIT, see docs/licenses/silero-vad/LICENSE.
  */
