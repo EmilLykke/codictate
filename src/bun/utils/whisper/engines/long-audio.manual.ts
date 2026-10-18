@@ -70,8 +70,8 @@
  *   a real 65 s Danish dictation, private and never committed, so absent everywhere but the
  *   machine that recorded it and skipped without a word there. Every Danish-capable Speech
  *   Model transcribes it through the adapter, and fails when fewer than 4 sentence ends come
- *   out or any of `LOCAL_DICTATION_PHRASES` is missing (case and punctuation ignored). Words,
- *   sentence ends and commas are printed.
+ *   out or any of `LOCAL_DICTATION_PHRASES` (one per sentence) is missing, case and
+ *   punctuation ignored. Words, sentence ends and commas are printed.
  *
  * A table is printed at the end. A Speech Model gets `whisperDecoding: 'timestamps'` in
  * src/shared/speech-models.ts only after its rows pass here.
@@ -166,13 +166,16 @@ const PUNCTUATION_GATE = { minSentenceEnds: 2, referenceSentenceEnds: 4 }
 /** A real dictation (see the header). Never committed. */
 const LOCAL_DICTATION = join(DATASETS, 'local/edda-dictation-da-65s.wav')
 /**
- * What the local dictation must keep. "mangler penge" ends the sentence Edda lost when it
- * stopped early in a 12 s slice at the 20 s cap.
+ * What the local dictation must keep, one phrase from each of four sentences. "mangler penge"
+ * ends the sentence Edda lost when it stopped early in a 12 s slice at the 20 s cap. The
+ * third sentence ends in the show's name, "Bruxellesboblen", which Edda writes and every
+ * stock model misspells whatever the cap or prompt ("Bruxellesbubblen", "Brusselboblen",
+ * "Brusselbomberlen", 2026-10-18), so the words before it stand for that sentence.
  */
 const LOCAL_DICTATION_PHRASES = [
   'mangler penge',
   'mette frederiksen',
-  'bruxellesboblen',
+  'denne uges udgave af',
   'økonomiske problemer',
 ]
 const LOCAL_DICTATION_MIN_SENTENCE_ENDS = 4
