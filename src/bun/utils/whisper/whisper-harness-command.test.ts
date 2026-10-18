@@ -205,6 +205,8 @@ describe('buildWhisperHarnessCommand', () => {
       '-sns',
       '-bs',
       '5',
+      '--prompt',
+      ENGLISH_PROMPT,
       '-ojf',
       '-of',
       '/tmp/run/transcript',
@@ -212,7 +214,6 @@ describe('buildWhisperHarnessCommand', () => {
     ])
     expect(command.crispasrBackend).toBeUndefined()
     expect(command.vadImportPath).toBe('/tmp/run/slices.json')
-    expect(command.argv).not.toContain('--prompt')
   })
 
   test('nt-vad runs no Silero VAD: --vad-import replaces it, so the weights are never asked for', async () => {
@@ -321,11 +322,48 @@ describe('buildWhisperHarnessCommand', () => {
       '-sns',
       '-bs',
       '5',
+      '--prompt',
+      DANISH_PROMPT,
       '-ojf',
       '-of',
       '/tmp/run/transcript',
     ])
     expect(command.jsonPath).toBe('/tmp/run/transcript.json')
+  })
+
+  test('nt-vad gets the prompt by the same rule as timestamps', async () => {
+    const ntVad = (language: string | null, translateToEnglish = false) =>
+      buildWhisperHarnessCommand(
+        {
+          ...common,
+          speechModelId: 'large-v3-q5_0',
+          modelPath: '/models/large-v3-q5_0.bin',
+          language,
+          translateToEnglish,
+        },
+        dependencies
+      )
+    expect((await ntVad('da')).decoding).toBe('nt-vad')
+    expect(promptOf((await ntVad('da')).argv)).toBe(DANISH_PROMPT)
+    expect(promptOf((await ntVad('en')).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await ntVad(null)).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await ntVad('da', true)).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await ntVad('de')).argv)).toBeNull()
+  })
+
+  test('nt-vad decodes without the prompt when the long-audio check turns it off', async () => {
+    const command = await buildWhisperHarnessCommand(
+      {
+        ...common,
+        speechModelId: 'edda-v0.2-q5_0',
+        modelPath: '/models/edda.bin',
+        language: 'da',
+        ntVadPrompt: false,
+      },
+      dependencies
+    )
+    expect(command.argv).not.toContain('--prompt')
+    expect(command.argv).toContain('-bs')
   })
 
   test('an unknown Speech Model id is unchecked, so it takes the nt-vad path', async () => {

@@ -5,7 +5,10 @@ import {
   type AsrHarnessId,
   type CrispasrBackendId,
 } from '../../../shared/asr-harness'
-import { whisperDecodingForModel } from '../../../shared/speech-models'
+import {
+  ntVadPromptForModel,
+  whisperDecodingForModel,
+} from '../../../shared/speech-models'
 import { requireRuntimeBinary } from '../../platform/binaries'
 import { findAsrHarnessBinary } from './find-asr-harness'
 
@@ -44,6 +47,12 @@ export interface WhisperHarnessCommandOptions {
    * check turns it off, to measure beam search against greedy decoding.
    */
   ntVadBeamSearch?: boolean
+  /**
+   * The dictation `--prompt` on `nt-vad`. Defaults to the Speech Model's own
+   * (`ntVadPromptForModel`), which is what the app runs; only the long-audio check turns it
+   * off, to measure the prompt's effect.
+   */
+  ntVadPrompt?: boolean
 }
 
 /**
@@ -88,11 +97,13 @@ function whisperHarnessThreadCount(): number {
 }
 
 /**
- * The `--prompt` for the `timestamps` path (ADR-0011): one punctuated sentence in the
- * language Whisper will write, so beam search keeps capitals and full stops instead of
+ * The `--prompt` for the `timestamps` and `nt-vad` paths (ADR-0011): one punctuated sentence
+ * in the language Whisper will write, so beam search keeps capitals and full stops instead of
  * running on with commas. English also covers auto-detect (a Danish clip stayed Danish under
  * it) and Translate to English. Any other pinned language gets none: untested, so unbiased.
- * Exported for the long-audio check, which fails a Speech Model that writes it back out.
+ * On `nt-vad` it is what Edda's card does too (previous text in the prompt slot), and without
+ * it Edda wrote no full stop in a 65 s dictation (ADR-0010). Exported for the long-audio check,
+ * which fails a Speech Model that writes it back out.
  */
 export const DICTATION_PROMPT = {
   en: 'Hello, this is a dictation. I write in full sentences, with commas where I pause.',
@@ -158,8 +169,9 @@ function crispasrDecoding(
  *   (no merge, no re-pack), and `--vad-import` turns its VAD on by itself without loading a
  *   VAD model, so there is no `--vad` and no `-vm` (checked on v0.8.41: same transcript with
  *   them, Silero never loaded, nothing downloaded). Also `-sns`, which suppresses non-speech
- *   tokens as OpenAI whisper, faster-whisper and WhisperX do by default, and `-bs 5`, from
- *   Edda's model card. Temperature fallback stays on.
+ *   tokens as OpenAI whisper, faster-whisper and WhisperX do by default, `-bs 5`, from Edda's
+ *   model card, and the same `--prompt` as `timestamps` unless the Speech Model opts out
+ *   (`ntVadPrompt: false`). Temperature fallback stays on.
  * - `cohere`, hviske: `--backend cohere -nt`. There `-nt` only changes how stdout is printed.
  *
  * Translate needs no special-casing. `-tr` was measured equivalent across Harnesses on a
@@ -236,6 +248,11 @@ export async function buildWhisperHarnessCommand(
   if (decoding === 'nt-vad' && vadImportPath) {
     argv.push('-nt', '--vad-import', vadImportPath, '-sns')
     if (options.ntVadBeamSearch !== false) argv.push('-bs', '5')
+    const prompt =
+      (options.ntVadPrompt ?? ntVadPromptForModel(options.speechModelId))
+        ? dictationPrompt(languageArg, options.translateToEnglish)
+        : null
+    if (prompt !== null) argv.push('--prompt', prompt)
   }
   if (decoding === 'cohere') argv.push('-nt')
 

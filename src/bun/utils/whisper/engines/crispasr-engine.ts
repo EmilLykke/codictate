@@ -94,12 +94,14 @@ export function writeNtVadSlices(
 }
 
 /**
- * Knobs the long-audio check measures with (issue #83): the slice cap and beam search on
- * `nt-vad`. The app never passes any, so it runs the defaults.
+ * Knobs the long-audio check measures with (issue #83): the slice cap, beam search and the
+ * dictation prompt on `nt-vad`. The app never passes any, so it runs the defaults.
  */
 export interface NtVadTuning {
   sliceOptions?: Partial<VadSliceOptions>
   beamSearch?: boolean
+  /** `false` drops the prompt; unset, the Speech Model's own (`ntVadPromptForModel`). */
+  prompt?: boolean
 }
 
 export const transcribeWithCrispasr: SpeechEngineAdapter<
@@ -163,6 +165,7 @@ async function transcribeInto(
       jsonOutputBase: join(outputDir, 'transcript'),
       vadImportPath: join(outputDir, 'slices.json'),
       ntVadBeamSearch: tuning.beamSearch,
+      ntVadPrompt: tuning.prompt,
       modelPath: request.modelPath,
       language: request.languageCode,
       audioPath: request.audioPath,

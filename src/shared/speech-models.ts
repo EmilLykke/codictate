@@ -164,6 +164,12 @@ export interface SpeechModel {
    * Flip it here and nowhere else.
    */
   whisperDecoding?: WhisperDecoding
+  /**
+   * `nt-vad` only. `false` decodes without the dictation `--prompt` (ADR-0011), for a Speech
+   * Model whose long-audio check fails with it; absent means the prompt, by the same rule as
+   * `timestamps`. Read by `ntVadPromptForModel`.
+   */
+  ntVadPrompt?: false
 }
 
 export const SPEECH_MODELS: SpeechModel[] = [
@@ -879,6 +885,14 @@ export function whisperDecodingForModel(
   const model = getSpeechModel(speechModelId)
   if (model?.engine !== 'whisper_cpp') return null
   return model.whisperDecoding ?? 'nt-vad'
+}
+
+/**
+ * Whether an `nt-vad` decode with this Speech Model gets the dictation `--prompt`: yes unless
+ * its entry opts out with `ntVadPrompt: false`.
+ */
+export function ntVadPromptForModel(speechModelId: string): boolean {
+  return getSpeechModel(speechModelId)?.ntVadPrompt !== false
 }
 
 /** Whether a File Transcription with this Speech Model comes with a Timed Transcript. */
