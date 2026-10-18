@@ -54,6 +54,21 @@ describe('joinTranscriptPieces', () => {
   test('nothing inside a piece is touched', () => {
     expect(joinTranscriptPieces(['a  b', 'c\nd'])).toBe('a  b c\nd')
   })
+
+  test('separate decodes always meet at a word boundary, whatever the others start with', () => {
+    const pieces = [' Hej med dig', 'Farvel', ' og tak.', 'Vi ses ', 'igen']
+    expect(joinTranscriptPieces(pieces, { separateDecodes: true })).toBe(
+      'Hej med dig Farvel og tak. Vi ses igen'
+    )
+    expect(joinTranscriptPieces(pieces)).toBe(
+      'Hej med digFarvel og tak.Vi ses igen'
+    )
+    expect(
+      joinTranscriptPieces(['今日は良い天気', 'ですね。'], {
+        separateDecodes: true,
+      })
+    ).toBe('今日は良い天気ですね。')
+  })
 })
 
 describe('timedTranscriptFromPieces', () => {

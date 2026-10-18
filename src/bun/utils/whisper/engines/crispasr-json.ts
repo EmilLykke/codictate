@@ -248,10 +248,19 @@ function segmentTimesUsable(segments: readonly CrispasrTimedText[]): boolean {
 }
 
 /**
+ * A sentence end written straight into the next sentence's capital ("reaktioner.Vi"). Edda
+ * starts a sentence it writes mid-slice the way it starts a decode, without the leading space
+ * (ADR-0010). A lowercase letter before the stop keeps "U.S.A." whole.
+ */
+const GLUED_SENTENCE_END = /(\p{Ll}[.!?])(?=\p{Lu})/gu
+
+/**
  * The Raw Transcript and, when the run's times mean anything, the Timed Transcript.
  *
- * The Raw Transcript is the segment texts joined in order (`joinTranscriptPieces`). The
- * Timed Transcript is `null` on the `nt-vad` path: with `-nt` the segment times are not
+ * The Raw Transcript is the segment texts joined in order (`joinTranscriptPieces`). On
+ * `nt-vad` each segment is one slice decoded on its own, so two always meet at a word
+ * boundary, and a sentence end glued to the next capital inside a segment gets its space.
+ * The Timed Transcript is `null` on the `nt-vad` path: with `-nt` the segment times are not
  * usable (Edda's come back negative), so nothing is built from them. Only hviske (`cohere`)
  * gets word times. On `timestamps` the VAD leaves token times in its own compressed timeline
  * (whisper.cpp #4046), so parts carry segment times and no words (ADR-0011).
@@ -260,14 +269,21 @@ export function crispasrTranscript(
   parsed: { segments: readonly CrispasrSegment[] },
   decoding: CrispasrDecoding
 ): { rawTranscript: string; timedTranscript: TimedTranscript | null } {
+  if (decoding === 'nt-vad') {
+    return {
+      rawTranscript: joinTranscriptPieces(
+        parsed.segments.map((segment) =>
+          segment.text.replace(GLUED_SENTENCE_END, '$1 ')
+        ),
+        { separateDecodes: true }
+      ),
+      timedTranscript: null,
+    }
+  }
   const rawTranscript = joinTranscriptPieces(
     parsed.segments.map((segment) => segment.text)
   )
-  if (
-    decoding === 'nt-vad' ||
-    rawTranscript === '' ||
-    !segmentTimesUsable(parsed.segments)
-  ) {
+  if (rawTranscript === '' || !segmentTimesUsable(parsed.segments)) {
     return { rawTranscript, timedTranscript: null }
   }
   const pieces: TimedPiece[] = parsed.segments.map((segment) => ({

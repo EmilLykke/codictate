@@ -49,12 +49,19 @@ const NO_SPACE_SCRIPT =
  *   word stays glued to it.
  * - Otherwise (Edda-style, Parakeet sentences): one space between pieces, except between two
  *   characters of a script written without spaces.
+ * - With `separateDecodes`, every piece is its own decode and never continues the word before
+ *   it (crispasr's `nt-vad`, one segment per slice): one space wherever two pieces meet without
+ *   whitespace, with the same script exception, whatever the other pieces start with.
  * Empty pieces are dropped; the result is trimmed at both ends; nothing inside is touched.
  */
-export function joinTranscriptPieces(pieces: readonly string[]): string {
+export function joinTranscriptPieces(
+  pieces: readonly string[],
+  { separateDecodes = false }: { separateDecodes?: boolean } = {}
+): string {
   const kept = pieces.filter((piece) => piece.trim() !== '')
   if (kept.length === 0) return ''
-  const leadingSpaces = kept.slice(1).some((piece) => /^\s/u.test(piece))
+  const leadingSpaces =
+    !separateDecodes && kept.slice(1).some((piece) => /^\s/u.test(piece))
   let out = kept[0]
   for (const piece of kept.slice(1)) {
     if (leadingSpaces || /\s$/u.test(out) || /^\s/u.test(piece)) {

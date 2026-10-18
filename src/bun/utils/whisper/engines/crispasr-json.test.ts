@@ -244,6 +244,53 @@ describe('crispasrTranscript joins and times', () => {
     expect(rawTranscript).toBe('Hej med dig Farvel')
   })
 
+  test('nt-vad: every slice is its own decode, so segments always meet at a word boundary', () => {
+    // The second slice starts without a space, the third with one: as written, that glues
+    // "dig" to "Farvel". Edda starts a decode without the space, stock Whisper with it.
+    const segments = [
+      segment(' Hej med dig', 0, 1),
+      segment('Farvel', 2, 3),
+      segment(' og tak.', 3, 4),
+      segment('Vi ses', 5, 6),
+    ]
+    expect(crispasrTranscript({ segments }, 'nt-vad').rawTranscript).toBe(
+      'Hej med dig Farvel og tak. Vi ses'
+    )
+    // The other paths keep their joins: Whisper's leading spaces are word boundaries there.
+    expect(crispasrTranscript({ segments }, 'timestamps').rawTranscript).toBe(
+      'Hej med digFarvel og tak.Vi ses'
+    )
+    expect(crispasrTranscript({ segments }, 'cohere').rawTranscript).toBe(
+      'Hej med digFarvel og tak.Vi ses'
+    )
+  })
+
+  test('nt-vad: a sentence end glued to the next capital inside a segment gets its space', () => {
+    // Edda q5_0 with the prompt on a real 65 s dictation, inside one slice.
+    const glued = segment(
+      'jagtede journalisterne EU lederne for at få deres reaktioner.Vi tager dig med bagom. Hvad?Ja!Nej',
+      0,
+      1
+    )
+    expect(
+      crispasrTranscript({ segments: [glued] }, 'nt-vad').rawTranscript
+    ).toBe(
+      'jagtede journalisterne EU lederne for at få deres reaktioner. Vi tager dig med bagom. Hvad? Ja! Nej'
+    )
+    // Abbreviations, numbers and names are left alone, and so is a stop-less glue
+    // ("reaktionerVi"), which reads the same as "iPhone".
+    const untouched = 'U.S.A. og 4.5 på YouTube via iPhone, reaktionerVi'
+    expect(
+      crispasrTranscript({ segments: [segment(untouched, 0, 1)] }, 'nt-vad')
+        .rawTranscript
+    ).toBe(untouched)
+    // Only on nt-vad.
+    expect(
+      crispasrTranscript({ segments: [segment(' a.B', 0, 1)] }, 'timestamps')
+        .rawTranscript
+    ).toBe('a.B')
+  })
+
   test('times that are all zero, or run backwards by more than a second, give no timings', () => {
     expect(
       crispasrTranscript(
