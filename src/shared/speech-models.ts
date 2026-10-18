@@ -266,6 +266,9 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: 'be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21',
     // No `whisperDecoding: 'timestamps'`: with the Danish prompt and the VAD it skips the
     // whole first utterance of a Danish clip (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either: there it wrote the English prompt into a Translate to
+    // English run, and passes the English clips without it (long-audio.manual.ts, 2026-10-18).
+    ntVadPrompt: false,
   },
   {
     id: 'tiny-q5_1',
@@ -281,6 +284,9 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: '818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7',
     // No `whisperDecoding: 'timestamps'`: with the Danish prompt and the VAD it skips the
     // whole first utterance of a Danish clip (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either, like tiny, which fails the long-audio check with it there
+    // (2026-10-18); not run on this Quantization.
+    ntVadPrompt: false,
   },
   {
     id: 'tiny-q8_0',
@@ -296,6 +302,9 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: 'c2085835d3f50733e2ff6e4b41ae8a2b8d8110461e18821b09a15c40c42d1cca',
     // No `whisperDecoding: 'timestamps'`: with the Danish prompt and the VAD it skips the
     // whole first utterance of a Danish clip (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either, like tiny, which fails the long-audio check with it there
+    // (2026-10-18); not run on this Quantization.
+    ntVadPrompt: false,
   },
   {
     id: 'tiny.en',
@@ -352,6 +361,10 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe',
     // No `whisperDecoding: 'timestamps'`: with the Danish prompt and the VAD it skips the
     // whole first utterance of a Danish clip (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either: there it wrote "Stuffed into you" for "Stuff it into you"
+    // on a short English clip, and passes the English clips without it (long-audio.manual.ts,
+    // 2026-10-18).
+    ntVadPrompt: false,
   },
   {
     id: 'base-q5_1',
@@ -367,6 +380,9 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: '422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898',
     // No `whisperDecoding: 'timestamps'`: with the Danish prompt and the VAD it skips the
     // whole first utterance of a Danish clip (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either, like base, which fails the long-audio check with it there
+    // (2026-10-18); not run on this Quantization.
+    ntVadPrompt: false,
   },
   {
     id: 'base-q8_0',
@@ -382,6 +398,9 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: 'c577b9a86e7e048a0b7eada054f4dd79a56bbfa911fbdacf900ac5b567cbb7d9',
     // No `whisperDecoding: 'timestamps'`: with the Danish prompt and the VAD it skips the
     // whole first utterance of a Danish clip (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either, like base, which fails the long-audio check with it there
+    // (2026-10-18); not run on this Quantization.
+    ntVadPrompt: false,
   },
   {
     id: 'base.en',

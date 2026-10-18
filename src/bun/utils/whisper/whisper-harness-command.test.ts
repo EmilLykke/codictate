@@ -356,6 +356,12 @@ describe('buildWhisperHarnessCommand', () => {
       'large-v2',
       'large-v2-q5_0',
       'large-v2-q8_0',
+      'base',
+      'base-q5_1',
+      'base-q8_0',
+      'tiny',
+      'tiny-q5_1',
+      'tiny-q8_0',
     ]) {
       const command = await buildWhisperHarnessCommand(
         {
