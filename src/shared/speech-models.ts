@@ -243,22 +243,6 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
     whisperDecoding: 'timestamps',
   },
-  {
-    id: 'large-v3-q5_0',
-    engine: 'whisper_cpp',
-    modeSupport: 'normal',
-    artifactName: 'ggml-large-v3-q5_0.bin',
-    downloadSizeMB: 1100,
-    peakRamMB: 1986,
-    label: 'Large V3',
-    description: 'Whisper model · highest accuracy, multilingual, 2.0 GB RAM',
-    curated: true,
-    translationSupport: true,
-    sha256: 'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
-    // No `whisperDecoding: 'timestamps'`: without `-nt` it loops on long Danish (repeated
-    // parts, the last utterance lost) and on translate, in long-audio.manual.ts. Checked again
-    // with the VAD on 2026-10-17: still a repeated part on 5 min Danish.
-  },
 
   // ── Extended Whisper models (visible via browse modal) ─────────────
   // Tiny
@@ -615,7 +599,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
     // No `whisperDecoding: 'timestamps'`: with the dictation prompt it drops opening words
     // ("After a while" on a LibriSpeech clip) (long-audio.manual.ts, 2026-10-17).
   },
-  // Large V3 (extended variants - curated large-v3-q5_0 is above)
+  // Large V3
   {
     id: 'large-v3',
     engine: 'whisper_cpp',
@@ -629,6 +613,21 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: '64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2',
     // No `whisperDecoding: 'timestamps'`: without `-nt` it lost 111-144 s of a 5 min English
     // clip and repeats parts on long Danish (long-audio.manual.ts, 2026-10-17).
+  },
+  {
+    id: 'large-v3-q5_0',
+    engine: 'whisper_cpp',
+    modeSupport: 'normal',
+    artifactName: 'ggml-large-v3-q5_0.bin',
+    downloadSizeMB: 1100,
+    peakRamMB: 1986,
+    label: 'Large V3',
+    description: 'Whisper model · highest accuracy, multilingual, 2.0 GB RAM',
+    translationSupport: true,
+    sha256: 'd75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1',
+    // No `whisperDecoding: 'timestamps'`: without `-nt` it loops on long Danish (repeated
+    // parts, the last utterance lost) and on translate, in long-audio.manual.ts. Checked again
+    // with the VAD on 2026-10-17: still a repeated part on 5 min Danish.
   },
   // Large V3 Turbo (extended variants - curated turbo-q5_0 is above)
   {

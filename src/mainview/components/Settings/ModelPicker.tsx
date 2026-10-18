@@ -16,6 +16,8 @@ const SHORT_DESC: Record<string, string> = {
   "medium.en-q5_0": "Best English accuracy. 1.1 GB RAM.",
   "small-q5_1": "Lightweight multilingual. 475 MB RAM.",
   "large-v3-turbo-q5_0": "Daily driver multilingual. 800 MB RAM.",
+  // No longer curated (it decodes on the `nt-vad` path, ADR-0010), but kept: users who
+  // downloaded it while it was curated still see it in this list.
   "large-v3-q5_0": "Highest accuracy, multilingual. 2.0 GB RAM.",
   // The five hviske Quantizations differ only in size and speed. The Benchmark Run
   // 2026-08-18_08-17-28_hviske-vs-main-models measured Danish WER from 11.29 to 11.67
@@ -95,7 +97,7 @@ export function ModelPicker({
         const isDeletable = isAvailable && !model.bundled;
         const isPendingDelete = confirmDelete === model.id;
         const stats = MODEL_RATINGS[model.id];
-        // SHORT_DESC covers the curated models and the hviske and Edda Quantizations. Anything else
+        // SHORT_DESC covers the curated models, large-v3-q5_0 and the hviske and Edda Quantizations. Anything else
         // reaching this picker is an extra Quantization downloaded from the browse modal, and
         // falls back to its catalog description rather than rendering a blank line. The two
         // are written in different registers (catalog descriptions carry an engine prefix),
