@@ -112,6 +112,7 @@ describe('planVadSlices: merging at pauses', () => {
   })
 
   test('audio shorter than the cap is one slice, pauses and all', () => {
+    // The 1.5 s pause is exactly maxMergeGapMs, so it still merges.
     const samples = audio(
       ['room', 0.4],
       ['speech', 2],
@@ -202,6 +203,70 @@ describe('planVadSlices: merging at pauses', () => {
         expect(covered(slices, at(s) + 1, at(e) - 1)).toBe(true)
       }
     }
+  })
+})
+
+describe('planVadSlices: long pauses', () => {
+  test('utterance, 10 s of silence, utterance: two slices, the silence in neither', () => {
+    const samples = audio(
+      ['room', 1],
+      ['speech', 2],
+      ['room', 10],
+      ['speech', 2],
+      ['room', 1]
+    )
+    const slices = planVadSlices(samples, SR)
+    expect(slices).toEqual([
+      { startSample: at(0.8), endSample: at(3.2) },
+      { startSample: at(12.8), endSample: at(15.2) },
+    ])
+  })
+
+  test('a 1 s pause merges, a 2 s pause ends the slice', () => {
+    const withPause = (seconds: number) =>
+      audio(
+        ['room', 1],
+        ['speech', 2],
+        ['room', seconds],
+        ['speech', 2],
+        ['room', 1]
+      )
+    expect(planVadSlices(withPause(1), SR)).toEqual([
+      { startSample: at(0.8), endSample: at(6.2) },
+    ])
+    expect(planVadSlices(withPause(2), SR)).toEqual([
+      { startSample: at(0.8), endSample: at(3.2) },
+      { startSample: at(4.8), endSample: at(7.2) },
+    ])
+    expect(planVadSlices(withPause(2), SR, { maxMergeGapMs: 3000 })).toEqual([
+      { startSample: at(0.8), endSample: at(7.2) },
+    ])
+  })
+
+  test('the gap rule holds for a speech mask too', () => {
+    const samples = audio(['tone', 16])
+    expect(
+      planVadSlices(samples, SR, undefined, [
+        { startSample: at(1), endSample: at(3) },
+        { startSample: at(13), endSample: at(15) },
+      ])
+    ).toEqual([
+      { startSample: at(0.8), endSample: at(3.2) },
+      { startSample: at(12.8), endSample: at(15.2) },
+    ])
+  })
+
+  test('a click on the far side of a long pause is dropped on its own', () => {
+    const samples = audio(
+      ['room', 1],
+      ['speech', 2],
+      ['room', 5],
+      ['speech', 0.1],
+      ['room', 1]
+    )
+    expect(planVadSlices(samples, SR)).toEqual([
+      { startSample: at(0.8), endSample: at(3.2) },
+    ])
   })
 })
 

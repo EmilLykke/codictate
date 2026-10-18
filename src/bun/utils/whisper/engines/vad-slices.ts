@@ -12,12 +12,15 @@
  *    of the recording's own noise floor.
  * 2. Speech is the given `speechRegions` (a Silero pass), or else the runs of loud frames with
  *    pauses shorter than `minPauseMs` bridged.
- * 3. Neighbouring speech is merged greedily into slices up to the cap. The pauses between
- *    merged speech stay in the slice.
+ * 3. Neighbouring speech is merged greedily into slices up to the cap. A pause up to
+ *    `maxMergeGapMs` stays in the slice; a longer one always ends it, because on `-nt` a long
+ *    silence invites an early end-of-text and loses the speech after it. faster-whisper drops
+ *    silence for the same reason, and Edda was trained with 0.5-2 s of it at most.
  * 4. Speech longer than the cap is cut in its back half at the longest pause, else at the
  *    centre of the quietest 100 ms (crispasr's own `crispasr_rechunk_slices` rule).
  * 5. Slices with too little speech are dropped, and each slice keeps `padMs` of real audio on
- *    both sides, never overlapping a neighbour and never past the cap.
+ *    both sides, never overlapping a neighbour and never past the cap. The rest of a long
+ *    pause is in no slice at all.
  */
 
 /** Sample offsets at the audio's own rate. `endSample` is exclusive. */
@@ -41,17 +44,21 @@ export interface VadSliceOptions {
   padMs: number
   /** A slice with less speech than this is dropped (a click, a cough). */
   minSpeechMs: number
+  /** A pause longer than this always ends a slice; up to this it can stay inside one. */
+  maxMergeGapMs: number
 }
 
 /**
  * 98 ms is whisper.cpp's own shortest pause for splitting long VAD regions, and 250 ms is
- * Silero's `min_speech_duration_ms`.
+ * Silero's `min_speech_duration_ms`. 1.5 s sits inside the 0.5-2 s of trailing silence Edda
+ * was trained with.
  */
 export const DEFAULT_VAD_SLICE_OPTIONS: VadSliceOptions = {
   maxSliceSeconds: 20,
   minPauseMs: 98,
   padMs: 200,
   minSpeechMs: 250,
+  maxMergeGapMs: 1500,
 }
 
 const FRAME_SECONDS = 0.01
@@ -245,10 +252,14 @@ interface PlannedSlice extends Span {
   startsAtCut: boolean
 }
 
-/** Speech merged greedily into slices of at most `cap` samples, cutting what runs longer. */
+/**
+ * Speech merged greedily into slices of at most `cap` samples across pauses of at most
+ * `maxGap` samples, cutting what runs longer than the cap.
+ */
 function mergeAndCut(
   speech: Span[],
   cap: number,
+  maxGap: number,
   cutAt: (sliceStart: number) => number
 ): PlannedSlice[] {
   const slices: PlannedSlice[] = []
@@ -267,7 +278,11 @@ function mergeAndCut(
     }
     let end = speech[next].end
     next += 1
-    while (next < speech.length && speech[next].end - start <= cap) {
+    while (
+      next < speech.length &&
+      speech[next].end - start <= cap &&
+      speech[next].start - end <= maxGap
+    ) {
       end = speech[next].end
       next += 1
     }
@@ -304,7 +319,7 @@ export function planVadSlices(
   options?: Partial<VadSliceOptions>,
   speechRegions?: SpeechRegion[]
 ): AudioSlice[] {
-  const { maxSliceSeconds, minPauseMs, padMs, minSpeechMs } = {
+  const { maxSliceSeconds, minPauseMs, padMs, minSpeechMs, maxMergeGapMs } = {
     ...DEFAULT_VAD_SLICE_OPTIONS,
     ...options,
   }
@@ -328,8 +343,12 @@ export function planVadSlices(
     speechRegions === undefined
       ? loudSpeech(loudness, minPauseSamples, samples.length)
       : maskedSpeech(speechRegions, samples.length)
-  const planned = mergeAndCut(speech, speechCap, (sliceStart) =>
-    cutPoint(loudness, sliceStart, speechCap, minPauseSamples, sampleRate)
+  const planned = mergeAndCut(
+    speech,
+    speechCap,
+    toSamples(maxMergeGapMs),
+    (sliceStart) =>
+      cutPoint(loudness, sliceStart, speechCap, minPauseSamples, sampleRate)
   )
 
   // A piece of a cut-up stretch of speech is never dropped, however short: it is that
@@ -342,7 +361,8 @@ export function planVadSlices(
       speechWithin(speech, slice) >= minSpeech
   )
 
-  // Neighbours split the gap between them, so at a forced cut they meet exactly at the cut.
+  // Each side of a gap takes up to `pad` of it, and the rest is in no slice. A gap too short
+  // for both pads is split at its middle, so at a forced cut neighbours meet exactly at it.
   const midpoints = kept
     .slice(1)
     .map((slice, i) => Math.floor((kept[i].end + slice.start) / 2))
