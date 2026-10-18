@@ -3,7 +3,7 @@
  * `--vad-import` (issue #83). Pure: samples in, slices out.
  *
  * With `-nt`, whisper.cpp decodes in 30 s windows and, after an early end-of-text, skips the
- * rest of the window, so the speech after it is lost (ADR-0010). A slice of 20 s or less that
+ * rest of the window, so the speech after it is lost (ADR-0010). A slice of 30 s or less that
  * starts and ends in a pause leaves no window to skip. crispasr decodes imported `"chunks"`
  * exactly as written, with no merge and no re-pack, so these slices are what each decode sees.
  *
@@ -53,12 +53,14 @@ export interface VadSliceOptions {
 }
 
 /**
- * 98 ms is whisper.cpp's own shortest pause for splitting long VAD regions, and 250 ms is
- * Silero's `min_speech_duration_ms`. 1.5 s sits inside the 0.5-2 s of trailing silence Edda
- * was trained with.
+ * 30 s is one Whisper window, and Edda's card (`chunk_length_s=30`): at 20 s Edda stopped early
+ * in a 12 s slice of a real dictation and lost a sentence (ADR-0010). 98 ms is whisper.cpp's
+ * own shortest pause for splitting long VAD regions, and 250 ms is Silero's
+ * `min_speech_duration_ms`. 1.5 s sits inside the 0.5-2 s of trailing silence Edda was
+ * trained with.
  */
 export const DEFAULT_VAD_SLICE_OPTIONS: VadSliceOptions = {
-  maxSliceSeconds: 20,
+  maxSliceSeconds: 30,
   minPauseMs: 98,
   padMs: 200,
   minSpeechMs: 250,

@@ -57,7 +57,7 @@ export type NtVadSlicing =
   | { status: 'failed'; detail: string }
 
 /**
- * Cuts the recording at pauses into slices of 20 s or less (`planVadSlices`, issue #83) and
+ * Cuts the recording at pauses into slices of 30 s or less (`planVadSlices`, issue #83) and
  * writes them where the `nt-vad` argv reads them with `--vad-import`.
  *
  * Every recording that reaches the adapter is a WAV Codictate wrote or chose: MicRecorder and

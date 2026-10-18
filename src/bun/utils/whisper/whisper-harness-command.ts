@@ -153,12 +153,13 @@ function crispasrDecoding(
  *   `-nt`: keeps `-nt` (Edda turns to foreign-script noise without it) on `--backend whisper`,
  *   and decodes the slices in `vadImportPath` (issue #83). With `-nt`, whisper.cpp always
  *   skips ahead a whole 30 s window after an early end-of-text, so any slice over 30 s loses
- *   speech; Codictate cuts at pauses into slices of 20 s or less instead. crispasr uses
- *   imported chunks as written (no merge, no re-pack), and `--vad-import` turns its VAD on by
- *   itself without loading a VAD model, so there is no `--vad` and no `-vm` (checked on
- *   v0.8.41: same transcript with them, Silero never loaded, nothing downloaded). Also
- *   `-sns`, which suppresses non-speech tokens as OpenAI whisper, faster-whisper and WhisperX
- *   do by default, and `-bs 5`, from Edda's model card. Temperature fallback stays on.
+ *   speech; Codictate cuts at pauses into slices of 30 s or less instead, one window each,
+ *   which is also Edda's card (`chunk_length_s=30`). crispasr uses imported chunks as written
+ *   (no merge, no re-pack), and `--vad-import` turns its VAD on by itself without loading a
+ *   VAD model, so there is no `--vad` and no `-vm` (checked on v0.8.41: same transcript with
+ *   them, Silero never loaded, nothing downloaded). Also `-sns`, which suppresses non-speech
+ *   tokens as OpenAI whisper, faster-whisper and WhisperX do by default, and `-bs 5`, from
+ *   Edda's model card. Temperature fallback stays on.
  * - `cohere`, hviske: `--backend cohere -nt`. There `-nt` only changes how stdout is printed.
  *
  * Translate needs no special-casing. `-tr` was measured equivalent across Harnesses on a
