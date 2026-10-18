@@ -62,6 +62,8 @@ Auto-detect gets the English prompt because a 71 s Danish FLEURS clip with `--la
 
 Without the VAD, small-q5_1 once wrote the Danish prompt into the transcript three times. It has not been seen with the VAD, but the long-audio check fails any transcript on this path that repeats four words of the prompt in a row.
 
+Since 2026-10-18 the `nt-vad` path (ADR-0010) passes the same prompt by the same rule, because Edda wrote no full stop in a real 65 s dictation without it. The echo guard covers that path too, and a Speech Model whose check fails with the prompt there opts out with `ntVadPrompt: false`: large-v2 (it wrote the Danish prompt into continuous Danish), and the multilingual base and tiny, all Quantizations. `-nt` stays on `nt-vad`; only the prompt is shared.
+
 ## No word times on this path
 
 With `--vad`, whisper.cpp leaves token `offsets` in the VAD's compressed timeline (upstream whisper.cpp #4046). On a 19 s clip the last token ended at 13.1 s while its segment correctly ended at 19.2 s. So on this path the Timed Transcript is built from segment times only, with no words. Caption Files still work: a part without words is split and its time shared out by character. hviske keeps its word times.

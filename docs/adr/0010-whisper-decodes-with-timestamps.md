@@ -28,17 +28,21 @@ This path first ran `--backend whisper -nt --vad` with the bundled Silero weight
 
 The cause is whisper.cpp, not crispasr and not the models. The whisper backend declares `CAP_INTERNAL_CHUNKING`, so crispasr hands each VAD region to whisper.cpp whole (93 s here), and whisper.cpp decodes it in 30 s windows. With `-nt` there are no timestamp tokens to say where the model stopped, so after an early end-of-text it always moves on a full window (`seek_delta = 100*WHISPER_CHUNK_SIZE`, `src/whisper.cpp`) and the rest of that window is never decoded. OpenAI's reference `transcribe.py` does the same. This section first blamed the dispatcher for packing regions into 30 s slices; reading crispasr v0.8.41's source showed it does not. No crispasr up to v0.8.44 changes any of this. `-vmsd` cannot fix it: on the `--backend` path it is silently ignored (the dispatcher's VAD options have no max-speech field), and crispasr then merges any two regions less than 1 s apart, or after one shorter than 3 s. `-ck`, `-mc 0`, `-vsd` and `-vo` change nothing.
 
-The decision is that **Codictate cuts the slices and passes them with `--vad-import`** (`src/bun/utils/whisper/engines/vad-slices.ts`, issue #83). crispasr uses a `"kind":"chunks"` file as written, with no merge and no re-pack, and decodes each slice on its own. The argv is `--backend whisper -nt --vad-import <per-run dir>/slices.json -sns -bs 5`, with no `--vad` and no `-vm`: `--vad-import` turns crispasr's VAD on by itself and never loads a VAD model. The cuts:
+The decision is that **Codictate cuts the slices and passes them with `--vad-import`** (`src/bun/utils/whisper/engines/vad-slices.ts`, issue #83). crispasr uses a `"kind":"chunks"` file as written, with no merge and no re-pack, and decodes each slice on its own. The argv is `--backend whisper -nt --vad-import <per-run dir>/slices.json -sns -bs 5 --prompt <dictation prompt>`, with no `--vad` and no `-vm`: `--vad-import` turns crispasr's VAD on by itself and never loads a VAD model. The cuts:
 
 - A loudness scan in 10 ms frames finds speech and pauses. A pause is at least 98 ms of frames within 6 dB of the noise floor.
-- Neighbouring speech is merged into slices of up to 20 s. A slice that cannot hold the next speech ends at the longest pause between 10 and 20 s from its start (faster-whisper's rule), and with no pause at all at the quietest 100 ms.
+- Neighbouring speech is merged into slices of up to 30 s, one Whisper window and Edda's card (`chunk_length_s=30`). A slice that cannot hold the next speech ends at the longest pause between 15 and 30 s from its start (faster-whisper's rule), and with no pause at all at the quietest 100 ms.
 - A pause longer than 1.5 s always ends a slice and is left out of every slice. A long silence inside a slice is what invites an early end-of-text, and Edda was trained on clips with at most 2 s of trailing silence.
 - Each edge keeps 0.2 s of real audio. Slices never overlap, and a slice with less than 250 ms of speech is dropped. A recording with no slices is an empty transcript, and crispasr is not started.
 - `-sns` suppresses non-speech tokens such as "♪♪", which OpenAI whisper, faster-whisper and WhisperX all do by default. `-bs 5` is Edda's model card. Temperature fallback stays on, as crispasr's default.
+- `--prompt` is ADR-0011's dictation prompt, by the same rule as the `timestamps` path: Danish for `da`, English for `en`, auto-detect and Translate to English, none otherwise. A Speech Model whose long-audio check fails with it sets `ntVadPrompt: false` in `speech-models.ts`.
+- The segments are joined with a space wherever two meet without one, since each is a slice decoded on its own, and a sentence end glued to the next capital inside a segment ("reaktioner.Vi") gets its space (below).
+
+The principle: **a Speech Model is decoded the way its own card documents.** For Edda that is no timestamps, 30 s windows, 5 beams and a prompt.
 
 This is how the rest of the field decodes Whisper without timestamps: WhisperX's cut and merge and faster-whisper's batched pipeline both cut at VAD pauses, decode each piece independently without timestamps or previous text, and use no overlap. Edda's card says "split at pauses for best results". A Silero pass to tell speech from noise was measured and left out: run alone through crispasr it costs about 0.35 s on 90 s of audio, against about 5 ms for the loudness scan, and its regions come out after the 1 s / 3 s merge.
 
-### What was measured
+### What was measured at the first, 20 s cap
 
 The long-audio check, 2026-10-18, crispasr v0.8.41 on an M4 Max, every run repeated. It now also fails a model that loses 3 or more words, or the first or last word, of an utterance at a cut, compared with decoding that utterance alone. On the continuous clips that is reported but does not fail the model (below).
 
@@ -51,13 +55,49 @@ The long-audio check, 2026-10-18, crispasr v0.8.41 on an M4 Max, every run repea
 All five lose no words at any cut on the clips with natural pauses, translate correctly, and write no foreign script. Short clips stay within two words of the old argv, never worse against the reference. Speed is about the old path's: Edda decodes 5 min of Danish in about 9 s.
 
 - **Beam search stays.** Greedy decoding lost the 128-137 s utterance of 5 min Danish on all three Edda Quantizations, and continuous Danish fell to 76-86%. On large-v3 greedy was 12-23% faster at the same accuracy, but `-bs 5` is the one setting that loses nothing everywhere.
-- **The cap stays at 20 s.** At 25 s Edda was about 12% faster and equal on accuracy, large-v3 gained nothing measurable and lost 1-2 points on continuous Danish, and the same cut loss below did not move.
+- **The cap was 20 s, and is 30 s now.** At 25 s Edda was about 12% faster and equal on accuracy on the check's clips, large-v3 gained nothing measurable and lost 1-2 points on continuous Danish, so the cap stayed at 20 s. A real dictation then showed what the clips did not (next section), and the cap moved to Edda's own 30 s.
 - **The rest of the `nt-vad` models are no worse.** large-v1 went from losing 29-93 s of continuous English to losing nothing. large-v2, large-v2-q5_0 and large-v2-q8_0 pass. Multilingual base and tiny, judged on English because they hear only a third to a half of Danish words even one utterance at a time, lose nothing and stop clipping "Stuff it into you" to "Duffered into you".
 - **`-vt` no longer applies here.** This path runs no Silero VAD, so ADR-0011's threshold question for `nt-vad` is gone.
 
+### A real dictation: 30 s slices and the prompt
+
+The first real Edda Dictation on this path, a 65 s Danish news read with q5_0, came out worse than the old Silero path. The 20 s cap cut it into five slices of 12-19 s, Edda stopped early in a 12 s one and lost a whole sentence ("... de mangler penge"), and it wrote no full stop at all. Edda never ends a slice with a full stop. Edda's card explains both: the Hugging Face pipeline it documents decodes 30 s chunks with 5 beams and an optional prompt; 43% of its training data is FTSpeech, lower case without punctuation, and half the training clips had the previous utterance in the prompt slot.
+
+| Same 65 s dictation, Edda q5_0 | Words | Full stops | Commas | The lost sentence |
+|---|---|---|---|---|
+| Old path (crispasr's Silero chunks, about 30 s) | 154 | 9 | 0 | kept |
+| 20 s slices | 132 | 0 | 0 | lost |
+| 30 s slices | 148 | 3 | 0 | kept |
+| 20 s slices and the prompt | 148 | 8 | 9 | kept |
+| 30 s slices and the prompt | 148 | 8 | 9 | kept |
+
+The prompt is ADR-0011's Danish dictation prompt. `-sns` and `-bs 5` made no difference to the punctuation. So the cap is 30 s, which is still one Whisper window, so the lost speech of #83 stays fixed, and this path passes the prompt. The pause rules, the padding and the rest of the cut are as above.
+
+The same transcripts also glued sentences: "reaktionerVi", and with the prompt "reaktioner.Vi". That is inside one segment, not between two: Edda starts a sentence it writes in the middle of a slice the way it starts a decode, without the leading space. On `nt-vad` Codictate now joins segments with a space wherever two meet without one, since each is its own decode, and adds the space after a sentence end that follows a lowercase letter and runs straight into a capital. A glue without the full stop ("reaktionerVi") is left as written: it looks the same as "iPhone". With the prompt on, Edda writes the full stop. The `timestamps` and `cohere` joins do not change.
+
+The long-audio check, 2026-10-18, at 30 s with the prompt. It now also prints sentence ends and commas per 100 words, fails an `nt-vad` model under 2 per 100 on a Danish clip with pauses (FLEURS references have 5-6; LibriSpeech's are unpunctuated, so English is printed, not judged), fails a transcript that repeats the prompt, and runs the 65 s dictation above when it is on the machine (it is private and never committed).
+
+| Speech Model | Danish 5 min | Danish continuous 90 s | English 5 min | English continuous 90 s | Full stops / commas per 100 words, Danish 5 min | The 65 s dictation: words, full stops, commas |
+|---|---|---|---|---|---|---|
+| Edda q5_0 / q8_0 / f16 | 95%, none lost | 93-94%, none lost | - | - | 5.2 / 7.7-8.1 (reference 5.6) | 148-149, 7-8, 9 |
+| large-v3-q5_0 | 91%, none lost | 92%, none lost | 99%, none lost | 99%, none lost | 5.8 / 7.6 | 147, 9, 11 |
+| large-v3 | 91%, none lost | 92%, none lost | 99%, none lost | 99%, none lost | 6.0 / 5.8 | 147, 11, 9 |
+
+All five pass: no words lost at a cut on the clips with pauses, no prompt echo, translate correct, short clips within two words of the old argv and never worse against the reference. Edda's continuous-Danish cut loss below is gone at 30 s. Every stock model misspells the show's name the dictation ends a sentence with, whatever the cap or prompt, so the check looks for the words before it.
+
+Without the prompt, Edda q5_0 at 30 s wrote 3.2 full stops per 100 words on Danish 5 min and none on continuous Danish, and 3 full stops and no comma in the dictation. large-v3-q5_0 without it wrote 2.8 full stops per 100 words on English 5 min against 5.5 with it, and none on continuous English. No fewer words are heard with it: large-v3-q5_0 heard 97% of English 60 s with the prompt and 94% without.
+
+Speed: Edda takes 15-35% longer on 5 min of Danish than at 20 s (9 s to 11-12 s), and the prompt is that cost: at 30 s without it q5_0 took 8.5 s. large-v3 and large-v3-q5_0 take 0-10% longer, inside run-to-run noise (large-v3-q5_0 took 29 s on English 5 min once and 21 s on the repeat, against 19 s at 20 s).
+
+The rest of the `nt-vad` models, judged as before (base and tiny on English only):
+
+- large-v1 passes with the prompt.
+- large-v2 and large-v2-q5_0 write the Danish prompt into continuous Danish ("jeg skriver i hele"), and pass without it. They and large-v2-q8_0 set `ntVadPrompt: false`.
+- base wrote "Stuffed into you" for "Stuff it into you" with the prompt, and tiny wrote the English prompt into a Translate to English run. Both pass every English row without it, so they and their q5_1 and q8_0 Quantizations set `ntVadPrompt: false`. Their Danish fails either way, as at 20 s.
+
 ### Accepted: words lost at a cut inside a sentence
 
-On the continuous clips the gaps between sentences are 0.05 s, below the 98 ms a pause needs, so every cut there lands inside a sentence, and a model can drop the piece of sentence at a slice edge. Edda (all three) drops "dens lange kæber havde mere end" at 29.98 s of continuous Danish. Before the longest-pause rule large-v2 dropped "See, said Uncas, pointing north and south" and every priority model "sytten dødsfald"; both are fixed. On the clips with natural pauses no cut by any model loses a word. Real speech almost always pauses for longer than 98 ms between sentences, so this is accepted and recorded, not gated. If a real Dictation ever shows words lost at a cut, the follow-up is a short overlap at cuts inside speech with the doubled words removed. Hugging Face's merge of overlapping chunks is, in its author's word, "unsound" on silence and repeated words, which is why it is not done before it is needed.
+On the continuous clips the gaps between sentences are 0.05 s, below the 98 ms a pause needs, so every cut there lands inside a sentence, and a model can drop the piece of sentence at a slice edge. At the 20 s cap Edda (all three) dropped "dens lange kæber havde mere end" at 29.98 s of continuous Danish; at 30 s no model loses words at a cut there. Before the longest-pause rule large-v2 dropped "See, said Uncas, pointing north and south" and every priority model "sytten dødsfald"; both are fixed. On the clips with natural pauses no cut by any model loses a word. Real speech almost always pauses for longer than 98 ms between sentences, so this is accepted and recorded, not gated. If a real Dictation ever shows words lost at a cut, the follow-up is a short overlap at cuts inside speech with the doubled words removed. Hugging Face's merge of overlapping chunks is, in its author's word, "unsound" on silence and repeated words, which is why it is not done before it is needed.
 
 ## Every Whisper Speech Model starts on `nt-vad`, and the check moves it to `timestamps`
 
