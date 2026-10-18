@@ -36,7 +36,12 @@
  *   where the solo decode wrote 3 or more words more, or loses its first or last word where
  *   the solo decode heard it and a cut is within 1 s of that end (one lost at the far end,
  *   inside a slice, is listed but does not fail). The 30% rule alone passes a cut that drops
- *   one clause.
+ *   one clause. Only the clips with real pauses between utterances (`en_60s`, `en_5min`,
+ *   `da_2min`, `da_5min`) fail on it. On the `*_continuous_90s` clips a loss is reported in
+ *   the table ("reported, not gated: continuous clip") and fails nothing: their 0.05 s
+ *   between sentences is under the planner's 98 ms pause minimum, so every cut there lands
+ *   inside a sentence (decision 2026-10-18, an accepted limitation; overlapping slices are
+ *   the follow-up only if a real dictation shows the loss).
  * - Short single clips within one word of the legacy `-nt` argv, spawned here by hand, or,
  *   when decoding variance moved more than a word, no worse against the reference.
  * - Danish: under 1% of letters outside the Latin script (Edda's failure without `-nt`).
@@ -194,6 +199,8 @@ interface LongClip {
   windows: Window[]
   /** Each utterance had its own silence cut off. */
   trimmed: boolean
+  /** Silence between two utterances. */
+  gapSeconds: number
 }
 
 /** Where the app cut a long clip on `nt-vad`, in seconds. */
@@ -207,6 +214,8 @@ interface Cut {
 interface CutLoss {
   model: string
   clip: string
+  /** The loss fails the model (`cutLossGated`). */
+  gated: boolean
   cut: string
   utterance: string
   /** Where the cut sits relative to the utterance's speech. */
@@ -251,6 +260,7 @@ const cutChecked: {
   cuts: number
   utterances: number
   flagged: number
+  reported: number
 }[] = []
 /** Each long clip's `nt-vad` transcript, by `model|clip`, for the cut-loss check. */
 const longTranscripts = new Map<string, string>()
@@ -438,6 +448,7 @@ function buildLongClip(
     seconds: all.length / SAMPLE_RATE,
     windows,
     trimmed: trim,
+    gapSeconds,
   }
 }
 
@@ -965,6 +976,17 @@ function cutsOf(clip: LongClip): Cut[] {
   return cuts
 }
 
+/**
+ * Whether words lost at a cut in `clip` fail the model. Not where the clip has no pause
+ * between utterances the planner counts (the continuous clips' 0.05 s against its 98 ms
+ * minimum): every cut there must land inside a sentence. Decided 2026-10-18 (issue #83) as an
+ * accepted limitation, with overlapping slices the follow-up only if a real dictation shows
+ * the loss. Those losses are reported, not gated.
+ */
+function cutLossGated(clip: LongClip): boolean {
+  return clip.gapSeconds * 1000 >= DEFAULT_VAD_SLICE_OPTIONS.minPauseMs
+}
+
 function cutLabel(cut: Cut): string {
   return cut.to - cut.from < 0.005
     ? `${cut.from.toFixed(2)} s`
@@ -1183,26 +1205,27 @@ afterAll(() => {
       ? []
       : [
           '',
-          '| Speech Model | Cuts | Utterances decoded alone | Utterances that lost words at a cut |',
-          '|---|---|---|---|',
+          '| Speech Model | Cuts | Utterances decoded alone | Utterances that lost words at a cut | Same on continuous clips (reported, not gated) |',
+          '|---|---|---|---|---|',
           ...cutChecked.map(
-            (c) => `| ${c.model} | ${c.cuts} | ${c.utterances} | ${c.flagged} |`
+            (c) =>
+              `| ${c.model} | ${c.cuts} | ${c.utterances} | ${c.flagged} | ${c.reported} |`
           ),
           ...(cutLossRows.length === 0
             ? []
             : [
                 '',
-                '| Speech Model | Clip | Cut | Utterance | Cut sits | Heard solo / cut | Missing at the cut |',
-                '|---|---|---|---|---|---|---|',
+                '| Speech Model | Clip | Cut | Utterance | Cut sits | Heard solo / cut | Missing at the cut | Gated |',
+                '|---|---|---|---|---|---|---|---|',
                 ...cutLossRows.map(
                   (c) =>
-                    `| ${c.model} | ${c.clip} | ${c.cut} | ${c.utterance} | ${c.position} | ${c.soloHeard}/${c.words} / ${c.cutHeard}/${c.words} | ${c.missing} |`
+                    `| ${c.model} | ${c.clip} | ${c.cut} | ${c.utterance} | ${c.position} | ${c.soloHeard}/${c.words} / ${c.cutHeard}/${c.words} | ${c.missing} | ${c.gated ? 'yes' : 'reported, not gated: continuous clip'} |`
                 ),
               ]),
           '',
           ...[...clipCuts.values()].map(({ clip, cuts }) => {
             const inside = cuts.filter((cut) => utteranceCut(clip, cut) !== -1)
-            return `Cuts in ${clip.name} (${inside.length} of ${cuts.length} inside an utterance): ${cuts.map((cut) => `${cutLabel(cut)} ${utteranceCut(clip, cut) === -1 ? 'between' : 'inside'}`).join(', ')}`
+            return `Cuts in ${clip.name} (${inside.length} of ${cuts.length} inside an utterance${cutLossGated(clip) ? '' : '; reported, not gated: continuous clip'}): ${cuts.map((cut) => `${cutLabel(cut)} ${utteranceCut(clip, cut) === -1 ? 'between' : 'inside'}`).join(', ')}`
           }),
         ]
   const tuning = `nt-vad: slices of ${NT_VAD_TUNING.sliceOptions?.maxSliceSeconds ?? DEFAULT_VAD_SLICE_OPTIONS.maxSliceSeconds} s or less, ${NT_VAD_TUNING.beamSearch === false ? 'greedy' : '-bs 5'}`
@@ -1347,6 +1370,7 @@ describe('long-audio check', () => {
         let cutCount = 0
         let utterances = 0
         let flagged = 0
+        let reported = 0
         for (const clip of longClips.filter((c) =>
           installed.langs.includes(c.lang)
         )) {
@@ -1397,12 +1421,17 @@ describe('long-audio check', () => {
               lastWord: true,
             }).filter((stretch) => !missing.includes(stretch))
             if (missing.length === 0 && farEdge.length === 0) continue
-            if (missing.length > 0) flagged += 1
+            const gated = cutLossGated(clip)
+            if (missing.length > 0) {
+              if (gated) flagged += 1
+              else reported += 1
+            }
             const cut = near.map(cutLabel).join(', ')
             const utterance = `${basename(w.source, '.wav')} ${w.speechStart.toFixed(1)}-${w.speechEnd.toFixed(1)} s`
             cutLossRows.push({
               model: id,
               clip: clip.name,
+              gated,
               cut,
               utterance,
               position: near.map((c) => cutPosition(w, c)).join(', '),
@@ -1416,13 +1445,19 @@ describe('long-audio check', () => {
                 ),
               ].join(' / '),
             })
-            if (missing.length > 0)
+            if (missing.length > 0 && gated)
               failures.push(
                 `${clip.name}: the cut at ${cut} lost "${missing.join(' / ')}" (${utterance})`
               )
           }
         }
-        cutChecked.push({ model: id, cuts: cutCount, utterances, flagged })
+        cutChecked.push({
+          model: id,
+          cuts: cutCount,
+          utterances,
+          flagged,
+          reported,
+        })
         expect(failures).toEqual([])
       },
       RUN_TIMEOUT_MS * 4
