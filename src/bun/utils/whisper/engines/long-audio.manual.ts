@@ -27,6 +27,16 @@
  *
  * Asserted per Speech Model:
  * - No utterance lost: at least 30% of each utterance's reference words heard, in order.
+ * - On `nt-vad`, no words lost at a cut (issue #83). For each long clip, the slices the app
+ *   cuts it into (the adapter's own `writeNtVadSlices`, with this run's slice cap), and at
+ *   each cut every utterance whose speech the cut falls inside or within 0.3 s of, plus the
+ *   utterances either side of it. Each of those is decoded alone, uncut (one slice), with the
+ *   same model and argv, and both transcripts are aligned against its reference as the
+ *   VAD-loss check below does. An utterance fails when the long run misses reference words
+ *   where the solo decode wrote 3 or more words more, or loses its first or last word where
+ *   the solo decode heard it and a cut is within 1 s of that end (one lost at the far end,
+ *   inside a slice, is listed but does not fail). The 30% rule alone passes a cut that drops
+ *   one clause.
  * - Short single clips within one word of the legacy `-nt` argv, spawned here by hand, or,
  *   when decoding variance moved more than a word, no worse against the reference.
  * - Danish: under 1% of letters outside the Latin script (Edda's failure without `-nt`).
@@ -79,11 +89,12 @@ import {
 } from '../whisper-harness-command'
 import {
   transcribeWithCrispasrTuned,
+  writeNtVadSlices,
   type NtVadTuning,
 } from './crispasr-engine'
 import { crispasrTranscript, parseCrispasrJson } from './crispasr-json'
 import type { HarnessTranscriptionRequest } from './transcription'
-import { DEFAULT_VAD_SLICE_OPTIONS } from './vad-slices'
+import { DEFAULT_VAD_SLICE_OPTIONS, type VadSliceOptions } from './vad-slices'
 
 const REPO = resolve(import.meta.dir, '../../../../..')
 const DATASETS = join(REPO, 'benchmarks/datasets')
@@ -113,6 +124,21 @@ const VAD_LOSS_ENGLISH_CLIPS = 20
 const VAD_LOSS_DANISH_CLIPS = 10
 const VAD_LOSS_MAX_SECONDS = 20
 const RUN_TIMEOUT_MS = 15 * 60_000
+/** A cut this close to an utterance's speech counts as at that utterance. */
+const CUT_MARGIN_SECONDS = 0.3
+/**
+ * An utterance's first word is at a cut when the cut is before its speech or less than this
+ * into it, and its last word likewise at the other end.
+ */
+const CUT_EDGE_SECONDS = 1
+/**
+ * The solo decode of an utterance is one slice: no cap under Whisper's 30 s window (every
+ * utterance is `MAX_CLIP_SECONDS` or less) and no pause long enough to end it.
+ */
+const SOLO_SLICE_OPTIONS: Partial<VadSliceOptions> = {
+  maxSliceSeconds: 30,
+  maxMergeGapMs: 30_000,
+}
 
 /** The `nt-vad` knobs from the environment (see the header). */
 function ntVadTuning(): NtVadTuning {
@@ -153,6 +179,11 @@ interface Window {
   text: string
   start: number
   end: number
+  /** The utterance's speech, without its own leading and trailing silence. */
+  speechStart: number
+  speechEnd: number
+  /** The utterance's WAV in the dataset. */
+  source: string
 }
 
 interface LongClip {
@@ -161,6 +192,29 @@ interface LongClip {
   path: string
   seconds: number
   windows: Window[]
+  /** Each utterance had its own silence cut off. */
+  trimmed: boolean
+}
+
+/** Where the app cut a long clip on `nt-vad`, in seconds. */
+interface Cut {
+  /** The end of the slice before the cut. */
+  from: number
+  /** The start of the slice after it: `from` when the slices meet. */
+  to: number
+}
+
+interface CutLoss {
+  model: string
+  clip: string
+  cut: string
+  utterance: string
+  /** Where the cut sits relative to the utterance's speech. */
+  position: string
+  soloHeard: number
+  cutHeard: number
+  words: number
+  missing: string
 }
 
 interface ShortClip {
@@ -191,6 +245,15 @@ const rows: Row[] = []
 const vadLossRows: VadLoss[] = []
 const vadChecked: { model: string; clips: number; flagged: number }[] = []
 const promptEchoes: { model: string; clip: string; phrase: string }[] = []
+const cutLossRows: CutLoss[] = []
+const cutChecked: {
+  model: string
+  cuts: number
+  utterances: number
+  flagged: number
+}[] = []
+/** Each long clip's `nt-vad` transcript, by `model|clip`, for the cut-loss check. */
+const longTranscripts = new Map<string, string>()
 const parity: {
   model: string
   clip: string
@@ -296,10 +359,10 @@ function writeWav(path: string, samples: Int16Array): void {
 }
 
 /**
- * The samples without their leading and trailing 20 ms frames quieter than 2% of the
- * loudest frame.
+ * Where the speech is, in samples (`end` exclusive): the samples without their leading and
+ * trailing 20 ms frames quieter than 2% of the loudest frame.
  */
-function trimSilence(samples: Int16Array): Int16Array {
+function speechBounds(samples: Int16Array): { start: number; end: number } {
   const frame = SAMPLE_RATE / 50
   const rms: number[] = []
   for (let i = 0; i + frame <= samples.length; i += frame) {
@@ -312,7 +375,12 @@ function trimSilence(samples: Int16Array): Int16Array {
   let last = rms.length - 1
   while (first < last && rms[first] < quiet) first += 1
   while (last > first && rms[last] < quiet) last -= 1
-  return samples.slice(first * frame, (last + 1) * frame)
+  return { start: first * frame, end: (last + 1) * frame }
+}
+
+function trimSilence(samples: Int16Array): Int16Array {
+  const { start, end } = speechBounds(samples)
+  return samples.slice(start, end)
 }
 
 /**
@@ -343,7 +411,15 @@ function buildLongClip(
       at += gap.length / SAMPLE_RATE
     }
     pieces.push(samples)
-    windows.push({ text: utterance.text, start: at, end: at + seconds })
+    const speech = speechBounds(samples)
+    windows.push({
+      text: utterance.text,
+      start: at,
+      end: at + seconds,
+      speechStart: at + speech.start / SAMPLE_RATE,
+      speechEnd: at + speech.end / SAMPLE_RATE,
+      source: utterance.wav,
+    })
     at += seconds
     if (at >= targetSeconds * 0.95) break
   }
@@ -355,7 +431,14 @@ function buildLongClip(
   }
   const path = join(dir, `${name}.wav`)
   writeWav(path, all)
-  return { name, lang, path, seconds: all.length / SAMPLE_RATE, windows }
+  return {
+    name,
+    lang,
+    path,
+    seconds: all.length / SAMPLE_RATE,
+    windows,
+    trimmed: trim,
+  }
 }
 
 // -- Datasets -------------------------------------------------------------------------
@@ -571,37 +654,54 @@ interface VadLoss {
 }
 
 /**
- * The stretches of reference words the VAD run lost, as text. A stretch is a run of
- * reference words the VAD run did not hear; it counts as lost when the run without the VAD
- * wrote 3 or more words more there, or when it is the start of the clip and the run without
- * the VAD heard the first word there and wrote more words. A misheard stretch ("ved at give"
- * as "når jeg giver") has about as many words either way and does not count.
+ * The stretches of reference words a run lost against a baseline run, both aligned against
+ * `ref`, as text. A stretch is a run of reference words the run did not hear; it counts as
+ * lost when the baseline wrote 3 or more words more there, or when it holds the first word
+ * (with `firstWord`, the default) or the last word (with `lastWord`), the baseline heard that
+ * word, and wrote more words there. A misheard stretch ("ved at give" as "når jeg giver") has
+ * about as many words either way and does not count.
  */
+function lostStretches(
+  ref: readonly string[],
+  baseline: Alignment,
+  run: Alignment,
+  { firstWord = true, lastWord = false } = {}
+): string[] {
+  const wordsIn = (a: Alignment, from: number, to: number) =>
+    a.at.filter((p) => p >= from && p <= to).length
+  const end = ref.length - 1
+  const losses: string[] = []
+  let from = 0
+  while (from < ref.length) {
+    if (run.heard[from]) {
+      from += 1
+      continue
+    }
+    let to = from
+    while (to + 1 < ref.length && !run.heard[to + 1]) to += 1
+    const drop = wordsIn(baseline, from, to) - wordsIn(run, from, to)
+    const edgeGone =
+      drop >= 1 &&
+      ((firstWord && from === 0 && baseline.heard[0]) ||
+        (lastWord && to === end && baseline.heard[end]))
+    if (drop >= 3 || edgeGone) losses.push(ref.slice(from, to + 1).join(' '))
+    from = to + 1
+  }
+  return losses
+}
+
+/** The stretches of reference words the VAD run lost against the same argv without it. */
 function vadLosses(
   reference: string,
   withoutVad: string,
   withVad: string
 ): string[] {
   const ref = tokenizeForWer(reference)
-  const plain = alignWords(ref, tokenizeForWer(withoutVad))
-  const vad = alignWords(ref, tokenizeForWer(withVad))
-  const wordsIn = (a: Alignment, from: number, to: number) =>
-    a.at.filter((p) => p >= from && p <= to).length
-  const losses: string[] = []
-  let from = 0
-  while (from < ref.length) {
-    if (vad.heard[from]) {
-      from += 1
-      continue
-    }
-    let to = from
-    while (to + 1 < ref.length && !vad.heard[to + 1]) to += 1
-    const drop = wordsIn(plain, from, to) - wordsIn(vad, from, to)
-    const startGone = from === 0 && plain.heard[0] && drop >= 1
-    if (drop >= 3 || startGone) losses.push(ref.slice(from, to + 1).join(' '))
-    from = to + 1
-  }
-  return losses
+  return lostStretches(
+    ref,
+    alignWords(ref, tokenizeForWer(withoutVad)),
+    alignWords(ref, tokenizeForWer(withVad))
+  )
 }
 
 /** Every four words in a row of each dictation prompt, normalised like the transcripts. */
@@ -832,6 +932,137 @@ function checkPromptEcho(
   failures.push(`${clip}: repeats the prompt ("${phrase}")`)
 }
 
+// -- Cut loss (nt-vad) ----------------------------------------------------------------
+
+const clipCuts = new Map<string, { clip: LongClip; cuts: Cut[] }>()
+const clipSamples = new Map<string, Int16Array>()
+/** Each utterance's own audio as a WAV, by `soloAudioKey`. */
+const soloWavs = new Map<string, string>()
+/** Solo decodes, by `model|soloAudioKey`. */
+const soloTranscripts = new Map<string, string>()
+
+/**
+ * Where the app cuts `clip` on `nt-vad`: the adapter's own `writeNtVadSlices` with this run's
+ * slice options, read back from the `--vad-import` file it writes.
+ */
+function cutsOf(clip: LongClip): Cut[] {
+  const known = clipCuts.get(clip.name)
+  if (known !== undefined) return known.cuts
+  const path = join(dir, `${clip.name}-slices.json`)
+  const slicing = writeNtVadSlices(clip.path, path, NT_VAD_TUNING.sliceOptions)
+  if (slicing.status !== 'written')
+    throw new Error(`${clip.name}: no slices (${slicing.status})`)
+  const { slices } = (
+    JSON.parse(readFileSync(path, 'utf8')) as {
+      crispasr_vad: { slices: { start: number; end: number }[] }
+    }
+  ).crispasr_vad
+  const cuts = slices.slice(1).map((slice, i) => ({
+    from: slices[i].end / SAMPLE_RATE,
+    to: slice.start / SAMPLE_RATE,
+  }))
+  clipCuts.set(clip.name, { clip, cuts })
+  return cuts
+}
+
+function cutLabel(cut: Cut): string {
+  return cut.to - cut.from < 0.005
+    ? `${cut.from.toFixed(2)} s`
+    : `${cut.from.toFixed(2)}-${cut.to.toFixed(2)} s`
+}
+
+/** The utterance whose speech the middle of the cut falls inside, or -1 between two. */
+function utteranceCut(clip: LongClip, cut: Cut): number {
+  const middle = (cut.from + cut.to) / 2
+  return clip.windows.findIndex(
+    (w) => w.speechStart < middle && middle < w.speechEnd
+  )
+}
+
+/** Where the middle of the cut sits relative to an utterance's speech. */
+function cutPosition(w: Window, cut: Cut): string {
+  const middle = (cut.from + cut.to) / 2
+  if (middle <= w.speechStart)
+    return `${(w.speechStart - middle).toFixed(2)} s before it`
+  if (middle >= w.speechEnd)
+    return `${(middle - w.speechEnd).toFixed(2)} s after it`
+  return `inside, ${(middle - w.speechStart).toFixed(1)} s into ${(w.speechEnd - w.speechStart).toFixed(1)} s`
+}
+
+/**
+ * The utterances a cut can cost words in: each one whose speech the cut falls inside or
+ * within `CUT_MARGIN_SECONDS` of, and the ones either side of it.
+ */
+function utterancesAtCut(clip: LongClip, cut: Cut): number[] {
+  const at = new Set<number>()
+  let before = -1
+  clip.windows.forEach((w, i) => {
+    if (
+      w.speechStart < cut.to + CUT_MARGIN_SECONDS &&
+      w.speechEnd > cut.from - CUT_MARGIN_SECONDS
+    )
+      at.add(i)
+    if (w.speechStart < cut.from) before = i
+  })
+  const after = clip.windows.findIndex((w) => w.speechEnd > cut.to)
+  if (before !== -1) at.add(before)
+  if (after !== -1) at.add(after)
+  return [...at].sort((a, b) => a - b)
+}
+
+function soloAudioKey(clip: LongClip, w: Window): string {
+  return `${w.source}|${clip.trimmed ? 'trimmed' : 'whole'}`
+}
+
+/**
+ * Utterance `index` of `clip` decoded alone and uncut through the adapter: its own audio, the
+ * same Speech Model and argv, one slice. Cached per Speech Model and utterance audio, which
+ * `en_60s` and `en_5min` (and the two Danish clips) share.
+ */
+async function soloTranscript(
+  installed: InstalledModel,
+  clip: LongClip,
+  index: number
+): Promise<string> {
+  const w = clip.windows[index]
+  const audioKey = soloAudioKey(clip, w)
+  const key = `${installed.model.id}|${audioKey}`
+  const known = soloTranscripts.get(key)
+  if (known !== undefined) return known
+  let wav = soloWavs.get(audioKey)
+  if (wav === undefined) {
+    let samples = clipSamples.get(clip.name)
+    if (samples === undefined) {
+      const read = readWavSamples(clip.path)
+      if (read === null) throw new Error(`${clip.name}: unreadable WAV`)
+      samples = read
+      clipSamples.set(clip.name, samples)
+    }
+    wav = join(dir, `solo-${soloWavs.size}.wav`)
+    writeWav(
+      wav,
+      samples.slice(
+        Math.round(w.start * SAMPLE_RATE),
+        Math.round(w.end * SAMPLE_RATE)
+      )
+    )
+    soloWavs.set(audioKey, wav)
+  }
+  const result = await transcribeWithCrispasrTuned(
+    request(installed, wav, clip.lang),
+    {
+      ...NT_VAD_TUNING,
+      sliceOptions: { ...NT_VAD_TUNING.sliceOptions, ...SOLO_SLICE_OPTIONS },
+    }
+  )
+  if (result.status !== 'ok')
+    throw new Error(
+      `solo decode of ${basename(w.source)}: ${result.reason} ${result.diagnostic ?? ''}`
+    )
+  soloTranscripts.set(key, result.rawTranscript)
+  return result.rawTranscript
+}
+
 beforeAll(() => {
   if (skipReason !== null) return
   dir = mkdtempSync(join(tmpdir(), 'codictate-long-audio-'))
@@ -947,9 +1178,36 @@ afterAll(() => {
       ? 'Prompt echoes: none'
       : `Prompt echoes: ${promptEchoes.map((e) => `${e.model} ${e.clip} ("${e.phrase}")`).join('; ')}`,
   ]
+  const cutLines =
+    cutChecked.length === 0
+      ? []
+      : [
+          '',
+          '| Speech Model | Cuts | Utterances decoded alone | Utterances that lost words at a cut |',
+          '|---|---|---|---|',
+          ...cutChecked.map(
+            (c) => `| ${c.model} | ${c.cuts} | ${c.utterances} | ${c.flagged} |`
+          ),
+          ...(cutLossRows.length === 0
+            ? []
+            : [
+                '',
+                '| Speech Model | Clip | Cut | Utterance | Cut sits | Heard solo / cut | Missing at the cut |',
+                '|---|---|---|---|---|---|---|',
+                ...cutLossRows.map(
+                  (c) =>
+                    `| ${c.model} | ${c.clip} | ${c.cut} | ${c.utterance} | ${c.position} | ${c.soloHeard}/${c.words} / ${c.cutHeard}/${c.words} | ${c.missing} |`
+                ),
+              ]),
+          '',
+          ...[...clipCuts.values()].map(({ clip, cuts }) => {
+            const inside = cuts.filter((cut) => utteranceCut(clip, cut) !== -1)
+            return `Cuts in ${clip.name} (${inside.length} of ${cuts.length} inside an utterance): ${cuts.map((cut) => `${cutLabel(cut)} ${utteranceCut(clip, cut) === -1 ? 'between' : 'inside'}`).join(', ')}`
+          }),
+        ]
   const tuning = `nt-vad: slices of ${NT_VAD_TUNING.sliceOptions?.maxSliceSeconds ?? DEFAULT_VAD_SLICE_OPTIONS.maxSliceSeconds} s or less, ${NT_VAD_TUNING.beamSearch === false ? 'greedy' : '-bs 5'}`
   console.log(
-    `\n[long-audio] ${tuning}\n${[...lines, ...parityLines, ...vadLines].join('\n')}\n`
+    `\n[long-audio] ${tuning}\n${[...lines, ...parityLines, ...vadLines, ...cutLines].join('\n')}\n`
   )
 })
 
@@ -978,6 +1236,8 @@ describe('long-audio check', () => {
             continue
           }
           checkPromptEcho(installed, clip.name, result.rawTranscript, failures)
+          if (decoding === 'nt-vad')
+            longTranscripts.set(`${id}|${clip.name}`, result.rawTranscript)
           const heard = heardPerWindow(clip.windows, result.rawTranscript)
           const lost = heard
             .map((share, index) => ({ share, index }))
@@ -1070,6 +1330,99 @@ describe('long-audio check', () => {
             )
         }
 
+        expect(failures).toEqual([])
+      },
+      RUN_TIMEOUT_MS * 4
+    )
+  }
+
+  // Issue #83: no word on either side of an `nt-vad` cut lost that the same utterance,
+  // decoded alone and uncut, hears. Reads the long-clip transcripts the test above wrote.
+  for (const installed of models.filter((m) => decodingOf(m) === 'nt-vad')) {
+    const id = installed.model.id
+    test.skipIf(skipReason !== null)(
+      `${id}: no words lost at an nt-vad cut`,
+      async () => {
+        const failures: string[] = []
+        let cutCount = 0
+        let utterances = 0
+        let flagged = 0
+        for (const clip of longClips.filter((c) =>
+          installed.langs.includes(c.lang)
+        )) {
+          const transcript = longTranscripts.get(`${id}|${clip.name}`)
+          if (transcript === undefined) {
+            failures.push(`${clip.name}: no transcript from the long-clip run`)
+            continue
+          }
+          const refs = clip.windows.map((w) => tokenizeForWer(w.text))
+          const offsets = refs.map((_, i) =>
+            refs.slice(0, i).reduce((n, words) => n + words.length, 0)
+          )
+          const long = alignWords(refs.flat(), tokenizeForWer(transcript))
+          const cuts = cutsOf(clip)
+          cutCount += cuts.length
+          // Each utterance once, with every cut it sits at.
+          const atCuts = new Map<number, Cut[]>()
+          for (const cut of cuts) {
+            for (const index of utterancesAtCut(clip, cut))
+              atCuts.set(index, [...(atCuts.get(index) ?? []), cut])
+          }
+          for (const [index, near] of [...atCuts].sort((a, b) => a[0] - b[0])) {
+            const ref = refs[index]
+            const offset = offsets[index]
+            const run: Alignment = {
+              heard: long.heard.slice(offset, offset + ref.length),
+              at: long.at.map((p) => p - offset),
+            }
+            const solo = alignWords(
+              ref,
+              tokenizeForWer(await soloTranscript(installed, clip, index))
+            )
+            utterances += 1
+            const w = clip.windows[index]
+            // The first and last words count where a cut is next to them. One lost at the
+            // far end, inside a slice, is listed but is not a loss at a cut.
+            const middles = near.map((c) => (c.from + c.to) / 2)
+            const missing = lostStretches(ref, solo, run, {
+              firstWord: middles.some(
+                (m) => m <= w.speechStart + CUT_EDGE_SECONDS
+              ),
+              lastWord: middles.some(
+                (m) => m >= w.speechEnd - CUT_EDGE_SECONDS
+              ),
+            })
+            const farEdge = lostStretches(ref, solo, run, {
+              firstWord: true,
+              lastWord: true,
+            }).filter((stretch) => !missing.includes(stretch))
+            if (missing.length === 0 && farEdge.length === 0) continue
+            if (missing.length > 0) flagged += 1
+            const cut = near.map(cutLabel).join(', ')
+            const utterance = `${basename(w.source, '.wav')} ${w.speechStart.toFixed(1)}-${w.speechEnd.toFixed(1)} s`
+            cutLossRows.push({
+              model: id,
+              clip: clip.name,
+              cut,
+              utterance,
+              position: near.map((c) => cutPosition(w, c)).join(', '),
+              soloHeard: solo.heard.filter(Boolean).length,
+              cutHeard: run.heard.filter(Boolean).length,
+              words: ref.length,
+              missing: [
+                ...missing,
+                ...farEdge.map(
+                  (stretch) => `(${stretch}: far end, not at the cut)`
+                ),
+              ].join(' / '),
+            })
+            if (missing.length > 0)
+              failures.push(
+                `${clip.name}: the cut at ${cut} lost "${missing.join(' / ')}" (${utterance})`
+              )
+          }
+        }
+        cutChecked.push({ model: id, cuts: cutCount, utterances, flagged })
         expect(failures).toEqual([])
       },
       RUN_TIMEOUT_MS * 4
