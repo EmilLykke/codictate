@@ -270,6 +270,132 @@ describe('planVadSlices: long pauses', () => {
   })
 })
 
+describe('planVadSlices: a slice ends at the longest pause in reach', () => {
+  test('a 0.40 s pause at 17 s beats a 0.20 s one at 18.6 s', () => {
+    // large-v2's en_continuous_90s slice: the last pause that fit was a breath inside a
+    // sentence, and the cut there lost "see said uncas pointing north and south".
+    const samples = audio(
+      ['room', 0.5],
+      ['speech', 17],
+      ['room', 0.4],
+      ['speech', 1.2],
+      ['room', 0.2],
+      ['speech', 10],
+      ['room', 1]
+    )
+    const slices = planVadSlices(samples, SR)
+    expectWellFormed(slices, samples.length)
+    expect(slices).toEqual([
+      { startSample: at(0.3), endSample: at(17.7) },
+      { startSample: at(17.7), endSample: at(29.5) },
+    ])
+  })
+
+  test('of two equal pauses, the later one', () => {
+    const samples = audio(
+      ['room', 0.5],
+      ['speech', 11],
+      ['room', 0.3],
+      ['speech', 4],
+      ['room', 0.3],
+      ['speech', 10],
+      ['room', 1]
+    )
+    const slices = planVadSlices(samples, SR)
+    expectWellFormed(slices, samples.length)
+    expect(slices).toEqual([
+      { startSample: at(0.3), endSample: at(15.95) },
+      { startSample: at(15.95), endSample: at(26.3) },
+    ])
+  })
+
+  test('a pause before half the cap ends a slice only when it is longer than maxMergeGapMs', () => {
+    const withPause = (seconds: number) =>
+      audio(
+        ['room', 0.5],
+        ['speech', 5],
+        ['room', seconds],
+        ['speech', 7],
+        ['room', 0.2],
+        ['speech', 12],
+        ['room', 1]
+      )
+    // 1 s at 5 s is longer than the 0.2 s at 13 s, but too early: the slice would be short.
+    const short = withPause(1)
+    expectWellFormed(planVadSlices(short, SR), short.length)
+    expect(planVadSlices(short, SR)).toEqual([
+      { startSample: at(0.3), endSample: at(13.6) },
+      { startSample: at(13.6), endSample: at(25.9) },
+    ])
+    // 2 s always ends the slice, and what follows fits under the cap.
+    expect(planVadSlices(withPause(2), SR)).toEqual([
+      { startSample: at(0.3), endSample: at(5.7) },
+      { startSample: at(7.3), endSample: at(26.9) },
+    ])
+  })
+
+  test('a silence inside a masked region beats a shorter gap between regions', () => {
+    // Silero heard 0-12 s and 12.2-30 s; loudness finds 0.5 s of silence at 16.2 s.
+    const samples = audio(
+      ['speech', 12],
+      ['room', 0.2],
+      ['speech', 4],
+      ['room', 0.5],
+      ['speech', 13.3]
+    )
+    const slices = planVadSlices(samples, SR, undefined, [
+      { startSample: 0, endSample: at(12) },
+      { startSample: at(12.2), endSample: samples.length },
+    ])
+    expect(slices).toEqual([
+      { startSample: 0, endSample: at(16.45) },
+      { startSample: at(16.45), endSample: samples.length },
+    ])
+  })
+
+  test('random speech and short pauses: each cut is at the longest pause in reach', () => {
+    // Whole frames, so the planner sees exactly these pauses.
+    const frames = (seconds: number) => Math.round(seconds * 100) / 100
+    for (const seed of [4, 5, 6]) {
+      const random = noise(seed)
+      const parts: Part[] = [['room', 0.5]]
+      const runs: { start: number; end: number; gap: number }[] = []
+      let t = 0.5
+      while (t < 150) {
+        const talk = frames(0.3 + 4 * Math.abs(random()))
+        // 0.15-1 s: every one a pause, none long enough to end a slice on its own.
+        const pause = frames(0.15 + 0.85 * Math.abs(random()))
+        runs.push({ start: at(t), end: at(t + talk), gap: at(pause) })
+        parts.push(['speech', talk], ['room', pause])
+        t += talk + pause
+      }
+      const samples = audio(...parts)
+      const slices = planVadSlices(samples, SR)
+      expectWellFormed(slices, samples.length)
+      for (const run of runs) {
+        expect(covered(slices, run.start + 1, run.end - 1)).toBe(true)
+      }
+      const speechCap = CAP - 2 * at(0.2)
+      for (const [i, slice] of slices.slice(0, -1).entries()) {
+        const first = runs.find((run) => run.end > slice.startSample)!
+        const before = runs.filter((run) => run.start < slice.endSample)
+        const last = before[before.length - 1]
+        const inReach = runs.filter(
+          (run, k) =>
+            k + 1 < runs.length &&
+            run.end - first.start >= speechCap / 2 &&
+            run.end - first.start <= speechCap
+        )
+        const longest = Math.max(...inReach.map((run) => run.gap))
+        expect([i, last.gap]).toEqual([i, longest])
+        // The later of equal pauses.
+        const equal = inReach.filter((run) => run.gap === longest)
+        expect(equal[equal.length - 1]).toBe(last)
+      }
+    }
+  })
+})
+
 describe('planVadSlices: speech longer than the cap', () => {
   test('93 s without a pause: cut at the quietest 100 ms, every slice up to 20 s, nothing left out', () => {
     // 50 ms dips every 0.8 s are too short to be pauses; a soft 100 ms every 14 s is the

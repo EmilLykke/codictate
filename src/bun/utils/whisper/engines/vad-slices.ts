@@ -12,12 +12,16 @@
  *    of the recording's own noise floor.
  * 2. Speech is the given `speechRegions` (a Silero pass), or else the runs of loud frames with
  *    pauses shorter than `minPauseMs` bridged.
- * 3. Neighbouring speech is merged greedily into slices up to the cap. A pause up to
- *    `maxMergeGapMs` stays in the slice; a longer one always ends it, because on `-nt` a long
- *    silence invites an early end-of-text and loses the speech after it. faster-whisper drops
- *    silence for the same reason, and Edda was trained with 0.5-2 s of it at most.
- * 4. Speech longer than the cap is cut in its back half at the longest pause, else at the
- *    centre of the quietest 100 ms (crispasr's own `crispasr_rechunk_slices` rule).
+ * 3. Neighbouring speech is merged into slices. A pause up to `maxMergeGapMs` can stay in a
+ *    slice; a longer one always ends it, because on `-nt` a long silence invites an early
+ *    end-of-text and loses the speech after it. faster-whisper drops silence for the same
+ *    reason, and Edda was trained with 0.5-2 s of it at most. Speech that fits under the cap
+ *    is one slice.
+ * 4. Speech that does not fit is cut in the back half of the cap, at the longest pause there
+ *    (a gap between speech runs or a pause inside one; the later of two equal ones), else at
+ *    the centre of the quietest 100 ms (crispasr's own `crispasr_rechunk_slices` rule). The
+ *    longest pause, not the last one that fits: a short pause is more often a breath inside a
+ *    sentence, and a cut there cost large-v2 a clause (issue #83).
  * 5. Slices with too little speech are dropped, and each slice keeps `padMs` of real audio on
  *    both sides, never overlapping a neighbour and never past the cap. The rest of a long
  *    pause is in no slice at all.
@@ -191,23 +195,38 @@ function maskedSpeech(regions: SpeechRegion[], sampleCount: number): Span[] {
   return spans
 }
 
-/**
- * Where to cut speech that runs past the cap from `sliceStart`: between half the cap and the
- * cap, at the centre of the longest pause, else at the centre of the quietest 100 ms.
- */
-function cutPoint(
-  loudness: Loudness,
-  sliceStart: number,
-  cap: number,
-  minPauseSamples: number,
-  sampleRate: number
-): number {
-  const { frameLength, energy, silent } = loudness
-  // Frames wholly inside the range.
-  const first = Math.ceil((sliceStart + cap / 2) / frameLength)
-  const last = Math.floor((sliceStart + cap) / frameLength)
+/** Where a slice can end. */
+interface Cut {
+  /** The end of the slice before the cut. */
+  end: number
+  /** The start of the slice after it. */
+  resume: number
+  /** Samples of pause the cut sits in; 0 for a forced cut. */
+  length: number
+  /** The cut is inside a run of speech (forced, or at a silence in it): the slices meet there. */
+  inSpeech: boolean
+}
 
-  let longest: Span | null = null
+/** The later of two equally long pauses wins. */
+function longer(a: Cut | null, b: Cut): Cut {
+  return a === null ||
+    b.length > a.length ||
+    (b.length === a.length && b.end > a.end)
+    ? b
+    : a
+}
+
+/** The longest run of silent frames wholly inside `[from, to)`, at least `minPause` long. */
+function longestSilence(
+  loudness: Loudness,
+  from: number,
+  to: number,
+  minPauseSamples: number
+): Cut | null {
+  const { frameLength, silent } = loudness
+  const first = Math.ceil(from / frameLength)
+  const last = Math.floor(to / frameLength)
+  let longest: Cut | null = null
   let f = first
   while (f < last) {
     if (silent[f] === 0) {
@@ -216,18 +235,81 @@ function cutPoint(
     }
     let end = f
     while (end < last && silent[end] === 1) end += 1
-    if (
-      (end - f) * frameLength >= minPauseSamples &&
-      (longest === null || end - f > longest.end - longest.start)
-    ) {
-      longest = { start: f, end }
+    const length = (end - f) * frameLength
+    if (length >= minPauseSamples) {
+      const centre = Math.floor(((f + end) * frameLength) / 2)
+      longest = longer(longest, {
+        end: centre,
+        resume: centre,
+        length,
+        inSpeech: true,
+      })
     }
     f = end
   }
-  if (longest !== null) {
-    return Math.floor(((longest.start + longest.end) * frameLength) / 2)
-  }
+  return longest
+}
 
+/**
+ * Where to cut speech that runs past the cap from `sliceStart`, given the speech from index
+ * `next` on: between half the cap and the cap, at the longest pause, a gap between two speech
+ * runs or a silence inside one (the later of two equal ones), else at the centre of the
+ * quietest 100 ms. A gap counts where the slice before it would end, at the speech's end.
+ */
+function cutPoint(
+  loudness: Loudness,
+  speech: Span[],
+  next: number,
+  sliceStart: number,
+  cap: number,
+  minPauseSamples: number,
+  sampleRate: number
+): Cut {
+  const from = sliceStart + cap / 2
+  const to = sliceStart + cap
+
+  let longest: Cut | null = null
+  for (let i = next; i < speech.length && speech[i].start < to; i += 1) {
+    const inside = longestSilence(
+      loudness,
+      Math.max(from, speech[i].start),
+      Math.min(to, speech[i].end),
+      minPauseSamples
+    )
+    if (inside !== null) longest = longer(longest, inside)
+    const following = speech[i + 1]
+    if (
+      following !== undefined &&
+      speech[i].end >= from &&
+      speech[i].end <= to &&
+      following.start - speech[i].end >= minPauseSamples
+    ) {
+      longest = longer(longest, {
+        end: speech[i].end,
+        resume: following.start,
+        length: following.start - speech[i].end,
+        inSpeech: false,
+      })
+    }
+  }
+  if (longest !== null) return longest
+
+  const forced = quietestPoint(loudness, sliceStart, from, to, sampleRate)
+  return { end: forced, resume: forced, length: 0, inSpeech: true }
+}
+
+/** The centre of the quietest 100 ms wholly inside `[from, to)`. */
+function quietestPoint(
+  loudness: Loudness,
+  sliceStart: number,
+  from: number,
+  to: number,
+  sampleRate: number
+): number {
+  const { frameLength, energy } = loudness
+  // Frames wholly inside the range.
+  const first = Math.ceil(from / frameLength)
+  const last = Math.floor(to / frameLength)
   const window = Math.max(
     1,
     Math.round((QUIET_WINDOW_SECONDS * sampleRate) / frameLength)
@@ -248,49 +330,47 @@ function cutPoint(
 }
 
 interface PlannedSlice extends Span {
-  /** The slice starts where a forced cut ended the one before it. */
+  /** The slice starts where a cut inside speech ended the one before it. */
   startsAtCut: boolean
 }
 
 /**
- * Speech merged greedily into slices of at most `cap` samples across pauses of at most
- * `maxGap` samples, cutting what runs longer than the cap.
+ * Speech merged into slices of at most `cap` samples. A pause longer than `maxGap` samples
+ * always ends a slice; speech that runs past the cap is cut where `cutAt` says.
  */
 function mergeAndCut(
   speech: Span[],
   cap: number,
   maxGap: number,
-  cutAt: (sliceStart: number) => number
+  cutAt: (next: number, sliceStart: number) => Cut
 ): PlannedSlice[] {
   const slices: PlannedSlice[] = []
   let next = 0
-  let headStart = speech[0]?.start ?? 0
-  let headAtCut = false
+  let start = speech[0]?.start ?? 0
+  let startsAtCut = false
   while (next < speech.length) {
-    const start = headStart
-    const startsAtCut = headAtCut
-    if (speech[next].end - start > cap) {
-      const cut = cutAt(start)
-      slices.push({ start, end: cut, startsAtCut })
-      headStart = cut
-      headAtCut = true
+    // The speech this slice could hold: up to the first pause longer than `maxGap`.
+    let last = next
+    while (
+      last + 1 < speech.length &&
+      speech[last + 1].start - speech[last].end <= maxGap
+    ) {
+      last += 1
+    }
+    if (speech[last].end - start <= cap) {
+      slices.push({ start, end: speech[last].end, startsAtCut })
+      next = last + 1
+      if (next < speech.length) {
+        start = speech[next].start
+        startsAtCut = false
+      }
       continue
     }
-    let end = speech[next].end
-    next += 1
-    while (
-      next < speech.length &&
-      speech[next].end - start <= cap &&
-      speech[next].start - end <= maxGap
-    ) {
-      end = speech[next].end
-      next += 1
-    }
-    slices.push({ start, end, startsAtCut })
-    if (next < speech.length) {
-      headStart = speech[next].start
-      headAtCut = false
-    }
+    const cut = cutAt(next, start)
+    slices.push({ start, end: cut.end, startsAtCut })
+    start = cut.resume
+    startsAtCut = cut.inSpeech
+    while (next < speech.length && speech[next].end <= start) next += 1
   }
   return slices
 }
@@ -347,8 +427,16 @@ export function planVadSlices(
     speech,
     speechCap,
     toSamples(maxMergeGapMs),
-    (sliceStart) =>
-      cutPoint(loudness, sliceStart, speechCap, minPauseSamples, sampleRate)
+    (next, sliceStart) =>
+      cutPoint(
+        loudness,
+        speech,
+        next,
+        sliceStart,
+        speechCap,
+        minPauseSamples,
+        sampleRate
+      )
   )
 
   // A piece of a cut-up stretch of speech is never dropped, however short: it is that
