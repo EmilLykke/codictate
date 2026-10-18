@@ -351,6 +351,26 @@ describe('buildWhisperHarnessCommand', () => {
     expect(promptOf((await ntVad('de')).argv)).toBeNull()
   })
 
+  test('a Speech Model that opts out (ntVadPrompt: false) decodes nt-vad without the prompt', async () => {
+    for (const speechModelId of [
+      'large-v2',
+      'large-v2-q5_0',
+      'large-v2-q8_0',
+    ]) {
+      const command = await buildWhisperHarnessCommand(
+        {
+          ...common,
+          speechModelId,
+          modelPath: '/models/large-v2.bin',
+          language: 'da',
+        },
+        dependencies
+      )
+      expect(command.decoding).toBe('nt-vad')
+      expect(command.argv).not.toContain('--prompt')
+    }
+  })
+
   test('nt-vad decodes without the prompt when the long-audio check turns it off', async () => {
     const command = await buildWhisperHarnessCommand(
       {

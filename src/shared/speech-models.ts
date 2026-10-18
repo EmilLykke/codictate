@@ -577,6 +577,9 @@ export const SPEECH_MODELS: SpeechModel[] = [
     // No `whisperDecoding: 'timestamps'`: with the dictation prompt it drops opening words
     // ("After a while" on a LibriSpeech clip), wrote Chinese, and once wrote the Danish prompt
     // into the transcript (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either: there it wrote the Danish prompt into continuous Danish,
+    // and passes without it (long-audio.manual.ts, 2026-10-18).
+    ntVadPrompt: false,
   },
   {
     id: 'large-v2-q5_0',
@@ -591,6 +594,9 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: '3a214837221e4530dbc1fe8d734f302af393eb30bd0ed046042ebf4baf70f6f2',
     // No `whisperDecoding: 'timestamps'`: with the dictation prompt it drops opening words
     // ("After a while" on a LibriSpeech clip) (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either: there it wrote the Danish prompt into continuous Danish,
+    // and passes without it (long-audio.manual.ts, 2026-10-18).
+    ntVadPrompt: false,
   },
   {
     id: 'large-v2-q8_0',
@@ -605,6 +611,10 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: 'fef54e6d898246a65c8285bfa83bd1807e27fadf54d5d4e81754c47634737e8c',
     // No `whisperDecoding: 'timestamps'`: with the dictation prompt it drops opening words
     // ("After a while" on a LibriSpeech clip) (long-audio.manual.ts, 2026-10-17).
+    // No prompt on `nt-vad` either: large-v2 and large-v2-q5_0 wrote the Danish prompt into
+    // continuous Danish there and pass without it (long-audio.manual.ts, 2026-10-18); not run
+    // on this Quantization.
+    ntVadPrompt: false,
   },
   // Large V3
   {
