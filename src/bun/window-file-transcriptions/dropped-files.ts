@@ -53,6 +53,9 @@ export const MAX_CONCURRENT_UPLOADS = 4
  */
 export const ABANDONED_UPLOAD_MS = 2 * 60 * 1000
 
+/** How often uploads are checked for abandonment while any exist. */
+export const ABANDONED_CHECK_MS = 30 * 1000
+
 const GONE = "That file isn't being added anymore."
 const BUSY =
   'Codictate is already adding several files. Try again when they are in.'
@@ -175,6 +178,8 @@ export interface DroppedFilesDeps {
   newUploadId?(): string
   /** Injected in tests. 32 random bytes, hex, in production. */
   newToken?(): string
+  /** Injected in tests. A one-shot timer that returns its cancel; `setTimeout` in production. */
+  setTimer?(callback: () => void, ms: number): () => void
 }
 
 /**
@@ -220,6 +225,11 @@ export interface DroppedFiles {
    * queue has cancelled its jobs. A copy Windows still holds open is left to the boot sweep.
    */
   removeAll(): void
+  /**
+   * Called, synchronously and once per upload, when an upload stops being received: finished,
+   * cancelled, refused, abandoned or removed at quit. The upload server closes its port on it.
+   */
+  onUploadEnded(listener: (uploadId: string) => void): void
 }
 
 interface Upload {
@@ -243,10 +253,20 @@ interface Upload {
 export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
   const newUploadId = deps.newUploadId ?? (() => randomUUID())
   const newToken = deps.newToken ?? (() => randomBytes(32).toString('hex'))
+  const setTimer =
+    deps.setTimer ??
+    ((callback: () => void, ms: number) => {
+      const timer = setTimeout(callback, ms)
+      timer.unref()
+      return () => clearTimeout(timer)
+    })
   /** Being received. */
   const uploads = new Map<string, Upload>()
   /** Finished and queued: the directories to delete once their jobs settle. */
   const queued = new Set<string>()
+  const endedListeners: ((uploadId: string) => void)[] = []
+  /** Cancels the pending abandonment check; `null` when none is pending. */
+  let cancelCheck: (() => void) | null = null
 
   try {
     const removed = removeStaleDirs(deps.parentDir, isDroppedFileDirName, {
@@ -267,8 +287,19 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
     }
   }
 
-  async function discard(upload: Upload, reason: string): Promise<void> {
+  /** Stop receiving `upload`, telling the listeners the first time only. */
+  function end(upload: Upload): void {
+    if (uploads.get(upload.id) !== upload) return
     uploads.delete(upload.id)
+    if (uploads.size === 0) {
+      cancelCheck?.()
+      cancelCheck = null
+    }
+    for (const listener of endedListeners) listener(upload.id)
+  }
+
+  async function discard(upload: Upload, reason: string): Promise<void> {
+    end(upload)
     const handle = upload.handle
     upload.handle = null
     try {
@@ -291,6 +322,19 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
         void discard(upload, 'abandoned')
       }
     }
+  }
+
+  /**
+   * Check for abandoned uploads every `ABANDONED_CHECK_MS` while any exist, so one the page
+   * left behind ends without waiting for the next drop.
+   */
+  function watchForAbandoned(): void {
+    if (cancelCheck !== null || uploads.size === 0) return
+    cancelCheck = setTimer(() => {
+      cancelCheck = null
+      sweepAbandoned()
+      watchForAbandoned()
+    }, ABANDONED_CHECK_MS)
   }
 
   async function begin({
@@ -330,6 +374,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
       lastActivity: deps.now(),
     }
     uploads.set(upload.id, upload)
+    watchForAbandoned()
     try {
       upload.handle = await open(upload.filePath, 'wx')
     } catch (err) {
@@ -489,7 +534,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
       await discard(upload, 'incomplete')
       return { ok: false, message: BROKEN }
     }
-    uploads.delete(upload.id)
+    end(upload)
     const handle = upload.handle
     upload.handle = null
     try {
@@ -528,7 +573,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
     if (upload.busy) {
       // The request in flight sees this and cleans up when it returns.
       upload.cancelled = true
-      uploads.delete(upload.id)
+      end(upload)
       upload.stopStream?.()
       return true
     }
@@ -548,7 +593,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
       }
       dirs.push(upload.dir)
     }
-    uploads.clear()
+    for (const upload of [...uploads.values()]) end(upload)
     queued.clear()
     for (const dir of dirs) {
       try {
@@ -559,5 +604,9 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
     }
   }
 
-  return { begin, receive, append, finish, cancel, removeAll }
+  function onUploadEnded(listener: (uploadId: string) => void): void {
+    endedListeners.push(listener)
+  }
+
+  return { begin, receive, append, finish, cancel, removeAll, onUploadEnded }
 }

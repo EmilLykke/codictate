@@ -7,8 +7,14 @@
  * itself as one request body (src/shared/dropped-file-upload.ts), which WebKit and WebView2
  * stream from disk, and `dropped-files.ts` streams it into the copy.
  *
- * - **Loopback only.** Bound to `127.0.0.1` on a port the OS picks, started on the first
- *   drop and stopped at quit. Nothing off this machine can connect.
+ * - **Loopback only.** Bound to `127.0.0.1` on a port the OS picks. Nothing off this machine
+ *   can connect.
+ * - **Open only while a dropped file is being received.** `begin` opens the port if it is
+ *   closed, and several drops share it. It closes once no upload handed a URL is still
+ *   waiting for its bytes and no request is being answered: its `PUT` has been answered, or
+ *   the upload ended another way (cancelled, abandoned, finished over the RPC chunks,
+ *   `removeAll`), which `droppedFiles.onUploadEnded` reports. The next drop opens a fresh
+ *   port. A session with no drops opens none.
  * - **One secret per upload.** `begin` (over the encrypted RPC) hands the page the URL and a
  *   32-byte token, which the request carries in `DROPPED_FILE_UPLOAD_TOKEN_HEADER`. Another
  *   local process can reach the port but cannot add or spoil a file without it. An unknown
@@ -37,7 +43,11 @@ import type { DroppedFiles } from './dropped-files'
 /** A running server: the port it got, and how to stop it. */
 export interface DroppedFileListener {
   port: number
-  stop(): void
+  /**
+   * Stop listening. With `cutOff` a request in flight is dropped; without it, one whose
+   * handler has returned still gets its response.
+   */
+  stop(cutOff: boolean): void
 }
 
 export interface DroppedFileServerDeps {
@@ -51,7 +61,10 @@ export interface DroppedFileServer {
   /** `droppedFiles.begin`, plus where to send the bytes; `upload: null` when not listening. */
   begin(params: { name: string; size: number }): Promise<BeginDroppedFileReply>
   handle(request: Request): Promise<Response>
-  /** For quitting. A request in flight is cut off; `removeAll` deletes its copy. */
+  /**
+   * For quitting: closes the port whatever is in flight, and `begin` opens no other. A
+   * request in flight is cut off; `removeAll` deletes its copy.
+   */
   stop(): void
 }
 
@@ -97,9 +110,19 @@ export function createDroppedFileServer(
   deps: DroppedFileServerDeps
 ): DroppedFileServer {
   let listener: DroppedFileListener | null = null
+  /** Uploads handed a URL whose bytes have not come over HTTP yet. */
+  const waiting = new Set<string>()
+  /** Requests being answered. */
+  let answering = 0
+  let quit = false
 
-  /** Started on first use, so a session with no drops opens no port. */
+  deps.droppedFiles.onUploadEnded((uploadId) => {
+    if (waiting.delete(uploadId)) closeIfIdle()
+  })
+
+  /** Opens the port if it is closed. */
   function port(): number | null {
+    if (quit) return null
     if (listener === null) {
       try {
         listener = deps.listen(handle)
@@ -112,6 +135,21 @@ export function createDroppedFileServer(
     return listener.port
   }
 
+  function close(reason: 'idle' | 'quit'): void {
+    if (listener === null) return
+    // Forgotten before it stops, so a `begin` from here on opens a fresh one.
+    const closing = listener
+    listener = null
+    // Idle, it closes as the last answer is returned: that answer must still reach the page.
+    closing.stop(reason === 'quit')
+    deps.log('dropped file uploads closed', { port: closing.port, reason })
+  }
+
+  /** Never cuts off a request: only once nothing waits and nothing is being answered. */
+  function closeIfIdle(): void {
+    if (waiting.size === 0 && answering === 0) close('idle')
+  }
+
   async function begin(params: {
     name: string
     size: number
@@ -119,6 +157,7 @@ export function createDroppedFileServer(
     const begun = await deps.droppedFiles.begin(params)
     if (!begun.ok) return begun
     const at = port()
+    if (at !== null) waiting.add(begun.uploadId)
     return {
       ok: true,
       uploadId: begun.uploadId,
@@ -133,6 +172,16 @@ export function createDroppedFileServer(
   }
 
   async function handle(request: Request): Promise<Response> {
+    answering += 1
+    try {
+      return await answer(request)
+    } finally {
+      answering -= 1
+      closeIfIdle()
+    }
+  }
+
+  async function answer(request: Request): Promise<Response> {
     const { pathname } = new URL(request.url)
     if (!pathname.startsWith(DROPPED_FILE_UPLOAD_PATH)) {
       return json(404, { ok: false, message: NOT_FOUND })
@@ -161,7 +210,12 @@ export function createDroppedFileServer(
       declaredLength: declaredLength(request),
       body: request.body,
     })
-    if (received.ok) return json(200, received)
+    // A refusal ended the upload, which `onUploadEnded` has already reported. `unknown`
+    // leaves it alone, still waiting for the page's own request.
+    if (received.ok) {
+      waiting.delete(uploadId)
+      return json(200, received)
+    }
     return json(received.reason === 'unknown' ? 404 : 400, {
       ok: false,
       message: received.message,
@@ -169,8 +223,9 @@ export function createDroppedFileServer(
   }
 
   function stop(): void {
-    listener?.stop()
-    listener = null
+    quit = true
+    waiting.clear()
+    close('quit')
   }
 
   return { begin, handle, stop }
@@ -198,5 +253,8 @@ export function listenOnLoopback(
     void server.stop(true)
     throw new Error('no port')
   }
-  return { port: server.port, stop: () => void server.stop(true) }
+  return {
+    port: server.port,
+    stop: (cutOff) => void server.stop(cutOff),
+  }
 }

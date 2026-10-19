@@ -9,8 +9,15 @@ import {
   type DroppedFileTransport,
   type DroppedFileUploadRequest,
 } from '../../shared/dropped-file-upload'
-import { createDroppedFileServer } from './dropped-file-server'
-import { createDroppedFiles, isDroppedFileDirName } from './dropped-files'
+import {
+  createDroppedFileServer,
+  type DroppedFileListener,
+} from './dropped-file-server'
+import {
+  ABANDONED_UPLOAD_MS,
+  createDroppedFiles,
+  isDroppedFileDirName,
+} from './dropped-files'
 
 /**
  * The upload endpoint, called with plain `Request`s: no socket is ever opened. The receiver
@@ -34,18 +41,25 @@ const BROKEN = "That file didn't arrive in one piece. Try dropping it again."
 const uploadDirs = () => readdirSync(parent).filter(isDroppedFileDirName)
 const text = (value: string) => new TextEncoder().encode(value)
 
-function setup(listen?: () => { port: number; stop(): void }) {
+function setup(listen?: () => DroppedFileListener) {
   const queued: { filePath: string; fileName: string; bytes: Buffer }[] = []
   let ids = 0
+  let now = 1_000_000
+  /** The abandonment check, fired by hand. */
+  const timers = new Set<() => void>()
   const droppedFiles = createDroppedFiles({
     parentDir: parent,
     transcribe: async (copy) => {
       queued.push({ ...copy, bytes: readFileSync(copy.filePath) })
     },
-    now: () => 1_000_000,
+    now: () => now,
     log: () => {},
     newUploadId: () => `up-${++ids}`,
     newToken: () => TOKEN,
+    setTimer: (callback) => {
+      timers.add(callback)
+      return () => void timers.delete(callback)
+    },
   })
   const stop = mock(() => {})
   const listenMock = mock(listen ?? (() => ({ port: 4321, stop })))
@@ -54,7 +68,37 @@ function setup(listen?: () => { port: number; stop(): void }) {
     listen: listenMock,
     log: () => {},
   })
-  return { droppedFiles, server, queued, listen: listenMock, stop }
+  return {
+    droppedFiles,
+    server,
+    queued,
+    listen: listenMock,
+    stop,
+    advance: (ms: number) => {
+      now += ms
+    },
+    fireTimers: () => {
+      const due = [...timers]
+      timers.clear()
+      for (const callback of due) callback()
+    },
+  }
+}
+
+/** Listeners that record when they open and stop, on ports 5000, 5001, ... */
+function recordingListeners() {
+  const events: string[] = []
+  let next = 5000
+  const listen = () => {
+    const port = next++
+    events.push(`open ${port}`)
+    return {
+      port,
+      stop: (cutOff: boolean) =>
+        void events.push(`${cutOff ? 'cut off' : 'stop'} ${port}`),
+    }
+  }
+  return { events, listen }
 }
 
 async function begin(server: ReturnType<typeof setup>['server'], size: number) {
@@ -89,7 +133,7 @@ async function json(response: Response) {
 }
 
 describe('beginning an upload', () => {
-  test('hands out a loopback URL and the token; listens once, on first use, until stopped', async () => {
+  test('hands out a loopback URL and the token; listens once, on first use', async () => {
     const { server, listen, stop } = setup()
     expect(listen).not.toHaveBeenCalled()
     expect(await server.begin({ name: 'talk.mov', size: 3 })).toEqual({
@@ -377,5 +421,161 @@ describe('the page uploading through it', () => {
     expect(progress[progress.length - 1]).toBe(300_000)
     expect(new Uint8Array(queued[0].bytes)).toEqual(bytes)
     expect(queued[0].fileName).toBe('clip.wav')
+  })
+})
+
+describe('the port is open only while a dropped file is being received', () => {
+  test('opens on begin, not before', async () => {
+    const { events, listen } = recordingListeners()
+    const { server } = setup(listen)
+    expect(events).toEqual([])
+    const { url } = await begin(server, 3)
+    expect(events).toEqual(['open 5000'])
+    expect(url).toBe('http://127.0.0.1:5000/dropped-files/up-1')
+  })
+
+  test('a refused begin opens nothing', async () => {
+    const { events, listen } = recordingListeners()
+    const { server } = setup(listen)
+    await server.begin({ name: 'a.mov', size: -1 })
+    expect(events).toEqual([])
+  })
+
+  test('two drops at once share one port, which closes after the last PUT is answered', async () => {
+    const { events, listen } = recordingListeners()
+    const { server } = setup(listen)
+    const a = await begin(server, 3)
+    const b = await begin(server, 3)
+    expect(new URL(a.url).port).toBe('5000')
+    expect(new URL(b.url).port).toBe('5000')
+    expect((await server.handle(put(a.url, text('abc')))).status).toBe(200)
+    expect(events).toEqual(['open 5000'])
+    expect((await server.handle(put(b.url, text('abc')))).status).toBe(200)
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('closes after a refused PUT too', async () => {
+    const { events, listen } = recordingListeners()
+    const { server } = setup(listen)
+    const { url } = await begin(server, 3)
+    expect((await server.handle(put(url, text('abcdef')))).status).toBe(400)
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('a wrong token does not close it: the real PUT is still to come', async () => {
+    const { events, listen } = recordingListeners()
+    const { server } = setup(listen)
+    const { url } = await begin(server, 3)
+    const wrong = await server.handle(
+      put(url, text('abc'), {
+        [DROPPED_FILE_UPLOAD_TOKEN_HEADER]: 'b'.repeat(64),
+      })
+    )
+    expect(wrong.status).toBe(404)
+    expect(events).toEqual(['open 5000'])
+    expect((await server.handle(put(url, text('abc')))).status).toBe(200)
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('stays open while another upload is in flight, then closes', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, droppedFiles } = setup(listen)
+    const streaming = await begin(server, 6)
+    const idle = await begin(server, 3)
+    const { stream, controller } = handFed()
+    const pending = server.handle(put(streaming.url, stream))
+    controller.enqueue(text('abc'))
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    // The other upload ends with no bytes: the request in flight keeps the port.
+    expect(await droppedFiles.cancel({ uploadId: idle.uploadId })).toBe(true)
+    expect(events).toEqual(['open 5000'])
+    controller.enqueue(text('def'))
+    controller.close()
+    expect((await pending).status).toBe(200)
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('a cancel mid-stream closes it only once that request is answered', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, droppedFiles } = setup(listen)
+    const { uploadId, url } = await begin(server, 10)
+    const { stream, controller } = handFed()
+    const pending = server.handle(put(url, stream))
+    controller.enqueue(text('abc'))
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(await droppedFiles.cancel({ uploadId })).toBe(true)
+    expect(events).toEqual(['open 5000'])
+    expect((await pending).status).toBe(400)
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('closes after a cancel with no bytes', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, droppedFiles } = setup(listen)
+    const { uploadId } = await begin(server, 3)
+    await droppedFiles.cancel({ uploadId })
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('closes when the page falls back to the RPC chunks and finishes', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, droppedFiles } = setup(listen)
+    const { uploadId } = await begin(server, 3)
+    await droppedFiles.append({
+      uploadId,
+      offset: 0,
+      data: Buffer.from('abc').toString('base64'),
+    })
+    expect(events).toEqual(['open 5000'])
+    expect(await droppedFiles.finish({ uploadId })).toEqual({ ok: true })
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('closes when an upload is abandoned, on the timer', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, advance, fireTimers } = setup(listen)
+    await begin(server, 3)
+    fireTimers()
+    expect(events).toEqual(['open 5000'])
+    advance(ABANDONED_UPLOAD_MS)
+    fireTimers()
+    expect(events).toEqual(['open 5000', 'stop 5000'])
+  })
+
+  test('a later drop opens a fresh port', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, droppedFiles } = setup(listen)
+    const first = await begin(server, 3)
+    await droppedFiles.cancel({ uploadId: first.uploadId })
+    const second = await begin(server, 3)
+    expect(events).toEqual(['open 5000', 'stop 5000', 'open 5001'])
+    expect(second.url).toBe('http://127.0.0.1:5001/dropped-files/up-2')
+    expect((await server.handle(put(second.url, text('abc')))).status).toBe(200)
+    expect(events).toEqual(['open 5000', 'stop 5000', 'open 5001', 'stop 5001'])
+  })
+
+  test('quitting closes it whatever is in flight, and opens no other', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, droppedFiles } = setup(listen)
+    await begin(server, 3)
+    await begin(server, 3)
+    server.stop()
+    expect(events).toEqual(['open 5000', 'cut off 5000'])
+    droppedFiles.removeAll()
+    server.stop()
+    expect(await server.begin({ name: 'late.mov', size: 3 })).toEqual({
+      ok: true,
+      uploadId: 'up-3',
+      upload: null,
+    })
+    expect(events).toEqual(['open 5000', 'cut off 5000'])
+  })
+
+  test('removeAll alone releases it too', async () => {
+    const { events, listen } = recordingListeners()
+    const { server, droppedFiles } = setup(listen)
+    await begin(server, 3)
+    droppedFiles.removeAll()
+    expect(events).toEqual(['open 5000', 'stop 5000'])
   })
 })

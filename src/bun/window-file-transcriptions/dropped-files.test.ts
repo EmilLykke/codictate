@@ -325,6 +325,70 @@ describe('receiving a dropped file', () => {
   })
 })
 
+describe('telling the upload server an upload ended', () => {
+  /** A hand-fired stand-in for `setTimeout`. */
+  function fakeTimers() {
+    const pending = new Set<() => void>()
+    return {
+      pending,
+      setTimer: (callback: () => void) => {
+        pending.add(callback)
+        return () => void pending.delete(callback)
+      },
+      fire: () => {
+        const due = [...pending]
+        pending.clear()
+        for (const callback of due) callback()
+      },
+    }
+  }
+
+  test('once per upload, however it ends', async () => {
+    const { dropped } = setup()
+    const ended: string[] = []
+    dropped.onUploadEnded((id) => ended.push(id))
+    const finished = await begin(dropped, 'a.wav', 1)
+    await dropped.append({ uploadId: finished, offset: 0, data: b64('x') })
+    await dropped.finish({ uploadId: finished })
+    const cancelled = await begin(dropped, 'b.wav', 10)
+    await dropped.cancel({ uploadId: cancelled })
+    const refused = await begin(dropped, 'c.wav', 1)
+    await dropped.append({ uploadId: refused, offset: 5, data: b64('x') })
+    await dropped.finish({ uploadId: refused })
+    const atQuit = await begin(dropped, 'd.wav', 10)
+    dropped.removeAll()
+    expect(ended).toEqual([finished, cancelled, refused, atQuit])
+  })
+
+  test('an abandoned upload ends on the timer, without waiting for another drop', async () => {
+    const timers = fakeTimers()
+    const { dropped, advance } = setup({ setTimer: timers.setTimer })
+    const ended: string[] = []
+    dropped.onUploadEnded((id) => ended.push(id))
+    expect(timers.pending.size).toBe(0)
+    const id = await begin(dropped, 'a.wav', 10)
+    expect(timers.pending.size).toBe(1)
+    timers.fire()
+    expect(ended).toEqual([])
+    expect(timers.pending.size).toBe(1)
+    advance(ABANDONED_UPLOAD_MS)
+    timers.fire()
+    expect(ended).toEqual([id])
+    // No uploads left: nothing to check.
+    expect(timers.pending.size).toBe(0)
+    await waitFor(() => uploadDirs().length === 0)
+  })
+
+  test('the check is cancelled once the last upload ends', async () => {
+    const timers = fakeTimers()
+    const { dropped } = setup({ setTimer: timers.setTimer })
+    const id = await begin(dropped, 'a.wav', 10)
+    expect(timers.pending.size).toBe(1)
+    await dropped.cancel({ uploadId: id })
+    expect(timers.pending.size).toBe(0)
+  })
+})
+
 describe('stale copies at boot', () => {
   test('old copies a crash left behind are removed; fresh ones and lookalikes are kept', () => {
     const NOW = Date.UTC(2026, 9, 13, 12, 0, 0)

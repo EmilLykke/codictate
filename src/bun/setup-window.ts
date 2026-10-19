@@ -283,7 +283,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
   // Files dropped on the window arrive as bytes from the page and are queued as temporary
   // copies (window-file-transcriptions/dropped-files.ts). Made at boot, so it sweeps the
   // copies a crash left behind. The bytes come over a loopback-only HTTP upload
-  // (dropped-file-server.ts), listening from the first drop until quit.
+  // (dropped-file-server.ts), open only while a dropped file is being received.
   const droppedFiles: DroppedFiles | null = windowFiles
     ? createDroppedFiles({
         parentDir: tmpdir(),
