@@ -58,6 +58,10 @@ import {
   createDroppedFiles,
   type DroppedFiles,
 } from './window-file-transcriptions/dropped-files'
+import {
+  createDroppedFileServer,
+  listenOnLoopback,
+} from './window-file-transcriptions/dropped-file-server'
 import { createModelOperations, type ModelOperations } from './model-operations'
 import { log } from './utils/logger'
 
@@ -132,8 +136,8 @@ export interface WindowHandle {
    */
   chooseAndTranscribeFiles: () => Promise<number>
   /**
-   * Delete every temporary copy of a dropped file, synchronously. For quitting, after the
-   * File Transcription queue has cancelled its jobs.
+   * Stop taking dropped files and delete every temporary copy, synchronously. For quitting,
+   * after the File Transcription queue has cancelled its jobs.
    */
   removeDroppedFiles: () => void
   /**
@@ -278,12 +282,20 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
 
   // Files dropped on the window arrive as bytes from the page and are queued as temporary
   // copies (window-file-transcriptions/dropped-files.ts). Made at boot, so it sweeps the
-  // copies a crash left behind.
+  // copies a crash left behind. The bytes come over a loopback-only HTTP upload
+  // (dropped-file-server.ts), listening from the first drop until quit.
   const droppedFiles: DroppedFiles | null = windowFiles
     ? createDroppedFiles({
         parentDir: tmpdir(),
         transcribe: (copy) => windowFiles.transcribeDroppedCopy(copy),
         now: () => Date.now(),
+        log: (message, data) => log('file-transcription', message, data),
+      })
+    : null
+  const droppedFileServer = droppedFiles
+    ? createDroppedFileServer({
+        droppedFiles,
+        listen: listenOnLoopback,
         log: (message, data) => log('file-transcription', message, data),
       })
     : null
@@ -496,7 +508,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         // The page awaits each of these before sending the next chunk. Each answers as soon
         // as its chunk is written: the File Transcription itself runs in the queue.
         beginDroppedFile: async (params) =>
-          droppedFiles?.begin(params) ?? noDroppedFiles,
+          droppedFileServer?.begin(params) ?? noDroppedFiles,
         appendDroppedFileChunk: async (params) =>
           droppedFiles?.append(params) ?? noDroppedFiles,
         finishDroppedFile: async (params) =>
@@ -700,7 +712,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
     setWindowsWindowIcon(win)
     // Every navigation away from the app is blocked, as a security measure: the page never
     // navigates on its own. A file dropped on the window does not navigate either; the page
-    // cancels the drop and sends the file's bytes (dropped-files.ts). Set on the webview
+    // cancels the drop and uploads the file's bytes (dropped-files.ts). Set on the webview
     // after creation: Electrobun 1.18 ignores the `navigationRules` constructor option.
     win.webview.setNavigationRules(mainWindowNavigationRules(deps.url))
     return win
@@ -770,7 +782,10 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
     models,
     chooseAndTranscribeFiles: async () =>
       (await windowFiles?.chooseAndTranscribe()) ?? 0,
-    removeDroppedFiles: () => droppedFiles?.removeAll(),
+    removeDroppedFiles: () => {
+      droppedFileServer?.stop()
+      droppedFiles?.removeAll()
+    },
     getOrCreateWindow,
   }
 }

@@ -695,13 +695,28 @@ export type TranscriptExportResult =
     }
 
 /**
- * A file dropped on the window reaches the main process as its bytes, in order, because
- * neither WKWebView nor WebView2 tells the page where a dropped file is on disk
+ * A file dropped on the window reaches the main process as its bytes, because neither
+ * WKWebView nor WebView2 tells the page where a dropped file is on disk
  * (src/shared/dropped-file-upload.ts, src/bun/window-file-transcriptions/dropped-files.ts).
  * A refusal carries one finished sentence for the user.
  */
 export type BeginDroppedFileReply =
-  { ok: true; uploadId: string } | { ok: false; message: string }
+  | {
+      ok: true
+      uploadId: string
+      /** Where to `PUT` the bytes; `null` when the main process is not listening. */
+      upload: DroppedFileUploadTarget | null
+    }
+  | { ok: false; message: string }
+
+/**
+ * The loopback URL for one upload, and the secret its request must carry
+ * (src/bun/window-file-transcriptions/dropped-file-server.ts).
+ */
+export interface DroppedFileUploadTarget {
+  url: string
+  token: string
+}
 
 /** How many bytes the copy holds so far. A refusal has already ended the upload. */
 export type AppendDroppedFileChunkReply =
@@ -819,15 +834,17 @@ export type WebviewRPCType = {
       dismissFileTranscriptionNotice: { params: {}; response: boolean }
       /**
        * Start receiving a file dropped on the window: `name` is its own name, `size` its
-       * length in bytes. The bytes follow with `appendDroppedFileChunk`.
+       * length in bytes. The bytes follow as one HTTP `PUT` to the reply's `upload`, or with
+       * `appendDroppedFileChunk` when the page cannot reach it.
        */
       beginDroppedFile: {
         params: { name: string; size: number }
         response: BeginDroppedFileReply
       }
       /**
-       * The next piece of a dropped file, base64. `offset` must be exactly the bytes received
-       * so far, so the page sends one chunk at a time and waits for this answer.
+       * The next piece of a dropped file, base64: the fallback for a page that cannot reach
+       * the upload URL. `offset` must be exactly the bytes received so far, so the page sends
+       * one chunk at a time and waits for this answer.
        */
       appendDroppedFileChunk: {
         params: { uploadId: string; offset: number; data: string }

@@ -13,7 +13,7 @@ export interface DroppedFileUpload {
   key: string
   name: string
   size: number
-  /** Bytes the main process has acknowledged. */
+  /** Bytes sent to the main process so far. */
   sent: number
   state: 'waiting' | 'adding' | 'failed'
   /** Why it failed, one finished sentence. */
@@ -109,7 +109,8 @@ export function cancelDroppedFileUpload(key: string): void {
   const upload = uploads.find((u) => u.key === key)
   if (upload === undefined) return
   if (upload.state === 'adding') {
-    // The send stops after the chunk in flight and tells the main process to delete the copy.
+    // The upload is aborted (or, on the RPC fallback, stops after the chunk in flight), and
+    // the main process is told to delete the copy.
     controllers.get(key)?.abort()
     return
   }

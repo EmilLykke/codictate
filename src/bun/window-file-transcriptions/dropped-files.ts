@@ -2,12 +2,16 @@
  * Files dropped on Codictate's window, received as bytes.
  *
  * Neither WKWebView nor WebView2 tells the page where a dropped file is on disk, and
- * Electrobun 1.18 has no native file-drop API, so the page streams the file's bytes over RPC
- * (src/shared/dropped-file-upload.ts). Each upload gets its own temporary directory holding
- * one file under the original name, made safe for the file system, so the Media Native
- * Helper still sees the extension. When every byte is in, the copy is queued as a window
- * File Transcription with no source folder (`sourcePath: null`): Transcript Export and
- * History never see the temporary path.
+ * Electrobun 1.18 has no native file-drop API, so the page sends the file's bytes
+ * (src/shared/dropped-file-upload.ts). They come in one HTTP `PUT` to a loopback-only
+ * endpoint (dropped-file-server.ts), streamed into the copy by `receive`, because
+ * Electrobun's RPC moves bytes one at a time through JSON, AES-GCM and base64 on both ends.
+ * The RPC chunks (`append`) survive only as the page's fallback for when the webview cannot
+ * reach that endpoint. Each upload gets its own temporary directory holding one file under
+ * the original name, made safe for the file system, so the Media Native Helper still sees
+ * the extension. When every byte is in, the copy is queued as a window File Transcription
+ * with no source folder (`sourcePath: null`): Transcript Export and History never see the
+ * temporary path.
  *
  * The copy is deleted, directory and all, when its File Transcription settles (done, failed
  * or cancelled), when the upload is cancelled or refused, when the page stops sending for
@@ -22,13 +26,12 @@
 
 import { closeSync, mkdtempSync, rmSync } from 'node:fs'
 import { open, rm, type FileHandle } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { join } from 'node:path'
 import { removeStaleDirs } from '../file-transcription/work-dirs'
 import { MAX_DROPPED_FILE_CHUNK_BYTES } from '../../shared/dropped-file-upload'
 import type {
   AppendDroppedFileChunkReply,
-  BeginDroppedFileReply,
   FinishDroppedFileReply,
 } from '../../shared/types'
 
@@ -44,7 +47,10 @@ export function isDroppedFileDirName(name: string): boolean {
 /** Files being received at once. The page sends one at a time; this guards the disk. */
 export const MAX_CONCURRENT_UPLOADS = 4
 
-/** An upload with no chunk for this long is taken as abandoned (the page reloaded or closed). */
+/**
+ * An upload with no bytes for this long is taken as abandoned (the page reloaded or closed).
+ * One being streamed in is never abandoned, however long it takes.
+ */
 export const ABANDONED_UPLOAD_MS = 2 * 60 * 1000
 
 const GONE = "That file isn't being added anymore."
@@ -121,6 +127,32 @@ function isBase64(data: string): boolean {
 
 const MAX_CHUNK_BASE64_LENGTH = Math.ceil(MAX_DROPPED_FILE_CHUNK_BYTES / 3) * 4
 
+/** Write all of `bytes` at `position`: a positional write may take only part of them. */
+async function writeAt(
+  handle: FileHandle,
+  bytes: Uint8Array,
+  position: number
+): Promise<void> {
+  let written = 0
+  while (written < bytes.length) {
+    const { bytesWritten } = await handle.write(
+      bytes,
+      written,
+      bytes.length - written,
+      position + written
+    )
+    if (bytesWritten <= 0) throw new Error('no bytes written')
+    written += bytesWritten
+  }
+}
+
+/** Constant time, so a wrong guess learns nothing about how close it came. */
+function tokenMatches(expected: string, given: string): boolean {
+  const a = Buffer.from(expected)
+  const b = Buffer.from(given)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 function writeFailureMessage(err: unknown): string {
   const code =
     typeof err === 'object' && err !== null && 'code' in err
@@ -141,10 +173,40 @@ export interface DroppedFilesDeps {
   log(message: string, data?: Record<string, unknown>): void
   /** Injected in tests. */
   newUploadId?(): string
+  /** Injected in tests. 32 random bytes, hex, in production. */
+  newToken?(): string
 }
 
+/**
+ * A started upload. `token` is the secret its bytes must carry (`receive`): only the page,
+ * which got it over the encrypted RPC, knows it.
+ */
+export type BegunDroppedFile =
+  { ok: true; uploadId: string; token: string } | { ok: false; message: string }
+
+/**
+ * `unknown`: no such upload, or the wrong token, answered alike so a guess learns nothing;
+ * the upload, if there is one, is left alone. `refused`: the upload has ended and its copy
+ * is gone.
+ */
+export type ReceivedDroppedFile =
+  | { ok: true; received: number }
+  | { ok: false; reason: 'unknown' | 'refused'; message: string }
+
 export interface DroppedFiles {
-  begin(params: { name: string; size: number }): Promise<BeginDroppedFileReply>
+  begin(params: { name: string; size: number }): Promise<BegunDroppedFile>
+  /**
+   * Every byte of the file in one stream, from the first: the HTTP body of the page's `PUT`.
+   * `declaredLength` is its `Content-Length`, when it had one. Refused unless exactly the
+   * size given to `begin` arrives.
+   */
+  receive(params: {
+    uploadId: string
+    token: string
+    declaredLength: number | null
+    body: ReadableStream<Uint8Array> | null
+  }): Promise<ReceivedDroppedFile>
+  /** The next piece, base64, over RPC: the page's fallback when it cannot use `receive`. */
   append(params: {
     uploadId: string
     offset: number
@@ -162,6 +224,7 @@ export interface DroppedFiles {
 
 interface Upload {
   id: string
+  token: string
   dir: string
   filePath: string
   fileName: string
@@ -172,11 +235,14 @@ interface Upload {
   busy: boolean
   /** Cancelled while busy: the in-flight request cleans up when it returns. */
   cancelled: boolean
+  /** Stops a `receive` in flight, even one waiting for the page's next bytes. */
+  stopStream: (() => void) | null
   lastActivity: number
 }
 
 export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
   const newUploadId = deps.newUploadId ?? (() => randomUUID())
+  const newToken = deps.newToken ?? (() => randomBytes(32).toString('hex'))
   /** Being received. */
   const uploads = new Map<string, Upload>()
   /** Finished and queued: the directories to delete once their jobs settle. */
@@ -233,7 +299,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
   }: {
     name: string
     size: number
-  }): Promise<BeginDroppedFileReply> {
+  }): Promise<BegunDroppedFile> {
     sweepAbandoned()
     if (typeof name !== 'string' || !Number.isSafeInteger(size) || size < 0) {
       return { ok: false, message: FAILED }
@@ -251,6 +317,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
     // Hold the slot while the file opens, so concurrent begins respect the cap.
     const upload: Upload = {
       id: newUploadId(),
+      token: newToken(),
       dir,
       filePath: join(dir, droppedFileName(name)),
       fileName: droppedFileDisplayName(name),
@@ -259,6 +326,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
       handle: null,
       busy: true,
       cancelled: false,
+      stopStream: null,
       lastActivity: deps.now(),
     }
     uploads.set(upload.id, upload)
@@ -274,7 +342,87 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
       return { ok: false, message: GONE }
     }
     deps.log('dropped file started', { size })
-    return { ok: true, uploadId: upload.id }
+    return { ok: true, uploadId: upload.id, token: upload.token }
+  }
+
+  async function receive({
+    uploadId,
+    token,
+    declaredLength,
+    body,
+  }: {
+    uploadId: string
+    token: string
+    declaredLength: number | null
+    body: ReadableStream<Uint8Array> | null
+  }): Promise<ReceivedDroppedFile> {
+    const upload = uploads.get(uploadId)
+    if (
+      upload === undefined ||
+      typeof token !== 'string' ||
+      !tokenMatches(upload.token, token)
+    ) {
+      return { ok: false, reason: 'unknown', message: GONE }
+    }
+    const refuse = async (
+      reason: string,
+      message: string
+    ): Promise<ReceivedDroppedFile> => {
+      await discard(upload, reason)
+      return { ok: false, reason: 'refused', message }
+    }
+    // Like `append`, every refusal ends the upload: a copy that went wrong once is not trusted.
+    if (upload.busy || upload.received !== 0) {
+      return refuse('second stream', BROKEN)
+    }
+    if (declaredLength !== null && declaredLength !== upload.size) {
+      return refuse('wrong length', BROKEN)
+    }
+
+    upload.busy = true
+    const reader = body?.getReader() ?? null
+    upload.stopStream = () => void reader?.cancel().catch(() => {})
+    let failure: { reason: string; message: string } | null = null
+    while (reader !== null && !upload.cancelled) {
+      // A throw is the page going away mid-file (closed, reloaded, or `xhr.abort()`).
+      const next = await reader.read().catch(() => null)
+      if (next === null) {
+        failure = { reason: 'stream broke', message: BROKEN }
+        break
+      }
+      if (next.done) break
+      const bytes = next.value
+      if (upload.received + bytes.length > upload.size) {
+        failure = { reason: 'oversize', message: BROKEN }
+        break
+      }
+      try {
+        await writeAt(upload.handle!, bytes, upload.received)
+      } catch (err) {
+        failure = upload.cancelled
+          ? null
+          : { reason: 'write failed', message: writeFailureMessage(err) }
+        break
+      }
+      upload.received += bytes.length
+      upload.lastActivity = deps.now()
+    }
+    upload.busy = false
+    upload.stopStream = null
+
+    if (
+      upload.cancelled ||
+      failure !== null ||
+      upload.received !== upload.size
+    ) {
+      // Stop reading what is left; Bun answers once this returns.
+      void reader?.cancel().catch(() => {})
+      if (upload.cancelled) return refuse('cancelled', GONE)
+      return failure !== null
+        ? refuse(failure.reason, failure.message)
+        : refuse('short', BROKEN)
+    }
+    return { ok: true, received: upload.received }
   }
 
   async function append({
@@ -310,17 +458,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
     }
     upload.busy = true
     try {
-      let written = 0
-      while (written < bytes.length) {
-        const { bytesWritten } = await upload.handle!.write(
-          bytes,
-          written,
-          bytes.length - written,
-          offset + written
-        )
-        if (bytesWritten <= 0) throw new Error('no bytes written')
-        written += bytesWritten
-      }
+      await writeAt(upload.handle!, bytes, offset)
     } catch (err) {
       upload.busy = false
       const cancelled = upload.cancelled
@@ -391,6 +529,7 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
       // The request in flight sees this and cleans up when it returns.
       upload.cancelled = true
       uploads.delete(upload.id)
+      upload.stopStream?.()
       return true
     }
     await discard(upload, 'cancelled')
@@ -420,5 +559,5 @@ export function createDroppedFiles(deps: DroppedFilesDeps): DroppedFiles {
     }
   }
 
-  return { begin, append, finish, cancel, removeAll }
+  return { begin, receive, append, finish, cancel, removeAll }
 }

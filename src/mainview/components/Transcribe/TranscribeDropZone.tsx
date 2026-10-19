@@ -24,8 +24,8 @@ function percent(upload: DroppedFileUpload): number {
  *
  * Neither WKWebView (macOS) nor WebView2 (Windows) tells a page where a dropped file is on
  * disk, and Electrobun has no native file-drop API, so the page takes the drop itself: it
- * cancels `dragover` and `drop` on the window whenever files are dragged, reads each dropped
- * `File` in chunks and sends the bytes to the main process, which queues a temporary copy
+ * cancels `dragover` and `drop` on the window whenever files are dragged and uploads each
+ * dropped `File` to the main process over loopback HTTP, which queues a temporary copy
  * (dropped-file-uploads.ts, src/shared/dropped-file-upload.ts). Several files per drop. A
  * drag that carries no files is left alone, so text still drops into a text field.
  */

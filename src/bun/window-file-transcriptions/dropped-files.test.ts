@@ -355,14 +355,20 @@ describe('stale copies at boot', () => {
   })
 })
 
-describe('the page sending a file', () => {
-  /** The page's uploader against the real receiver, as setup-window.ts wires them. */
+describe('the page sending a file over RPC (the fallback)', () => {
+  /**
+   * The page's uploader against the real receiver, with no upload URL, so every byte goes
+   * in RPC chunks. The HTTP path is in dropped-file-server.test.ts.
+   */
   function wired(dropped: ReturnType<typeof setup>['dropped']) {
     const calls: string[] = []
     const transport: DroppedFileTransport = {
-      begin: (p) => {
+      begin: async (p) => {
         calls.push('begin')
-        return dropped.begin(p)
+        const reply = await dropped.begin(p)
+        return reply.ok
+          ? { ok: true, uploadId: reply.uploadId, upload: null }
+          : reply
       },
       append: (p) => {
         calls.push(`append ${p.offset}`)
@@ -375,6 +381,9 @@ describe('the page sending a file', () => {
       cancel: (p) => {
         calls.push('cancel')
         return dropped.cancel(p)
+      },
+      newUploadRequest: () => {
+        throw new Error('no upload URL was given')
       },
     }
     return { transport, calls }

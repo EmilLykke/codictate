@@ -52,7 +52,8 @@ queryClient.setQueryData(
 const rpc = Electroview.defineRPC<WebviewRPCType>({
   // Electrobun gives up on a request after 1 s by default. Asking the login shell for its
   // PATH, or PowerShell for a Path write, can take a few seconds on a cold start. It is also
-  // the timeout of each dropped-file chunk (`appendDroppedFileChunk`, 2 MiB): Electrobun has
+  // the timeout of each dropped-file chunk on the fallback path (`appendDroppedFileChunk`,
+  // 2 MiB; a dropped file normally goes over HTTP, see dropped-file-upload.ts): Electrobun has
   // no per-request timeout, and encrypting, sending and writing one chunk takes well under a
   // second, so 20 s only ever fires when the main process is gone.
   maxRequestTime: 20_000,
@@ -700,12 +701,15 @@ export function revealExportedTranscript(target: TranscriptExportTarget): void {
 }
 
 /**
- * The main process's side of a file dropped on the window: the page streams its bytes
- * (src/shared/dropped-file-upload.ts). Each request runs under `maxRequestTime` above.
+ * The main process's side of a file dropped on the window (src/shared/dropped-file-upload.ts):
+ * the RPC requests, each under `maxRequestTime` above, and the `XMLHttpRequest` that uploads
+ * the `File` to the main process's loopback endpoint. An XHR rather than `fetch`, for upload
+ * progress; it has no timeout, since a large video on a slow disk takes as long as it takes.
  */
-export const droppedFileTransport: DroppedFileTransport = {
+export const droppedFileTransport: DroppedFileTransport<File> = {
   begin: (params) => rpc.request.beginDroppedFile(params),
   append: (params) => rpc.request.appendDroppedFileChunk(params),
   finish: (params) => rpc.request.finishDroppedFile(params),
   cancel: (params) => rpc.request.cancelDroppedFile(params),
+  newUploadRequest: () => new XMLHttpRequest(),
 }
