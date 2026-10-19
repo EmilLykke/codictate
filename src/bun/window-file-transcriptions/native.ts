@@ -1,21 +1,15 @@
 /**
- * The native pieces behind the Transcribe page: the open dialog, the Save dialog for a
- * Transcript Export, and writing the file. Electrobun's open dialog is the same call on macOS
- * (NSOpenPanel) and Windows (IFileOpenDialog). Electrobun 1.18 has no save dialog, so that one
- * is the media Native Helper's `save-dialog`: NSSavePanel in `CodictateMediaHelper`,
- * IFileSaveDialog in `CodictateWindowsHelper`.
+ * The native pieces behind the Transcribe page: the open dialog, the folder picker for a
+ * Transcript Export, and writing the file. Both dialogs are Electrobun's `openFileDialog`, the
+ * same call on macOS (NSOpenPanel) and Windows (IFileOpenDialog, folder mode for the picker).
+ * Codictate names the exported file itself, so it needs no save dialog: the system one opens
+ * collapsed on macOS when shown from a helper process, with no folder browser.
  */
 
-import { statSync, writeFileSync } from 'node:fs'
+import { lstatSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { Utils } from 'electrobun/bun'
-import { requireRuntimeBinary } from '../platform/binaries'
-import {
-  parseSaveDialogAnswer,
-  saveDialogArgs,
-  splitDialogPaths,
-  type SaveDialogRequest,
-} from './paths'
+import { splitDialogPaths } from './paths'
 
 function isFile(path: string): boolean {
   try {
@@ -52,36 +46,40 @@ export async function chooseFilesWithNativeDialog(
 }
 
 /**
- * The path the user chose in the system Save dialog, or `null` when they cancelled. The
- * dialog has a name field and folder browsing, and asks before replacing a file, so the
- * caller writes to the path as it is. Only ever called from an RPC *message* handler: the
- * dialog stays open as long as the user likes, longer than a request may wait (#156).
- *
- * Throws when the helper is missing or gives no answer, so that is reported as a failure.
+ * The folder the user picked for a Transcript Export, or `null` when they cancelled. Only one
+ * folder can be picked, so the unescaped `,` join (see `splitDialogPaths`) is undone by
+ * joining back. The caller checks it is a folder. Only ever called from an RPC *message*
+ * handler: the picker stays open as long as the user likes, longer than a request may wait
+ * (#156).
  */
-export async function chooseSaveLocationWithNativeDialog(
-  request: SaveDialogRequest
+export async function chooseFolderWithNativeDialog(
+  startingFolder: string
 ): Promise<string | null> {
-  const helper = requireRuntimeBinary('media')
-  const proc = Bun.spawn([helper, ...saveDialogArgs(request)], {
-    stdin: 'ignore',
-    stdout: 'pipe',
-    stderr: 'pipe',
+  const chosen = await Utils.openFileDialog({
+    startingFolder,
+    allowedFileTypes: '*',
+    canChooseFiles: false,
+    canChooseDirectory: true,
+    allowsMultipleSelection: false,
   })
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ])
-  if (exitCode !== 0) {
-    throw new Error(
-      `The Save dialog failed (exit ${exitCode}): ${stderr.trim().slice(0, 200)}`
-    )
-  }
-  return parseSaveDialogAnswer(stdout)
+  const folder = chosen.join(',').trim()
+  return folder === '' ? null : folder
 }
 
-/** Replaces an existing file: the Save dialog already asked. */
-export function writeTextFile(path: string, text: string): void {
-  writeFileSync(path, text, { encoding: 'utf8' })
+/**
+ * Anything at the path counts, a broken link included (`lstat`, not `stat`), so an export
+ * never picks a name the exclusive write would refuse.
+ */
+export function pathExists(path: string): boolean {
+  try {
+    lstatSync(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Creates the file and never replaces one: throws `EEXIST` when the name is taken. */
+export function writeNewTextFile(path: string, text: string): void {
+  writeFileSync(path, text, { encoding: 'utf8', flag: 'wx' })
 }

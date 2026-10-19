@@ -12,8 +12,9 @@
  * go to History (GLOSSARY.md: File Transcription, History), Timed Transcript included.
  *
  * A Transcript Export of a session result or a History entry also runs here: render, ask
- * where to save in the system Save dialog, write there. It is started by an RPC message and
- * reports back with one, because the dialog must never be awaited inside a request (#156).
+ * for a folder in the native folder picker, write a new file there named after the
+ * transcribed file. It is started by an RPC message and reports back with one, because the
+ * picker must never be awaited inside a request (#156).
  *
  * Everything that touches the machine comes in through the deps, so it is tested
  * hermetically (controller.test.ts).
@@ -40,7 +41,7 @@ import {
   type TranscriptExportSource,
 } from '../../shared/transcript-export'
 import { transcriptExportFailureMessage } from '../../shared/file-transcription-copy'
-import { exportStartFolder, type SaveDialogRequest } from './paths'
+import { exportStartFolder, uniqueExportPath } from './paths'
 import {
   belongsInHistory,
   outcomeFromResult,
@@ -52,6 +53,12 @@ export const FINISHED_LIMIT = 100
 
 const GONE_MESSAGE = "That transcript isn't here anymore."
 
+/**
+ * How many names an export tries when the exclusive write finds its name taken after all,
+ * because something else created that file between the check and the write.
+ */
+const EXPORT_WRITE_ATTEMPTS = 5
+
 export interface WindowFileTranscriptionsDeps {
   queue: FileTranscriptionQueue
   /** The native open dialog. Resolves `[]` when the user cancels. */
@@ -62,10 +69,10 @@ export interface WindowFileTranscriptionsDeps {
    */
   saveToHistory(record: FileTranscriptionHistoryRecord): Promise<boolean>
   /**
-   * The system Save dialog: name field, folder browsing, and its own question before
-   * replacing a file. Resolves the chosen path, or `null` when the user cancels.
+   * The native folder picker, opened in `startingFolder`. Resolves the chosen folder, or
+   * `null` when the user cancels.
    */
-  chooseSaveLocation(request: SaveDialogRequest): Promise<string | null>
+  chooseExportFolder(startingFolder: string): Promise<string | null>
   /** The folder the last Transcript Export went to, remembered across launches. */
   lastExportFolder(): string | null
   rememberExportFolder(folder: string): Promise<void>
@@ -79,9 +86,14 @@ export interface WindowFileTranscriptionsDeps {
   /** How a Transcript Export ended. Called whether or not a window is open to receive it. */
   pushExportResult(result: TranscriptExportResult): void
   isDirectory(path: string): boolean
+  /** Whether anything is at the path, so an export picks a free name. */
+  pathExists(path: string): boolean
   homeFolder(): string
-  /** Write the file, replacing one that is there: the Save dialog already asked. */
-  writeFile(path: string, text: string): void
+  /**
+   * Create the file, never replacing one: throws an error with code `EEXIST` when the name is
+   * taken.
+   */
+  writeNewFile(path: string, text: string): void
   /** Show a file in Finder / Explorer. */
   reveal(path: string): void
   now(): number
@@ -92,7 +104,7 @@ export interface WindowFileTranscriptionsDeps {
   log(message: string, data?: Record<string, unknown>): void
   /** Injected in tests; the shared renderer otherwise. */
   renderTranscript?: typeof renderTranscriptDefault
-  /** The name the Save dialog starts with. Injected in tests; the shared namer otherwise. */
+  /** The exported file's name. Injected in tests; the shared namer otherwise. */
   transcriptExportFileName?: typeof transcriptExportFileNameDefault
 }
 
@@ -113,7 +125,8 @@ export interface WindowFileTranscriptions {
   cancel(id: string): boolean
   dismiss(id: string): boolean
   /**
-   * Ask where to save in the system Save dialog and write the transcript there in `format`.
+   * Ask for a folder in the native folder picker and write the transcript there in `format`,
+   * as a new file named after the transcribed file.
    * How it ended goes to `pushExportResult`; the returned promise resolves with the same
    * result.
    */
@@ -315,7 +328,7 @@ export function createWindowFileTranscriptions(
     // A dropped file has no source folder (`null`): the last export folder, then home.
     const { source, filePath } = resolved
 
-    // Before the dialog: a Caption File without timings is refused without asking where.
+    // Before the picker: a Caption File without timings is refused without asking where.
     let rendered: ReturnType<typeof render>
     try {
       rendered = render(format, source)
@@ -338,15 +351,11 @@ export function createWindowFileTranscriptions(
       homeFolder: deps.homeFolder(),
       isDirectory: (path) => deps.isDirectory(path),
     })
-    let path: string | null
+    let folder: string | null
     try {
-      path = await deps.chooseSaveLocation({
-        defaultName: exportFileName(source.fileName, format),
-        directory: start,
-        extension: format,
-      })
+      folder = await deps.chooseExportFolder(start)
     } catch (err) {
-      deps.log('save dialog failed', { err: String(err) })
+      deps.log('folder picker failed', { err: String(err) })
       return {
         target,
         status: 'failed',
@@ -354,22 +363,56 @@ export function createWindowFileTranscriptions(
         message: transcriptExportFailureMessage(null),
       }
     }
-    if (path === null) return { target, status: 'cancelled' }
-
-    try {
-      deps.writeFile(path, rendered.content)
-    } catch (err) {
-      deps.log('export write failed', { target, format, err: String(err) })
+    if (folder === null) return { target, status: 'cancelled' }
+    if (!deps.isDirectory(folder)) {
+      deps.log('export folder is not a folder', { target })
       return {
         target,
         status: 'failed',
         format,
-        message: transcriptExportFailureMessage(errorCode(err)),
+        message: transcriptExportFailureMessage(null),
+      }
+    }
+
+    // A taken name moves on to `talk 2.srt`. The write is exclusive, so a file that appears
+    // after the check is never replaced: that name counts as taken and the next one is tried.
+    // A name the write refused stays taken even if `pathExists` still says it is free.
+    const fileName = exportFileName(source.fileName, format)
+    const refused = new Set<string>()
+    let path: string | null = null
+    let failure: unknown = null
+    for (let attempt = 0; attempt < EXPORT_WRITE_ATTEMPTS; attempt++) {
+      const candidate = uniqueExportPath(
+        folder,
+        fileName,
+        (p) => refused.has(p) || deps.pathExists(p)
+      )
+      try {
+        deps.writeNewFile(candidate, rendered.content)
+        path = candidate
+        break
+      } catch (err) {
+        failure = err
+        if (errorCode(err) !== 'EEXIST') break
+        refused.add(candidate)
+      }
+    }
+    if (path === null) {
+      deps.log('export write failed', {
+        target,
+        format,
+        err: String(failure),
+      })
+      return {
+        target,
+        status: 'failed',
+        format,
+        message: transcriptExportFailureMessage(errorCode(failure)),
       }
     }
 
     try {
-      await deps.rememberExportFolder(dirname(path))
+      await deps.rememberExportFolder(folder)
     } catch (err) {
       deps.log('remember export folder failed', { err: String(err) })
     }

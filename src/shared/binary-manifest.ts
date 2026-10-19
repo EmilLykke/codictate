@@ -12,7 +12,6 @@ export type BinaryId =
    * The media decoder File Transcription runs: `<helper> extract-audio <in> <out.wav>`.
    * AVFoundation in `CodictateMediaHelper` on macOS, Media Foundation in
    * `CodictateWindowsHelper` on Windows, with the same argv and exit codes (ADR-0009).
-   * The same helper shows a Transcript Export's Save dialog: `<helper> save-dialog ...`.
    */
   | 'media'
   /**

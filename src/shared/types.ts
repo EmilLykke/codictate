@@ -881,10 +881,10 @@ export type WebviewRPCType = {
        */
       chooseFilesToTranscribe: {}
       /**
-       * Ask where to save in the system Save dialog and save the transcript there in `format`.
-       * A message, not a request, for the same reason as `chooseFilesToTranscribe`: the Save
-       * dialog must never be awaited inside a request (#156). The result arrives as
-       * `transcriptExportFinished`.
+       * Ask for a folder in the native folder picker and save the transcript there in
+       * `format`, as a new file named after the transcribed file. A message, not a request,
+       * for the same reason as `chooseFilesToTranscribe`: the picker must never be awaited
+       * inside a request (#156). The result arrives as `transcriptExportFinished`.
        */
       exportTranscript: {
         target: TranscriptExportTarget

@@ -22,7 +22,6 @@ import {
   createWindowFileTranscriptions,
   type WindowFileTranscriptionsDeps,
 } from './controller'
-import type { SaveDialogRequest } from './paths'
 import { queueItemsFromSnapshot } from './view'
 
 /** A queue that runs nothing: the test settles each job by hand. */
@@ -115,9 +114,12 @@ function setup(overrides: Partial<WindowFileTranscriptionsDeps> = {}) {
   const fake = fakeQueue()
   const pushes: FileTranscriptionsState[] = []
   const history: FileTranscriptionHistoryRecord[] = []
+  /** The fake disk: everything an export wrote, by path. */
   const written = new Map<string, string>()
   const exports: TranscriptExportResult[] = []
-  const saveAsks: SaveDialogRequest[] = []
+  /** The folder each folder picker opened in. */
+  const folderAsks: string[] = []
+  /** Every path a write was tried at, refused or not. */
   const writes: string[] = []
   const remembered: string[] = []
   const revealed: string[] = []
@@ -129,10 +131,10 @@ function setup(overrides: Partial<WindowFileTranscriptionsDeps> = {}) {
       history.push(record)
       return true
     },
-    // Stands in for the user keeping the offered name and saving in ~/Exports.
-    chooseSaveLocation: async (request) => {
-      saveAsks.push(request)
-      return `/Users/me/Exports/${request.defaultName}`
+    // Stands in for the user picking ~/Exports.
+    chooseExportFolder: async (startingFolder) => {
+      folderAsks.push(startingFolder)
+      return '/Users/me/Exports'
     },
     lastExportFolder: () => lastExportFolder,
     rememberExportFolder: async (folder) => {
@@ -143,9 +145,13 @@ function setup(overrides: Partial<WindowFileTranscriptionsDeps> = {}) {
     pushExportResult: (result) => exports.push(result),
     isDirectory: (path) =>
       ['/a', '/Users/me', '/Users/me/Exports'].includes(path),
+    pathExists: (path) => written.has(path),
     homeFolder: () => '/Users/me',
-    writeFile(path, text) {
+    writeNewFile(path, text) {
       writes.push(path)
+      if (written.has(path)) {
+        throw Object.assign(new Error('exists'), { code: 'EEXIST' })
+      }
       written.set(path, text)
     },
     reveal: (path) => revealed.push(path),
@@ -164,7 +170,7 @@ function setup(overrides: Partial<WindowFileTranscriptionsDeps> = {}) {
     history,
     written,
     exports,
-    saveAsks,
+    folderAsks,
     writes,
     remembered,
     revealed,
@@ -250,9 +256,16 @@ describe('window File Transcriptions', () => {
     })
   })
 
-  test('export asks in the Save dialog, offering the original name, and writes where the user says', async () => {
-    const { controller, fake, written, writes, exports, saveAsks, remembered } =
-      setup()
+  test('export asks for a folder, names the file after the transcribed one, and never replaces a file', async () => {
+    const {
+      controller,
+      fake,
+      written,
+      writes,
+      exports,
+      folderAsks,
+      remembered,
+    } = setup()
     controller.transcribe(['/a/talk.m4a'])
     fake.jobs[0].resolve(ok('/a/talk.m4a', 'first line', timed('first line')))
     await settled()
@@ -264,35 +277,33 @@ describe('window File Transcriptions', () => {
       format: 'srt',
       path: '/Users/me/Exports/talk.srt',
     })
-    // The same name again: the dialog asked before replacing, so the file is replaced.
-    await controller.exportTranscript(target, 'srt')
+    // The same name again: the first file stays and the second gets a number.
+    expect(await controller.exportTranscript(target, 'srt')).toMatchObject({
+      status: 'saved',
+      path: '/Users/me/Exports/talk 2.srt',
+    })
     expect(writes).toEqual([
       '/Users/me/Exports/talk.srt',
-      '/Users/me/Exports/talk.srt',
+      '/Users/me/Exports/talk 2.srt',
     ])
     expect(written.get('/Users/me/Exports/talk.srt')).toBe('srt:first line')
+    expect(written.get('/Users/me/Exports/talk 2.srt')).toBe('srt:first line')
     expect(exports.map((r) => r.status)).toEqual(['saved', 'saved'])
     // First the file's own folder, then the folder last saved to.
-    expect(saveAsks).toEqual([
-      { defaultName: 'talk.srt', directory: '/a', extension: 'srt' },
-      {
-        defaultName: 'talk.srt',
-        directory: '/Users/me/Exports',
-        extension: 'srt',
-      },
-    ])
+    expect(folderAsks).toEqual(['/a', '/Users/me/Exports'])
     expect(remembered).toEqual(['/Users/me/Exports', '/Users/me/Exports'])
     expect(controller.state().finished[0]).toMatchObject({
-      lastExport: { format: 'srt', path: '/Users/me/Exports/talk.srt' },
+      lastExport: { format: 'srt', path: '/Users/me/Exports/talk 2.srt' },
     })
   })
 
-  test('a name and folder changed in the dialog are used as they are', async () => {
+  test('the picked folder is written to, remembered, and Show finds the file', async () => {
     const { controller, fake, writes, remembered, revealed } = setup({
-      chooseSaveLocation: async () => '/Users/me/Talks/board notes.txt',
+      chooseExportFolder: async () => '/Users/me/Talks',
+      isDirectory: (path) => ['/a', '/Users/me/Talks'].includes(path),
     })
-    controller.transcribe(['/a/talk.m4a'])
-    fake.jobs[0].resolve(ok('/a/talk.m4a', 'x'))
+    controller.transcribe(['/a/board notes.m4a'])
+    fake.jobs[0].resolve(ok('/a/board notes.m4a', 'x'))
     await settled()
     const target = { kind: 'window', id: 'job-1' } as const
     expect(await controller.exportTranscript(target, 'txt')).toMatchObject({
@@ -306,19 +317,19 @@ describe('window File Transcriptions', () => {
   })
 
   test('the dialog starts at home when neither folder is still there', async () => {
-    const { controller, fake, saveAsks } = setup({
+    const { controller, fake, folderAsks } = setup({
       lastExportFolder: () => '/Volumes/Gone',
     })
     controller.transcribe(['/Volumes/Card/clip.mov'])
     fake.jobs[0].resolve(ok('/Volumes/Card/clip.mov', 'x'))
     await settled()
     await controller.exportTranscript({ kind: 'window', id: 'job-1' }, 'txt')
-    expect(saveAsks.map((ask) => ask.directory)).toEqual(['/Users/me'])
+    expect(folderAsks).toEqual(['/Users/me'])
   })
 
-  test('a cancelled dialog writes nothing and says cancelled', async () => {
+  test('a cancelled picker writes nothing and says cancelled', async () => {
     const { controller, fake, written, exports, remembered } = setup({
-      chooseSaveLocation: async () => null,
+      chooseExportFolder: async () => null,
     })
     controller.transcribe(['/a/talk.m4a'])
     fake.jobs[0].resolve(ok('/a/talk.m4a', 'x'))
@@ -333,10 +344,64 @@ describe('window File Transcriptions', () => {
     expect(exports).toEqual([{ target, status: 'cancelled' }])
   })
 
-  test('a Save dialog that fails says so and writes nothing', async () => {
-    const { controller, fake, writes, exports, remembered } = setup({
-      chooseSaveLocation: async () => {
-        throw new Error('The Save dialog gave no answer: ')
+  test('a picker that fails, or picks something that is not a folder, says so and writes nothing', async () => {
+    for (const chooseExportFolder of [
+      async (): Promise<string | null> => {
+        throw new Error('no dialog')
+      },
+      async () => '/Users/me/Exports/talk.m4a',
+    ]) {
+      const { controller, fake, writes, exports, remembered } = setup({
+        chooseExportFolder,
+      })
+      controller.transcribe(['/a/talk.m4a'])
+      fake.jobs[0].resolve(ok('/a/talk.m4a', 'x'))
+      await settled()
+      const target = { kind: 'window', id: 'job-1' } as const
+      expect(await controller.exportTranscript(target, 'txt')).toEqual({
+        target,
+        status: 'failed',
+        format: 'txt',
+        message: "Couldn't save the file.",
+      })
+      expect(writes).toEqual([])
+      expect(remembered).toEqual([])
+      expect(exports).toHaveLength(1)
+    }
+  })
+
+  test('a name taken between the check and the write moves on to the next one', async () => {
+    // A broken link: nothing seems to be there, yet the exclusive write refuses the name.
+    const { controller, fake, writes, written } = setup({
+      pathExists: () => false,
+      writeNewFile(path, text) {
+        writes.push(path)
+        if (path === '/Users/me/Exports/talk.txt') {
+          throw Object.assign(new Error('exists'), { code: 'EEXIST' })
+        }
+        written.set(path, text)
+      },
+    })
+    controller.transcribe(['/a/talk.m4a'])
+    fake.jobs[0].resolve(ok('/a/talk.m4a', 'x'))
+    await settled()
+    const target = { kind: 'window', id: 'job-1' } as const
+    expect(await controller.exportTranscript(target, 'txt')).toMatchObject({
+      status: 'saved',
+      path: '/Users/me/Exports/talk 2.txt',
+    })
+    expect(writes).toEqual([
+      '/Users/me/Exports/talk.txt',
+      '/Users/me/Exports/talk 2.txt',
+    ])
+  })
+
+  test('a name that keeps being taken gives up after a few tries, replacing nothing', async () => {
+    const { controller, fake, writes, remembered } = setup({
+      pathExists: () => false,
+      writeNewFile(path) {
+        writes.push(path)
+        throw Object.assign(new Error('exists'), { code: 'EEXIST' })
       },
     })
     controller.transcribe(['/a/talk.m4a'])
@@ -349,9 +414,14 @@ describe('window File Transcriptions', () => {
       format: 'txt',
       message: "Couldn't save the file.",
     })
-    expect(writes).toEqual([])
+    expect(writes).toEqual([
+      '/Users/me/Exports/talk.txt',
+      '/Users/me/Exports/talk 2.txt',
+      '/Users/me/Exports/talk 3.txt',
+      '/Users/me/Exports/talk 4.txt',
+      '/Users/me/Exports/talk 5.txt',
+    ])
     expect(remembered).toEqual([])
-    expect(exports).toHaveLength(1)
   })
 
   test('an unwritable folder asks for another one; other errors say so plainly', async () => {
@@ -362,7 +432,7 @@ describe('window File Transcriptions', () => {
       ['EIO', "Couldn't save the file."],
     ]) {
       const { controller, fake, remembered } = setup({
-        writeFile() {
+        writeNewFile() {
           throw Object.assign(new Error('nope'), { code })
         },
       })
@@ -380,8 +450,8 @@ describe('window File Transcriptions', () => {
     }
   })
 
-  test('captions without timings are refused before the dialog opens', async () => {
-    const { controller, fake, saveAsks, exports } = setup()
+  test('captions without timings are refused before the picker opens', async () => {
+    const { controller, fake, folderAsks, exports } = setup()
     controller.transcribe(['/a/talk.m4a'])
     fake.jobs[0].resolve(ok('/a/talk.m4a', 'no timings here'))
     await settled()
@@ -395,7 +465,7 @@ describe('window File Transcriptions', () => {
       format: 'vtt',
       message: 'No timings.',
     })
-    expect(saveAsks).toEqual([])
+    expect(folderAsks).toEqual([])
     expect(exports).toHaveLength(1)
     // JSON is always on offer.
     expect((await controller.exportTranscript(target, 'json')).status).toBe(
@@ -415,7 +485,7 @@ describe('window File Transcriptions', () => {
       timedTranscript: null,
     }
     const asked: string[] = []
-    const { controller, written, saveAsks, revealed } = setup({
+    const { controller, written, folderAsks, revealed } = setup({
       loadHistoryExportSource: async (id) => {
         asked.push(id)
         return id === 'h1'
@@ -431,9 +501,7 @@ describe('window File Transcriptions', () => {
     expect(written.get('/Users/me/Exports/old memo.txt')).toBe(
       'txt:from history'
     )
-    expect(saveAsks).toEqual([
-      { defaultName: 'old memo.txt', directory: '/Users/me', extension: 'txt' },
-    ])
+    expect(folderAsks).toEqual(['/Users/me'])
     controller.revealExport(target)
     expect(revealed).toEqual(['/Users/me/Exports/old memo.txt'])
 
@@ -540,7 +608,7 @@ describe('window File Transcriptions', () => {
   })
 
   test("a dropped copy's export starts in the last export folder, else home, never the temp folder", async () => {
-    const { controller, fake, saveAsks } = setup({
+    const { controller, fake, folderAsks, writes } = setup({
       isDirectory: () => true,
     })
     void controller.transcribeDroppedCopy({
@@ -552,11 +620,8 @@ describe('window File Transcriptions', () => {
     const target = { kind: 'window', id: 'job-1' } as const
     await controller.exportTranscript(target, 'txt')
     await controller.exportTranscript(target, 'txt')
-    expect(saveAsks.map((ask) => ask.directory)).toEqual([
-      '/Users/me',
-      '/Users/me/Exports',
-    ])
-    expect(saveAsks[0]?.defaultName).toBe('talk.txt')
+    expect(folderAsks).toEqual(['/Users/me', '/Users/me/Exports'])
+    expect(writes[0]).toBe('/Users/me/Exports/talk.txt')
   })
 
   test('a History entry kept without a path exports from the last export folder, else home', async () => {
@@ -570,16 +635,13 @@ describe('window File Transcriptions', () => {
       text: 'x',
       timedTranscript: null,
     }
-    const { controller, saveAsks } = setup({
+    const { controller, folderAsks } = setup({
       loadHistoryExportSource: async () => ({ source, filePath: null }),
     })
     const target = { kind: 'history', id: 'h1' } as const
     await controller.exportTranscript(target, 'txt')
     await controller.exportTranscript(target, 'txt')
-    expect(saveAsks.map((ask) => ask.directory)).toEqual([
-      '/Users/me',
-      '/Users/me/Exports',
-    ])
+    expect(folderAsks).toEqual(['/Users/me', '/Users/me/Exports'])
   })
 
   test('a dropped copy never moves where the open dialog starts', async () => {

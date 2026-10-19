@@ -1,8 +1,8 @@
 /**
  * File paths for the Transcribe page: what the native open dialog hands back, the main
- * window's navigation rules, and the Transcript Export Save dialog's start folder, argv and
- * answer. Pure, so both platforms are tested on any host. A dropped file has no path here:
- * the page sends its bytes (dropped-files.ts).
+ * window's navigation rules, and where a Transcript Export's folder picker opens and what the
+ * file in that folder is called. Pure, so both platforms are tested on any host. A dropped
+ * file has no path here: the page sends its bytes (dropped-files.ts).
  */
 
 /**
@@ -54,7 +54,7 @@ export function mainWindowNavigationRules(viewUrl: string): string[] {
 }
 
 /**
- * Where the Transcript Export Save dialog opens: the last folder a transcript was saved to,
+ * Where the Transcript Export folder picker opens: the last folder a transcript was saved to,
  * if it is still there; otherwise the transcribed file's own folder, if that is still there;
  * otherwise the home folder. A dropped file has no folder of its own (`sourceFolder: null`),
  * since Codictate transcribed a temporary copy of it.
@@ -73,58 +73,35 @@ export function exportStartFolder(args: {
   return args.homeFolder
 }
 
-export interface SaveDialogRequest {
-  /** The name the dialog starts with, extension included: `talk.srt`. */
-  defaultName: string
-  /** The folder it opens in. */
-  directory: string
-  /** Without the dot: `srt`. */
-  extension: string
-}
-
-/** What the dialog says in its title bar. */
-export const SAVE_DIALOG_TITLE = 'Save Transcript'
+/** How many names `uniqueExportPath` tries before it gives up. */
+export const EXPORT_NAME_LIMIT = 1000
 
 /**
- * The media Native Helper's `save-dialog` argv after the executable, the same on macOS
- * (`CodictateMediaHelper`, NSSavePanel) and Windows (`CodictateWindowsHelper`,
- * IFileSaveDialog).
+ * Where a Transcript Export is written: `fileName` in `folder`, or, when that is taken,
+ * `talk 2.srt`, `talk 3.srt` and so on, so an export never replaces a file. The number goes
+ * before the last extension (`a.b.srt` gives `a.b 2.srt`); a name with no extension, or only
+ * a leading dot, gets it at the end. The folder keeps its own separator, so a Windows path is
+ * joined the same way on any host. `exists` must count anything at the path as taken.
+ *
+ * After `EXPORT_NAME_LIMIT` names it stops looking and returns the last one: the exclusive
+ * write then refuses it rather than replace anything.
  */
-export function saveDialogArgs(request: SaveDialogRequest): string[] {
-  return [
-    'save-dialog',
-    '--name',
-    request.defaultName,
-    '--directory',
-    request.directory,
-    '--extension',
-    request.extension,
-    '--title',
-    SAVE_DIALOG_TITLE,
-  ]
-}
-
-/**
- * The helper's one JSON line: `{"path":"..."}` is the chosen path, `{"cancelled":true}` is
- * `null`. Anything else throws, so a broken helper is reported, not taken for a cancel.
- */
-export function parseSaveDialogAnswer(stdout: string): string | null {
-  const line = stdout.trim()
-  let answer: unknown
-  try {
-    answer = JSON.parse(line)
-  } catch {
-    throw new Error(`The Save dialog gave no answer: ${line.slice(0, 200)}`)
+export function uniqueExportPath(
+  folder: string,
+  fileName: string,
+  exists: (path: string) => boolean
+): string {
+  const separator = /^[A-Za-z]:|^\\\\/.test(folder) ? '\\' : '/'
+  const prefix =
+    folder.endsWith('/') || folder.endsWith(separator)
+      ? folder
+      : folder + separator
+  const dot = fileName.lastIndexOf('.')
+  const stem = dot > 0 ? fileName.slice(0, dot) : fileName
+  const extension = dot > 0 ? fileName.slice(dot) : ''
+  let path = prefix + fileName
+  for (let n = 2; n <= EXPORT_NAME_LIMIT && exists(path); n++) {
+    path = `${prefix}${stem} ${n}${extension}`
   }
-  if (typeof answer === 'object' && answer !== null) {
-    if ('cancelled' in answer && answer.cancelled === true) return null
-    if (
-      'path' in answer &&
-      typeof answer.path === 'string' &&
-      answer.path.trim() !== ''
-    ) {
-      return answer.path
-    }
-  }
-  throw new Error(`The Save dialog gave no answer: ${line.slice(0, 200)}`)
+  return path
 }

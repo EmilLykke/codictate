@@ -3,8 +3,8 @@ import {
   mainWindowNavigationRules,
   splitDialogPaths,
   exportStartFolder,
-  parseSaveDialogAnswer,
-  saveDialogArgs,
+  uniqueExportPath,
+  EXPORT_NAME_LIMIT,
 } from './paths'
 
 describe('splitDialogPaths', () => {
@@ -141,50 +141,65 @@ describe('exportStartFolder', () => {
   })
 })
 
-describe('the Save dialog helper', () => {
-  test('the same flags on both platforms, spaces and all', () => {
-    expect(
-      saveDialogArgs({
-        defaultName: 'board call.srt',
-        directory: 'C:\\Users\\me\\Talks, 2026',
-        extension: 'srt',
-      })
-    ).toEqual([
-      'save-dialog',
-      '--name',
-      'board call.srt',
-      '--directory',
-      'C:\\Users\\me\\Talks, 2026',
-      '--extension',
-      'srt',
-      '--title',
-      'Save Transcript',
-    ])
+describe('uniqueExportPath', () => {
+  const taken = (...paths: string[]) => {
+    const set = new Set(paths)
+    return (path: string) => set.has(path)
+  }
+
+  test('the plain name when it is free', () => {
+    expect(uniqueExportPath('/Users/me/Talks', 'talk.srt', taken())).toBe(
+      '/Users/me/Talks/talk.srt'
+    )
+    expect(uniqueExportPath('/Users/me/Talks/', 'talk.srt', taken())).toBe(
+      '/Users/me/Talks/talk.srt'
+    )
   })
 
-  test('a path is the choice and a cancel is null', () => {
+  test('a number before the extension when it is taken, never a replaced file', () => {
     expect(
-      parseSaveDialogAnswer('{"path":"/Users/me/Talks, 2026/board call.srt"}\n')
-    ).toBe('/Users/me/Talks, 2026/board call.srt')
-    expect(
-      parseSaveDialogAnswer('{"path":"C:\\\\Users\\\\me\\\\talk.vtt"}')
-    ).toBe('C:\\Users\\me\\talk.vtt')
-    expect(parseSaveDialogAnswer('{"cancelled":true}\n')).toBeNull()
-  })
-
-  test('anything else is an error, never a quiet cancel', () => {
-    for (const stdout of [
-      '',
-      'not json',
-      '{}',
-      '{"cancelled":false}',
-      '{"path":""}',
-      '{"path":42}',
-      'null',
-    ]) {
-      expect(() => parseSaveDialogAnswer(stdout)).toThrow(
-        'The Save dialog gave no answer'
+      uniqueExportPath(
+        '/Users/me/Talks, 2026',
+        'board call.srt',
+        taken(
+          '/Users/me/Talks, 2026/board call.srt',
+          '/Users/me/Talks, 2026/board call 2.srt'
+        )
       )
-    }
+    ).toBe('/Users/me/Talks, 2026/board call 3.srt')
+  })
+
+  test('only the last extension moves: a.b.srt gives a.b 2.srt', () => {
+    expect(uniqueExportPath('/a', 'a.b.srt', taken('/a/a.b.srt'))).toBe(
+      '/a/a.b 2.srt'
+    )
+  })
+
+  test('no extension, or only a leading dot: the number goes at the end', () => {
+    expect(uniqueExportPath('/a', 'talk', taken('/a/talk'))).toBe('/a/talk 2')
+    expect(uniqueExportPath('/a', '.srt', taken('/a/.srt'))).toBe('/a/.srt 2')
+    expect(
+      uniqueExportPath('/a', '.notes', taken('/a/.notes', '/a/.notes 2'))
+    ).toBe('/a/.notes 3')
+  })
+
+  test('a Windows folder is joined with a backslash on any host', () => {
+    expect(
+      uniqueExportPath(
+        'C:\\Users\\me\\Talks',
+        'talk.vtt',
+        taken('C:\\Users\\me\\Talks\\talk.vtt')
+      )
+    ).toBe('C:\\Users\\me\\Talks\\talk 2.vtt')
+    expect(uniqueExportPath('C:\\', 'talk.vtt', taken())).toBe('C:\\talk.vtt')
+    expect(uniqueExportPath('\\\\nas\\share', 'talk.vtt', taken())).toBe(
+      '\\\\nas\\share\\talk.vtt'
+    )
+  })
+
+  test('stops looking after the limit and leaves the refusal to the exclusive write', () => {
+    expect(uniqueExportPath('/a', 'talk.txt', () => true)).toBe(
+      `/a/talk ${EXPORT_NAME_LIMIT}.txt`
+    )
   })
 })

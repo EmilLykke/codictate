@@ -225,9 +225,10 @@ export function renderTranscript(
 }
 
 /**
- * The name a Transcript Export's Save dialog starts with: `memo.m4a` gives `memo.srt`. The
- * source file's last extension is dropped (`a.b.mov` gives `a.b.srt`); a leading dot is part
- * of the name. The user can change it in the dialog, which asks before replacing a file.
+ * The name a Transcript Export is saved under: `memo.m4a` gives `memo.srt`. The source file's
+ * last extension is dropped (`a.b.mov` gives `a.b.srt`); a leading dot is part of the name.
+ * When the name is taken in the chosen folder, the export adds a number (`memo 2.srt`) rather
+ * than replace the file.
  */
 export function transcriptExportFileName(
   sourceFileName: string,

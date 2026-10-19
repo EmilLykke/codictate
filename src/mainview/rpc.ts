@@ -687,7 +687,7 @@ export async function dismissFileTranscriptionNotice(): Promise<boolean> {
   return rpc.request.dismissFileTranscriptionNotice({})
 }
 
-/** Opens the system Save dialog and saves there. The result arrives as `transcriptExportFinished`. */
+/** Opens the folder picker and saves a new file there. The result arrives as `transcriptExportFinished`. */
 export function exportTranscript(
   target: TranscriptExportTarget,
   format: TranscriptExportFormat

@@ -329,7 +329,7 @@ export class AppConfig {
    * dismissed there. In memory only, for the same reason.
    */
   private fileHealAnnouncements: SettingsHealAnnouncement[] = []
-  /** Where the last Transcript Export was saved, so the next Save dialog opens there. */
+  /** Where the last Transcript Export was saved, so the next folder picker opens there. */
   private lastTranscriptExportFolder: string | null = null
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
