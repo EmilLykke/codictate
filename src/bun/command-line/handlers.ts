@@ -289,13 +289,6 @@ function withFormatted(
   return { ...result, formatted: rendered.content }
 }
 
-/**
- * Added to `cannot_translate` when Translate to English came from the File Transcription
- * Settings: the caller never asked for it, so the error says how to leave it out.
- */
-const TRANSLATE_FROM_SETTINGS_HINT =
-  'Translate to English is on in the File Transcription Settings; add --no-translate to transcribe without it.'
-
 const transcribe =
   (deps: CommandLineDeps): CommandHandler<'transcribe'> =>
   async (request, context) => {
@@ -315,7 +308,9 @@ const transcribe =
       filePath: file,
       speechModelId,
       languageId,
-      translateToEnglish: translate,
+      // The command line never takes Translate to English from the File Transcription
+      // Settings: only `--translate` turns it on, so `null` (no flag) means off.
+      translateToEnglish: translate ?? false,
       origin: {
         kind: 'command-line',
         callerName: request.caller?.name ?? null,
@@ -334,11 +329,7 @@ const transcribe =
       context.signal.removeEventListener('abort', cancel)
     }
     if (result.status === 'failed') {
-      const hint =
-        result.code === 'cannot_translate' && translate === null
-          ? ` ${TRANSLATE_FROM_SETTINGS_HINT}`
-          : ''
-      return errorEvent(result.code, `${result.message}${hint}`)
+      return errorEvent(result.code, result.message)
     }
     const finished = transcribeResult(result)
     if (format === null) return finished

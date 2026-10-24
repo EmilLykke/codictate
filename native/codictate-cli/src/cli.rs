@@ -74,11 +74,11 @@ pub struct TranscribeArgs {
     #[arg(long, value_name = "ID|auto")]
     pub language: Option<String>,
 
-    /// Translate to English for this call, whatever the File Transcription Settings say
+    /// Translate this call to English
     #[arg(long, conflicts_with = "no_translate")]
     pub translate: bool,
 
-    /// Do not translate for this call, whatever the File Transcription Settings say
+    /// Do not translate (the default; kept for compatibility)
     #[arg(long = "no-translate")]
     pub no_translate: bool,
 
@@ -119,7 +119,8 @@ impl Format {
 }
 
 impl TranscribeArgs {
-    /// `true` / `false` force Translate to English; `null` leaves it to the settings.
+    /// `true` asks for Translate to English; `false` and `null` (no flag) both mean off. The app
+    /// never takes it from the File Transcription Settings for the command line.
     fn translate_wire(&self) -> Value {
         match (self.translate, self.no_translate) {
             (true, _) => json!(true),

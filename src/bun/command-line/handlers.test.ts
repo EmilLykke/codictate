@@ -19,6 +19,7 @@ import type {
   FileTranscriptionRequest,
   FileTranscriptionResult,
 } from '../file-transcription/types'
+import { selectFileTranscription } from '../file-transcription/plan'
 import {
   DOWNLOAD_EVENT_INTERVAL_MS,
   createCommandHandlers,
@@ -53,6 +54,7 @@ import {
 const HVISKE_ID = SPEECH_MODELS.find((m) => m.engine === 'hviske')!.id
 const EDDA_ID = 'edda-v0.2-q5_0'
 const SMALL_ID = 'small-q5_1'
+const PARAKEET_ID = 'parakeet-tdt-0.6b-v3'
 const NON_CURATED_ID = SPEECH_MODELS.find((m) => !m.curated && !m.bundled)!.id
 
 class FakeJob implements FileTranscriptionJob {
@@ -412,7 +414,7 @@ describe('transcribe', () => {
         filePath: '/abs/memo.m4a',
         speechModelId: HVISKE_ID,
         languageId: null,
-        translateToEnglish: null,
+        translateToEnglish: false,
         origin: { kind: 'command-line', callerName: 'Terminal' },
       },
     ])
@@ -584,44 +586,64 @@ function transcribeArgs(
 }
 
 describe('transcribe: Translate to English', () => {
-  test('--translate and --no-translate reach the queue; neither leaves it to the settings', async () => {
-    for (const translate of [true, false, null]) {
-      const f = fakeDeps()
-      const running = createCommandHandlers(f.deps).transcribe(
-        req('transcribe', transcribeArgs({ translate })),
-        context().ctx
-      )
-      expect(f.enqueued[0].translateToEnglish).toBe(translate)
-      f.jobs[0].settle(finished({ translated: translate === true }))
-      expect(await running).toMatchObject({
-        type: 'result',
-        translated: translate === true,
-      })
-    }
-  })
-
-  test('cannot_translate from the settings says how to leave it out; an asked-for one does not', async () => {
-    const message =
-      "Large V3 Turbo can't translate to English. Choose a Whisper Small or Large Speech Model, or turn off Translate to English."
+  test('--translate turns it on; --no-translate and no flag leave it off', async () => {
     for (const [translate, expected] of [
-      [
-        null,
-        `${message} Translate to English is on in the File Transcription Settings; add --no-translate to transcribe without it.`,
-      ],
-      [true, message],
+      [true, true],
+      [false, false],
+      [null, false],
     ] as const) {
       const f = fakeDeps()
       const running = createCommandHandlers(f.deps).transcribe(
         req('transcribe', transcribeArgs({ translate })),
         context().ctx
       )
-      f.jobs[0].settle({ status: 'failed', code: 'cannot_translate', message })
-      expect(await running).toEqual({
-        type: 'error',
-        code: 'cannot_translate',
-        message: expected,
+      expect(f.enqueued[0].translateToEnglish).toBe(expected)
+      f.jobs[0].settle(finished({ translated: expected }))
+      expect(await running).toMatchObject({
+        type: 'result',
+        translated: expected,
       })
     }
+  })
+
+  test('the File Transcription Settings turning translate on does not translate a call without --translate', async () => {
+    const settings = {
+      getFileTranscriptionSettings: () => ({
+        speechModelId: SMALL_ID,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      getTranslateDefaultLanguageId: () => 'da',
+    }
+    const f = fakeDeps({ fileSettings: settings })
+    const running = createCommandHandlers(f.deps).transcribe(
+      req('transcribe', transcribeArgs({ speechModelId: PARAKEET_ID })),
+      context().ctx
+    )
+    expect(f.enqueued[0].translateToEnglish).toBe(false)
+    const selected = selectFileTranscription(settings, f.enqueued[0])
+    expect(selected).toMatchObject({
+      status: 'ok',
+      selection: { speechModelId: PARAKEET_ID, translateToEnglish: false },
+    })
+    f.jobs[0].settle(finished({ speechModelId: PARAKEET_ID }))
+    expect(await running).toMatchObject({ type: 'result', translated: false })
+  })
+
+  test('cannot_translate passes through unchanged', async () => {
+    const message =
+      "Large V3 Turbo can't translate to English. Choose a Whisper Small or Large Speech Model, or turn off Translate to English."
+    const f = fakeDeps()
+    const running = createCommandHandlers(f.deps).transcribe(
+      req('transcribe', transcribeArgs({ translate: true })),
+      context().ctx
+    )
+    f.jobs[0].settle({ status: 'failed', code: 'cannot_translate', message })
+    expect(await running).toEqual({
+      type: 'error',
+      code: 'cannot_translate',
+      message,
+    })
   })
 })
 

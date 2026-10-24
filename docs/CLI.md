@@ -54,7 +54,7 @@ A command that records the microphone or changes what Codictate is doing needs *
 
 ### `transcribe` - File Transcription
 
-Transcribes audio or video files with the File Transcription Settings: the Speech Model, Transcription Language and Translate to English choice set for File Transcriptions on Codictate's Transcribe page, the same ones a File Transcription started in the window uses. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
+Transcribes audio or video files with the Speech Model and Transcription Language from the File Transcription Settings (the ones set for File Transcriptions on Codictate's Transcribe page, the same ones a File Transcription started in the window uses), unless `--model` or `--language` overrides them. Translate to English is off unless `--translate` asks for it. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
 
 - `--model <id>` uses that Speech Model for this call only. It must be installed (exit `4` otherwise); nothing is downloaded implicitly. Settings do not change.
 - `--language <id|auto>` overrides the Transcription Language for this call only. It is coerced for the Speech Model exactly as a settings change would be (Parakeet is always `auto`; hviske and Edda are always `da`).
@@ -64,7 +64,7 @@ Transcribes audio or video files with the File Transcription Settings: the Speec
 - Results from the command line are not kept in History.
 - An empty transcript (silence) is success with empty text.
 
-**Translate.** With neither flag, Translate to English follows the File Transcription Settings. `--translate` turns it on for this call and `--no-translate` turns it off; the settings do not change, and the two flags together are a usage error. The result says whether the text was translated (`"translated"`). English-only and Turbo Whisper Speech Models cannot translate, and neither can Parakeet, hviske or Edda. Translating also needs a source language: a Transcription Language other than `auto`, unless one is set for translation in Codictate. Otherwise the call exits `2` with `cannot_translate`, and nothing is transcribed. When the File Transcription Settings turned translate on, that error says so and suggests `--no-translate`.
+**Translate.** Without a flag, nothing is translated. `--translate` translates this call to English; `--no-translate` does not translate, which is the default; it is kept for compatibility. The two flags together are a usage error. The File Transcription Settings' Translate to English choice applies only in Codictate's window, never to the command line, and neither flag changes the settings. The result says whether the text was translated (`"translated"`). English-only and Turbo Whisper Speech Models cannot translate, and neither can Parakeet, hviske or Edda. Translating also needs a source language: a Transcription Language other than `auto`, unless one is set for translation in Codictate. Otherwise the call exits `2` with `cannot_translate`, and nothing is transcribed.
 
 **Captions and JSON.** `--format` renders the result as a Transcript Export, the same document Save writes in Codictate's window:
 
@@ -234,7 +234,7 @@ The app creates it at startup, and only one app per user and identifier may: on 
 
 | `command` | `args` |
 |---|---|
-| `transcribe` | `{file, speechModelId?, languageId?, translate?: true\|false, format?: "txt"\|"srt"\|"vtt"\|"json"}`: one file; the client loops over several. `translate` absent or `null` follows the File Transcription Settings |
+| `transcribe` | `{file, speechModelId?, languageId?, translate?: true\|false, format?: "txt"\|"srt"\|"vtt"\|"json"}`: one file; the client loops over several. `translate` absent, `null` or `false` means no translation; only `true` translates |
 | `dictate` | `{output: "stdout"\|"cursor", raw, until: "enter"\|"silence", maxSeconds?, speechModelId?, languageId?, formattingModeId?}` |
 | `stop` | `{}` |
 | `status` | `{}` |

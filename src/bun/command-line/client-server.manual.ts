@@ -1023,7 +1023,7 @@ describe.skipIf(process.platform === 'win32')(
         })
       }
 
-      test('Translate to English follows the File Transcription Settings; --translate and --no-translate force it', async () => {
+      test('Translate to English is off unless --translate asks, whatever the File Transcription Settings say', async () => {
         audio('da.json', { text: 'Hej.', translation: 'Hello.' })
         state.file = {
           speechModelId: SMALL_ID,
@@ -1031,8 +1031,9 @@ describe.skipIf(process.platform === 'win32')(
           translateToEnglish: true,
         }
         const cases: [string[], string, boolean][] = [
-          [[], 'Hello.', true],
+          [[], 'Hej.', false],
           [['--no-translate'], 'Hej.', false],
+          [['--translate'], 'Hello.', true],
         ]
         for (const [flags, text, translated] of cases) {
           const ran = await codictate([
@@ -1052,12 +1053,12 @@ describe.skipIf(process.platform === 'win32')(
         expect(state.file.translateToEnglish).toBe(false)
       })
 
-      test('cannot_translate: exit 2, and a setting the caller never chose is named with its way out', async () => {
+      test('cannot_translate: exit 2 only when --translate asks; translate on in the settings does not reach the command line', async () => {
         audio('ok.json', { text: 'x' })
         state.file.translateToEnglish = true
         const fromSettings = await codictate(['transcribe', 'ok.json'])
-        expect(fromSettings.code).toBe(2)
-        expectOneErrorLine(fromSettings.stderr, '--no-translate')
+        expectQuietSuccess(fromSettings)
+        expect(fromSettings.stdout).toBe('x\n')
         state.file.translateToEnglish = false
         const asked = await codictate([
           'transcribe',

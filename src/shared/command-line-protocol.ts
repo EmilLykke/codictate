@@ -58,8 +58,8 @@ export interface CommandArgs {
     speechModelId: string | null
     languageId: string | null
     /**
-     * `true` / `false` force Translate to English on / off for this call; `null` (absent on
-     * the wire) uses the File Transcription Settings, as the window does.
+     * `true` translates this call to English; `false` and `null` (absent on the wire) do
+     * not. The command line never takes it from the File Transcription Settings.
      */
     translate: boolean | null
     /** Render the result as this Transcript Export into `formatted`; `null`: no rendering. */

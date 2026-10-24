@@ -149,7 +149,9 @@ export function selectSpeechModelAndLanguage(
  * job is queued: a settings change while it waits does not change what it runs.
  *
  * Translate to English is the request's when it says (`true` or `false`), otherwise the File
- * Transcription Settings' one. Whether it can run is the plan's question, not this one's.
+ * Transcription Settings' one. The window leaves it to the settings; the command line always
+ * says, so its File Transcriptions translate only with `--translate`. Whether it can run is
+ * the plan's question, not this one's.
  */
 export function selectFileTranscription(
   settings: FileTranscriptionSettingsReader,
