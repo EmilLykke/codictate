@@ -489,11 +489,15 @@ pub fn handle_stream(args: &[String]) -> ExitCode {
 }
 
 fn run_vad_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), String> {
+    // Capture starts before the model loads. After a restart, loading the model takes seconds
+    // (a Cold Start), and a mic opened only after that loses everything said in the meantime.
+    // The input channel holds about 40 s of chunks until the loop reads them, so a Cold Start
+    // costs latency, never speech.
+    let input = open_input_sample_stream(device_ref)?;
+    log_phase("stream [vad]: audio input running");
     let mut model = load_model(model_dir)?;
     let mut injector = TextInjector::new()?;
-    let input = open_input_sample_stream(device_ref)?;
     let mut resampler = StreamingResampler::new(input.sample_rate)?;
-    log_phase("stream [vad]: audio input running");
 
     const RMS_THRESHOLD: f32 = 0.012;
     const SILENCE_COMMIT: usize = 8_000;
@@ -556,11 +560,12 @@ fn run_vad_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), Strin
 }
 
 fn run_live_stream(model_dir: &str, device_ref: Option<&str>) -> Result<(), String> {
+    // Capture first, for the reason in `run_vad_stream`.
+    let input = open_input_sample_stream(device_ref)?;
+    log_phase("stream [live]: audio input running");
     let mut model = load_model(model_dir)?;
     let mut injector = TextInjector::new()?;
-    let input = open_input_sample_stream(device_ref)?;
     let mut resampler = StreamingResampler::new(input.sample_rate)?;
-    log_phase("stream [live]: audio input running");
 
     const RMS_THRESHOLD: f32 = 0.010;
     const SILENCE_COMMIT: usize = 24_000;

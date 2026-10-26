@@ -175,6 +175,14 @@ describe('AppConfig dependency seam', () => {
     await existingInstall.load()
     expect(existingInstall.getSettings().onboardingCompleted).toBe(true)
   })
+
+  test('a config from before Parakeet Preparation existed is not prepared, whatever is on disk', async () => {
+    const dependencies = testDependencies({ isModelAvailable: () => true })
+    writeFileSync(dependencies.paths.mainConfig, '{}')
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(config.isParakeetCoreMlReady()).toBe(false)
+  })
 })
 
 describe('getDictationPlanFor (command-line overrides)', () => {

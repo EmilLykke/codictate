@@ -21,6 +21,14 @@ import { requireRuntimeBinary } from '../../platform/binaries'
  *   compile, which the run would have paid for itself anyway - and serialising it is what
  *   stops a press racing the preparation and coming back with nothing.
  *
+ * Preparation happens once per installed copy of the weights. A Cold Start does not go away
+ * with it: after a restart, the first process to load the prepared weights still takes
+ * seconds. So once per app process, while Parakeet is selected and prepared, this module also
+ * loads the weights in the background, so the user's first Dictation does not pay for it.
+ * Nothing waits on that load. Two processes loading prepared weights side by side is safe,
+ * and waiting would hold the Live Transcription helper back from opening the microphone,
+ * which is exactly the speech a Cold Start must never cost.
+ *
  * See docs/adr/0005-no-runtime-fallbacks-for-dictation.md.
  */
 
@@ -92,6 +100,35 @@ export function shouldStartParakeetWarmup(state: ParakeetWarmupState): boolean {
   return true
 }
 
+/** Everything the "load ahead of the first Dictation" decision depends on. */
+export interface ParakeetColdStartState {
+  selectedEngineId: SpeechEngineId | null
+  weightsInstalled: boolean
+  helperSupported: boolean
+  alreadyPrepared: boolean
+  preparationInFlight: boolean
+  /** This app process has already loaded these weights, or tried to. */
+  loadedThisProcess: boolean
+}
+
+/**
+ * Whether to load the prepared weights now, so the first Dictation after a restart does not
+ * pay the Cold Start. Once per app process: a second load in the same process finds the
+ * weights warm and buys nothing.
+ */
+export function shouldStartParakeetColdStartLoad(
+  state: ParakeetColdStartState
+): boolean {
+  if (!state.helperSupported) return false
+  if (state.selectedEngineId !== PARAKEET_ENGINE_ID) return false
+  if (!state.weightsInstalled) return false
+  // Unprepared weights get a preparation instead, which loads them as part of the compile.
+  if (!state.alreadyPrepared) return false
+  if (state.preparationInFlight) return false
+  if (state.loadedThisProcess) return false
+  return true
+}
+
 /**
  * The state this module cannot see for itself. `AppConfig` owns the selection and the
  * persisted "already prepared" flag, and `index.ts` owns the window and the tray, so both
@@ -116,6 +153,7 @@ export interface ParakeetWarmupHost {
 let host: ParakeetWarmupHost | null = null
 let inFlight: Promise<void> | null = null
 const failedModelIds = new Set<string>()
+const loadedModelIds = new Set<string>()
 
 /** Wired once, from `index.ts`, before the first `ensureParakeetWarm`. */
 export function installParakeetWarmup(next: ParakeetWarmupHost): void {
@@ -132,6 +170,8 @@ async function prepare(
       failedModelIds.add(speechModelId)
       return
     }
+    // The compile just loaded the weights, so there is no Cold Start left in this process.
+    loadedModelIds.add(speechModelId)
     await current.markPrepared()
     current.onPrepared()
   } catch (err) {
@@ -143,14 +183,15 @@ async function prepare(
 }
 
 /**
- * Start a preparation if the selection now calls for one. Safe to call on every settings
- * settle: it is a cheap check, and it never starts a second concurrent compile.
+ * Start a preparation if the selection now calls for one, or else load the prepared weights
+ * once for this process. Safe to call on every settings settle: it is a cheap check, and it
+ * never starts a second concurrent compile.
  */
 export function ensureParakeetWarm(): void {
   const current = host
   if (current === null) return
   const speechModelId = current.getSelectedSpeechModelId()
-  const decision: ParakeetWarmupState = {
+  const selection = {
     selectedEngineId: getSpeechModel(speechModelId)?.engine ?? null,
     weightsInstalled: modelManager.isModelAvailable(speechModelId),
     // The same flag `AppConfig.dictationAvailability()` reads. It answers "does this platform
@@ -159,10 +200,30 @@ export function ensureParakeetWarm(): void {
     helperSupported: getPlatformCapabilities().supportsStreamMode,
     alreadyPrepared: current.isPrepared(),
     preparationInFlight: inFlight !== null,
-    previousAttemptFailed: failedModelIds.has(speechModelId),
   }
-  if (!shouldStartParakeetWarmup(decision)) return
-  inFlight = prepare(current, speechModelId)
+  if (
+    shouldStartParakeetWarmup({
+      ...selection,
+      previousAttemptFailed: failedModelIds.has(speechModelId),
+    })
+  ) {
+    inFlight = prepare(current, speechModelId)
+    return
+  }
+  if (
+    shouldStartParakeetColdStartLoad({
+      ...selection,
+      loadedThisProcess: loadedModelIds.has(speechModelId),
+    })
+  ) {
+    loadedModelIds.add(speechModelId)
+    log('parakeet', 'loading prepared model ahead of the first dictation', {
+      speechModelId,
+    })
+    // Not `inFlight`: nothing waits on this load (see the module comment), and it never
+    // rejects, because `runParakeetWarmup` turns every failure into a logged `false`.
+    void runParakeetWarmup(speechModelId)
+  }
 }
 
 /**

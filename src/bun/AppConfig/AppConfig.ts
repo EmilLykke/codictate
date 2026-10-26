@@ -586,13 +586,9 @@ export class AppConfig {
       this.shortcutHoldOnlyId = null
     }
     if (typeof raw.streamMode === 'boolean') this.streamMode = raw.streamMode
-    if (typeof raw.parakeetCoreMlReady === 'boolean') {
-      this.parakeetCoreMlReady = raw.parakeetCoreMlReady
-    } else {
-      this.parakeetCoreMlReady = this.dependencies.isModelAvailable(
-        'parakeet-tdt-0.6b-v3'
-      )
-    }
+    // A config written before this flag existed has never seen a preparation run. Weights on
+    // disk are not prepared weights, so it starts unprepared and gets one.
+    this.parakeetCoreMlReady = raw.parakeetCoreMlReady === true
     if (
       raw.streamTranscriptionMode === 'live' ||
       raw.streamTranscriptionMode === 'vad'

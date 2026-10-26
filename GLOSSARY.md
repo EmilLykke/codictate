@@ -74,6 +74,10 @@ _Avoid_: audio device, input device
 
 **Live Transcription** - a mode where partial text appears while the user is still speaking, rather than only after the Dictation ends. Requires Parakeet, and a Transcription Language that Parakeet supports. Only a Dictation that places its text at the cursor can be a Live Transcription, since a Live Transcription produces no Dictation Outcome to hand back. Parakeet detects the spoken language itself, so the user does not choose one: the Transcription Language is automatic for the whole time Parakeet is the selected Speech Model. Previously labelled "Stream mode".
 
+**Parakeet Preparation** - the one-time work of fitting Parakeet's weights to this device before they can transcribe anything. A fact about one installed copy of the weights: it happens once, and only again if the weights are deleted and downloaded again. Distinct from a Cold Start.
+
+**Cold Start** - the delay paid when Parakeet's already-prepared weights are loaded and nothing has used them since the computer started. The weights stay prepared; only the loading is slow. A Cold Start makes the first Dictation after a restart slower, and it must never make that Dictation lose speech. Distinct from Parakeet Preparation.
+
 ## Formatting
 
 **Raw Transcript** - the text a Speech Engine produced, before any rewriting.

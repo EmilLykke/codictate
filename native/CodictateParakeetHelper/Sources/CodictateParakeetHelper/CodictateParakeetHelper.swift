@@ -575,37 +575,38 @@ struct CodictateParakeetHelperMain {
       StreamSessionLog.stderrTag = ""
     }
 
-    logPhase("stream [\(mode)]: loading models…")
-    let models = try loadAsrModels(parakeetDir: modelDir)
-    logPhase("stream [\(mode)]: models ready")
     // Audio Ducking is not this helper's job: Codictate runs `MicRecorder duck` beside it.
     installStreamSignalHandlersForCleanup()
 
-    if mode == "vad" {
-      try await runVadMode(models: models, deviceRef: deviceRef)
-    } else {
-      try await runLiveMode(models: models, deviceRef: deviceRef)
-    }
-  }
-
-  // MARK: VAD mode
-
-  static func runVadMode(models: AsrModels, deviceRef: String?) async throws {
-    let asr = AsrManager(config: .default)
-    try await asr.loadModels(models)
-
-    let device = try resolveStreamInputDevice(deviceRef: deviceRef, mode: "vad")
-
-    // Pipe converted 16 kHz chunks into an AsyncStream for sequential VAD processing.
+    // Capture starts before the models load. After a restart, loading the prepared weights
+    // takes seconds (a Cold Start), and a mic opened only after that loses everything said in
+    // the meantime. The stream is unbounded, so every chunk waits there until the loop reads
+    // it: a Cold Start costs latency, never speech.
+    let device = try resolveStreamInputDevice(deviceRef: deviceRef, mode: mode)
     let (audioStream, audioContinuation) = AsyncStream<[Float]>.makeStream()
-
     let capture = try StreamInputCapture(device: device) { samples in
       audioContinuation.yield(samples)
     }
     try capture.start()
     defer { capture.stop() }
-    logPhase("stream [vad]: capturing")
+    logPhase("stream [\(mode)]: capturing")
 
+    logPhase("stream [\(mode)]: loading models…")
+    let models = try loadAsrModels(parakeetDir: modelDir)
+    let asr = AsrManager(config: .default)
+    try await asr.loadModels(models)
+    logPhase("stream [\(mode)]: models ready")
+
+    if mode == "vad" {
+      await runVadMode(asr: asr, audioStream: audioStream)
+    } else {
+      try await runLiveMode(asr: asr, audioStream: audioStream)
+    }
+  }
+
+  // MARK: VAD mode
+
+  static func runVadMode(asr: AsrManager, audioStream: AsyncStream<[Float]>) async {
     // VAD parameters (16 kHz sample counts)
     let rmsThreshold: Float = 0.012   // energy gate
     let silenceCommit = 8_000         // 500 ms silence → commit utterance
@@ -664,19 +665,7 @@ struct CodictateParakeetHelperMain {
 
   // MARK: Live mode
 
-  static func runLiveMode(models: AsrModels, deviceRef: String?) async throws {
-    let asr = AsrManager(config: .default)
-    try await asr.loadModels(models)
-    let device = try resolveStreamInputDevice(deviceRef: deviceRef, mode: "live")
-
-    let (audioStream, audioContinuation) = AsyncStream<[Float]>.makeStream()
-
-    let capture = try StreamInputCapture(device: device) { samples in
-      audioContinuation.yield(samples)
-    }
-    try capture.start()
-    defer { capture.stop() }
-    logPhase("stream [live]: capturing")
+  static func runLiveMode(asr: AsrManager, audioStream: AsyncStream<[Float]>) async throws {
     if liveStreamDebugEnabled() {
       logPhase(
         "stream [live][debug] CODICTATE_LIVE_DEBUG on — logging partials, commits, discards")
