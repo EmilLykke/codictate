@@ -7,9 +7,14 @@ import {
 } from '../../shared/recording-duration-presets'
 import { isSupportedShortcutId } from '../../shared/shortcut-options'
 import { isValidTranscriptionLanguageId } from '../../shared/transcription-languages'
+import {
+  resolveMicrophone,
+  type MicrophoneChoice,
+} from '../../shared/microphone'
 import type {
   AppSettings,
   AudioDeviceDetails,
+  DeviceInfo,
   AudioDuckingSettings,
   AudioDuckingSettingsPatch,
   DictationFailureNotice,
@@ -194,7 +199,7 @@ function defaultAudioDuckingSettings(): AudioDuckingSettings {
   return {
     level: 0,
     includeHeadphones: true,
-    includeBuiltInSpeakers: true,
+    includeSpeakers: true,
   }
 }
 
@@ -241,7 +246,6 @@ function persistedFileTranscriptionSettings(
 interface PersistedMainSettings {
   audioDeviceName: string | null
   audioDeviceId: string | null
-  audioDevice: number
   shortcutId: ShortcutId
   shortcutHoldOnlyId: ShortcutId | null
   funModeEnabled: boolean
@@ -283,7 +287,6 @@ interface PersistedDictionarySettings {
 export class AppConfig {
   private audioDeviceName: string | null
   private audioDeviceId: string | null
-  private audioDevice: number
   private shortcutId: ShortcutId
   private shortcutHoldOnlyId: ShortcutId | null
   private debugMode: boolean
@@ -386,7 +389,6 @@ export class AppConfig {
     )
     this.audioDeviceName = null
     this.audioDeviceId = null
-    this.audioDevice = 0
     this.shortcutId = 'option-space'
     this.shortcutHoldOnlyId = null
     this.debugMode = false
@@ -428,7 +430,6 @@ export class AppConfig {
     return {
       audioDeviceName: this.audioDeviceName,
       audioDeviceId: this.audioDeviceId,
-      audioDevice: this.audioDevice,
       shortcutId: this.shortcutId,
       shortcutHoldOnlyId: this.shortcutHoldOnlyId,
       funModeEnabled: this.funModeEnabled,
@@ -509,7 +510,8 @@ export class AppConfig {
           ? raw.audioDeviceId
           : this.audioDeviceId
     }
-    if (typeof raw.audioDevice === 'number') this.audioDevice = raw.audioDevice
+    // `audioDevice`, the helper's index, is no longer read: indices shift when a device is
+    // plugged in or out, and recorded from whichever mic landed on the old number.
     if (isSupportedShortcutId(raw.shortcutId, platform)) {
       this.shortcutId = raw.shortcutId
     }
@@ -735,9 +737,10 @@ export class AppConfig {
       if (typeof audioDucking.includeHeadphones === 'boolean') {
         this.audioDucking.includeHeadphones = audioDucking.includeHeadphones
       }
-      if (typeof audioDucking.includeBuiltInSpeakers === 'boolean') {
-        this.audioDucking.includeBuiltInSpeakers =
-          audioDucking.includeBuiltInSpeakers
+      if (typeof audioDucking.includeSpeakers === 'boolean') {
+        this.audioDucking.includeSpeakers = audioDucking.includeSpeakers
+      } else if (typeof audioDucking.includeBuiltInSpeakers === 'boolean') {
+        this.audioDucking.includeSpeakers = audioDucking.includeBuiltInSpeakers
       }
     }
 
@@ -937,8 +940,7 @@ export class AppConfig {
       this.audioDucking.includeHeadphones = raw.audioDuckingIncludeHeadphones
     }
     if (typeof raw.audioDuckingIncludeBuiltInSpeakers === 'boolean') {
-      this.audioDucking.includeBuiltInSpeakers =
-        raw.audioDuckingIncludeBuiltInSpeakers
+      this.audioDucking.includeSpeakers = raw.audioDuckingIncludeBuiltInSpeakers
     }
   }
 
@@ -1807,42 +1809,42 @@ export class AppConfig {
     return true
   }
 
+  /** The Microphone a Dictation records from right now, or `null` with none connected. */
+  public resolveMicrophone(
+    details: Record<string, AudioDeviceDetails>
+  ): MicrophoneChoice | null {
+    return resolveMicrophone(
+      { id: this.audioDeviceId, name: this.audioDeviceName },
+      Object.values(details)
+    )
+  }
+
+  /** The index of the Microphone in use, for the pickers' checkmark. */
   public resolveAudioDevice(
-    devices: Record<string, string>,
-    details?: Record<string, AudioDeviceDetails>
+    details: Record<string, AudioDeviceDetails>
   ): number {
-    if (this.audioDeviceId !== null && details !== undefined) {
-      const entry = Object.entries(details).find(
-        ([, device]) => device.id === this.audioDeviceId
-      )
-      if (entry) return Number(entry[0])
-    }
-
-    if (this.audioDeviceName !== null) {
-      const entry = Object.entries(devices).find(
-        ([, name]) => name === this.audioDeviceName
-      )
-      if (entry) return Number(entry[0])
-    }
-    return this.audioDevice
+    return this.resolveMicrophone(details)?.device.index ?? 0
   }
 
-  public resolveAudioDeviceId(
+  /** What the device pickers show: the list, the Microphone in use, and a missing pick. */
+  public getDeviceInfo(
     devices: Record<string, string>,
-    details?: Record<string, AudioDeviceDetails>
-  ): string | null {
-    const index = this.resolveAudioDevice(devices, details)
-    return details?.[index.toString()]?.id ?? this.audioDeviceId
+    details: Record<string, AudioDeviceDetails>
+  ): DeviceInfo {
+    const choice = this.resolveMicrophone(details)
+    return {
+      devices,
+      deviceDetails: details,
+      selectedDevice: choice?.device.index ?? 0,
+      selectedDeviceId: choice?.device.id ?? null,
+      missingPickName:
+        choice !== null && !choice.isPick ? this.audioDeviceName : null,
+    }
   }
 
-  public async setAudioDevice(
-    index: number,
-    name?: string,
-    id?: string | null
-  ) {
-    this.audioDevice = index
-    if (name !== undefined) this.audioDeviceName = name
-    if (id !== undefined) this.audioDeviceId = id
+  public async setAudioDevice(name: string, id: string | null) {
+    this.audioDeviceName = name
+    this.audioDeviceId = id
     await this.saveMain()
   }
 
@@ -1900,8 +1902,8 @@ export class AppConfig {
     return this.audioDucking.includeHeadphones
   }
 
-  public getAudioDuckingIncludeBuiltInSpeakers(): boolean {
-    return this.audioDucking.includeBuiltInSpeakers
+  public getAudioDuckingIncludeSpeakers(): boolean {
+    return this.audioDucking.includeSpeakers
   }
 
   public isParakeetCoreMlReady(): boolean {

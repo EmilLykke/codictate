@@ -5,6 +5,7 @@ import Electrobun, { Updater, Utils } from 'electrobun/bun'
 import type { PermissionState, SettingsPane } from '../shared/types'
 import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
 import { duckDelayAfterStartChimeMs } from './utils/sound/play-sound'
+import { restoreLeftoverAudioDucking } from './utils/audio/audio-ducking'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { checkNativePermissions } from './utils/keyboard/check-native-permissions'
 import { createProductionAppConfig } from './AppConfig/production'
@@ -217,6 +218,8 @@ const statsManager = new StatsManager(() =>
 let deviceSnapshot: AudioDeviceSnapshot = await findDevices()
 let devices = deviceSnapshot.devices
 duckDelayAfterStartChimeMs()
+// A volume a killed helper left lowered comes back before anything else can record.
+await restoreLeftoverAudioDucking()
 
 let currentPermissions: PermissionState = {
   inputMonitoring: false,
@@ -317,7 +320,7 @@ const win = setupWindow({
   onAudioDeviceSelected: async (index) => {
     const deviceName = devices[index.toString()]
     const deviceId = deviceSnapshot.details[index.toString()]?.id ?? null
-    await UserAppConfig.setAudioDevice(index, deviceName, deviceId)
+    await UserAppConfig.setAudioDevice(deviceName, deviceId)
     trayHandlers.rebuildDeviceMenu(index)
     menuHandlers.rebuildDeviceMenu(index)
   },
@@ -331,7 +334,7 @@ const win = setupWindow({
   onNewWindowReady: () => pushInitialState(),
   onTranscriptionMenuSync: () => {
     trayHandlers.rebuildDeviceMenu(
-      UserAppConfig.resolveAudioDevice(devices, deviceSnapshot.details)
+      UserAppConfig.resolveAudioDevice(deviceSnapshot.details)
     )
   },
   onTranslateChanged: () => {
@@ -411,12 +414,9 @@ setOnAutoDisable(async () => {
 const onDeviceSelected = (device: number) => {
   trayHandlers.rebuildDeviceMenu(device)
   menuHandlers.rebuildDeviceMenu(device)
-  win.send.updateDevice({
-    devices,
-    deviceDetails: deviceSnapshot.details,
-    selectedDevice: device,
-    selectedDeviceId: deviceSnapshot.details[device.toString()]?.id ?? null,
-  })
+  win.send.updateDevice(
+    UserAppConfig.getDeviceInfo(devices, deviceSnapshot.details)
+  )
 }
 
 function startDeviceMonitor() {
@@ -428,10 +428,7 @@ function startDeviceMonitor() {
     snapshot = newSnapshot
     deviceSnapshot = newDeviceSnapshot
     devices = newDeviceSnapshot.devices
-    const selected = UserAppConfig.resolveAudioDevice(
-      newDeviceSnapshot.devices,
-      newDeviceSnapshot.details
-    )
+    const selected = UserAppConfig.resolveAudioDevice(newDeviceSnapshot.details)
     trayHandlers.updateDeviceList(
       newDeviceSnapshot.devices,
       selected,
@@ -442,15 +439,12 @@ function startDeviceMonitor() {
       selected,
       newDeviceSnapshot.details
     )
-    win.send.updateDevice({
-      devices: newDeviceSnapshot.devices,
-      deviceDetails: newDeviceSnapshot.details,
-      selectedDevice: selected,
-      selectedDeviceId: UserAppConfig.resolveAudioDeviceId(
+    win.send.updateDevice(
+      UserAppConfig.getDeviceInfo(
         newDeviceSnapshot.devices,
         newDeviceSnapshot.details
-      ),
-    })
+      )
+    )
   }, 5000)
 }
 

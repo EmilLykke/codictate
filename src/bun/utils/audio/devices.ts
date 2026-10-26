@@ -1,5 +1,6 @@
 import { findMicRecorderBinary } from './find-mic-recorder'
 import type { AudioDeviceDetails } from '../../../shared/types'
+import type { MicrophoneTransport } from '../../../shared/microphone'
 
 export interface AudioDeviceSnapshot {
   devices: Record<string, string>
@@ -8,7 +9,15 @@ export interface AudioDeviceSnapshot {
 
 const EMPTY_SNAPSHOT: AudioDeviceSnapshot = { devices: {}, details: {} }
 
-function normalizeDeviceSnapshot(parsed: unknown): AudioDeviceSnapshot {
+const TRANSPORTS: readonly MicrophoneTransport[] = [
+  'built-in',
+  'bluetooth',
+  'usb',
+  'virtual',
+  'other',
+]
+
+export function normalizeDeviceSnapshot(parsed: unknown): AudioDeviceSnapshot {
   const devices: Record<string, string> = {}
   const details: Record<string, AudioDeviceDetails> = {}
 
@@ -19,36 +28,33 @@ function normalizeDeviceSnapshot(parsed: unknown): AudioDeviceSnapshot {
   for (const [key, value] of Object.entries(parsed)) {
     const index = Number(key)
     if (!Number.isInteger(index)) continue
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue
 
-    if (typeof value === 'string') {
-      devices[key] = value
-      details[key] = { index, name: value, id: null }
-      continue
-    }
-
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const device = value as Record<string, unknown>
-      const name = typeof device.name === 'string' ? device.name : null
-      if (!name) continue
-      devices[key] = name
-      details[key] = {
-        index:
-          typeof device.index === 'number' && Number.isInteger(device.index)
-            ? device.index
-            : index,
-        name,
-        id:
-          typeof device.id === 'string' && device.id.length > 0
-            ? device.id
-            : null,
-      }
+    const device = value as Record<string, unknown>
+    const name = typeof device.name === 'string' ? device.name : null
+    if (!name) continue
+    devices[key] = name
+    details[key] = {
+      index,
+      name,
+      id:
+        typeof device.id === 'string' && device.id.length > 0
+          ? device.id
+          : null,
+      transport: TRANSPORTS.includes(device.transport as MicrophoneTransport)
+        ? (device.transport as MicrophoneTransport)
+        : 'other',
+      isDefault: device.isDefault === true,
     }
   }
 
   return { devices, details }
 }
 
-/** Input device snapshot. Keys are current helper indices; Windows details include stable endpoint IDs. */
+/**
+ * Input device snapshot. Keys are current helper indices, which shift as devices come and go;
+ * the details carry each device's stable id, transport and whether it is the system default.
+ */
 export async function findDevices(): Promise<AudioDeviceSnapshot> {
   let micPath: string
   try {

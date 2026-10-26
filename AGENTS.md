@@ -185,6 +185,11 @@ A Dictation never adapts to an unrunnable state; the state is kept runnable inst
 
 See `docs/adr/0005-no-runtime-fallbacks-for-dictation.md`.
 
+### Microphone and Audio Ducking
+
+- **The Microphone is the one deliberate fallback.** `resolveMicrophone` in `src/shared/microphone.ts` picks it from the helper's `--list-devices` (stable id, transport, system default): the user's pick by id (name for old configs), else built-in, else any non-Bluetooth non-virtual mic, else the system default. The pick is never rewritten, and the helper index is never used to choose. Helpers are handed the stable id (`microphoneDeviceRef`). `MicRecorder record` opens that device through an input-only AUHAL and must never touch the system default input: not by switching it, and not through AVAudioEngine, whose input node opens the default input first and so flips AirPods into their call profile. See `docs/adr/0012-microphone-falls-back.md`.
+- **Audio Ducking is its own helper command**, not part of any recorder: `src/bun/utils/audio/audio-ducking.ts` runs `<microphone helper> duck ...` beside every recording (batch and Live Transcription) and stops it when the recorder exits, before the stop chime. macOS lowers the default output's `VirtualMainVolume` (AirPods expose no main-element `VolumeScalar`); Windows lowers every other app's audio session and leaves Codictate's process tree alone. Both ramp over 40 ms, keep a volume the user moved, and write `run/audio-ducking.json` before lowering anything so `duck-restore` at boot can undo a killed helper.
+
 ### Command line (`codictate`)
 
 A public command line for users, scripts, AI agents and other apps (Codiclens first): File Transcription, Dictation, status, Speech Models and Transcription Languages. The contract (commands, JSON events, exit codes, wire protocol, where the client lives) is `docs/CLI.md`; changing any of it is a breaking change for callers outside this repo. Why it is built this way: `docs/adr/0009-command-line-talks-to-the-running-app.md` (supersedes ADR-0008).

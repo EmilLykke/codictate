@@ -316,18 +316,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         getPermissions: deps.getPermissions,
         getDevices: async () => {
           const current = deps.getCurrentDeviceSnapshot()
-          return {
-            devices: current.devices,
-            deviceDetails: current.details,
-            selectedDevice: deps.appConfig.resolveAudioDevice(
-              current.devices,
-              current.details
-            ),
-            selectedDeviceId: deps.appConfig.resolveAudioDeviceId(
-              current.devices,
-              current.details
-            ),
-          }
+          return deps.appConfig.getDeviceInfo(current.devices, current.details)
         },
         getSettings: async () => deps.appConfig.getSettings(),
         dismissDictationNotice: async ({
@@ -422,18 +411,9 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         setAudioDevice: async ({ index }) => {
           await deps.onAudioDeviceSelected?.(index)
           const current = deps.getCurrentDeviceSnapshot()
-          rpc.send.updateDevice({
-            devices: current.devices,
-            deviceDetails: current.details,
-            selectedDevice: deps.appConfig.resolveAudioDevice(
-              current.devices,
-              current.details
-            ),
-            selectedDeviceId: deps.appConfig.resolveAudioDeviceId(
-              current.devices,
-              current.details
-            ),
-          })
+          rpc.send.updateDevice(
+            deps.appConfig.getDeviceInfo(current.devices, current.details)
+          )
 
           return true
         },

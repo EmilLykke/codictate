@@ -89,7 +89,7 @@ export const setupTray = (
   let currentDeviceDetails = deviceDetails
 
   const resolveCurrentDevice = () =>
-    appConfig.resolveAudioDevice(currentDevices, currentDeviceDetails)
+    appConfig.resolveAudioDevice(currentDeviceDetails ?? {})
 
   type UpdateState = 'idle' | 'checking' | 'ready'
   let updateState: UpdateState = 'idle'

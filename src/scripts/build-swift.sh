@@ -7,6 +7,7 @@ swiftc src/bun/utils/audio/MicRecorder.swift \
   -o src/bun/utils/audio/MicRecorder \
   -target arm64-apple-macosx14.0 \
   -framework AVFoundation \
+  -framework AudioToolbox \
   -framework CoreAudio
 
 WINDOW_HELPER_PKG="native/CodictateWindowHelper"

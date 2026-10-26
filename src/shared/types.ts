@@ -6,6 +6,7 @@ import type {
   DictationReadiness,
   TranslateReadiness,
 } from './dictation-plan'
+import type { MicrophoneDevice } from './microphone'
 import type { SettingsHealAnnouncement } from './settings-heal'
 import type { TranscriptExportFormat } from './transcript-export'
 import type {
@@ -93,19 +94,14 @@ export interface FormattingSettings {
   document: FormattingDocumentSettings
 }
 
+/** Audio Ducking (GLOSSARY.md). */
 export interface AudioDuckingSettings {
-  /**
-   * Duck amount applied to enabled output ducking targets.
-   * 0 = fully mute, 100 = no change.
-   */
+  /** The Duck Level: 0 = fully mute, 100 = no change. */
   level: number
-  /** When true, ducking also applies with headphones/Bluetooth/USB (default: true). */
+  /** Duck Headphones: Bluetooth, USB and headset outputs (default: true). */
   includeHeadphones: boolean
-  /**
-   * When true, mute built-in Mac speaker output while dictating (MicRecorder and stream helper).
-   * Default true.
-   */
-  includeBuiltInSpeakers: boolean
+  /** Duck Speakers: built-in, display and other wired outputs (default: true). */
+  includeSpeakers: boolean
 }
 
 export interface DictionaryEntry {
@@ -354,17 +350,16 @@ export interface PermissionState {
   documents: boolean
 }
 
-export interface AudioDeviceDetails {
-  index: number
-  name: string
-  id: string | null
-}
+export type AudioDeviceDetails = MicrophoneDevice
 
 export interface DeviceInfo {
   devices: Record<string, string>
   deviceDetails?: Record<string, AudioDeviceDetails>
+  /** The Microphone a Dictation would record from right now. */
   selectedDevice: number
   selectedDeviceId?: string | null
+  /** The user's pick when it is not connected, so the fallback above is in use. */
+  missingPickName?: string | null
 }
 
 export interface GeneralSettingsPatch {

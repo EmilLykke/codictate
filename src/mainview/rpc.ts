@@ -499,11 +499,11 @@ export async function setAudioDuckingIncludeHeadphones(
   })
 }
 
-export async function setAudioDuckingIncludeBuiltInSpeakers(
+export async function setAudioDuckingIncludeSpeakers(
   enabled: boolean
 ): Promise<boolean> {
   return rpc.request.updateAudioDuckingSettings({
-    patch: { includeBuiltInSpeakers: enabled },
+    patch: { includeSpeakers: enabled },
   })
 }
 

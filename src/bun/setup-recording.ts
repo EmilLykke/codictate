@@ -43,6 +43,8 @@ import {
 import { AppConfig } from './AppConfig/AppConfig'
 import type { TrayHandlers } from './setup-tray'
 import { findDevices, type AudioDeviceSnapshot } from './utils/audio/devices'
+import { startAudioDucking } from './utils/audio/audio-ducking'
+import { microphoneDeviceRef } from '../shared/microphone'
 import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
 import { runDictation, type DictationOutcome } from './dictation/run-dictation'
@@ -215,7 +217,7 @@ export const setupRecording = (
     streamStarting
 
   /**
-   * The selected mic, resolved the same way batch Dictation resolves it for MicRecorder. Both
+   * The Microphone, resolved the same way batch Dictation resolves it for MicRecorder. Both
    * platform helpers record from it; without it they would record from the system default
    * input, which on a Mac with the lid closed is a built-in microphone that delivers silence.
    */
@@ -225,27 +227,16 @@ export const setupRecording = (
       currentSnapshot = await findDevices()
     }
 
-    const currentDevices = currentSnapshot.devices
-    const currentDeviceDetails = currentSnapshot.details
-    const resolved = appConfig.resolveAudioDevice(
-      currentDevices,
-      currentDeviceDetails
-    )
-    const deviceExists = resolved.toString() in currentDevices
-    const device = deviceExists
-      ? resolved
-      : Number(Object.keys(currentDevices)[0] ?? '0')
-    const deviceLabel = currentDevices[device.toString()]?.trim() || 'default'
-    const deviceId = currentDeviceDetails[device.toString()]?.id ?? null
-    const deviceRef = deviceId ?? String(device)
+    const microphone = appConfig.resolveMicrophone(currentSnapshot.details)
+    if (microphone === null) throw new Error('No microphone connected')
+    const deviceRef = microphoneDeviceRef(microphone.device)
 
-    log('stream', 'resolved stream audio device', {
-      index: device,
-      name: deviceLabel,
-      requestedIndex: resolved,
-      endpointId: deviceId ?? undefined,
+    log('stream', 'resolved stream microphone', {
+      index: microphone.device.index,
+      name: microphone.device.name,
+      transport: microphone.device.transport,
+      isPick: microphone.isPick,
       deviceRef,
-      deviceExists,
     })
 
     return deviceRef
@@ -757,9 +748,7 @@ export const setupRecording = (
         },
         {
           streamDebugId,
-          outputDuckBuiltIn: appConfig.getAudioDuckingIncludeBuiltInSpeakers(),
-          outputDuckHeadphones: appConfig.getAudioDuckingIncludeHeadphones(),
-          outputDuckLevel: appConfig.getAudioDuckingLevel(),
+          startAudioDucking: () => startAudioDucking(appConfig),
           deviceRef: streamDeviceRef,
         }
       )

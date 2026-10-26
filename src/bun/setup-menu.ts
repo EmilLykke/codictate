@@ -78,9 +78,7 @@ export const setupApplicationMenu = (
   ]
 
   ApplicationMenu.setApplicationMenu(
-    buildFullMenu(
-      appConfig.resolveAudioDevice(currentDevices, currentDeviceDetails)
-    )
+    buildFullMenu(appConfig.resolveAudioDevice(currentDeviceDetails ?? {}))
   )
 
   Electrobun.events.on('application-menu-clicked', (e) => {

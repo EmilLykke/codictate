@@ -1,6 +1,7 @@
 pub(crate) mod capture;
 pub(crate) mod com;
 mod devices;
+mod ducking;
 pub(crate) mod resample;
 pub(crate) mod wav;
 
@@ -9,6 +10,7 @@ use serde::Serialize;
 use std::process::ExitCode;
 
 pub use devices::default_input_available;
+pub use ducking::{handle_duck, handle_duck_restore};
 
 #[derive(Serialize)]
 struct MicrophoneAuthorizationMessage {

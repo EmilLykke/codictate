@@ -26,6 +26,12 @@ Canonical terms for Codictate. Glossary only: no implementation details, no plan
 
 **Tap** (also **latch**) - activation style where a quick press and release starts a hands-free Dictation that continues until the shortcut is pressed a second time.
 
+**Audio Ducking** - lowering what the user is listening to while a Dictation records, and bringing it back when the recording ends. How far it goes is the Duck Level (0 mutes, 100 leaves it unchanged), and it applies to Speakers (built-in, display and other wired outputs) and to Headphones (Bluetooth, USB and headsets) separately. A volume the user changes during the Dictation is theirs and is not put back.
+_Avoid_: output ducking, dimming
+
+**Microphone** - the input a Dictation records from. The one the user picked when it is connected; otherwise the built-in microphone, otherwise any connected microphone that is not Bluetooth, otherwise the system default. The user's pick is never overwritten by a fallback, so it is used again the moment it reconnects. See `docs/adr/0012-microphone-falls-back.md`.
+_Avoid_: audio device, input device
+
 ## Speech
 
 **Speech Engine** - the recognition system a Dictation is transcribed by, as the user sees it: Whisper, Parakeet, or hviske. Note that the Parakeet engine is identified as `whisperkit` in code, which is a misnomer; the engine is FluidAudio.

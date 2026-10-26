@@ -14,7 +14,7 @@ import {
 import { modelManager } from './model-manager'
 import { awaitParakeetWarmup } from './parakeet-warmup'
 import { log } from '../logger'
-import { duckDelayAfterStartChimeMs } from '../sound/play-sound'
+import type { AudioDucking } from '../audio/audio-ducking'
 
 export type StreamHandlers = {
   onStopped: () => void
@@ -28,15 +28,14 @@ export type StreamSession = {
 export type ParakeetStreamStartOptions = {
   /** Log correlation: forwarded to helper as `CODICTATE_STREAM_DEBUG_ID` (stderr prefix `[sN]`). */
   streamDebugId?: number
-  /** When false, helper skips muting built-in output (default true). */
-  outputDuckBuiltIn?: boolean
-  /** When true, helper also ducks headphone / Bluetooth / USB output. */
-  outputDuckHeadphones?: boolean
-  /** Duck target for enabled outputs: 0 = fully mute, 100 = no change. */
-  outputDuckLevel?: number
   /**
-   * Input device for the helper to record from: the Windows endpoint ID when known, otherwise
-   * the device index (on macOS always the `MicRecorder --list-devices` index).
+   * Audio Ducking for the length of the stream: started just before the helper is spawned and
+   * stopped when it exits.
+   */
+  startAudioDucking?: () => Promise<AudioDucking>
+  /**
+   * The Microphone for the helper to record from: its stable id (CoreAudio device UID on
+   * macOS, endpoint ID on Windows), or the `--list-devices` index when it has none.
    */
   deviceRef?: string
 }
@@ -108,13 +107,6 @@ export async function startParakeetStream(
   const args = [binary, 'stream', modeArg, modelDir]
   if (options?.deviceRef) args.push(options.deviceRef)
   const streamDebugId = options?.streamDebugId
-  const outputDuckDelayMs = duckDelayAfterStartChimeMs()
-  const outputDuckBuiltIn = options?.outputDuckBuiltIn !== false
-  const outputDuckHeadphones = options?.outputDuckHeadphones === true
-  const outputDuckLevel = Math.max(
-    0,
-    Math.min(100, Math.round(options?.outputDuckLevel ?? 0))
-  )
 
   log('stream', 'spawning Parakeet helper (helper handles capture + paste)', {
     binary,
@@ -124,29 +116,28 @@ export async function startParakeetStream(
     modelDir,
     deviceRef: options?.deviceRef,
     streamDebugId,
-    outputDuckDelayMs,
-    outputDuckBuiltIn,
-    outputDuckHeadphones,
-    outputDuckLevel,
   })
 
-  const proc = Bun.spawn(args, {
-    stdout: 'ignore',
-    stderr: 'pipe',
-    stdin: 'ignore',
-    env: {
-      ...process.env,
-      LC_ALL: 'en_US.UTF-8',
-      LANG: 'en_US.UTF-8',
-      CODICTATE_OUTPUT_DUCK_DELAY_MS: String(outputDuckDelayMs),
-      CODICTATE_OUTPUT_DUCK_LEVEL: String(outputDuckLevel),
-      CODICTATE_OUTPUT_DUCK_HEADPHONES: outputDuckHeadphones ? '1' : '0',
-      ...(!outputDuckBuiltIn ? { CODICTATE_OUTPUT_DUCK_BUILT_IN: '0' } : {}),
-      ...(streamDebugId != null
-        ? { CODICTATE_STREAM_DEBUG_ID: String(streamDebugId) }
-        : {}),
-    },
-  })
+  const ducking = await options?.startAudioDucking?.()
+  let proc: Bun.Subprocess<'ignore', 'ignore', 'pipe'>
+  try {
+    proc = Bun.spawn(args, {
+      stdout: 'ignore',
+      stderr: 'pipe',
+      stdin: 'ignore',
+      env: {
+        ...process.env,
+        LC_ALL: 'en_US.UTF-8',
+        LANG: 'en_US.UTF-8',
+        ...(streamDebugId != null
+          ? { CODICTATE_STREAM_DEBUG_ID: String(streamDebugId) }
+          : {}),
+      },
+    })
+  } catch (err) {
+    await ducking?.stop()
+    throw err
+  }
 
   log('stream', 'spawned Parakeet stream process', {
     pid: proc.pid,
@@ -174,7 +165,8 @@ export async function startParakeetStream(
     }
   })()
 
-  void proc.exited.then(() => {
+  void proc.exited.then(async () => {
+    await ducking?.stop()
     log('stream', 'parakeet stream process exited', {
       exitCode: proc.exitCode,
       streamDebugId,

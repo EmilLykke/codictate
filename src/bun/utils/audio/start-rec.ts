@@ -1,7 +1,8 @@
 import { AppConfig } from '../../AppConfig/AppConfig'
-import { duckDelayAfterStartChimeMs } from '../sound/play-sound'
 import { findMicRecorderBinary } from './find-mic-recorder'
 import { findDevices, type AudioDeviceSnapshot } from './devices'
+import { startAudioDucking } from './audio-ducking'
+import { microphoneDeviceRef } from '../../../shared/microphone'
 import { log } from '../logger'
 import { stat } from 'node:fs/promises'
 import { RECORDING_PATH } from '../../platform/runtime'
@@ -112,95 +113,69 @@ export const startRecording = async (
   if (Object.keys(currentSnapshot.devices).length === 0) {
     currentSnapshot = await findDevices()
   }
-  const currentDevices = currentSnapshot.devices
-  const currentDeviceDetails = currentSnapshot.details
-  const resolved = appConfig.resolveAudioDevice(
-    currentDevices,
-    currentDeviceDetails
-  )
+  const microphone = appConfig.resolveMicrophone(currentSnapshot.details)
+  if (microphone === null) throw new Error('No microphone connected')
+  const deviceRef = microphoneDeviceRef(microphone.device)
 
-  const deviceExists = resolved.toString() in currentDevices
-  const device = deviceExists
-    ? resolved
-    : Number(Object.keys(currentDevices)[0] ?? '0')
-
-  if (!deviceExists) {
-    console.warn(
-      `[recording] device ${resolved} not available, falling back to device ${device} (${currentDevices[device.toString()] ?? 'unknown'})`
-    )
-  }
-
-  const deviceLabel = currentDevices[device.toString()]?.trim() || 'default'
-  const deviceId = currentDeviceDetails[device.toString()]?.id ?? null
-
-  log('mic', 'resolved audio device', {
-    index: device,
-    name: deviceLabel,
-    requestedIndex: resolved,
-    endpointId: deviceId ?? undefined,
-    deviceExists,
+  log('mic', 'resolved microphone', {
+    index: microphone.device.index,
+    name: microphone.device.name,
+    transport: microphone.device.transport,
+    isPick: microphone.isPick,
+    deviceRef,
     binary: micPath,
   })
 
   const maxRecordSeconds = appConfig.getMaxRecordingDurationSeconds()
-  const outputDuckDelayMs = appConfig.getSoundEffectsEnabled()
-    ? duckDelayAfterStartChimeMs(appConfig.getFunModeEnabled())
-    : 0
-  const duckLevel = appConfig.getAudioDuckingLevel()
-  const duckIncludeHeadphones = appConfig.getAudioDuckingIncludeHeadphones()
-  const duckIncludeBuiltIn = appConfig.getAudioDuckingIncludeBuiltInSpeakers()
+  const ducking = await startAudioDucking(appConfig)
 
-  const proc = Bun.spawn(
-    [
-      micPath,
-      'record',
-      RECORDING_PATH,
-      deviceId ?? String(device),
-      String(maxRecordSeconds),
-      String(outputDuckDelayMs),
-      String(duckLevel),
-      duckIncludeHeadphones ? '1' : '0',
-      duckIncludeBuiltIn ? '1' : '0',
-    ],
-    {
-      stderr: 'pipe',
-      stdin: getPlatformRuntime() === 'windows' ? 'pipe' : 'ignore',
-      async onExit(proc, exitCode) {
-        let stderrText = ''
-        try {
-          stderrText = await new Response(proc.stderr).text()
-        } catch {
-          // Ignore
-        }
+  let proc: ReturnType<typeof Bun.spawn>
+  try {
+    proc = Bun.spawn(
+      [micPath, 'record', RECORDING_PATH, deviceRef, String(maxRecordSeconds)],
+      {
+        stderr: 'pipe',
+        stdin: getPlatformRuntime() === 'windows' ? 'pipe' : 'ignore',
+        async onExit(proc, exitCode) {
+          // Before anything else: the stop chime must not play into a lowered volume.
+          await ducking.stop()
+          let stderrText = ''
+          try {
+            stderrText = await new Response(proc.stderr).text()
+          } catch {
+            // Ignore
+          }
 
-        log('mic', 'exited', {
-          exitCode,
-          stderr: stderrText.slice(0, 500) || undefined,
-        })
+          log('mic', 'exited', {
+            exitCode,
+            stderr: stderrText.slice(0, 500) || undefined,
+          })
 
-        // A cancelled session is not inspected: the WAV is whatever the killed recorder left
-        // behind, and the answer is the same either way.
-        const forceCancelled =
-          exitCode === 255 || exitCode === 143 || exitCode === 137
-        const capture: CaptureResult =
-          session.discard || forceCancelled
-            ? {
-                audioPath: RECORDING_PATH,
-                durationMs: 0,
-                discarded: true,
-                skipReason: null,
-              }
-            : await inspectCapture(session)
+          // A cancelled session is not inspected: the WAV is whatever the killed recorder left
+          // behind, and the answer is the same either way.
+          const forceCancelled =
+            exitCode === 255 || exitCode === 143 || exitCode === 137
+          const capture: CaptureResult =
+            session.discard || forceCancelled
+              ? {
+                  audioPath: RECORDING_PATH,
+                  durationMs: 0,
+                  discarded: true,
+                  skipReason: null,
+                }
+              : await inspectCapture(session)
 
-        await onCaptureFinished(capture)
-      },
-    }
-  )
+          await onCaptureFinished(capture)
+        },
+      }
+    )
+  } catch (err) {
+    // No recorder will exit to stop the ducking.
+    await ducking.stop()
+    throw err
+  }
 
-  log('mic', 'spawned', {
-    pid: proc.pid,
-    outputDuckDelayMs,
-  })
+  log('mic', 'spawned', { pid: proc.pid })
 
   return proc
 }

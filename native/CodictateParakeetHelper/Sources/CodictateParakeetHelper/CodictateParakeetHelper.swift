@@ -197,10 +197,22 @@ private func coreAudioDeviceName(_ id: AudioDeviceID) -> String {
   return name.takeRetainedValue() as String
 }
 
+private func coreAudioDeviceUID(_ id: AudioDeviceID) -> String? {
+  var address = AudioObjectPropertyAddress(
+    mSelector: kAudioDevicePropertyDeviceUID,
+    mScope: kAudioObjectPropertyScopeGlobal,
+    mElement: kAudioObjectPropertyElementMain)
+  var uid: Unmanaged<CFString>?
+  var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+  guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &uid) == noErr, let uid
+  else { return nil }
+  return uid.takeRetainedValue() as String
+}
+
 /// Input devices in the order `MicRecorder --list-devices` numbers them: every Core Audio
-/// device with at least one input channel, sorted by `AudioDeviceID`. The selected mic reaches
-/// this helper as an index into that list, so it must stay identical to `listInputDevices` in
-/// `src/bun/utils/audio/MicRecorder.swift`.
+/// device with at least one input channel, sorted by `AudioDeviceID`. The Microphone reaches
+/// this helper as its device UID, or as an index into that list for a device without one, so
+/// it must stay identical to `listInputDevices` in `src/bun/utils/audio/MicRecorder.swift`.
 private func listInputDeviceIDs() -> [AudioDeviceID] {
   var address = AudioObjectPropertyAddress(
     mSelector: kAudioHardwarePropertyDevices,
@@ -226,23 +238,24 @@ private func getDefaultInputDevice() -> AudioDeviceID {
   return id
 }
 
-/// Points `engine`'s input node at the mic the user selected in Codictate, so Live Transcription
-/// records from the same device as batch Dictation (and as the Windows helper does).
+/// The mic the user selected in Codictate, so Live Transcription records from the same device as
+/// batch Dictation (and as the Windows helper does).
 ///
-/// Without a `deviceRef` the engine keeps the system default input, which is not necessarily
-/// the selected mic: with a MacBook lid closed the default is often the built-in microphone,
-/// which then delivers silence. A `deviceRef` that does not name a current input device is an
-/// error, never a quiet switch to the default.
-private func selectStreamInputDevice(_ engine: AVAudioEngine, deviceRef: String?, mode: String)
-  throws
-{
+/// Without a `deviceRef` this is the system default input, which is not necessarily the selected
+/// mic: with a MacBook lid closed the default is often the built-in microphone, which then
+/// delivers silence. A `deviceRef` that does not name a current input device is an error, never
+/// a quiet switch to the default.
+private func resolveStreamInputDevice(deviceRef: String?, mode: String) throws -> AudioDeviceID {
   guard let deviceRef else {
     let id = getDefaultInputDevice()
     logPhase("stream [\(mode)]: input device: system default (\(coreAudioDeviceName(id)))")
-    return
+    return id
   }
   let devices = listInputDeviceIDs()
-  guard let index = Int(deviceRef), devices.indices.contains(index) else {
+  let index =
+    devices.firstIndex(where: { coreAudioDeviceUID($0) == deviceRef })
+    ?? Int(deviceRef).flatMap { devices.indices.contains($0) ? $0 : nil }
+  guard let index else {
     throw NSError(
       domain: "CodictateParakeet", code: 5,
       userInfo: [
@@ -250,214 +263,146 @@ private func selectStreamInputDevice(_ engine: AVAudioEngine, deviceRef: String?
           "Input device \(deviceRef) not found (\(devices.count) input devices)"
       ])
   }
-  var id = devices[index]
-  guard let unit = engine.inputNode.audioUnit else {
-    throw NSError(
-      domain: "CodictateParakeet", code: 6,
-      userInfo: [NSLocalizedDescriptionKey: "Audio input node has no audio unit"])
-  }
-  let status = AudioUnitSetProperty(
-    unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &id,
-    UInt32(MemoryLayout<AudioDeviceID>.size))
-  guard status == noErr else {
-    throw NSError(
-      domain: "CodictateParakeet", code: 7,
-      userInfo: [
-        NSLocalizedDescriptionKey:
-          "Cannot select input device \(index) (\(coreAudioDeviceName(id))): OSStatus \(status)"
-      ])
-  }
-  logPhase("stream [\(mode)]: input device #\(index): \(coreAudioDeviceName(id))")
+  logPhase("stream [\(mode)]: input device #\(index): \(coreAudioDeviceName(devices[index]))")
+  return devices[index]
 }
 
-private func getDefaultOutputDevice() -> AudioDeviceID {
-  var id = AudioDeviceID(0)
-  var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-  var address = AudioObjectPropertyAddress(
-    mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-    mScope: kAudioObjectPropertyScopeGlobal,
-    mElement: kAudioObjectPropertyElementMain)
-  _ = AudioObjectGetPropertyData(
-    AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &id)
-  return id
-}
+/// Captures one input device through an input-only AUHAL and hands out 16 kHz mono chunks.
+///
+/// Not AVAudioEngine: its input node starts out bound to the system default input, and opening
+/// it, even before `kAudioOutputUnitProperty_CurrentDevice` points it elsewhere, is enough to
+/// switch AirPods that are the default input into their call profile, so the user's music drops
+/// out mid-Dictation. An AUHAL with output disabled and its device set before
+/// `AudioUnitInitialize` opens the chosen device and nothing else. Same as `DeviceRecorder` in
+/// `src/bun/utils/audio/MicRecorder.swift`.
+private final class StreamInputCapture: @unchecked Sendable {
+  private var unit: AudioUnit?
+  private let capture: AVAudioPCMBuffer
+  private let converter: AVAudioConverter
+  private let onSamples: @Sendable ([Float]) -> Void
 
-private func getDeviceTransportType(_ id: AudioDeviceID) -> UInt32 {
-  var transport: UInt32 = 0
-  var size = UInt32(MemoryLayout<UInt32>.size)
-  var address = AudioObjectPropertyAddress(
-    mSelector: kAudioDevicePropertyTransportType,
-    mScope: kAudioObjectPropertyScopeGlobal,
-    mElement: kAudioObjectPropertyElementMain)
-  guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &transport) == noErr else {
-    return 0
-  }
-  return transport
-}
-
-private func outputDeviceName(_ id: AudioDeviceID) -> String {
-  var address = AudioObjectPropertyAddress(
-    mSelector: kAudioObjectPropertyName,
-    mScope: kAudioObjectPropertyScopeGlobal,
-    mElement: kAudioObjectPropertyElementMain)
-  var cfName: CFString?
-  var size = UInt32(MemoryLayout<CFString?>.size)
-  let err = withUnsafeMutablePointer(to: &cfName) { ptr in
-    AudioObjectGetPropertyData(id, &address, 0, nil, &size, ptr)
-  }
-  if err == noErr, let s = cfName {
-    return s as String
-  }
-  return "Device \(id)"
-}
-
-private enum OutputDeviceKind {
-  case builtIn
-  case headphone
-  case other
-}
-
-private func classifyOutputDevice(_ id: AudioDeviceID) -> OutputDeviceKind {
-  guard id != 0 else { return .other }
-  let transport = getDeviceTransportType(id)
-  if transport == kAudioDeviceTransportTypeAggregate || transport == kAudioDeviceTransportTypeVirtual {
-    return .other
-  }
-  let name = outputDeviceName(id)
-  if transport == kAudioDeviceTransportTypeBluetooth
-    || transport == kAudioDeviceTransportTypeUSB
-    || name.localizedCaseInsensitiveContains("headphone")
-    || name.localizedCaseInsensitiveContains("headset")
-    || name.localizedCaseInsensitiveContains("airpods")
-  {
-    return .headphone
-  }
-  if transport == kAudioDeviceTransportTypeBuiltIn { return .builtIn }
-  return .other
-}
-
-private struct SavedOutputVolume {
-  let device: AudioDeviceID
-  let scalar: Float32
-}
-
-private func outputVolumeScalarAddress() -> AudioObjectPropertyAddress {
-  AudioObjectPropertyAddress(
-    mSelector: kAudioDevicePropertyVolumeScalar,
-    mScope: kAudioDevicePropertyScopeOutput,
-    mElement: kAudioObjectPropertyElementMain)
-}
-
-private func tryApplyOutputDuck(
-  builtInEnabled: Bool,
-  headphonesEnabled: Bool,
-  headphoneLevel: Int
-) -> SavedOutputVolume? {
-  let device = getDefaultOutputDevice()
-  let kind = classifyOutputDevice(device)
-  guard
-    (kind == .builtIn && builtInEnabled) || (kind == .headphone && headphonesEnabled)
-  else { return nil }
-  var addr = outputVolumeScalarAddress()
-  guard AudioObjectHasProperty(device, &addr) else { return nil }
-  var settable: DarwinBoolean = false
-  guard AudioObjectIsPropertySettable(device, &addr, &settable) == noErr, settable.boolValue else {
-    return nil
-  }
-  var current: Float32 = 1
-  var size = UInt32(MemoryLayout<Float32>.size)
-  guard AudioObjectGetPropertyData(device, &addr, 0, nil, &size, &current) == noErr else {
-    return nil
-  }
-  let ducked: Float32 = kind == .builtIn ? 0 : Float32(max(0, min(100, headphoneLevel))) / 100.0
-  guard ducked + 0.02 < current else { return nil }
-  var toWrite = ducked
-  guard AudioObjectSetPropertyData(device, &addr, 0, nil, size, &toWrite) == noErr else {
-    return nil
-  }
-  return SavedOutputVolume(device: device, scalar: current)
-}
-
-private func restoreOutputDuck(_ saved: SavedOutputVolume) {
-  var addr = outputVolumeScalarAddress()
-  guard AudioObjectHasProperty(saved.device, &addr) else {
-    logPhase("stream: output device gone, cannot restore volume")
-    return
-  }
-  let size = UInt32(MemoryLayout<Float32>.size)
-  var scalar = saved.scalar
-  if AudioObjectSetPropertyData(saved.device, &addr, 0, nil, size, &scalar) != noErr {
-    logPhase("stream: failed to restore output volume")
-  }
-}
-
-private final class StreamOutputDuckCoordinator: @unchecked Sendable {
-  static let shared = StreamOutputDuckCoordinator()
-
-  private let lock = NSLock()
-  private var savedOutputVolume: SavedOutputVolume?
-  private var stopped = false
-
-  func begin(
-    delaySeconds: TimeInterval,
-    builtInEnabled: Bool,
-    headphonesEnabled: Bool,
-    headphoneLevel: Int
-  ) {
-    lock.lock()
-    stopped = false
-    lock.unlock()
-
-    let apply: @Sendable () -> Void = { [weak self] in
-      self?.applyIfNeeded(
-        builtInEnabled: builtInEnabled,
-        headphonesEnabled: headphonesEnabled,
-        headphoneLevel: headphoneLevel)
-    }
-    if delaySeconds <= 0 {
-      DispatchQueue.global().async {
-        apply()
-      }
-    } else {
-      DispatchQueue.global().asyncAfter(deadline: .now() + delaySeconds) {
-        apply()
+  init(device: AudioDeviceID, onSamples: @escaping @Sendable ([Float]) -> Void) throws {
+    func check(_ status: OSStatus, _ what: String) throws {
+      guard status == noErr else {
+        throw NSError(
+          domain: "CodictateParakeet", code: 6,
+          userInfo: [NSLocalizedDescriptionKey: "\(what): OSStatus \(status)"])
       }
     }
+    self.onSamples = onSamples
+
+    var description = AudioComponentDescription(
+      componentType: kAudioUnitType_Output, componentSubType: kAudioUnitSubType_HALOutput,
+      componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0,
+      componentFlagsMask: 0)
+    guard let component = AudioComponentFindNext(nil, &description) else {
+      throw NSError(
+        domain: "CodictateParakeet", code: 6,
+        userInfo: [NSLocalizedDescriptionKey: "No HAL output audio component"])
+    }
+    var created: AudioUnit?
+    try check(AudioComponentInstanceNew(component, &created), "AudioComponentInstanceNew")
+    guard let unit = created else {
+      throw NSError(domain: "CodictateParakeet", code: 6)
+    }
+    self.unit = unit
+
+    let u32 = UInt32(MemoryLayout<UInt32>.size)
+    var on: UInt32 = 1
+    var off: UInt32 = 0
+    try check(
+      AudioUnitSetProperty(unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &on, u32),
+      "Enable input")
+    try check(
+      AudioUnitSetProperty(unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &off, u32),
+      "Disable output")
+    var deviceId = device
+    try check(
+      AudioUnitSetProperty(
+        unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, &deviceId,
+        UInt32(MemoryLayout<AudioDeviceID>.size)),
+      "Cannot select input device \(coreAudioDeviceName(device))")
+
+    // The device side of element 1; the client side gets the same rate and channels as
+    // deinterleaved Float32, since an AUHAL does not convert the sample rate of its input.
+    var hardware = AudioStreamBasicDescription()
+    var asbdSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+    try check(
+      AudioUnitGetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 1, &hardware, &asbdSize),
+      "Read device format")
+    guard hardware.mSampleRate > 0, hardware.mChannelsPerFrame > 0,
+      let client = AVAudioFormat(
+        standardFormatWithSampleRate: hardware.mSampleRate, channels: hardware.mChannelsPerFrame),
+      let converter = makeConverter(from: client)
+    else {
+      throw NSError(
+        domain: "CodictateParakeet", code: 3,
+        userInfo: [NSLocalizedDescriptionKey: "Cannot create audio converter"])
+    }
+    self.converter = converter
+    var clientDescription = client.streamDescription.pointee
+    try check(
+      AudioUnitSetProperty(
+        unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &clientDescription, asbdSize),
+      "Set client format")
+
+    try check(AudioUnitInitialize(unit), "AudioUnitInitialize")
+    var maxFrames: UInt32 = 4096
+    var maxFramesSize = u32
+    _ = AudioUnitGetProperty(
+      unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFrames,
+      &maxFramesSize)
+    guard let capture = AVAudioPCMBuffer(pcmFormat: client, frameCapacity: max(maxFrames, 4096))
+    else { throw NSError(domain: "CodictateParakeet", code: 6) }
+    self.capture = capture
+
+    var callback = AURenderCallbackStruct(
+      inputProc: { refCon, flags, timestamp, bus, frames, _ in
+        Unmanaged<StreamInputCapture>.fromOpaque(refCon).takeUnretainedValue()
+          .render(flags: flags, timestamp: timestamp, bus: bus, frames: frames)
+      },
+      inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
+    try check(
+      AudioUnitSetProperty(
+        unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0, &callback,
+        UInt32(MemoryLayout<AURenderCallbackStruct>.size)),
+      "Set input callback")
   }
 
-  private func applyIfNeeded(
-    builtInEnabled: Bool,
-    headphonesEnabled: Bool,
-    headphoneLevel: Int
-  ) {
-    lock.lock()
-    let alreadyStopped = stopped || savedOutputVolume != nil
-    lock.unlock()
-    if alreadyStopped { return }
-    guard
-      let applied = tryApplyOutputDuck(
-        builtInEnabled: builtInEnabled,
-        headphonesEnabled: headphonesEnabled,
-        headphoneLevel: headphoneLevel)
-    else { return }
-    lock.lock()
-    defer { lock.unlock() }
-    if stopped {
-      restoreOutputDuck(applied)
-      return
+  func start() throws {
+    guard let unit else { return }
+    let status = AudioOutputUnitStart(unit)
+    guard status == noErr else {
+      throw NSError(
+        domain: "CodictateParakeet", code: 7,
+        userInfo: [NSLocalizedDescriptionKey: "AudioOutputUnitStart: OSStatus \(status)"])
     }
-    savedOutputVolume = applied
   }
 
-  func end() {
-    lock.lock()
-    stopped = true
-    let saved = savedOutputVolume
-    savedOutputVolume = nil
-    lock.unlock()
-    if let saved {
-      restoreOutputDuck(saved)
+  func stop() {
+    guard let unit else { return }
+    AudioOutputUnitStop(unit)
+    AudioUnitUninitialize(unit)
+    AudioComponentInstanceDispose(unit)
+    self.unit = nil
+  }
+
+  /// On the device's IO thread, one call at a time.
+  private func render(
+    flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
+    timestamp: UnsafePointer<AudioTimeStamp>, bus: UInt32, frames: UInt32
+  ) -> OSStatus {
+    guard let unit, frames <= capture.frameCapacity else { return noErr }
+    capture.frameLength = frames
+    let buffers = UnsafeMutableAudioBufferListPointer(capture.mutableAudioBufferList)
+    for index in 0..<buffers.count {
+      buffers[index].mDataByteSize = frames * UInt32(MemoryLayout<Float32>.size)
     }
+    let status = AudioUnitRender(unit, flags, timestamp, bus, frames, capture.mutableAudioBufferList)
+    guard status == noErr else { return status }
+    let samples = convert(capture, using: converter)
+    if !samples.isEmpty { onSamples(samples) }
+    return noErr
   }
 }
 
@@ -466,33 +411,10 @@ private enum StreamSignalHandlers {
   nonisolated(unsafe) static var sigterm: DispatchSourceSignal?
 }
 
-private func outputDuckDelaySecondsFromEnv() -> TimeInterval {
-  let raw = ProcessInfo.processInfo.environment["CODICTATE_OUTPUT_DUCK_DELAY_MS"] ?? ""
-  guard let ms = Int(raw), ms >= 0, ms <= 10_000 else { return 0.248 }
-  return Double(ms) / 1000.0
-}
-
-private func outputDuckBuiltInEnabledFromEnv() -> Bool {
-  let raw = ProcessInfo.processInfo.environment["CODICTATE_OUTPUT_DUCK_BUILT_IN"] ?? "1"
-  return raw != "0"
-}
-
-private func outputDuckHeadphonesEnabledFromEnv() -> Bool {
-  let raw = ProcessInfo.processInfo.environment["CODICTATE_OUTPUT_DUCK_HEADPHONES"] ?? "0"
-  return raw != "0"
-}
-
-private func outputDuckLevelFromEnv() -> Int {
-  let raw = ProcessInfo.processInfo.environment["CODICTATE_OUTPUT_DUCK_LEVEL"] ?? "0"
-  guard let value = Int(raw) else { return 0 }
-  return max(0, min(100, value))
-}
-
 private func installStreamSignalHandlersForCleanup() {
   signal(SIGPIPE, SIG_IGN)
 
   let cleanupAndExit: @convention(block) () -> Void = {
-    StreamOutputDuckCoordinator.shared.end()
     exit(0)
   }
 
@@ -656,22 +578,8 @@ struct CodictateParakeetHelperMain {
     logPhase("stream [\(mode)]: loading models…")
     let models = try loadAsrModels(parakeetDir: modelDir)
     logPhase("stream [\(mode)]: models ready")
+    // Audio Ducking is not this helper's job: Codictate runs `MicRecorder duck` beside it.
     installStreamSignalHandlersForCleanup()
-    let duckBuiltInOutput = outputDuckBuiltInEnabledFromEnv()
-    let duckHeadphoneOutput = outputDuckHeadphonesEnabledFromEnv()
-    let duckLevel = outputDuckLevelFromEnv()
-    if duckBuiltInOutput || duckHeadphoneOutput {
-      StreamOutputDuckCoordinator.shared.begin(
-        delaySeconds: outputDuckDelaySecondsFromEnv(),
-        builtInEnabled: duckBuiltInOutput,
-        headphonesEnabled: duckHeadphoneOutput,
-        headphoneLevel: duckLevel)
-    }
-    defer {
-      if duckBuiltInOutput || duckHeadphoneOutput {
-        StreamOutputDuckCoordinator.shared.end()
-      }
-    }
 
     if mode == "vad" {
       try await runVadMode(models: models, deviceRef: deviceRef)
@@ -686,29 +594,17 @@ struct CodictateParakeetHelperMain {
     let asr = AsrManager(config: .default)
     try await asr.loadModels(models)
 
-    let engine = AVAudioEngine()
-    try selectStreamInputDevice(engine, deviceRef: deviceRef, mode: "vad")
-    let inputNode = engine.inputNode
-    // The device's own format: after `selectStreamInputDevice` the node's output format still
-    // describes the previous default device until the engine is reconfigured.
-    let hwFormat = inputNode.inputFormat(forBus: 0)
-
-    guard let converter = makeConverter(from: hwFormat) else {
-      throw NSError(
-        domain: "CodictateParakeet", code: 3,
-        userInfo: [NSLocalizedDescriptionKey: "Cannot create audio converter"])
-    }
+    let device = try resolveStreamInputDevice(deviceRef: deviceRef, mode: "vad")
 
     // Pipe converted 16 kHz chunks into an AsyncStream for sequential VAD processing.
     let (audioStream, audioContinuation) = AsyncStream<[Float]>.makeStream()
 
-    inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) { buffer, _ in
-      let samples = convert(buffer, using: converter)
-      if !samples.isEmpty { audioContinuation.yield(samples) }
+    let capture = try StreamInputCapture(device: device) { samples in
+      audioContinuation.yield(samples)
     }
-
-    try engine.start()
-    logPhase("stream [vad]: audio engine running")
+    try capture.start()
+    defer { capture.stop() }
+    logPhase("stream [vad]: capturing")
 
     // VAD parameters (16 kHz sample counts)
     let rmsThreshold: Float = 0.012   // energy gate
@@ -771,28 +667,16 @@ struct CodictateParakeetHelperMain {
   static func runLiveMode(models: AsrModels, deviceRef: String?) async throws {
     let asr = AsrManager(config: .default)
     try await asr.loadModels(models)
-    let engine = AVAudioEngine()
-    try selectStreamInputDevice(engine, deviceRef: deviceRef, mode: "live")
-    let inputNode = engine.inputNode
-    // The device's own format: after `selectStreamInputDevice` the node's output format still
-    // describes the previous default device until the engine is reconfigured.
-    let hwFormat = inputNode.inputFormat(forBus: 0)
-
-    guard let converter = makeConverter(from: hwFormat) else {
-      throw NSError(
-        domain: "CodictateParakeet", code: 4,
-        userInfo: [NSLocalizedDescriptionKey: "Cannot create audio converter"])
-    }
+    let device = try resolveStreamInputDevice(deviceRef: deviceRef, mode: "live")
 
     let (audioStream, audioContinuation) = AsyncStream<[Float]>.makeStream()
 
-    inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) { buffer, _ in
-      let samples = convert(buffer, using: converter)
-      if !samples.isEmpty { audioContinuation.yield(samples) }
+    let capture = try StreamInputCapture(device: device) { samples in
+      audioContinuation.yield(samples)
     }
-
-    try engine.start()
-    logPhase("stream [live]: audio engine running")
+    try capture.start()
+    defer { capture.stop() }
+    logPhase("stream [live]: capturing")
     if liveStreamDebugEnabled() {
       logPhase(
         "stream [live][debug] CODICTATE_LIVE_DEBUG on — logging partials, commits, discards")

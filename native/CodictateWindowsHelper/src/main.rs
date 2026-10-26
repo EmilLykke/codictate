@@ -15,6 +15,8 @@ fn print_help() {
     println!("Implemented:");
     println!("  --list-devices");
     println!("  --mic-authorization");
+    println!("  duck <level> <speakers 0|1> <headphones 0|1> <delayMs> <stateFile> <excludePid>");
+    println!("  duck-restore <stateFile>");
     println!("  extract-audio <input> <output.wav>");
     println!("  indicator");
     println!("  keyboard-hook");
@@ -37,6 +39,8 @@ fn main() -> ExitCode {
         }
         Some("--list-devices") => audio::handle_list_devices(),
         Some("--mic-authorization") => audio::handle_mic_authorization(),
+        Some("duck") => audio::handle_duck(&args),
+        Some("duck-restore") => audio::handle_duck_restore(&args),
         Some("extract-audio") => media::handle_extract_audio(&args),
         Some("indicator") => indicator::handle_indicator(),
         Some("keyboard-hook") => keyboard::handle_keyboard_hook(),

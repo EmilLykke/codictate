@@ -6,7 +6,7 @@ import { Switch } from "../../Common/Switch";
 import {
   fetchDevices,
   setAudioDevice,
-  setAudioDuckingIncludeBuiltInSpeakers,
+  setAudioDuckingIncludeSpeakers,
   setAudioDuckingIncludeHeadphones,
   setAudioDuckingLevel,
 } from "../../../rpc";
@@ -22,7 +22,7 @@ export function SectionAudio({ settings }: Props) {
   const queryClient = useQueryClient();
   const audioDucking = settings.audioDucking;
   const isAnyAudioDuckingEnabled =
-    audioDucking.includeBuiltInSpeakers || audioDucking.includeHeadphones;
+    audioDucking.includeSpeakers || audioDucking.includeHeadphones;
   const { data: deviceInfo } = useQuery({
     queryKey: ["devices"],
     queryFn: fetchDevices,
@@ -34,6 +34,7 @@ export function SectionAudio({ settings }: Props) {
       queryClient.setQueryData(["devices"], {
         ...deviceInfo,
         selectedDevice: index,
+        missingPickName: null,
       });
       await setAudioDevice(index);
     },
@@ -86,12 +87,11 @@ export function SectionAudio({ settings }: Props) {
             changed = true;
           }
           if (
-            patch.includeBuiltInSpeakers !== undefined &&
-            current.audioDucking.includeBuiltInSpeakers ===
-              patch.includeBuiltInSpeakers
+            patch.includeSpeakers !== undefined &&
+            current.audioDucking.includeSpeakers === patch.includeSpeakers
           ) {
-            next.audioDucking.includeBuiltInSpeakers =
-              previous.audioDucking.includeBuiltInSpeakers;
+            next.audioDucking.includeSpeakers =
+              previous.audioDucking.includeSpeakers;
             changed = true;
           }
 
@@ -119,12 +119,12 @@ export function SectionAudio({ settings }: Props) {
     );
   }, [audioDucking.includeHeadphones, updateAudioDuckingSetting]);
 
-  const handleAudioDuckingIncludeBuiltInToggle = useCallback(async () => {
-    const newValue = !audioDucking.includeBuiltInSpeakers;
-    await updateAudioDuckingSetting({ includeBuiltInSpeakers: newValue }, () =>
-      setAudioDuckingIncludeBuiltInSpeakers(newValue),
+  const handleAudioDuckingIncludeSpeakersToggle = useCallback(async () => {
+    const newValue = !audioDucking.includeSpeakers;
+    await updateAudioDuckingSetting({ includeSpeakers: newValue }, () =>
+      setAudioDuckingIncludeSpeakers(newValue),
     );
-  }, [audioDucking.includeBuiltInSpeakers, updateAudioDuckingSetting]);
+  }, [audioDucking.includeSpeakers, updateAudioDuckingSetting]);
 
   return (
     <>
@@ -137,6 +137,14 @@ export function SectionAudio({ settings }: Props) {
           selectedDevice={deviceInfo?.selectedDevice ?? 0}
           onChange={handleDeviceChange}
         />
+        {deviceInfo?.missingPickName && (
+          <p className="mt-2 px-1 text-[13px] text-overlay/44 leading-snug">
+            {deviceInfo.missingPickName} is not connected. Using{" "}
+            {deviceInfo.devices[String(deviceInfo.selectedDevice)] ??
+              "another microphone"}{" "}
+            until it is.
+          </p>
+        )}
       </div>
 
       <div className="mb-8">
@@ -147,20 +155,21 @@ export function SectionAudio({ settings }: Props) {
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex-1 min-w-0">
               <span
-                className={`block text-[17px] font-medium ${audioDucking.includeBuiltInSpeakers ? "text-overlay/78" : "text-overlay/58"}`}
+                className={`block text-[17px] font-medium ${audioDucking.includeSpeakers ? "text-overlay/78" : "text-overlay/58"}`}
               >
-                Built-in speakers
+                Speakers
               </span>
               <span className="mt-0.5 block text-[13px] text-overlay/40 leading-snug">
-                Mute Mac speaker output while dictating.
+                Lower built-in, display and other wired speakers while
+                dictating.
               </span>
             </div>
             <Switch
-              checked={audioDucking.includeBuiltInSpeakers}
+              checked={audioDucking.includeSpeakers}
               onCheckedChange={() =>
-                void handleAudioDuckingIncludeBuiltInToggle()
+                void handleAudioDuckingIncludeSpeakersToggle()
               }
-              aria-label="Toggle ducking for built-in speakers"
+              aria-label="Toggle ducking for speakers"
             />
           </div>
           <div className="flex items-center gap-3 px-4 py-3.5">
@@ -171,7 +180,7 @@ export function SectionAudio({ settings }: Props) {
                 Headphones & Bluetooth
               </span>
               <span className="mt-0.5 block text-[13px] text-overlay/40 leading-snug">
-                Also lower headphone volume while dictating.
+                Lower headphones, Bluetooth and USB audio while dictating.
               </span>
             </div>
             <Switch

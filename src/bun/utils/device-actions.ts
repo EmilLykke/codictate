@@ -28,7 +28,7 @@ export const handleDeviceAction = async (
     const selectedDevice = Number(indexStr)
     const deviceName = devices[indexStr]
     const deviceId = deviceDetails?.[indexStr]?.id ?? null
-    await appConfig.setAudioDevice(selectedDevice, deviceName, deviceId)
+    await appConfig.setAudioDevice(deviceName, deviceId)
     onSelected?.(selectedDevice)
     console.log('Selected device:', selectedDevice, deviceName)
   } catch (error) {
