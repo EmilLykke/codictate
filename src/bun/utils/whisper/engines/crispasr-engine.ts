@@ -9,7 +9,9 @@
  * The transcript comes from the JSON file crispasr writes into a directory made for this one
  * run (ADR-0010), never from stdout, which is drained and ignored. On the `nt-vad` path the
  * same directory holds the slices Codictate cut the recording into (`slices.json`, read by
- * `--vad-import`). The directory is removed on every way out.
+ * `--vad-import`). Under auto-detect a `-dl` run detects the language first and writes its own
+ * JSON there (`transcript-language.json`), and the decode runs with that language pinned, so
+ * its prompt matches what was spoken (ADR-0011). The directory is removed on every way out.
  */
 
 import {
@@ -22,15 +24,24 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { log } from '../../logger'
-import { buildWhisperHarnessCommand } from '../whisper-harness-command'
+import {
+  buildLanguageDetectionCommand,
+  buildWhisperHarnessCommand,
+  type LanguageDetectionCommand,
+  type WhisperHarnessCommandOptions,
+} from '../whisper-harness-command'
 import { crispasrTranscript, parseCrispasrJson } from './crispasr-json'
 import { decodeEngineStderr, stderrTail } from './drain-stream'
 import { lowerProcessPriority } from './process-priority'
-import { superviseProcess } from './process-supervisor'
+import {
+  superviseProcess,
+  type SupervisedProcessResult,
+} from './process-supervisor'
 import {
   failedTranscription,
   type HarnessTranscriptionRequest,
   type SpeechEngineAdapter,
+  type TranscriptionResult,
 } from './transcription'
 import {
   planVadSlices,
@@ -152,25 +163,35 @@ async function transcribeInto(
   request: HarnessTranscriptionRequest,
   tuning: NtVadTuning
 ): ReturnType<SpeechEngineAdapter<HarnessTranscriptionRequest>> {
+  const deadline = performance.now() + request.timeoutMs
+  const options: WhisperHarnessCommandOptions = {
+    crispasrBackend: request.crispasrBackend ?? undefined,
+    speechModelId: request.speechModelId,
+    jsonOutputBase: join(outputDir, 'transcript'),
+    vadImportPath: join(outputDir, 'slices.json'),
+    ntVadBeamSearch: tuning.beamSearch,
+    ntVadPrompt: tuning.prompt,
+    modelPath: request.modelPath,
+    language: request.languageCode,
+    audioPath: request.audioPath,
+    translateToEnglish: request.translateToEnglish,
+  }
+
   let command
   try {
     // The binary half of the same check: `findAsrHarnessBinary` throws with its remediation
-    // when crispasr is not in the bundle, and so does the Silero VAD lookup (`timestamps`)
-    // when the bundled weights are missing. The other throw in here - translate on a pinned
-    // backend - is a last-resort invariant that settings-heal and the plan builder make
-    // unreachable, so it lands on the same reason rather than earning a fifth one.
-    command = await buildWhisperHarnessCommand({
-      crispasrBackend: request.crispasrBackend ?? undefined,
-      speechModelId: request.speechModelId,
-      jsonOutputBase: join(outputDir, 'transcript'),
-      vadImportPath: join(outputDir, 'slices.json'),
-      ntVadBeamSearch: tuning.beamSearch,
-      ntVadPrompt: tuning.prompt,
-      modelPath: request.modelPath,
-      language: request.languageCode,
-      audioPath: request.audioPath,
-      translateToEnglish: request.translateToEnglish,
-    })
+    // when crispasr is not in the bundle, and so does the Silero VAD lookup (`timestamps`
+    // and language detection) when the bundled weights are missing. The other throw in here
+    // - translate on a pinned backend - is a last-resort invariant that settings-heal and
+    // the plan builder make unreachable, so it lands on the same reason rather than earning
+    // a fifth one.
+    const detection = await buildLanguageDetectionCommand(options)
+    if (detection !== null) {
+      const detected = await detectLanguage(detection, request, deadline)
+      if (!detected.ok) return detected.failure
+      options.language = detected.language
+    }
+    command = await buildWhisperHarnessCommand(options)
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
     log('whisper', 'ASR harness command unavailable', {
@@ -229,70 +250,16 @@ async function transcribeInto(
     binary: command.binary,
     model: request.modelPath,
     whisperLanguageCode: command.languageArg,
-    languageMode: command.languageArg === 'auto' ? 'auto-detect' : 'fixed',
+    languageMode: request.languageCode === null ? 'auto-detect' : 'fixed',
     modelId: request.speechModelId,
     translateToEnglish: request.translateToEnglish,
     lowPriority: request.lowPriority === true,
     slices,
   })
 
-  const proc = Bun.spawn(command.argv, {
-    stdout: 'pipe',
-    stderr: 'pipe',
-    signal: request.signal,
-    env: {
-      ...process.env,
-      // Avoid C locale / missing UTF-8 so the ASR Harness prints a UTF-8 transcript
-      LC_ALL: 'en_US.UTF-8',
-      LANG: 'en_US.UTF-8',
-    },
-  })
-
-  if (request.lowPriority) lowerProcessPriority(proc.pid, 'whisper')
-
-  const supervised = await superviseProcess(proc, {
-    stdout: proc.stdout,
-    stderr: proc.stderr,
-    timeoutMs: request.timeoutMs,
-  })
-  const stderrText = decodeEngineStderr(supervised.stderr)
-  // Aborting the signal kills the process, which then looks like any other non-zero exit.
-  // The caller asked for that, so it is a cancellation and not an engine failure.
-  if (request.signal?.aborted) {
-    log('whisper', 'ASR harness cancelled', { modelId: request.speechModelId })
-    return failedTranscription('cancelled', request.speechModelId)
-  }
-  if (supervised.status === 'timed_out') {
-    log('whisper', 'ASR harness timed out', {
-      harness: command.harness,
-      timeoutMs: request.timeoutMs,
-      stderr: stderrText.slice(0, 500) || undefined,
-    })
-    return failedTranscription(
-      'engine_timed_out',
-      request.speechModelId,
-      `deadline ${request.timeoutMs} ms: ${stderrTail(stderrText)}`
-    )
-  }
-  if (!supervised.outputComplete) {
-    return failedTranscription(
-      'engine_output_unreadable',
-      request.speechModelId,
-      'process exited but its output pipes did not close'
-    )
-  }
-  if (supervised.exitCode !== 0) {
-    log('whisper', 'ASR harness exited non-zero', {
-      harness: command.harness,
-      exitCode: supervised.exitCode,
-      stderr: stderrText.slice(0, 500) || undefined,
-    })
-    return failedTranscription(
-      'engine_exited_nonzero',
-      request.speechModelId,
-      `exit ${supervised.exitCode}: ${stderrTail(stderrText)}`
-    )
-  }
+  const run = await runCrispasr(command.argv, request, deadline)
+  if (!run.ok) return run.failure
+  const { supervised, stderrText } = run
 
   // Stdout is crispasr's display output. It was drained so the pipe never fills; the
   // transcript is in the JSON file.
@@ -353,4 +320,137 @@ async function transcribeInto(
   })
 
   return { status: 'ok', rawTranscript, timedTranscript }
+}
+
+type CrispasrRun =
+  | {
+      ok: true
+      supervised: Extract<SupervisedProcessResult, { status: 'exited' }>
+      stderrText: string
+    }
+  | { ok: false; failure: TranscriptionResult }
+
+/**
+ * One crispasr spawn, supervised to `deadline`: the language detection run and the decode
+ * share the request's time budget. Cancelled, timed out, pipes left open and a non-zero exit
+ * are failures; an exit 0 is the caller's to read.
+ */
+async function runCrispasr(
+  argv: string[],
+  request: HarnessTranscriptionRequest,
+  deadline: number
+): Promise<CrispasrRun> {
+  const timeoutMs = Math.max(1, Math.round(deadline - performance.now()))
+  const proc = Bun.spawn(argv, {
+    stdout: 'pipe',
+    stderr: 'pipe',
+    signal: request.signal,
+    env: {
+      ...process.env,
+      // Avoid C locale / missing UTF-8 so the ASR Harness prints a UTF-8 transcript
+      LC_ALL: 'en_US.UTF-8',
+      LANG: 'en_US.UTF-8',
+    },
+  })
+
+  if (request.lowPriority) lowerProcessPriority(proc.pid, 'whisper')
+
+  const supervised = await superviseProcess(proc, {
+    stdout: proc.stdout,
+    stderr: proc.stderr,
+    timeoutMs,
+  })
+  const stderrText = decodeEngineStderr(supervised.stderr)
+  // Aborting the signal kills the process, which then looks like any other non-zero exit.
+  // The caller asked for that, so it is a cancellation and not an engine failure.
+  if (request.signal?.aborted) {
+    log('whisper', 'ASR harness cancelled', { modelId: request.speechModelId })
+    return {
+      ok: false,
+      failure: failedTranscription('cancelled', request.speechModelId),
+    }
+  }
+  if (supervised.status === 'timed_out') {
+    log('whisper', 'ASR harness timed out', {
+      timeoutMs: request.timeoutMs,
+      stderr: stderrText.slice(0, 500) || undefined,
+    })
+    return {
+      ok: false,
+      failure: failedTranscription(
+        'engine_timed_out',
+        request.speechModelId,
+        `deadline ${request.timeoutMs} ms: ${stderrTail(stderrText)}`
+      ),
+    }
+  }
+  if (!supervised.outputComplete) {
+    return {
+      ok: false,
+      failure: failedTranscription(
+        'engine_output_unreadable',
+        request.speechModelId,
+        'process exited but its output pipes did not close'
+      ),
+    }
+  }
+  if (supervised.exitCode !== 0) {
+    log('whisper', 'ASR harness exited non-zero', {
+      exitCode: supervised.exitCode,
+      stderr: stderrText.slice(0, 500) || undefined,
+    })
+    return {
+      ok: false,
+      failure: failedTranscription(
+        'engine_exited_nonzero',
+        request.speechModelId,
+        `exit ${supervised.exitCode}: ${stderrTail(stderrText)}`
+      ),
+    }
+  }
+  return { ok: true, supervised, stderrText }
+}
+
+/**
+ * Runs the `-dl` language detection and reads the language it wrote. Under auto-detect the
+ * decode needs it to choose its prompt (ADR-0011), so a run that detects nothing fails the
+ * transcription rather than decoding without knowing (ADR-0005).
+ */
+async function detectLanguage(
+  detection: LanguageDetectionCommand,
+  request: HarnessTranscriptionRequest,
+  deadline: number
+): Promise<
+  { ok: true; language: string } | { ok: false; failure: TranscriptionResult }
+> {
+  const run = await runCrispasr(detection.argv, request, deadline)
+  if (!run.ok) return run
+  let language: string | null = null
+  try {
+    const parsed = parseCrispasrJson(
+      new Uint8Array(readFileSync(detection.jsonPath))
+    )
+    if (parsed.ok && parsed.language !== 'auto') language = parsed.language
+  } catch {
+    // No JSON: reported below with the rest of what came back.
+  }
+  if (language === null) {
+    log('whisper', 'language detection wrote no language', {
+      modelId: request.speechModelId,
+      stderr: run.stderrText.slice(0, 500) || undefined,
+    })
+    return {
+      ok: false,
+      failure: failedTranscription(
+        'engine_output_unreadable',
+        request.speechModelId,
+        `no language in ${detection.jsonPath}: ${stderrTail(run.stderrText)}`
+      ),
+    }
+  }
+  log('whisper', 'language detected', {
+    modelId: request.speechModelId,
+    language,
+  })
+  return { ok: true, language }
 }

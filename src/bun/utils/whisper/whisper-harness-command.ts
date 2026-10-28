@@ -88,7 +88,10 @@ export interface WhisperHarnessCommand {
 export interface WhisperHarnessCommandDependencies {
   resolveBinary: (harness: AsrHarnessId) => Promise<string>
   threadCount: () => number
-  /** The bundled Silero VAD weights. Asked for on the `timestamps` path only. */
+  /**
+   * The bundled Silero VAD weights. Asked for on the `timestamps` path and by the language
+   * detection run.
+   */
   resolveVadModel: () => string
 }
 
@@ -96,13 +99,20 @@ function whisperHarnessThreadCount(): number {
   return Math.max(4, availableParallelism?.() ?? 4)
 }
 
+const DEFAULT_DEPENDENCIES: WhisperHarnessCommandDependencies = {
+  resolveBinary: findAsrHarnessBinary,
+  threadCount: whisperHarnessThreadCount,
+  resolveVadModel: () => requireRuntimeBinary('silero-vad'),
+}
+
 /**
  * The `--prompt` for the `timestamps` and `nt-vad` paths (ADR-0011): one punctuated sentence
  * in the language Whisper will write, so beam search keeps capitals and full stops instead of
- * running on with commas. English also covers Translate to English. Auto-detect gets none:
- * Whisper follows the prompt's language over the detected language token, and with the
- * English prompt turbo wrote Danish speech as English, pure Danish included. Any other pinned
- * language gets none either: untested, so unbiased. On `nt-vad` it is what Edda's card does
+ * running on with commas. English also covers Translate to English. Auto-detect never reaches
+ * here as `auto`: Whisper follows the prompt's language over the detected language token, so
+ * the English prompt turned Danish speech into English. The adapter detects the language first
+ * (`buildLanguageDetectionCommand`) and decodes with it pinned, so the prompt matches what was
+ * spoken. Any other pinned language gets none: untested, so unbiased. On `nt-vad` it is what Edda's card does
  * too (previous text in the prompt slot), and without it Edda wrote no full stop in a 65 s
  * dictation (ADR-0010). Exported for the long-audio check, which fails a Speech Model that
  * writes it back out.
@@ -192,11 +202,7 @@ function crispasrDecoding(
  */
 export async function buildWhisperHarnessCommand(
   options: WhisperHarnessCommandOptions,
-  dependencies: WhisperHarnessCommandDependencies = {
-    resolveBinary: findAsrHarnessBinary,
-    threadCount: whisperHarnessThreadCount,
-    resolveVadModel: () => requireRuntimeBinary('silero-vad'),
-  }
+  dependencies: WhisperHarnessCommandDependencies = DEFAULT_DEPENDENCIES
 ): Promise<WhisperHarnessCommand> {
   const harness = options.harness ?? DEFAULT_ASR_HARNESS
   const pinnedBackend = options.crispasrBackend
@@ -271,5 +277,75 @@ export async function buildWhisperHarnessCommand(
     decoding,
     jsonPath,
     vadImportPath: decoding === 'nt-vad' ? (vadImportPath ?? null) : null,
+  }
+}
+
+/** The `-dl` run that detects the language before an auto-detect decode. */
+export interface LanguageDetectionCommand {
+  binary: string
+  argv: string[]
+  /** The JSON file it writes, with the language in `result.language`. */
+  jsonPath: string
+}
+
+/**
+ * The run that detects the spoken language before the decode, or `null` when the decode
+ * needs none (ADR-0011).
+ *
+ * Under auto-detect the decode cannot take the dictation prompt as it is: Whisper writes the
+ * prompt's language over the language it detected, so one prompt for every language turns the
+ * other languages into it. So the adapter runs this first, then builds the decode with the
+ * detected language pinned, and `dictationPrompt` picks the prompt for it. Detection is the
+ * decode's own: one decision on the first 30 s of the speech, with the same VAD the
+ * `timestamps` path uses, and it never sees a prompt. It costs a second model load, about
+ * 0.6 s.
+ *
+ * `null` for a pinned language, for Translate to English (the English prompt matches its
+ * English output whatever was spoken), for a pinned backend (hviske takes no prompt), and for
+ * a Speech Model whose `nt-vad` decode runs without the prompt.
+ */
+export async function buildLanguageDetectionCommand(
+  options: WhisperHarnessCommandOptions,
+  dependencies: WhisperHarnessCommandDependencies = DEFAULT_DEPENDENCIES
+): Promise<LanguageDetectionCommand | null> {
+  if (options.crispasrBackend != null || options.translateToEnglish) return null
+  if (asrHarnessLanguageArg(options.language) !== 'auto') return null
+  const decoding = crispasrDecoding(options)
+  if (decoding === 'cohere') return null
+  if (
+    decoding === 'nt-vad' &&
+    !(options.ntVadPrompt ?? ntVadPromptForModel(options.speechModelId))
+  ) {
+    return null
+  }
+
+  const binary = await dependencies.resolveBinary(
+    options.harness ?? DEFAULT_ASR_HARNESS
+  )
+  const jsonOutputBase = `${options.jsonOutputBase}-language`
+  return {
+    binary,
+    argv: [
+      binary,
+      '-m',
+      options.modelPath,
+      '-t',
+      String(dependencies.threadCount()),
+      '--language',
+      'auto',
+      '-f',
+      options.audioPath,
+      '--no-prints',
+      '--vad',
+      '-vm',
+      dependencies.resolveVadModel(),
+      '-vt',
+      VAD_THRESHOLD,
+      '-dl',
+      '-ojf',
+      '-of',
+      jsonOutputBase,
+    ],
+    jsonPath: `${jsonOutputBase}.json`,
   }
 }

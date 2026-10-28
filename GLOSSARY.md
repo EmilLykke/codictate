@@ -56,6 +56,8 @@ _Avoid_: audio device, input device
 
 **Transcription Language** - the language the user has fixed for recognition, or automatic detection.
 
+**Detected Language** - the language the Speech Engine settled on when the Transcription Language is automatic. One per Dictation or File Transcription: a Dictation that switches language partway is still written in its Detected Language.
+
 **Translate to English** - a mode where the Speech Engine outputs English regardless of the spoken language, rather than transcribing verbatim. Distinct from Transcription Language, which selects the input language.
 
 **File Transcription** - transcribing an existing audio or video file with the File Transcription Settings, or with a Speech Model and Transcription Language the request names. Asked for from the command line or in Codictate's window. Not a Dictation: no Dictation Shortcut, no microphone, no Dictionary or Formatting Mode, and nothing is pasted; the result is the Raw Transcript, in English when Translate to English is on (from the command line, only when the request asks for it). File Transcriptions run one at a time, and never make a Dictation wait. Only those asked for in Codictate's window are kept in History; one asked for from the command line belongs to whoever asked.

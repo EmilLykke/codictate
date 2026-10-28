@@ -53,8 +53,9 @@
  *   English; when timed, no utterance window without a part and no repeated parts.
  * - Auto-detect (every multilingual model that is not pinned): the three short clips and
  *   `da_2min` in each language, run with `--language auto`, come out in the language spoken
- *   (more of its common words than the other's). The English prompt under auto once turned
- *   turbo's Danish, pure Danish included, into English (ADR-0011).
+ *   (more of its common words than the other's), through the adapter, which detects the
+ *   language first and prompts in it. The English prompt under auto once turned turbo's
+ *   Danish, pure Danish included, into English (ADR-0011).
  * - On the `timestamps` path, the VAD loses nothing (ADR-0011): 20 short LibriSpeech clips,
  *   and 10 FLEURS `da_dk` clips for a multilingual model, run with the app's argv and with
  *   the same argv minus `--vad -vm <path> -vt <x>`. Each transcript is aligned against the

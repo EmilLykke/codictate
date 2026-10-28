@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  buildLanguageDetectionCommand,
   buildWhisperHarnessCommand,
   type WhisperHarnessCommandDependencies,
 } from './whisper-harness-command'
@@ -508,5 +509,92 @@ describe('buildWhisperHarnessCommand', () => {
       'translate to English is not available on the crispasr cohere backend'
     )
     expect(resolverCalls).toBe(0)
+  })
+})
+
+describe('buildLanguageDetectionCommand', () => {
+  const detection = (
+    options: Partial<Parameters<typeof buildLanguageDetectionCommand>[0]>
+  ) =>
+    buildLanguageDetectionCommand(
+      {
+        ...common,
+        speechModelId: 'large-v3-turbo-q5_0',
+        modelPath: '/models/turbo.bin',
+        language: null,
+        ...options,
+      },
+      dependencies
+    )
+
+  test('auto-detect runs -dl first, with the timestamps VAD and no prompt', async () => {
+    expect(await detection({})).toEqual({
+      binary: '/test/bin/crispasr',
+      argv: [
+        '/test/bin/crispasr',
+        '-m',
+        '/models/turbo.bin',
+        '-t',
+        '8',
+        '--language',
+        'auto',
+        '-f',
+        '/audio/input.wav',
+        '--no-prints',
+        '--vad',
+        '-vm',
+        '/test/bin/ggml-silero-v6.2.0.bin',
+        '-vt',
+        '0.25',
+        '-dl',
+        '-ojf',
+        '-of',
+        '/tmp/run/transcript-language',
+      ],
+      jsonPath: '/tmp/run/transcript-language.json',
+    })
+  })
+
+  test('an nt-vad Speech Model with the prompt detects too', async () => {
+    const command = await detection({
+      speechModelId: 'large-v3-q5_0',
+      modelPath: '/models/large-v3-q5_0.bin',
+    })
+    expect(command?.argv).toContain('-dl')
+    expect(command?.argv).not.toContain('--backend')
+  })
+
+  test('nothing to detect: a pinned language, Translate to English, hviske, or no prompt on nt-vad', async () => {
+    expect(await detection({ language: 'da' })).toBeNull()
+    expect(await detection({ language: 'en' })).toBeNull()
+    expect(await detection({ translateToEnglish: true })).toBeNull()
+    expect(
+      await detection({
+        speechModelId: 'hviske-v5-tiny-q5_0',
+        crispasrBackend: 'cohere',
+      })
+    ).toBeNull()
+    expect(
+      await detection({
+        speechModelId: 'large-v2',
+        modelPath: '/models/large-v2.bin',
+      })
+    ).toBeNull()
+  })
+
+  test("the decode with the detected language pinned gets that language's prompt", async () => {
+    const decode = (language: string) =>
+      buildWhisperHarnessCommand(
+        {
+          ...common,
+          speechModelId: 'large-v3-turbo-q5_0',
+          modelPath: '/models/turbo.bin',
+          language,
+        },
+        dependencies
+      )
+    expect(promptOf((await decode('da')).argv)).toBe(DANISH_PROMPT)
+    expect(promptOf((await decode('en')).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await decode('de')).argv)).toBeNull()
   })
 })
