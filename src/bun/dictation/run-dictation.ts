@@ -57,6 +57,11 @@ export interface DictationRunRequest {
   raw?: boolean
   /** Stops the Speech Engine. Only a command-line Dictation passes one, to cancel. */
   signal?: AbortSignal
+  /**
+   * The Detected Language, when it was detected while the user was speaking
+   * (`language-while-recording.ts`). Under automatic detection only.
+   */
+  detectedLanguage?: string
 }
 
 /**
@@ -103,7 +108,8 @@ export async function runDictation(
       plan,
       request.audioPath,
       engineProcessTimeoutMs(request.durationMs),
-      modelManager
+      modelManager,
+      request.detectedLanguage
     ),
     signal: request.signal,
   })

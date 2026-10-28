@@ -146,7 +146,10 @@ function dictationPrompt(
 const VAD_THRESHOLD = '0.25'
 
 function crispasrDecoding(
-  options: WhisperHarnessCommandOptions
+  options: Pick<
+    WhisperHarnessCommandOptions,
+    'crispasrBackend' | 'speechModelId'
+  >
 ): CrispasrDecoding {
   if (options.crispasrBackend === 'cohere') return 'cohere'
   // An unknown Speech Model id has not been checked either, so it takes Edda's path.
@@ -280,6 +283,35 @@ export async function buildWhisperHarnessCommand(
   }
 }
 
+/**
+ * Whether a decode has to know the Detected Language before it starts, to choose its prompt.
+ * No for a pinned language, for Translate to English (the English prompt matches its English
+ * output whatever was spoken), for a pinned backend (hviske takes no prompt), and for a Speech
+ * Model whose `nt-vad` decode runs without the prompt. Asked by the adapter, and by a Dictation
+ * that detects while the user is still speaking.
+ */
+export function needsLanguageDetection(
+  options: Pick<
+    WhisperHarnessCommandOptions,
+    | 'crispasrBackend'
+    | 'translateToEnglish'
+    | 'language'
+    | 'speechModelId'
+    | 'ntVadPrompt'
+  >
+): boolean {
+  if (options.crispasrBackend != null || options.translateToEnglish) {
+    return false
+  }
+  if (asrHarnessLanguageArg(options.language) !== 'auto') return false
+  const decoding = crispasrDecoding(options)
+  if (decoding === 'cohere') return false
+  return (
+    decoding === 'timestamps' ||
+    (options.ntVadPrompt ?? ntVadPromptForModel(options.speechModelId))
+  )
+}
+
 /** The `-dl` run that detects the language before an auto-detect decode. */
 export interface LanguageDetectionCommand {
   binary: string
@@ -300,24 +332,13 @@ export interface LanguageDetectionCommand {
  * `timestamps` path uses, and it never sees a prompt. It costs a second model load, about
  * 0.6 s.
  *
- * `null` for a pinned language, for Translate to English (the English prompt matches its
- * English output whatever was spoken), for a pinned backend (hviske takes no prompt), and for
- * a Speech Model whose `nt-vad` decode runs without the prompt.
+ * `null` when `needsLanguageDetection` says the decode needs none.
  */
 export async function buildLanguageDetectionCommand(
   options: WhisperHarnessCommandOptions,
   dependencies: WhisperHarnessCommandDependencies = DEFAULT_DEPENDENCIES
 ): Promise<LanguageDetectionCommand | null> {
-  if (options.crispasrBackend != null || options.translateToEnglish) return null
-  if (asrHarnessLanguageArg(options.language) !== 'auto') return null
-  const decoding = crispasrDecoding(options)
-  if (decoding === 'cohere') return null
-  if (
-    decoding === 'nt-vad' &&
-    !(options.ntVadPrompt ?? ntVadPromptForModel(options.speechModelId))
-  ) {
-    return null
-  }
+  if (!needsLanguageDetection(options)) return null
 
   const binary = await dependencies.resolveBinary(
     options.harness ?? DEFAULT_ASR_HARNESS

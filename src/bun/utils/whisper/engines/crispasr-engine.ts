@@ -186,7 +186,9 @@ async function transcribeInto(
     // the plan builder make unreachable, so it lands on the same reason rather than earning
     // a fifth one.
     const detection = await buildLanguageDetectionCommand(options)
-    if (detection !== null) {
+    if (detection !== null && request.detectedLanguage !== undefined) {
+      options.language = request.detectedLanguage
+    } else if (detection !== null) {
       const detected = await detectLanguage(detection, request, deadline)
       if (!detected.ok) return detected.failure
       options.language = detected.language
@@ -337,7 +339,8 @@ type CrispasrRun =
  */
 async function runCrispasr(
   argv: string[],
-  request: HarnessTranscriptionRequest,
+  request: LanguageDetectionRequest &
+    Pick<HarnessTranscriptionRequest, 'timeoutMs'>,
   deadline: number
 ): Promise<CrispasrRun> {
   const timeoutMs = Math.max(1, Math.round(deadline - performance.now()))
@@ -418,7 +421,7 @@ async function runCrispasr(
  */
 async function detectLanguage(
   detection: LanguageDetectionCommand,
-  request: HarnessTranscriptionRequest,
+  request: LanguageDetectionRequest,
   deadline: number
 ): Promise<
   { ok: true; language: string } | { ok: false; failure: TranscriptionResult }
@@ -453,4 +456,51 @@ async function detectLanguage(
     language,
   })
   return { ok: true, language }
+}
+
+/** What a language detection run needs: a slice of a Transcription Request. */
+type LanguageDetectionRequest = Pick<
+  HarnessTranscriptionRequest,
+  'speechModelId' | 'timeoutMs' | 'signal' | 'lowPriority'
+>
+
+/**
+ * The Detected Language of a recording, from one `-dl` run on its own: for a Dictation that
+ * detects while the user is still speaking (`language-while-recording.ts`). `null` when the
+ * run failed or was cancelled; the decode then detects for itself.
+ */
+export async function detectSpokenLanguage(request: {
+  speechModelId: string
+  modelPath: string
+  audioPath: string
+  timeoutMs: number
+  signal?: AbortSignal
+}): Promise<string | null> {
+  let outputDir: string
+  try {
+    outputDir = mkdtempSync(join(tmpdir(), 'codictate-crispasr-language-'))
+  } catch {
+    return null
+  }
+  try {
+    const detection = await buildLanguageDetectionCommand({
+      speechModelId: request.speechModelId,
+      modelPath: request.modelPath,
+      audioPath: request.audioPath,
+      language: null,
+      jsonOutputBase: join(outputDir, 'transcript'),
+    })
+    if (detection === null) return null
+    const detected = await detectLanguage(
+      detection,
+      request,
+      performance.now() + request.timeoutMs
+    )
+    return detected.ok ? detected.language : null
+  } catch (err) {
+    log('whisper', 'language detection unavailable', { err: String(err) })
+    return null
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true })
+  }
 }

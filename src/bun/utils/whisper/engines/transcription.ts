@@ -55,6 +55,12 @@ export interface HarnessTranscriptionRequest {
   modelPath: string
   /** The whisper.cpp language token, or `null` for automatic detection. */
   languageCode: string | null
+  /**
+   * Under automatic detection, the Detected Language when it is already known: a Dictation
+   * detects it while the user is still speaking. The decode then runs with it pinned and
+   * skips its own detection run. Ignored when the decode needs no detection.
+   */
+  detectedLanguage?: string
   translateToEnglish: boolean
   /** crispasr `--backend` to pin, or `null` for the default backend. hviske needs `cohere`. */
   crispasrBackend: CrispasrBackendId | null
@@ -249,7 +255,8 @@ export interface SpeechModelLocations {
  * Nothing is re-derived here: the Speech Model, the Speech Engine, the crispasr backend, the
  * language and the translate flag were all decided when the plan was built (ADR-0005), and
  * this copies them across. The only new facts are the audio path, which is now a parameter
- * rather than a process-global, and the resolved weights path.
+ * rather than a process-global, the resolved weights path, and the Detected Language when the
+ * Dictation detected it while recording.
  *
  * Batch only. A live plan never reaches this: Live Transcription is a session the Parakeet
  * Native Helper runs for itself, with no Request and no Result.
@@ -258,7 +265,8 @@ export function transcriptionRequestFromPlan(
   plan: RunnableDictationPlan,
   audioPath: string,
   timeoutMs: number,
-  locations: SpeechModelLocations
+  locations: SpeechModelLocations,
+  detectedLanguage?: string
 ): TranscriptionRequest {
   if (plan.engineId === PARAKEET_ENGINE_ID) {
     return {
@@ -277,6 +285,7 @@ export function transcriptionRequestFromPlan(
     timeoutMs,
     modelPath: locations.getModelPath(plan.speechModelId),
     languageCode: plan.languageCode,
+    ...(detectedLanguage === undefined ? {} : { detectedLanguage }),
     translateToEnglish: plan.translateToEnglish,
     crispasrBackend: plan.crispasrBackend,
   }

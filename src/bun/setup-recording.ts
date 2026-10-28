@@ -79,6 +79,11 @@ import {
   watchGrowingWav,
   type GrowingWavWatcher,
 } from './utils/audio/growing-wav'
+import {
+  startLanguageWhileRecording,
+  type LanguageWhileRecording,
+} from './dictation/language-while-recording'
+import { modelManager } from './utils/whisper/model-manager'
 
 const getShortcutDefinition = (
   id: ShortcutId,
@@ -435,7 +440,8 @@ export const setupRecording = (
     plan: RunnableDictationPlan,
     session: RecordingSession,
     capture: CaptureResult,
-    delivery: DictationDelivery
+    delivery: DictationDelivery,
+    languageCheck: LanguageWhileRecording | null
   ) => {
     // The recorder has exited, whichever way. Nothing newer can be running: this Dictation
     // still holds the claim until the release below.
@@ -449,6 +455,7 @@ export const setupRecording = (
     const cancelled =
       capture.discarded || session.discard || delivery.signal?.aborted === true
     if (cancelled || capture.skipReason !== null) {
+      languageCheck?.cancel()
       releaseDictationPipeline(delivery.claim)
       delivery.onFinished?.(
         cancelled
@@ -481,9 +488,14 @@ export const setupRecording = (
       // not part of producing this transcript.
       await appConfig.acceptPreviouslyAppliedEntries()
 
+      // Under automatic detection, the language checked while the user spoke. Null when there
+      // was too little speech, and the decode detects for itself.
+      const detectedLanguage = await languageCheck?.finish()
+
       const formattingSettings = appConfig.getFormattingRuntimeSettings()
       const outcome = await runDictation({
         plan,
+        detectedLanguage: detectedLanguage ?? undefined,
         audioPath: capture.audioPath,
         durationMs: capture.durationMs,
         formattingSettings:
@@ -536,6 +548,7 @@ export const setupRecording = (
       log('whisper', 'transcription pipeline failed', { err: message })
       finish = { status: 'error', message: `The Dictation failed: ${message}` }
     } finally {
+      languageCheck?.cancel()
       releaseDictationPipeline(delivery.claim)
     }
 
@@ -877,11 +890,19 @@ export const setupRecording = (
         startedAtMs: Date.now(),
       }
       recordingSession = session
+      let languageCheck: LanguageWhileRecording | null = null
       recorderProc = await startRecording(
         appConfig,
         plan,
         session,
-        (capture) => handleCaptureFinished(plan, session, capture, delivery),
+        (capture) =>
+          handleCaptureFinished(
+            plan,
+            session,
+            capture,
+            delivery,
+            languageCheck
+          ),
         getAudioDevices
       )
 
@@ -900,6 +921,12 @@ export const setupRecording = (
         p.kill('SIGINT')
         await p.exited
       } else if (recorderProc) {
+        languageCheck = startLanguageWhileRecording(plan, {
+          recordingPath: RECORDING_PATH,
+          startedAtMs: session.startedAtMs,
+          ignoreLeadingMs: startChimeMs() + 150,
+          modelPath: modelManager.getModelPath(plan.speechModelId),
+        })
         if (mode === 'hybrid' && armHoldGate) armHoldGateAfterStart()
         else resetHoldGate()
         delivery.onRecording?.(session)
@@ -1194,6 +1221,12 @@ export const setupRecording = (
     await tryStopStream()
   }
 
+  /** How long the start chime plays into the microphone as the recording opens. */
+  const startChimeMs = () =>
+    appConfig.getSoundEffectsEnabled()
+      ? duckDelayAfterStartChimeMs(appConfig.getFunModeEnabled())
+      : 0
+
   /**
    * Follows the recording as it is written and calls `onEnd` once the user has spoken and
    * then paused (`dictation/end-of-speech.ts`). The start chime is skipped, since it plays
@@ -1203,11 +1236,8 @@ export const setupRecording = (
     startedAtMs: number,
     onEnd: () => void
   ): GrowingWavWatcher => {
-    const chimeMs = appConfig.getSoundEffectsEnabled()
-      ? duckDelayAfterStartChimeMs(appConfig.getFunModeEnabled())
-      : 0
     const detector = createEndOfSpeechDetector({
-      ignoreLeadingMs: chimeMs + 150,
+      ignoreLeadingMs: startChimeMs() + 150,
     })
     let meter: ((samples: Int16Array) => void) | null = null
     let ended = false

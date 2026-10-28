@@ -44,6 +44,8 @@ export interface EndOfSpeechDetector {
   push(levelDb: number): boolean
   readonly ended: boolean
   readonly speechHeard: boolean
+  /** Speech heard so far, the skipped start included as none. */
+  readonly speechMs: number
 }
 
 export function createEndOfSpeechDetector(
@@ -88,6 +90,9 @@ export function createEndOfSpeechDetector(
     },
     get speechHeard() {
       return speechMs >= options.minSpeechMs
+    },
+    get speechMs() {
+      return speechMs
     },
   }
 }
