@@ -55,10 +55,24 @@ The long-audio check now guards this. On the `timestamps` path it runs 20 short 
 The prompt is written in the language Whisper will write:
 
 - Danish: "Hej, dette er en diktering. Jeg skriver i hele sætninger, med kommaer hvor jeg holder pause."
-- English, auto-detect, and any run with Translate to English: "Hello, this is a dictation. I write in full sentences, with commas where I pause."
+- English, and any run with Translate to English: "Hello, this is a dictation. I write in full sentences, with commas where I pause."
+- Auto-detect without Translate to English: no prompt.
 - Any other pinned language: no prompt. It is untested, so we do not bias it.
 
-Auto-detect gets the English prompt because a 71 s Danish FLEURS clip with `--language auto` and the English prompt stayed Danish. A Danish prompt was equally good on that clip.
+### Auto-detect gets no prompt (amended 2026-10-28)
+
+Auto-detect first got the English prompt, because a 71 s Danish FLEURS clip with `--language auto` and the English prompt stayed Danish. In real use it did not: Danish Dictations came out as English translations, for example "Vi skal for eksempel have set på at sætte up login med en authentication provider" as "We should have set up a login with an authentication provider."
+
+Measured on large-v3-turbo-q5_0 with crispasr v0.8.41, on 22 clips: TTS Danish with and without English words (some spliced in from an English voice), pure Danish, a real 65 s dictation, FLEURS `da_dk`, and English.
+
+- **Language detection was right every time.** It said `da` (p about 0.99) on every mostly Danish clip, including the ones written in English, and `en` only on mostly English audio. It is one decision per run, on the first 30 s of the VAD-joined audio, and it does not see the prompt: the detected p was identical with the English prompt, the Danish prompt and none.
+- **The English prompt wrote Danish as English.** Whisper follows the prompt's language over the `<|da|>` token. With the app's argv, 3 mostly Danish clips came out in English, pure Danish among them ("Jeg tænkte at vi skulle flytte mødet til torsdag" became "I think we should leave a meeting on Thursday"). Without the VAD 5 did, greedy 9. Without the English prompt (none, Danish, or the argv before this ADR) none did. Once a window turns English the rest of the run follows it.
+- **The Danish prompt turns English speech partly Danish**, even with `en` pinned ("Kan du move the meeting..."). So no single prompt is safe under auto.
+- **No prompt costs little punctuation under auto.** Against the matching prompt, the same full stops on every clip, a lowercase first word on two long English clips, and fewer commas. The Danish prompt put a comma at nearly every pause on a hesitant clip ("kigget på, den der fejl, i loginsiden, og, den skyldes vist").
+
+Considered: detecting first with `crispasr -dl` and then decoding with the detected language pinned and its prompt. It fixed every clip, but it loads the model twice: about 0.6 s more on a 5-10 s Dictation (+60%), 0.8 s on 60 s. crispasr has no flag that detects and chooses a prompt in one process. Not worth it for the punctuation measured; revisit if real dictations under auto miss capitals or full stops, ideally with detection while the user is still speaking.
+
+The JSON's `result.language` says `da` even when the text is English, so nothing downstream could have noticed. The long-audio check now runs Danish and English clips under auto and fails a model that writes them in the other language. Switching language within one Dictation is a separate question (issue #84).
 
 Without the VAD, small-q5_1 once wrote the Danish prompt into the transcript three times. It has not been seen with the VAD, but the long-audio check fails any transcript on this path that repeats four words of the prompt in a row.
 
@@ -84,7 +98,7 @@ The long-audio check from ADR-0010 passed on large-v3-turbo-q5_0 with `-vt 0.35`
 
 - The pauses were TTS pauses, a stand-in for real hesitation. This is why the change is a trial until it has been used for real dictation.
 - The punctuation was measured only on large-v3-turbo-q5_0. The other Speech Models on the `timestamps` path (small.en-q5_1, medium.en-q5_0, small-q5_1) get the same flags; for them only the lost speech was measured.
-- The English prompt with auto-detect was checked only on Danish.
+- Auto-detect ran with the English prompt until 2026-10-28, and that turned Danish into English (see "Auto-detect gets no prompt").
 
 ## Consequences
 

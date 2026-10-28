@@ -156,15 +156,25 @@ describe('buildWhisperHarnessCommand', () => {
     expect(promptOf((await timestampsCommand('da')).argv)).toBe(DANISH_PROMPT)
   })
 
-  test('English, auto-detect and Translate to English get the English prompt', async () => {
+  test('English and Translate to English get the English prompt', async () => {
     expect(promptOf((await timestampsCommand('en')).argv)).toBe(ENGLISH_PROMPT)
-    expect(promptOf((await timestampsCommand(null)).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await timestampsCommand(null, true)).argv)).toBe(
+      ENGLISH_PROMPT
+    )
     expect(promptOf((await timestampsCommand('da', true)).argv)).toBe(
       ENGLISH_PROMPT
     )
     expect(promptOf((await timestampsCommand('de', true)).argv)).toBe(
       ENGLISH_PROMPT
     )
+  })
+
+  test('auto-detect gets no prompt, so a Danish Dictation is not written in English', async () => {
+    const command = await timestampsCommand(null)
+    expect(command.languageArg).toBe('auto')
+    expect(command.argv).not.toContain('--prompt')
+    expect(command.argv).toContain('--vad')
+    expect(command.argv).toContain('-bs')
   })
 
   test('any other pinned language gets no prompt, and keeps the VAD and beam search', async () => {
@@ -346,7 +356,8 @@ describe('buildWhisperHarnessCommand', () => {
     expect((await ntVad('da')).decoding).toBe('nt-vad')
     expect(promptOf((await ntVad('da')).argv)).toBe(DANISH_PROMPT)
     expect(promptOf((await ntVad('en')).argv)).toBe(ENGLISH_PROMPT)
-    expect(promptOf((await ntVad(null)).argv)).toBe(ENGLISH_PROMPT)
+    expect(promptOf((await ntVad(null)).argv)).toBeNull()
+    expect(promptOf((await ntVad(null, true)).argv)).toBe(ENGLISH_PROMPT)
     expect(promptOf((await ntVad('da', true)).argv)).toBe(ENGLISH_PROMPT)
     expect(promptOf((await ntVad('de')).argv)).toBeNull()
   })

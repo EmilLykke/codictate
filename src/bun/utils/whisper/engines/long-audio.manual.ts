@@ -51,6 +51,10 @@
  *   before it (a decoding loop, which the heard share alone does not catch).
  * - Translate (every selected installed model with `translationSupport`, `-tr` on Danish):
  *   English; when timed, no utterance window without a part and no repeated parts.
+ * - Auto-detect (every multilingual model that is not pinned): the three short clips and
+ *   `da_2min` in each language, run with `--language auto`, come out in the language spoken
+ *   (more of its common words than the other's). The English prompt under auto once turned
+ *   turbo's Danish, pure Danish included, into English (ADR-0011).
  * - On the `timestamps` path, the VAD loses nothing (ADR-0011): 20 short LibriSpeech clips,
  *   and 10 FLEURS `da_dk` clips for a multilingual model, run with the app's argv and with
  *   the same argv minus `--vad -vm <path> -vt <x>`. Each transcript is aligned against the
@@ -1692,6 +1696,44 @@ describe('long-audio check', () => {
         expect(repeatedParts(timed!)).toBe(0)
       },
       RUN_TIMEOUT_MS
+    )
+  }
+
+  // ADR-0011: under auto-detect the transcript stays in the language spoken.
+  for (const installed of models.filter(
+    (m) => m.pinnedLanguage === null && m.langs.length > 1
+  )) {
+    const id = installed.model.id
+    test.skipIf(skipReason !== null)(
+      `${id}: auto-detect writes Danish as Danish and English as English`,
+      async () => {
+        const clips = [
+          ...shortClips,
+          ...longClips.filter((c) => c.name === 'da_2min'),
+        ]
+        const failures: string[] = []
+        for (const clip of clips) {
+          const result = await transcribe({
+            ...request(installed, clip.path, clip.lang),
+            languageCode: null,
+          })
+          if (result.status !== 'ok') {
+            failures.push(`${clip.name}: ${result.status}`)
+            continue
+          }
+          const words = tokenizeForWer(result.rawTranscript)
+          const english = shareOf(words, ENGLISH_WORDS)
+          const danish = shareOf(words, DANISH_WORDS)
+          const spoken = clip.lang === 'da' ? danish : english
+          const other = clip.lang === 'da' ? english : danish
+          if (spoken <= other)
+            failures.push(
+              `${clip.name}: English words ${(english * 100).toFixed(0)}%, Danish ${(danish * 100).toFixed(0)}%: "${result.rawTranscript.slice(0, 80)}"`
+            )
+        }
+        expect(failures).toEqual([])
+      },
+      RUN_TIMEOUT_MS * 4
     )
   }
 

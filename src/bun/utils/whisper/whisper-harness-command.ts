@@ -99,11 +99,13 @@ function whisperHarnessThreadCount(): number {
 /**
  * The `--prompt` for the `timestamps` and `nt-vad` paths (ADR-0011): one punctuated sentence
  * in the language Whisper will write, so beam search keeps capitals and full stops instead of
- * running on with commas. English also covers auto-detect (a Danish clip stayed Danish under
- * it) and Translate to English. Any other pinned language gets none: untested, so unbiased.
- * On `nt-vad` it is what Edda's card does too (previous text in the prompt slot), and without
- * it Edda wrote no full stop in a 65 s dictation (ADR-0010). Exported for the long-audio check,
- * which fails a Speech Model that writes it back out.
+ * running on with commas. English also covers Translate to English. Auto-detect gets none:
+ * Whisper follows the prompt's language over the detected language token, and with the
+ * English prompt turbo wrote Danish speech as English, pure Danish included. Any other pinned
+ * language gets none either: untested, so unbiased. On `nt-vad` it is what Edda's card does
+ * too (previous text in the prompt slot), and without it Edda wrote no full stop in a 65 s
+ * dictation (ADR-0010). Exported for the long-audio check, which fails a Speech Model that
+ * writes it back out.
  */
 export const DICTATION_PROMPT = {
   en: 'Hello, this is a dictation. I write in full sentences, with commas where I pause.',
@@ -114,7 +116,7 @@ function dictationPrompt(
   languageArg: string,
   translateToEnglish: boolean | undefined
 ): string | null {
-  if (translateToEnglish || languageArg === 'auto' || languageArg === 'en') {
+  if (translateToEnglish || languageArg === 'en') {
     return DICTATION_PROMPT.en
   }
   if (languageArg === 'da') return DICTATION_PROMPT.da
