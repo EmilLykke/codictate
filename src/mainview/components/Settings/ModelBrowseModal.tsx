@@ -5,6 +5,7 @@ import {
   type SpeechModel,
   formatModelSize,
   formatRamSize,
+  RECOMMENDED_DANISH_SPEECH_MODEL_ID,
 } from "../../../shared/speech-models";
 import { MODEL_RATINGS } from "../../../shared/model-ratings";
 import { TRANSCRIPTION_LANGUAGE_OPTIONS } from "../../../shared/transcription-languages";
@@ -98,6 +99,18 @@ function StatBar({
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * The "Recommended for Danish" pill. Emerald so it never reads as the blue "Downloaded"
+ * pill; it sits with the tags and never moves the row.
+ */
+function RecommendedBadge({ children }: { children: string }) {
+  return (
+    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-emerald/15 text-accent-emerald/80 border border-accent-emerald/25">
+      {children}
+    </span>
   );
 }
 
@@ -248,6 +261,12 @@ export function ModelBrowseModal({
                               <TagBadge>
                                 {formatRamSize(model.peakRamMB)}
                               </TagBadge>
+                              {model.id ===
+                                RECOMMENDED_DANISH_SPEECH_MODEL_ID && (
+                                <RecommendedBadge>
+                                  Recommended for Danish
+                                </RecommendedBadge>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2.5 shrink-0">
