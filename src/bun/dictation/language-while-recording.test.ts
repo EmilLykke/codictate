@@ -2,9 +2,12 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { buildDictationPlan } from '../../shared/dictation-plan'
+import { EKKO_ENGINE_ID } from '../../shared/speech-models'
 import { readWavSamples } from '../utils/whisper/engines/vad-slices'
 import {
   detectLanguageWhileRecording,
+  startLanguageWhileRecording,
   wavBytes,
 } from './language-while-recording'
 
@@ -167,6 +170,38 @@ describe('detectLanguageWhileRecording', () => {
     await settle()
     await settle()
     expect(existsSync(h.dir!)).toBe(false)
+  })
+})
+
+describe('startLanguageWhileRecording', () => {
+  test('checks nothing for an ekko Dictation, whatever its language says', () => {
+    const autoWhisper = buildDictationPlan(
+      {
+        speechModelId: 'large-v3-turbo-q5_0',
+        transcriptionLanguageId: 'auto',
+        translateDefaultLanguageId: 'auto',
+        translateToEnglish: false,
+        streamMode: false,
+        addPunctuation: false,
+      },
+      {
+        isModelAvailable: () => true,
+        streamSupported: true,
+        punctuationModelInstalled: false,
+      }
+    )
+    if (autoWhisper.status !== 'runnable') throw new Error('expected runnable')
+    const check = startLanguageWhileRecording(
+      { ...autoWhisper, engineId: EKKO_ENGINE_ID },
+      {
+        recordingPath: '/nonexistent/recording.wav',
+        startedAtMs: 0,
+        ignoreLeadingMs: 0,
+        modelPath: '/nonexistent/ekko.gguf',
+      }
+    )
+    check?.cancel()
+    expect(check).toBeNull()
   })
 })
 

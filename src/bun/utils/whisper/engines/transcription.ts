@@ -2,8 +2,8 @@
  * The Speech Engine Adapter contract: a **Transcription Request** in, a **Transcription
  * Result** out.
  *
- * One interface, two implementations (crispasr and the Parakeet Native Helper) and two
- * callers (the Dictation pipeline and the benchmark). It knows nothing about the Dictionary,
+ * One interface, three implementations (crispasr, the Parakeet Native Helper and ekko on
+ * `parakeet-cli`) and two callers (the Dictation pipeline and the benchmark). It knows nothing about the Dictionary,
  * Formatting Modes, history or the clipboard, and it takes its audio as a parameter rather
  * than reading `RECORDING_PATH` - which is what stopped a Benchmark Run from copying every
  * Sample over the running app's recording buffer.
@@ -15,7 +15,7 @@
  *
  * This module is pure - no spawn, no filesystem, no platform probe - so the derivation and
  * the failure sentences are covered by the default `bun test` run. The spawning lives in
- * `crispasr-engine.ts` and `parakeet-engine.ts`.
+ * `crispasr-engine.ts`, `parakeet-engine.ts` and `ekko-engine.ts`.
  *
  * Live Transcription is outside this interface on purpose: the Parakeet Native Helper
  * captures, transcribes and pastes for itself, so there is no result to return. See
@@ -28,6 +28,7 @@ import {
   type RunnableDictationPlan,
 } from '../../../../shared/dictation-plan'
 import {
+  EKKO_ENGINE_ID,
   PARAKEET_ENGINE_ID,
   type SpeechEngineId,
 } from '../../../../shared/speech-models'
@@ -42,7 +43,10 @@ import type { ParakeetSession } from './parakeet-session'
  * this adapter still calls it rather than assembling argv of its own.
  */
 export interface HarnessTranscriptionRequest {
-  engineId: Exclude<SpeechEngineId, typeof PARAKEET_ENGINE_ID>
+  engineId: Exclude<
+    SpeechEngineId,
+    typeof PARAKEET_ENGINE_ID | typeof EKKO_ENGINE_ID
+  >
   /**
    * Which Speech Model this is. Not used to resolve anything - the paths are already
    * resolved below - but a failure has to name the Speech Model in its sentence, and the
@@ -111,8 +115,33 @@ export interface ParakeetTranscriptionRequest {
   lowPriority?: boolean
 }
 
+/**
+ * A run of the ekko Speech Engine on the `parakeet-cli` Harness, one process per slice (#76).
+ *
+ * No language, no translate and no backend: the weights are Danish only, `parakeet-cli` gets
+ * no `--lang`, and a field that is present but ignored is one a caller can fill in wrongly.
+ */
+export interface EkkoTranscriptionRequest {
+  engineId: typeof EKKO_ENGINE_ID
+  speechModelId: string
+  audioPath: string
+  /** One deadline for the whole Request, every slice included. */
+  timeoutMs: number
+  /** Absolute path to the GGUF. */
+  modelPath: string
+  /**
+   * Cancels the run: the running slice's process is terminated, no further slice runs, and the
+   * Result is a `cancelled` failure.
+   */
+  signal?: AbortSignal
+  /** Run each `parakeet-cli` process at lowered OS priority (File Transcription). */
+  lowPriority?: boolean
+}
+
 export type TranscriptionRequest =
-  HarnessTranscriptionRequest | ParakeetTranscriptionRequest
+  | HarnessTranscriptionRequest
+  | ParakeetTranscriptionRequest
+  | EkkoTranscriptionRequest
 
 /**
  * Why a Speech Engine produced no transcript. Closed union, engine-only: nothing about
@@ -236,8 +265,8 @@ export function failedTranscription(
 }
 
 /**
- * One Speech Engine invocation. Implemented twice, in `crispasr-engine.ts` and
- * `parakeet-engine.ts`, and dispatched by `runTranscription` in `run-transcription.ts`.
+ * One Speech Engine invocation. Implemented three times, in `crispasr-engine.ts`,
+ * `parakeet-engine.ts` and `ekko-engine.ts`, and dispatched by `runTranscription` in `run-transcription.ts`.
  */
 export type SpeechEngineAdapter<Request extends TranscriptionRequest> = (
   request: Request
@@ -283,6 +312,16 @@ export function transcriptionRequestFromPlan(
       audioPath,
       timeoutMs,
       modelDir: locations.getParakeetInstallDir(plan.speechModelId),
+    }
+  }
+
+  if (plan.engineId === EKKO_ENGINE_ID) {
+    return {
+      engineId: EKKO_ENGINE_ID,
+      speechModelId: plan.speechModelId,
+      audioPath,
+      timeoutMs,
+      modelPath: locations.getModelPath(plan.speechModelId),
     }
   }
 

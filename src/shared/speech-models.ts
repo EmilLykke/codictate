@@ -29,8 +29,13 @@ import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
  * helper. Note that Engine stays distinct from ASR Harness - that hviske has to run
  * under crispasr is a Harness fact, expressed in src/shared/asr-harness.ts and in the
  * transcription path, not in this id.
+ *
+ * `ekko` is its own Engine for the same reasons as hviske: its GGUF weights load only in the
+ * `parakeet-cli` Harness, they come from their own Mirror, and no `whisper_cpp` filter may
+ * pick them up. It is RyeAI's Danish ekko-v1-tiny, and never "Parakeet": that name belongs to
+ * the `whisperkit` engine.
  */
-export type SpeechEngineId = 'whisper_cpp' | 'whisperkit' | 'hviske'
+export type SpeechEngineId = 'whisper_cpp' | 'whisperkit' | 'hviske' | 'ekko'
 
 export type SpeechModelModeSupport = 'normal' | 'stream' | 'both'
 
@@ -883,6 +888,12 @@ export const DEFAULT_STREAM_CAPABLE_MODEL_ID = 'parakeet-tdt-0.6b-v3'
  */
 export const PARAKEET_ENGINE_ID = 'whisperkit' satisfies SpeechEngineId
 
+/**
+ * The ekko Speech Engine id (RyeAI's ekko-v1-tiny on the `parakeet-cli` Harness). Literal-typed
+ * for the same reason as `PARAKEET_ENGINE_ID`: the Transcription Request discriminates on it.
+ */
+export const EKKO_ENGINE_ID = 'ekko' satisfies SpeechEngineId
+
 export const SPEECH_MODEL_IDS = SPEECH_MODELS.map((m) => m.id)
 
 export function getSpeechModel(id: string): SpeechModel | undefined {
@@ -927,7 +938,7 @@ export function speechModelMakesTimedTranscript(
   if (model === undefined) return false
   if (model.engine === 'whisper_cpp')
     return whisperDecodingForModel(speechModelId) === 'timestamps'
-  return true // Parakeet (both platforms) and hviske
+  return true // Parakeet (both platforms), hviske and ekko
 }
 
 /**

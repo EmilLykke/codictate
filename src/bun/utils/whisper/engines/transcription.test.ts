@@ -3,7 +3,10 @@ import {
   buildDictationPlan,
   type RunnableDictationPlan,
 } from '../../../../shared/dictation-plan'
-import { PARAKEET_ENGINE_ID } from '../../../../shared/speech-models'
+import {
+  EKKO_ENGINE_ID,
+  PARAKEET_ENGINE_ID,
+} from '../../../../shared/speech-models'
 import {
   failedTranscription,
   transcriptionRequestFromPlan,
@@ -80,8 +83,8 @@ describe('transcriptionRequestFromPlan', () => {
       180_000,
       locations
     )
-    expect(request.engineId).not.toBe(PARAKEET_ENGINE_ID)
-    if (request.engineId === PARAKEET_ENGINE_ID) return
+    expect(request.engineId).toBe('whisper_cpp')
+    if (request.engineId !== 'whisper_cpp') return
     expect(request.translateToEnglish).toBe(true)
     expect(request.languageCode).toBe(plan.languageCode)
   })
@@ -96,7 +99,7 @@ describe('transcriptionRequestFromPlan', () => {
       locations
     )
     expect(request.engineId).toBe('hviske')
-    if (request.engineId === PARAKEET_ENGINE_ID) return
+    if (request.engineId !== 'hviske') return
     expect(request.crispasrBackend).toBe('cohere')
     expect(request.modelPath).toBe('/models/hviske-v5-tiny-q5_0.bin')
   })
@@ -112,6 +115,25 @@ describe('transcriptionRequestFromPlan', () => {
       audioPath: '/tmp/capture.wav',
       timeoutMs: 180_000,
       modelDir: '/models/parakeet-tdt-0.6b-v3-coreml',
+    })
+  })
+
+  it('derives an ekko Request with the GGUF path and no language, translate or backend', () => {
+    // The catalog has no ekko entry yet (#103), so this is an hviske plan run as ekko.
+    const plan: RunnableDictationPlan = {
+      ...planFor('hviske-v5-tiny-q5_0'),
+      engineId: EKKO_ENGINE_ID,
+      speechModelId: 'ekko-v1-tiny-q5_0',
+    }
+
+    expect(
+      transcriptionRequestFromPlan(plan, '/tmp/capture.wav', 180_000, locations)
+    ).toEqual({
+      engineId: EKKO_ENGINE_ID,
+      speechModelId: 'ekko-v1-tiny-q5_0',
+      audioPath: '/tmp/capture.wav',
+      timeoutMs: 180_000,
+      modelPath: '/models/ekko-v1-tiny-q5_0.bin',
     })
   })
 

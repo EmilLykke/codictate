@@ -109,12 +109,13 @@ export type ControlLine = { type: 'stop' } | { type: 'cancel' }
 // ── Events ───────────────────────────────────────────────────────────────
 
 /** The Speech Engine names the command line shows; the internal ids never leave the app. */
-export type PublicEngineName = 'whisper' | 'parakeet' | 'hviske'
+export type PublicEngineName = 'whisper' | 'parakeet' | 'hviske' | 'ekko'
 
 const PUBLIC_ENGINE_NAMES: Record<SpeechEngineId, PublicEngineName> = {
   whisper_cpp: 'whisper',
   whisperkit: 'parakeet',
   hviske: 'hviske',
+  ekko: 'ekko',
 }
 
 export function publicEngineName(engine: SpeechEngineId): PublicEngineName {

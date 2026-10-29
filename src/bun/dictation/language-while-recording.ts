@@ -24,7 +24,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunnableDictationPlan } from '../../shared/dictation-plan'
-import { PARAKEET_ENGINE_ID } from '../../shared/speech-models'
+import { EKKO_ENGINE_ID, PARAKEET_ENGINE_ID } from '../../shared/speech-models'
 import { watchGrowingWav } from '../utils/audio/growing-wav'
 import { log } from '../utils/logger'
 import { detectSpokenLanguage } from '../utils/whisper/engines/crispasr-engine'
@@ -68,7 +68,8 @@ export interface LanguageWhileRecordingDeps {
 /**
  * Starts checking the language of a Batch Dictation as it records, or returns `null` when the
  * decode needs no Detected Language (a pinned Transcription Language, Translate to English,
- * hviske, Parakeet, or a Speech Model that decodes without the prompt).
+ * hviske, Parakeet, ekko, or a Speech Model that decodes without the prompt). ekko is Danish
+ * only and has no crispasr `-dl` run of its own, so it never gets one.
  */
 export function startLanguageWhileRecording(
   plan: RunnableDictationPlan,
@@ -80,7 +81,11 @@ export function startLanguageWhileRecording(
     modelPath: string
   }
 ): LanguageWhileRecording | null {
-  if (plan.mode !== 'batch' || plan.engineId === PARAKEET_ENGINE_ID) {
+  if (
+    plan.mode !== 'batch' ||
+    plan.engineId === PARAKEET_ENGINE_ID ||
+    plan.engineId === EKKO_ENGINE_ID
+  ) {
     return null
   }
   if (
