@@ -274,6 +274,16 @@ export interface AppSettings {
   themePreference: ThemePreference
   modelAvailability: Record<string, boolean>
   /**
+   * Add punctuation: global, off by default, read by an hviske selection alone. Whether it
+   * can run is `dictationReadiness.addPunctuation`.
+   */
+  addPunctuation: boolean
+  /**
+   * The Punctuation Model (ekko-pnc) is fully on disk with its pinned hashes. Not a Speech
+   * Model, so it is not in `modelAvailability`.
+   */
+  punctuationModelInstalled: boolean
+  /**
    * What the last heal pass changed behind the user's back: the Speech Model selection,
    * Translate to English, Live Transcription. Empty almost always. The main process decides
    * what to say and the window only renders it.
@@ -382,6 +392,11 @@ export interface TranscriptionSettingsPatch {
   translateDefaultLanguageId?: string
   streamMode?: boolean
   streamTranscriptionMode?: StreamTranscriptionMode
+  /**
+   * Add punctuation. Refused while the Punctuation Model is not installed, so it can only be
+   * turned on after a verified install.
+   */
+  addPunctuation?: boolean
 }
 
 export interface FormattingSettingsPatch {
@@ -462,6 +477,11 @@ export interface StatsSessionEntry {
   durationMs: number
   engineId: string | null
   formattingUsed: boolean | null
+  /**
+   * Punctuation Restoration ran and succeeded on this Dictation. `null` when unknown: rows
+   * written before it existed, and rows backfilled from History.
+   */
+  punctuationRestored: boolean | null
   languageId: string | null
 }
 

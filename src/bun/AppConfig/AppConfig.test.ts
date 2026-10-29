@@ -40,6 +40,7 @@ function testDependencies(
     detectFormattingAvailable: () => true,
     isFormatterModelInstalled: () => false,
     isParakeetPreparing: () => false,
+    isPunctuationModelInstalled: () => false,
     ...overrides,
   }
 }
@@ -592,5 +593,120 @@ describe('File Transcription Settings', () => {
     expect(state.healAnnouncements.map((n) => n.reason)).toEqual([
       'no_translate_source_language',
     ])
+  })
+})
+
+describe('Add punctuation', () => {
+  const HVISKE = 'hviske-v5-tiny-q5_0'
+
+  /** hviske installed, and a Punctuation Model that a test can delete. */
+  function punctuationConfig() {
+    const pnc = { installed: true }
+    const dependencies = testDependencies({
+      isModelAvailable: (id) => id === DEFAULT_MODEL_ID || id === HVISKE,
+      getModelAvailability: () => ({
+        [DEFAULT_MODEL_ID]: true,
+        [HVISKE]: true,
+      }),
+      isPunctuationModelInstalled: () => pnc.installed,
+    })
+    return { pnc, dependencies }
+  }
+
+  test('is off by default, and turned on it persists and reaches the plan', async () => {
+    const { dependencies } = punctuationConfig()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(config.getSettings().addPunctuation).toBe(false)
+
+    expect(
+      await config.updateTranscriptionSettings({
+        speechModelId: HVISKE,
+        addPunctuation: true,
+      })
+    ).toBe(true)
+
+    const reloaded = new AppConfig(dependencies)
+    await reloaded.load()
+    expect(reloaded.getSettings().addPunctuation).toBe(true)
+    expect(reloaded.getDictationPlan()).toMatchObject({
+      status: 'runnable',
+      speechModelId: HVISKE,
+      punctuationRestoration: true,
+    })
+  })
+
+  test('ships whether the Punctuation Model is installed, and the readiness built on it', async () => {
+    const { pnc, dependencies } = punctuationConfig()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    await config.updateTranscriptionSettings({ speechModelId: HVISKE })
+    expect(config.getSettings().punctuationModelInstalled).toBe(true)
+    expect(config.getSettings().dictationReadiness.addPunctuation.ready).toBe(
+      true
+    )
+
+    pnc.installed = false
+    expect(config.getSettings().punctuationModelInstalled).toBe(false)
+    expect(config.getSettings().dictationReadiness.addPunctuation.reason).toBe(
+      'punctuation_model_not_installed'
+    )
+  })
+
+  test('the heal at boot turns it off when the Punctuation Model is gone', async () => {
+    const { pnc, dependencies } = punctuationConfig()
+    const first = new AppConfig(dependencies)
+    await first.load()
+    await first.updateTranscriptionSettings({
+      speechModelId: HVISKE,
+      addPunctuation: true,
+    })
+
+    pnc.installed = false
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(config.getSettings().addPunctuation).toBe(false)
+    expect(config.getSettings().healAnnouncements.map((a) => a.reason)).toEqual(
+      ['punctuation_model_not_installed']
+    )
+  })
+
+  test('reachable for a File Transcription on hviske while Dictation uses another Speech Model', async () => {
+    const { dependencies } = punctuationConfig()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    await config.updateTranscriptionSettings({
+      speechModelId: HVISKE,
+      addPunctuation: true,
+    })
+    expect(config.isPunctuationRestorationReachable()).toBe(true)
+
+    expect(
+      await config.updateFileTranscriptionSettings({ speechModelId: HVISKE })
+    ).toBe(true)
+    await config.updateTranscriptionSettings({
+      speechModelId: DEFAULT_MODEL_ID,
+    })
+    expect(config.isPunctuationRestorationReachable()).toBe(true)
+
+    await config.updateFileTranscriptionSettings({
+      speechModelId: DEFAULT_MODEL_ID,
+    })
+    expect(config.isPunctuationRestorationReachable()).toBe(false)
+  })
+
+  test('a File Transcription Settings change notifies the settings observer', async () => {
+    const { dependencies } = punctuationConfig()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    let notified = 0
+    config.observeRunnableDictationSettings(() => {
+      notified += 1
+    })
+    const before = notified
+
+    await config.updateFileTranscriptionSettings({ speechModelId: HVISKE })
+
+    expect(notified).toBeGreaterThan(before)
   })
 })

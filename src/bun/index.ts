@@ -27,6 +27,8 @@ import {
   ensureParakeetWarm,
   installParakeetWarmup,
 } from './utils/whisper/parakeet-warmup'
+import { appPunctuationRestorer } from './utils/punctuation/app-punctuation-restorer'
+import { createPunctuationWarmup } from './utils/punctuation/punctuation-warmup'
 import type {
   BlockedDictationPlan,
   DictationPlan,
@@ -499,7 +501,20 @@ installParakeetWarmup({
   getSelectedSpeechModelId: () => UserAppConfig.getSpeechModelId(),
   onPreparingChanged: pushSettingsToWebview,
 })
-UserAppConfig.observeRunnableDictationSettings(ensureParakeetWarm)
+/**
+ * The Punctuation Model's background load, on the same trigger: at launch and on every settle
+ * of the settings and availability, it loads the Punctuation Model when a Dictation or File
+ * Transcription with the current selections would restore punctuation, so the first
+ * punctuated Dictation does not pay for the load.
+ */
+const ensurePunctuationWarm = createPunctuationWarmup({
+  restorer: appPunctuationRestorer(),
+  isReachable: () => UserAppConfig.isPunctuationRestorationReachable(),
+})
+UserAppConfig.observeRunnableDictationSettings(() => {
+  ensureParakeetWarm()
+  ensurePunctuationWarm()
+})
 
 trayHandlers = setupTray(
   (onAction) => win.getOrCreateWindow(onAction),
@@ -759,6 +774,7 @@ function startKeyboard() {
         durationMs: outcome.durationMs,
         engineId: outcome.engineId,
         formattingUsed: outcome.formattingUsed,
+        punctuationRestored: outcome.punctuationRestored,
         languageId: outcome.languageId,
       })
       try {

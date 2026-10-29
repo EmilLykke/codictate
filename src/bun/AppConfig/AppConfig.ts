@@ -85,6 +85,7 @@ import {
   withBuiltinDictionaryEntries,
 } from './state-helpers'
 import { disableDebug, enableDebug, log } from '../utils/logger'
+import { isPunctuationRestorationReachable } from '../utils/punctuation/punctuation-warmup'
 import {
   invalidateDictionaryCandidatesForText as getInvalidatedDictionaryCandidatesForText,
   parseDictionaryCandidates,
@@ -118,6 +119,8 @@ export interface AppConfigDependencies {
   readonly isFormatterModelInstalled: (tier: FormatterModelTier) => boolean
   /** A background Parakeet load has run long enough to be a Parakeet Preparation. */
   readonly isParakeetPreparing: () => boolean
+  /** The Punctuation Model is fully on disk with its pinned hashes. */
+  readonly isPunctuationModelInstalled: () => boolean
 }
 
 const RECORDING_INDICATOR_MODES = new Set<RecordingIndicatorMode>([
@@ -263,6 +266,7 @@ interface PersistedMainSettings {
   recordingIndicatorPosition: { x: number; y: number } | null
   streamMode: boolean
   streamTranscriptionMode: StreamTranscriptionMode
+  addPunctuation: boolean
   userDisplayName: string
   formatting: Omit<FormattingSettings, 'available' | 'modelAvailability'>
   audioDucking: AudioDuckingSettings
@@ -308,6 +312,7 @@ export class AppConfig {
   private recordingIndicatorPosition: { x: number; y: number } | null
   private streamMode: boolean
   private streamTranscriptionMode: StreamTranscriptionMode
+  private addPunctuation: boolean
   private userDisplayName: string
   private formatting: FormattingSettings
   private audioDucking: AudioDuckingSettings
@@ -405,6 +410,7 @@ export class AppConfig {
     this.recordingIndicatorPosition = null
     this.streamMode = false
     this.streamTranscriptionMode = 'vad'
+    this.addPunctuation = false
     this.userDisplayName = ''
     this.formatting = defaultFormattingSettings(
       this.dependencies.detectFormattingAvailable(),
@@ -444,6 +450,7 @@ export class AppConfig {
       recordingIndicatorPosition: this.recordingIndicatorPosition,
       streamMode: this.streamMode,
       streamTranscriptionMode: this.streamTranscriptionMode,
+      addPunctuation: this.addPunctuation,
       userDisplayName: this.userDisplayName,
       formatting: {
         enabled: this.formatting.enabled,
@@ -584,6 +591,9 @@ export class AppConfig {
       this.shortcutHoldOnlyId = null
     }
     if (typeof raw.streamMode === 'boolean') this.streamMode = raw.streamMode
+    if (typeof raw.addPunctuation === 'boolean') {
+      this.addPunctuation = raw.addPunctuation
+    }
     // `parakeetCoreMlReady` in an older config is ignored and dropped on the next save. Whether
     // Parakeet's weights are prepared is not a fact Codictate can keep: a Parakeet Preparation
     // can be needed again at any launch (parakeet-warmup.ts).
@@ -1049,6 +1059,7 @@ export class AppConfig {
       recordingIndicatorPosition: this.recordingIndicatorPosition,
       streamMode: this.streamMode,
       streamTranscriptionMode: this.streamTranscriptionMode,
+      addPunctuation: this.addPunctuation,
       userDisplayName: this.userDisplayName,
       formatting: {
         ...this.formatting,
@@ -1076,6 +1087,8 @@ export class AppConfig {
       },
       themePreference: this.themePreference,
       modelAvailability: this.dependencies.getModelAvailability(),
+      punctuationModelInstalled:
+        this.dependencies.isPunctuationModelInstalled(),
       healAnnouncements: this.getHealAnnouncements(),
       dictationReadiness: this.getDictationReadiness(),
       fileTranscription: this.getFileTranscriptionSettingsState(),
@@ -1093,6 +1106,8 @@ export class AppConfig {
       isModelAvailable: this.dependencies.isModelAvailable,
       streamSupported:
         this.dependencies.getPlatformCapabilities().supportsStreamMode,
+      punctuationModelInstalled:
+        this.dependencies.isPunctuationModelInstalled(),
     }
   }
 
@@ -1103,6 +1118,7 @@ export class AppConfig {
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       translateToEnglish: this.translateToEnglish,
       streamMode: this.streamMode,
+      addPunctuation: this.addPunctuation,
     }
   }
 
@@ -1114,6 +1130,7 @@ export class AppConfig {
     this.translateDefaultLanguageId = next.translateDefaultLanguageId
     this.translateToEnglish = next.translateToEnglish
     this.streamMode = next.streamMode
+    this.addPunctuation = next.addPunctuation
   }
 
   private recordHealAnnouncements(
@@ -1310,6 +1327,30 @@ export class AppConfig {
   }
 
   /**
+   * Would a Batch Dictation or a File Transcription with the current selections restore
+   * punctuation: the trigger for the Punctuation Model's background load
+   * (`punctuation-warmup.ts`). Asked of the Dictation Plan itself, for both selections, so
+   * the warm-up and the run cannot disagree.
+   */
+  public isPunctuationRestorationReachable(): boolean {
+    const dictation = this.runnableDictationSettings()
+    const file = this.getFileTranscriptionSettings()
+    return isPunctuationRestorationReachable(
+      [
+        dictation,
+        {
+          ...dictation,
+          speechModelId: file.speechModelId,
+          transcriptionLanguageId: file.transcriptionLanguageId,
+          translateToEnglish: file.translateToEnglish,
+          streamMode: false,
+        },
+      ],
+      this.dictationAvailability()
+    )
+  }
+
+  /**
    * Remember a Dictation that refused to start, so the window can show it in the banner slot
    * the heal announcements already use. Not persisted: the next press either works or blocks
    * again.
@@ -1454,6 +1495,9 @@ export class AppConfig {
       this.fileHealAnnouncements = outcome.announcements
     }
     await this.saveMain()
+    // The File Transcription selection decides whether Punctuation Restoration is reachable
+    // too, so the settings observer hears about it like a Dictation write.
+    this.notifyRunnableDictationSettled()
     return true
   }
 
@@ -1639,6 +1683,12 @@ export class AppConfig {
     ) {
       return false
     }
+    if (
+      patch.addPunctuation !== undefined &&
+      typeof patch.addPunctuation !== 'boolean'
+    ) {
+      return false
+    }
 
     // Validate the object the patch would produce, not the fields in the patch. This is the
     // only write path that touches the runnable slice, so it is the only one that has to.
@@ -1659,6 +1709,9 @@ export class AppConfig {
           : {}),
         ...(patch.streamMode !== undefined
           ? { streamMode: patch.streamMode }
+          : {}),
+        ...(patch.addPunctuation !== undefined
+          ? { addPunctuation: patch.addPunctuation }
           : {}),
       },
       this.dictationAvailability()

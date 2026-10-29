@@ -17,8 +17,8 @@
  * - **On an availability change, heal.** Never argue with someone deleting multi-gigabyte
  *   weights to get their disk space back. Correct the configuration instead, and say so.
  *
- * Announcements are limited to the three things the user chose deliberately - the Speech
- * Model selection, Translate to English, Live Transcription. The rest is corrected in
+ * Announcements are limited to the four things the user chose deliberately - the Speech
+ * Model selection, Translate to English, Live Transcription, Add punctuation. The rest is corrected in
  * silence. Silently flipping a toggle the user set is the same class of surprise as a silent
  * fallback, so the noisy set and the quiet set are drawn on purpose rather than by
  * convenience.
@@ -56,6 +56,8 @@ export interface RunnableDictationSettings {
   translateDefaultLanguageId: string
   translateToEnglish: boolean
   streamMode: boolean
+  /** Add punctuation. Global, read by an hviske selection alone (`offersAddPunctuation`). */
+  addPunctuation: boolean
 }
 
 /**
@@ -74,15 +76,19 @@ const RUNNABLE_DICTATION_SETTINGS_FIELDS: Record<
   translateDefaultLanguageId: true,
   translateToEnglish: true,
   streamMode: true,
+  addPunctuation: true,
 }
 
 const RUNNABLE_DICTATION_SETTINGS_KEYS = Object.keys(
   RUNNABLE_DICTATION_SETTINGS_FIELDS
 ) as (keyof RunnableDictationSettings)[]
 
-/** The three user choices the heal pass is allowed to change out loud. */
+/** The four user choices the heal pass is allowed to change out loud. */
 export type SettingsHealTarget =
-  'speech_model' | 'translate_to_english' | 'live_transcription'
+  | 'speech_model'
+  | 'translate_to_english'
+  | 'live_transcription'
+  | 'add_punctuation'
 
 /**
  * Closed union, so a new way for the configuration to go bad cannot join a generic bucket
@@ -96,6 +102,7 @@ export type SettingsHealReason =
   | 'parakeet_not_installed'
   | 'model_cannot_stream'
   | 'language_not_supported_by_parakeet'
+  | 'punctuation_model_not_installed'
 
 export interface SettingsHealAnnouncement {
   target: SettingsHealTarget
@@ -214,6 +221,20 @@ export function healDictationSettings(
     }
   }
 
+  // Not asked through readiness, which answers for the selected Speech Model alone. The
+  // switch is global: it turns true only after a verified install of the Punctuation Model,
+  // and a File Transcription on hviske reads it whatever the Dictation's Speech Model is, so
+  // without the Punctuation Model it cannot stay on under any selection. With it, a selection
+  // that ignores the switch leaves it alone, so leaving hviske and coming back keeps it.
+  if (next.addPunctuation && !availability.punctuationModelInstalled) {
+    next.addPunctuation = false
+    announce(
+      'add_punctuation',
+      'punctuation_model_not_installed',
+      'Add punctuation turned off because its Danish punctuation model is no longer installed.'
+    )
+  }
+
   return {
     settings: next,
     announcements,
@@ -262,6 +283,7 @@ const PATCH_OWNS_TARGET: Record<
   speech_model: (patch) => patch.speechModelId !== undefined,
   translate_to_english: (patch) => patch.translateToEnglish === true,
   live_transcription: (patch) => patch.streamMode === true,
+  add_punctuation: (patch) => patch.addPunctuation === true,
 }
 
 /**
