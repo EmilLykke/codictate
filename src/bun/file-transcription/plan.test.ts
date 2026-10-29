@@ -346,7 +346,7 @@ describe('result fields', () => {
 
   test('every Speech Engine has a public name, and none leaks the internal id', () => {
     const names = new Set(SPEECH_MODELS.map((m) => publicEngineName(m.engine)))
-    expect([...names].sort()).toEqual(['hviske', 'parakeet', 'whisper'])
+    expect([...names].sort()).toEqual(['ekko', 'hviske', 'parakeet', 'whisper'])
   })
 })
 

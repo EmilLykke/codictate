@@ -48,6 +48,7 @@ const TRANSCRIBE_ONLY = 'large-v3-turbo-q5_0'
 const ENGLISH_ONLY = 'small.en-q5_1'
 const HVISKE = 'hviske-v5-tiny-f16'
 const EDDA = 'edda-v0.2-q5_0'
+const EKKO = 'ekko-v1-tiny-q5_0'
 const PARAKEET = DEFAULT_STREAM_CAPABLE_MODEL_ID
 
 const installed =
@@ -861,6 +862,71 @@ describe('buildDictationPlan - Punctuation Restoration', () => {
     expect(plan.message).toBe(
       'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next press works.'
     )
+  })
+})
+
+/**
+ * The ekko Speech Engine has no branch of its own in the plan (#103): its catalog flags give
+ * its limits (Danish only, no translate, batch only), and the engine rule sets Punctuation
+ * Restoration with no switch, because ekko writes no punctuation or capitals itself.
+ */
+describe('buildDictationPlan - ekko', () => {
+  test('an ekko run pins Danish whatever Transcription Language is stored', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: EKKO, transcriptionLanguageId: 'en' }),
+      withPunctuationModel(available(EKKO))
+    )
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    expect(plan.engineId).toBe('ekko')
+    expect(plan.crispasrBackend).toBeNull()
+    expect(plan.transcriptionLanguageId).toBe('da')
+  })
+
+  test('blocks Translate to English, even with a translate-capable model installed', () => {
+    const plan = buildDictationPlan(
+      planInput({
+        speechModelId: EKKO,
+        transcriptionLanguageId: 'da',
+        translateToEnglish: true,
+      }),
+      withPunctuationModel(available(EKKO, TRANSLATE_CAPABLE))
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('model_cannot_translate')
+  })
+
+  test('readiness says its Danish weights cannot translate', () => {
+    const readiness = translate(
+      input({ speechModelId: EKKO, transcriptionLanguageId: 'da' }),
+      available(EKKO, TRANSLATE_CAPABLE)
+    )
+    expect(readiness.ready).toBe(false)
+    expect(readiness.reason).toBe('single_language_selected')
+    expect(readiness.downloadModelId).toBeNull()
+  })
+
+  test('blocks Live Transcription: ekko cannot stream', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: EKKO, streamMode: true }),
+      withPunctuationModel(available(PARAKEET, EKKO))
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('model_cannot_stream')
+    expect(
+      live(input({ speechModelId: EKKO }), available(PARAKEET, EKKO)).reason
+    ).toBe('model_cannot_stream')
+  })
+
+  test('restores punctuation whether Add punctuation is on or off', () => {
+    for (const addPunctuation of [false, true]) {
+      const plan = buildDictationPlan(
+        planInput({ speechModelId: EKKO, addPunctuation }),
+        withPunctuationModel(available(EKKO))
+      )
+      if (plan.status !== 'runnable')
+        throw new Error('expected a runnable plan')
+      expect(plan.punctuationRestoration).toBe(true)
+    }
   })
 })
 

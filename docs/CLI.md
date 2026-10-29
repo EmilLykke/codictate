@@ -54,18 +54,18 @@ A command that records the microphone or changes what Codictate is doing needs *
 
 ### `transcribe` - File Transcription
 
-Transcribes audio or video files with the Speech Model and Transcription Language from the File Transcription Settings (the ones set for File Transcriptions on Codictate's Transcribe page, the same ones a File Transcription started in the window uses), unless `--model` or `--language` overrides them. Translate to English is off unless `--translate` asks for it. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. With hviske and Add punctuation on, it returns the Raw Transcript after Punctuation Restoration, exactly as on the Transcribe page, and its captions carry the same punctuated words. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
+Transcribes audio or video files with the Speech Model and Transcription Language from the File Transcription Settings (the ones set for File Transcriptions on Codictate's Transcribe page, the same ones a File Transcription started in the window uses), unless `--model` or `--language` overrides them. Translate to English is off unless `--translate` asks for it. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. With hviske and Add punctuation on, and always with ekko, it returns the Raw Transcript after Punctuation Restoration, exactly as on the Transcribe page, and its captions carry the same punctuated words. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
 
 - `--model <id>` uses that Speech Model for this call only. It must be installed (exit `4` otherwise); nothing is downloaded implicitly. Settings do not change.
 - With hviske and Add punctuation on, Punctuation Restoration needs the Punctuation Model installed; if it is gone, the call exits `4` with `model_not_installed` rather than return unpunctuated text, and Add punctuation is turned off so the next call runs.
-- `--language <id|auto>` overrides the Transcription Language for this call only. It is coerced for the Speech Model exactly as a settings change would be (Parakeet is always `auto`; hviske and Edda are always `da`).
+- `--language <id|auto>` overrides the Transcription Language for this call only. It is coerced for the Speech Model exactly as a settings change would be (Parakeet is always `auto`; hviske, Edda and ekko are always `da`).
 - `models use` and `languages use` change the Dictation's Speech Model and Transcription Language, not the File Transcription Settings.
 - Several files run one after another. Each is its own File Transcription. A failure does not stop the rest (its error names the file as typed: `codictate: a.m4a: ...`); the exit code is the first failure's. Only an unreachable app or a contract mismatch stops the remaining files.
 - File Transcriptions run one at a time, shared with those started in Codictate's window, so a call may wait in a queue. A Dictation never waits for one.
 - Results from the command line are not kept in History.
 - An empty transcript (silence) is success with empty text.
 
-**Translate.** Without a flag, nothing is translated. `--translate` translates this call to English. `--no-translate` is the default spelled out, kept for compatibility. The two flags together are a usage error. The File Transcription Settings' Translate to English choice applies only in Codictate's window, never to the command line, and neither flag changes the settings. The result says whether the text was translated (`"translated"`). English-only and Turbo Whisper Speech Models cannot translate, and neither can Parakeet, hviske or Edda. Translating also needs a source language: a Transcription Language other than `auto`, unless one is set for translation in Codictate. Otherwise the call exits `2` with `cannot_translate`, and nothing is transcribed.
+**Translate.** Without a flag, nothing is translated. `--translate` translates this call to English. `--no-translate` is the default spelled out, kept for compatibility. The two flags together are a usage error. The File Transcription Settings' Translate to English choice applies only in Codictate's window, never to the command line, and neither flag changes the settings. The result says whether the text was translated (`"translated"`). English-only and Turbo Whisper Speech Models cannot translate, and neither can Parakeet, hviske, Edda or ekko. Translating also needs a source language: a Transcription Language other than `auto`, unless one is set for translation in Codictate. Otherwise the call exits `2` with `cannot_translate`, and nothing is transcribed.
 
 **Captions and JSON.** `--format` renders the result as a Transcript Export, the same document Save writes in Codictate's window:
 
@@ -81,7 +81,7 @@ Human output: the transcript on stdout, followed by a newline. With several file
 
 ### `dictate` - a Dictation from the command line
 
-Records from the microphone, with the recording indicator shown exactly as for the Dictation Shortcut, and runs a full Dictation: Punctuation Restoration (hviske with Add punctuation on), the Dictionary and the Formatting Mode are applied, and it is kept in History and Stats like any Dictation.
+Records from the microphone, with the recording indicator shown exactly as for the Dictation Shortcut, and runs a full Dictation: Punctuation Restoration (hviske with Add punctuation on, and ekko always), the Dictionary and the Formatting Mode are applied, and it is kept in History and Stats like any Dictation.
 
 - Without `--paste`, the text is printed and nothing is pasted. A Live Transcription produces no text to print, so a Dictation that prints always runs as a Batch Dictation, whatever the Live Transcription setting.
 - With `--paste`, the text is placed at the cursor as the Dictation Shortcut would place it, and the Live Transcription setting is honoured, unless `--model` names a Speech Model that cannot do Live Transcription: then that one Dictation is a Batch Dictation. When the Dictation is a Live Transcription, there is no text in the result (`"text":""`, `"live":true`), and `--until silence` is refused with exit `2`.
@@ -152,6 +152,10 @@ Every event has a `type`. Consumers must ignore event types and fields they do n
  "engine":"hviske","audioSeconds":61.2,"processingSeconds":4.8,"translated":false,
  "formatted":"1\n00:00:00,000 --> 00:00:01,200\nHej.\n\n"}
 
+// transcribe with ekko: always Danish, and always after Punctuation Restoration
+{"type":"result","file":"/abs/path/memo.m4a","text":"Hej. Det her er en test.","language":"da",
+ "speechModelId":"ekko-v1-tiny-q5_0","engine":"ekko","audioSeconds":3.1,"processingSeconds":0.4,"translated":false}
+
 // dictate
 {"type":"result","text":"…","rawText":"…","formattingMode":"email","pasted":false,"live":false,
  "language":null,"speechModelId":"parakeet-tdt-0.6b-v3","engine":"parakeet","audioSeconds":8.4}
@@ -183,7 +187,7 @@ Every event has a `type`. Consumers must ignore event types and fields they do n
 ```
 
 - `language` is the Transcription Language the run was fixed to, or `null` when the Speech Engine detected it.
-- `engine` is `whisper`, `parakeet` or `hviske`.
+- `engine` is `whisper`, `parakeet`, `hviske` or `ekko`.
 - `audioSeconds` is the length of the audio, not of the run.
 - `processingSeconds` is the Processing Time, rounded to 0.1 s: from when Codictate began reading the file to when the transcript was ready. Time spent waiting behind other File Transcriptions does not count.
 - `translated` is whether `text` is Translate to English output. With it, `language` is the language that was translated from.

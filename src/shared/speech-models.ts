@@ -104,6 +104,23 @@ export const EDDA_MIRROR_REVISION = 'a0b269db8f95e94a483a913e36ae1420e58d6819'
 export const EDDA_TRANSCRIPTION_LANGUAGE_ID = 'da'
 
 /**
+ * Mirror repo for the ekko-v1-tiny GGUF: a byte-for-byte copy of `RyeAI/ekko-v1-tiny`'s
+ * q5_0 file, hosted so a shipped release does not depend on the upstream staying unchanged.
+ * Re-mirroring is a maintainer job: `scripts/mirror-ekko.ts`, see docs/EKKO_MIRROR.md.
+ */
+export const EKKO_V1_TINY_MIRROR_REPO_ID = 'emillykkegrann/ekko-v1-tiny-GGUF'
+
+/**
+ * The Mirror commit ekko downloads from, rather than `main`: published 2026-10-29. The
+ * entry's `sha256` is the GGUF's LFS hash at this commit. Moving it means re-reading it.
+ */
+export const EKKO_V1_TINY_MIRROR_REVISION =
+  'd60b91ae714fdccf4ecd7a9f22a06b349c87ffc1'
+
+/** ekko-v1-tiny is Danish only, so a run is pinned to Danish (parakeet-cli takes no language). */
+export const EKKO_TRANSCRIPTION_LANGUAGE_ID = 'da'
+
+/**
  * How crispasr decodes a Whisper Speech Model (ADR-0010).
  * - `timestamps`: no `-nt`, with whisper.cpp's own VAD, beam search and a prompt (ADR-0011);
  *   Raw Transcript and Timed Transcript (segment times, no words) come from crispasr's JSON.
@@ -855,6 +872,35 @@ export const SPEECH_MODELS: SpeechModel[] = [
     sha256: '75bd9abd0d328872cacb0f36e9444775cc46d9976bf64f69443e74265ac0add1',
     supportedTranscriptionLanguageIds: [EDDA_TRANSCRIPTION_LANGUAGE_ID],
   },
+  // ── ekko v1 tiny (Danish) ───────────────────────────────────────────
+  //
+  // RyeAI's Danish Parakeet RNN-T (110M) as a q5_0 GGUF, run by the ekko Speech Engine on the
+  // `parakeet-cli` ASR Harness. q5_0 alone: the gate dropped q8_0 and f16 (#78). It writes no
+  // punctuation or capitals, so every ekko run goes through Punctuation Restoration with no
+  // switch (the plan sets `punctuationRestoration`).
+  //
+  // Not `curated`, for the same reason as hviske and Edda. Not browsable yet either: the
+  // browse modal and the Settings list leave engine `ekko` out until its download lands (#105).
+  //
+  // `downloadSizeMB` is the GGUF (134710976 bytes, 128 MiB) plus ekko-pnc's runtime files
+  // (24 MiB), because downloading ekko fetches the Punctuation Model when it is missing.
+  // `peakRamMB` and the 9.9 WER are the gate's numbers on all 927 FLEURS `da_dk` clips (#78).
+  {
+    id: 'ekko-v1-tiny-q5_0',
+    engine: 'ekko',
+    modeSupport: 'normal',
+    artifactName: 'ekko-v1-tiny-q5_0.gguf',
+    downloadSizeMB: 152,
+    peakRamMB: 300,
+    label: 'Ekko V1 Tiny Q5',
+    description:
+      'Danish model · Danish only, fastest Danish model, adds punctuation, 9.9 WER',
+    translationSupport: false,
+    huggingFaceRepoId: EKKO_V1_TINY_MIRROR_REPO_ID,
+    huggingFaceRevision: EKKO_V1_TINY_MIRROR_REVISION,
+    sha256: 'f5380485d80d552ae46313185126d7ade54b2e7360cb0d15b91f1ab26ced7791',
+    supportedTranscriptionLanguageIds: [EKKO_TRANSCRIPTION_LANGUAGE_ID],
+  },
 ]
 
 export const DEFAULT_MODEL_ID = 'large-v3-turbo-q5_0'
@@ -945,7 +991,7 @@ export function speechModelMakesTimedTranscript(
  * The one Transcription Language a Speech Model's weights can produce, which a run pins
  * instead of taking the user's setting, or `null` when the setting decides.
  *
- * hviske and Edda declare Danish alone. Parakeet declares 25, and the stock Whisper entries
+ * hviske, Edda and ekko declare Danish alone. Parakeet declares 25, and the stock Whisper entries
  * declare nothing - the English-only ones predate the field and transcribe whatever
  * language they are told, which is why `.en` is not read here.
  */
@@ -970,7 +1016,7 @@ export function whisperModelDownloadUrl(artifactName: string): string {
 /**
  * Direct file URL for a single-file Speech Model (whisper.cpp GGML, hviske GGUF).
  *
- * A model naming a Mirror (`huggingFaceRepoId`: hviske, Edda) downloads from it, at its
+ * A model naming a Mirror (`huggingFaceRepoId`: hviske, Edda, ekko) downloads from it, at its
  * `huggingFaceRevision` where it has one; the stock Whisper weights come from
  * `ggerganov/whisper.cpp` at `WHISPER_CPP_MODELS_REVISION`.
  */
@@ -1077,8 +1123,8 @@ export const CURATED_SPEECH_MODELS = SPEECH_MODELS.filter((m) => m.curated)
 
 /**
  * Model families in the order the browse modal lists them, best first: the Whisper sizes,
- * then the Danish-only models by accuracy. A family is the Model ID with its Quantization
- * suffix and `.en` removed. A new family (ekko, between Edda and hviske) is one entry here.
+ * then the Danish-only models by accuracy (Edda, ekko, hviske). A family is the Model ID with
+ * its Quantization suffix and `.en` removed. A new family is one entry here.
  */
 const BROWSE_FAMILY_ORDER: readonly string[] = [
   'large-v3',
@@ -1090,6 +1136,7 @@ const BROWSE_FAMILY_ORDER: readonly string[] = [
   'base',
   'tiny',
   'edda-v0.2',
+  'ekko-v1-tiny',
   'hviske-v5-tiny',
 ]
 
@@ -1102,7 +1149,7 @@ const QUANTIZATION_SUFFIX = /-(q(\d+)_[0-9a-z]+|f16|f32)$/
  * q5 and lower. An unlisted family sorts last, so it still shows up while it waits for a
  * place in the list.
  */
-function compareBrowseOrder(a: SpeechModel, b: SpeechModel): number {
+export function compareBrowseOrder(a: SpeechModel, b: SpeechModel): number {
   const ka = browseSortKey(a)
   const kb = browseSortKey(b)
   for (let i = 0; i < ka.length; i++) {
