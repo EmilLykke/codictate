@@ -32,6 +32,9 @@ import { AppConfig } from './AppConfig/AppConfig'
 import { copyLogToClipboard } from './utils/logger'
 import { modelManager } from './utils/whisper/model-manager'
 import { formatterModelManager } from './utils/formatting/formatter-model-manager'
+import { createAddPunctuationSwitch } from './utils/punctuation/add-punctuation-switch'
+import { installPunctuationModel } from './utils/punctuation/punctuation-model-install'
+import { isPunctuationModelInstalled } from './utils/punctuation/punctuation-model-files'
 import { getPlatformRuntime } from './platform/runtime'
 import { setWindowsWindowIcon } from './utils/window/windows-window-icon'
 import {
@@ -220,6 +223,26 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
       sendIfWindowAlive(() => rpc.send.updateModelAvailability(data)),
     onAvailabilityChanged: healAfterAvailabilityChange,
     log: (event, data) => log('model-operations', event, data),
+  })
+
+  const addPunctuation = createAddPunctuationSwitch({
+    isInstalled: () => isPunctuationModelInstalled(),
+    install: ({ signal, onProgress }) =>
+      installPunctuationModel({ signal, onProgress }),
+    enable: async () => {
+      const ok = await deps.appConfig.updateTranscriptionSettings({
+        addPunctuation: true,
+      })
+      sendIfWindowAlive(() =>
+        rpc.send.updateSettings(deps.appConfig.getSettings())
+      )
+      return ok
+    },
+    pushProgress: (progress) =>
+      sendIfWindowAlive(() =>
+        rpc.send.updatePunctuationModelProgress(progress)
+      ),
+    log: (event, data) => log('add-punctuation', event, data),
   })
 
   /** Tell the user about a finished transcript they cannot see: the window is closed. */
@@ -634,6 +657,12 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         },
         cancelFormatterModelDownload: () => {
           formatterModelManager.cancel()
+        },
+        turnOnAddPunctuation: () => {
+          void addPunctuation.turnOn()
+        },
+        cancelPunctuationModelDownload: () => {
+          addPunctuation.cancel()
         },
         deleteFormatterModel: ({ tier }) => {
           const deleted = formatterModelManager.delete(tier)
