@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "fs";
 import { join } from "path";
 import { BINARY_MANIFEST } from "../src/shared/binary-manifest";
+import { onnxRuntimeBuildCopy } from "./onnxruntime-bundle";
 
 const CHANNEL_KEY = "process.env.CODICTATE_CHANNEL";
 
@@ -34,5 +36,58 @@ describe("the app bundle knows its channel", () => {
     const bundled = await result.outputs[0]!.text();
     expect(bundled).not.toContain(CHANNEL_KEY);
     expect(bundled).toContain('buildChannelFrom("canary")');
+  });
+});
+
+/**
+ * onnxruntime-node's `dist/binding.js` requires its binding at
+ * `../bin/napi-v6/<platform>/<arch>/onnxruntime_binding.node`, relative to the module that
+ * runs. In the app that module is the bundled main process, `Resources/app/bun/index.js`,
+ * so the binding must sit at `Resources/app/bin/napi-v6/...` (copy destinations are relative
+ * to `Resources/app`).
+ */
+const ORT_PACKAGE = "node_modules/onnxruntime-node";
+
+describe("the app bundle carries ONNX Runtime where the bundled main process requires it", () => {
+  test("macOS copies the binding and the one library it links to bin/napi-v6/darwin/arm64", async () => {
+    if (process.platform === "win32") return;
+    const config = await loadConfig();
+    expect(config.build.copy[`${ORT_PACKAGE}/bin/napi-v6/darwin/arm64/onnxruntime_binding.node`]).toBe(
+      "bin/napi-v6/darwin/arm64/onnxruntime_binding.node",
+    );
+    expect(config.build.copy[`${ORT_PACKAGE}/bin/napi-v6/darwin/arm64/libonnxruntime.1.dylib`]).toBe(
+      "bin/napi-v6/darwin/arm64/libonnxruntime.1.dylib",
+    );
+    // The byte-identical versioned copy is 44.6 MB nothing links.
+    expect(
+      Object.keys(config.build.copy).filter((source) => source.startsWith(ORT_PACKAGE)),
+    ).toHaveLength(2);
+  });
+
+  test("Windows copies the binding and onnxruntime.dll to bin/napi-v6/win32/x64, and no DirectML DLLs", () => {
+    expect(onnxRuntimeBuildCopy("windows")).toEqual({
+      [`${ORT_PACKAGE}/bin/napi-v6/win32/x64/onnxruntime_binding.node`]:
+        "bin/napi-v6/win32/x64/onnxruntime_binding.node",
+      [`${ORT_PACKAGE}/bin/napi-v6/win32/x64/onnxruntime.dll`]: "bin/napi-v6/win32/x64/onnxruntime.dll",
+    });
+    const shipped = Object.values(onnxRuntimeBuildCopy("windows")).join("\n").toLowerCase();
+    for (const unused of ["directml.dll", "dxcompiler.dll", "dxil.dll"]) {
+      expect(shipped).not.toContain(unused);
+    }
+  });
+
+  test("onnxruntime-node still resolves its binding from bin/napi-v6 beside the requiring module's parent", async () => {
+    const bindingJs = await Bun.file(join(import.meta.dir, "..", ORT_PACKAGE, "dist", "binding.js")).text();
+    expect(bindingJs).toContain(
+      "require(`../bin/napi-v6/${process.platform}/${process.arch}/onnxruntime_binding.node`)",
+    );
+  });
+
+  test("every ONNX Runtime copy source is in the installed package", () => {
+    for (const platform of ["macos", "windows"] as const) {
+      for (const source of Object.keys(onnxRuntimeBuildCopy(platform))) {
+        expect(existsSync(join(import.meta.dir, "..", source))).toBe(true);
+      }
+    }
   });
 });

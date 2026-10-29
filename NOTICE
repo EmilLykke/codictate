@@ -15,3 +15,20 @@ notices are distributed in licenses/edda (docs/licenses/edda in source).
 
 Automatic language detection includes TinyLD, Copyright (c) 2021 Komodo.
 Its MIT license is distributed in licenses/tinyld (docs/licenses/tinyld in source).
+
+Optional Danish Punctuation Restoration uses the Ekko PnC v2 Punctuation Model
+(ekko-pnc) by RyeAI, from https://huggingface.co/RyeAI/ekko-pnc at revision
+d3129544e4e0155093e192cac58a9e69a4dea1ff, downloaded unchanged from Codictate's
+Mirror. It is licensed under CC BY 4.0, subject to the CoRal restrictions in
+section 4 of its CORAL-LICENSE, and derives from jonfd/electra-small-nordic
+(CC BY 4.0). Its NOTICE, MODEL_LICENSE.md and LICENSES/ are distributed in
+licenses/ekko-pnc (docs/licenses/ekko-pnc in source).
+
+Punctuation Restoration runs on ONNX Runtime 1.30.0 (onnxruntime-node),
+Copyright (c) Microsoft Corporation, under the MIT License. Its LICENSE and
+ThirdPartyNotices.txt, from tag v1.30.0 of https://github.com/microsoft/onnxruntime,
+are distributed in licenses/onnxruntime (docs/licenses/onnxruntime in source).
+
+Punctuation Restoration tokenizes text with @huggingface/tokenizers 0.2.0 by
+Hugging Face, under the Apache License 2.0. Its license is distributed in
+licenses/huggingface-tokenizers (docs/licenses/huggingface-tokenizers in source).
