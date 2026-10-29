@@ -5,6 +5,7 @@ import type {
   FormatterModelTier,
   ModelDownloadProgress,
   NavigateRequest,
+  PunctuationModelDownloadProgress,
   PermissionState,
   SettingsPane,
   TranscriptExportResult,
@@ -29,6 +30,7 @@ type EventMap = {
     done: boolean
     error?: string
   }
+  punctuationModelProgress: PunctuationModelDownloadProgress
   historyEntryAdded: void
   fileTranscriptions: FileTranscriptionsState
   transcriptExportFinished: TranscriptExportResult
