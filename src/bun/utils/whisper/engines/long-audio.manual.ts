@@ -78,6 +78,27 @@
  *   out or any of `LOCAL_DICTATION_PHRASES` (one per sentence) is missing, case and
  *   punctuation ignored. Words, sentence ends and commas are printed.
  *
+ * ekko (issue #108): an installed ekko-v1-tiny runs by default and when
+ * `CODICTATE_LONG_AUDIO_MODELS` names it, on the Danish clips only, through its own adapter
+ * (`transcribeWithEkkoTuned`, so `CODICTATE_LONG_AUDIO_SLICE_SECONDS` sets its slice cap too).
+ * It needs `parakeet-cli` (`bun run scripts/pre-build.ts --parakeet-cli-only`) and the
+ * Punctuation Model, ekko-pnc, in an `ekko-pnc` folder under the models directory or any
+ * `CODICTATE_LONG_AUDIO_MODEL_DIRS` entry; without either it skips with a message. Applied to
+ * ekko, as above: no utterance lost, no words lost at a cut (the adapter's own `ekkoSlices`
+ * cuts; gated on `da_2min` and `da_5min`, reported on `da_continuous_90s`), the Danish
+ * foreign-script check and the Timed Transcript checks. The punctuation gate and the local
+ * dictation judge the text after Punctuation Restoration, on those ekko-pnc weights. Two
+ * checks are ekko's own:
+ * - Caption timing: per clip, the p10, median and earliest first-word start against each
+ *   utterance's speech start (`long-audio-gates.ts`). `da_2min` and `da_5min` fail when p10 is
+ *   earlier than -1.0 s (#78 measured -3.6 s on `da_5min` without the 0.8 s word-start clamp,
+ *   -0.7 s with it).
+ * - Memory: per long clip, `ekkoSliceArgv` alone on the clip's longest slice, with peak RSS
+ *   from Bun's `resourceUsage().maxRSS`. 1 GB or more fails; a missing or zero value is
+ *   reported as skipped, never as a pass.
+ * The crispasr argv checks (legacy `-nt` parity, the VAD-loss check, prompt echo, Translate,
+ * auto-detect) do not run for ekko.
+ *
  * A table is printed at the end. A Speech Model gets `whisperDecoding: 'timestamps'` in
  * src/shared/speech-models.ts only after its rows pass here.
  */
@@ -99,6 +120,7 @@ import { tmpdir } from 'node:os'
 import { basename, delimiter, join, resolve } from 'node:path'
 import { computeWer, tokenizeForWer } from '../../../../../benchmarks/stt/wer'
 import {
+  EKKO_ENGINE_ID,
   pinnedTranscriptionLanguageId,
   SPEECH_MODELS,
   whisperDecodingForModel,
@@ -107,6 +129,12 @@ import {
 import type { TimedTranscript } from '../../../../shared/timed-transcript'
 import { findBinary } from '../../../platform/binaries'
 import { MODELS_DIR } from '../../../platform/runtime'
+import { ekkoPncModelLoader } from '../../punctuation/ekko-pnc-model'
+import { isPunctuationModelInstalled } from '../../punctuation/punctuation-model-files'
+import {
+  createPunctuationRestorer,
+  type PunctuationRestorer,
+} from '../../punctuation/punctuation-restorer'
 import {
   buildWhisperHarnessCommand,
   DICTATION_PROMPT,
@@ -117,7 +145,26 @@ import {
   type NtVadTuning,
 } from './crispasr-engine'
 import { crispasrTranscript, parseCrispasrJson } from './crispasr-json'
-import type { HarnessTranscriptionRequest } from './transcription'
+import {
+  EKKO_ENV,
+  ekkoSliceArgv,
+  ekkoSlices,
+  pcm16MonoWav,
+  transcribeWithEkkoTuned,
+} from './ekko-engine'
+import {
+  captionTiming,
+  captionTimingFailure,
+  firstWordStartOffsets,
+  peakRssVerdict,
+  type CaptionTiming,
+  type PeakRssVerdict,
+} from './long-audio-gates'
+import type {
+  EkkoTranscriptionRequest,
+  HarnessTranscriptionRequest,
+  TranscriptionResult,
+} from './transcription'
 import { DEFAULT_VAD_SLICE_OPTIONS, type VadSliceOptions } from './vad-slices'
 
 const REPO = resolve(import.meta.dir, '../../../../..')
@@ -210,9 +257,17 @@ function ntVadTuning(): NtVadTuning {
 
 const NT_VAD_TUNING = ntVadTuning()
 
-/** One run through the crispasr adapter, with the `nt-vad` knobs. */
-function transcribe(request: HarnessTranscriptionRequest) {
-  return transcribeWithCrispasrTuned(request, NT_VAD_TUNING)
+/**
+ * One run through the Speech Model's adapter: crispasr with the `nt-vad` knobs, or ekko with
+ * the slice cap (the only knob it has).
+ */
+function transcribe(
+  request: HarnessTranscriptionRequest | EkkoTranscriptionRequest,
+  sliceOptions = NT_VAD_TUNING.sliceOptions
+): Promise<TranscriptionResult> {
+  return request.engineId === EKKO_ENGINE_ID
+    ? transcribeWithEkkoTuned(request, { sliceOptions })
+    : transcribeWithCrispasrTuned(request, { ...NT_VAD_TUNING, sliceOptions })
 }
 
 type Lang = 'en' | 'da'
@@ -326,6 +381,23 @@ const parity: {
   diff: number
   legacyErrors: number
   newErrors: number
+}[] = []
+/** ekko's caption timing per long clip (seconds, first-word start minus speech start). */
+const captionRows: {
+  model: string
+  clip: string
+  utterances: number
+  timing: CaptionTiming | null
+  gated: boolean
+  failure: string | null
+}[] = []
+/** ekko's peak RSS per long clip: one `parakeet-cli` on the clip's longest slice. */
+const memoryRows: {
+  model: string
+  clip: string
+  slices: number
+  longestSliceSeconds: number
+  verdict: PeakRssVerdict
 }[] = []
 
 /** Word edits between two transcripts (substitutions, insertions and deletions). */
@@ -836,19 +908,21 @@ function installedModels(): InstalledModel[] {
   for (const model of SPEECH_MODELS) {
     const isEdda = model.id.startsWith('edda-')
     const isHviske = model.engine === 'hviske'
+    const isEkko = model.engine === EKKO_ENGINE_ID
     const isWhisper = model.engine === 'whisper_cpp'
     // Named models may be any Whisper one, so a browse-only model can be checked before it
-    // gets `whisperDecoding: 'timestamps'`. Without names, the curated set.
+    // gets `whisperDecoding: 'timestamps'`. Without names, the curated set, Edda, hviske and
+    // ekko.
     const selected =
       only.length > 0
-        ? only.includes(model.id) && (isWhisper || isHviske)
-        : isHviske || isEdda || (isWhisper && model.curated)
+        ? only.includes(model.id) && (isWhisper || isHviske || isEkko)
+        : isHviske || isEdda || isEkko || (isWhisper && model.curated)
     if (!selected) continue
     const path = modelDirs()
       .map((dir) => join(dir, model.artifactName))
       .find((candidate) => existsSync(candidate))
     if (path === undefined) continue
-    const danishOnly = isEdda || isHviske
+    const danishOnly = isEdda || isHviske || isEkko
     const englishOnly = model.id.includes('.en')
     out.push({
       model,
@@ -860,7 +934,37 @@ function installedModels(): InstalledModel[] {
   return out
 }
 
+function isEkko(installed: InstalledModel): boolean {
+  return installed.model.engine === EKKO_ENGINE_ID
+}
+
+/** The folder holding the installed Punctuation Model (ekko-pnc), or `null`. */
+function punctuationModelDir(): string | null {
+  return (
+    modelDirs()
+      .map((dir) => join(dir, 'ekko-pnc'))
+      .find((candidate) => isPunctuationModelInstalled(candidate)) ?? null
+  )
+}
+
+/** The Request the app would make for this Speech Model: ekko's has no language. */
 function request(
+  installed: InstalledModel,
+  audioPath: string,
+  lang: Lang
+): HarnessTranscriptionRequest | EkkoTranscriptionRequest {
+  if (isEkko(installed))
+    return {
+      engineId: EKKO_ENGINE_ID,
+      speechModelId: installed.model.id,
+      audioPath,
+      timeoutMs: RUN_TIMEOUT_MS,
+      modelPath: installed.path,
+    }
+  return harnessRequest(installed, audioPath, lang)
+}
+
+function harnessRequest(
   installed: InstalledModel,
   audioPath: string,
   lang: Lang,
@@ -880,9 +984,16 @@ function request(
 }
 
 function decodingOf(installed: InstalledModel): string {
+  if (isEkko(installed)) return 'ekko'
   return installed.model.engine === 'hviske'
     ? 'cohere'
     : (whisperDecodingForModel(installed.model.id) ?? 'nt-vad')
+}
+
+/** Decodings Codictate cuts itself, so the cut-loss check applies. */
+function cutsItself(installed: InstalledModel): boolean {
+  const decoding = decodingOf(installed)
+  return decoding === 'nt-vad' || decoding === 'ekko'
 }
 
 /**
@@ -977,21 +1088,66 @@ function legacyTranscript(
 
 const crispasr = findBinary('crispasr')
 const vad = findBinary('silero-vad')
+const parakeetCli = findBinary('parakeet-cli')
 const datasetsPresent =
   existsSync(join(LIBRISPEECH, 'wav/test-clean')) &&
   existsSync(join(FLEURS_DA, 'test.tsv'))
-const models = datasetsPresent && crispasr !== null ? installedModels() : []
-const skipReason =
+const found = datasetsPresent ? installedModels() : []
+/** Why the crispasr Speech Models cannot run, or `null`. */
+const crispasrMissing =
   crispasr === null
     ? 'crispasr is not vendored: run `bun run scripts/pre-build.ts --crispasr-only`'
     : vad === null
       ? 'Silero VAD is not vendored: run `bun run scripts/pre-build.ts --crispasr-only`'
-      : !datasetsPresent
-        ? `benchmark datasets missing under ${DATASETS}`
-        : models.length === 0
-          ? 'no curated Whisper, Edda or hviske weights installed'
-          : null
+      : null
+const pncDir = punctuationModelDir()
+/** Why ekko cannot run, or `null`. */
+const ekkoMissing =
+  parakeetCli === null
+    ? 'parakeet-cli is not vendored: run `bun run scripts/pre-build.ts --parakeet-cli-only`'
+    : pncDir === null
+      ? `ekko-pnc is not installed in an ekko-pnc folder under ${modelDirs().join(', ')}`
+      : null
+for (const m of found) {
+  const missing = isEkko(m) ? ekkoMissing : crispasrMissing
+  if (missing !== null)
+    console.warn(`[long-audio] ${m.model.id} skipped: ${missing}`)
+}
+const models = found.filter(
+  (m) => (isEkko(m) ? ekkoMissing : crispasrMissing) === null
+)
+const skipReason = !datasetsPresent
+  ? `benchmark datasets missing under ${DATASETS}`
+  : models.length === 0
+    ? found.length === 0
+      ? 'no curated Whisper, Edda, hviske or ekko weights installed'
+      : 'no installed Speech Model can run (see above)'
+    : null
 if (skipReason !== null) console.warn(`[long-audio] skipped: ${skipReason}`)
+
+/** ekko's Punctuation Restorer, on the ekko-pnc weights found above. */
+const punctuationRestorer: PunctuationRestorer | null =
+  pncDir === null
+    ? null
+    : createPunctuationRestorer({ loadModel: ekkoPncModelLoader(pncDir) })
+
+/**
+ * The text the punctuation checks judge: for ekko the Raw Transcript after Punctuation
+ * Restoration, as a Dictation pastes it; for crispasr the Raw Transcript. Throws when ekko's
+ * restoration did not run, since the gate would then judge unpunctuated text.
+ */
+async function punctuatedText(
+  installed: InstalledModel,
+  rawTranscript: string
+): Promise<string> {
+  if (!isEkko(installed) || rawTranscript.trim() === '') return rawTranscript
+  const restored = await punctuationRestorer!.restore(rawTranscript)
+  if (!restored.restored)
+    throw new Error(
+      'Punctuation Restoration did not run on the ekko transcript'
+    )
+  return restored.text
+}
 
 let dir = ''
 const longClips: LongClip[] = []
@@ -1021,7 +1177,8 @@ function checkPromptEcho(
   transcript: string,
   failures: string[]
 ): void {
-  if (decodingOf(installed) === 'cohere') return
+  const decoding = decodingOf(installed)
+  if (decoding === 'cohere' || decoding === 'ekko') return
   const phrase = echoedPrompt(transcript)
   if (phrase === null) return
   promptEchoes.push({ model: installed.model.id, clip, phrase })
@@ -1030,7 +1187,11 @@ function checkPromptEcho(
 
 // -- Cut loss (nt-vad) ----------------------------------------------------------------
 
-const clipCuts = new Map<string, { clip: LongClip; cuts: Cut[] }>()
+/** By `decoding|clip`: the crispasr and ekko adapters cut with their own slicers. */
+const clipCuts = new Map<
+  string,
+  { clip: LongClip; decoding: string; cuts: Cut[] }
+>()
 const clipSamples = new Map<string, Int16Array>()
 /** Each utterance's own audio as a WAV, by `soloAudioKey`. */
 const soloWavs = new Map<string, string>()
@@ -1038,12 +1199,28 @@ const soloWavs = new Map<string, string>()
 const soloTranscripts = new Map<string, string>()
 
 /**
- * Where the app cuts `clip` on `nt-vad`: the adapter's own `writeNtVadSlices` with this run's
- * slice options, read back from the `--vad-import` file it writes.
+ * Where the app cuts `clip`: on `nt-vad` the crispasr adapter's own `writeNtVadSlices` with
+ * this run's slice options, read back from the `--vad-import` file it writes; on ekko the ekko
+ * adapter's own `ekkoSlices`.
  */
-function cutsOf(clip: LongClip): Cut[] {
-  const known = clipCuts.get(clip.name)
+function cutsOf(clip: LongClip, decoding: string): Cut[] {
+  const key = `${decoding}|${clip.name}`
+  const known = clipCuts.get(key)
   if (known !== undefined) return known.cuts
+  if (decoding === 'ekko') {
+    const slicing = ekkoSlices(clip.path, NT_VAD_TUNING.sliceOptions)
+    if (!slicing.ok || slicing.slices.length === 0)
+      throw new Error(
+        `${clip.name}: no ekko slices (${slicing.ok ? 'no speech' : slicing.detail})`
+      )
+    const { slices, sampleRate } = slicing
+    const cuts = slices.slice(1).map((slice, i) => ({
+      from: slices[i].endSample / sampleRate,
+      to: slice.startSample / sampleRate,
+    }))
+    clipCuts.set(key, { clip, decoding, cuts })
+    return cuts
+  }
   const path = join(dir, `${clip.name}-slices.json`)
   const slicing = writeNtVadSlices(clip.path, path, NT_VAD_TUNING.sliceOptions)
   if (slicing.status !== 'written')
@@ -1057,7 +1234,7 @@ function cutsOf(clip: LongClip): Cut[] {
     from: slices[i].end / SAMPLE_RATE,
     to: slice.start / SAMPLE_RATE,
   }))
-  clipCuts.set(clip.name, { clip, cuts })
+  clipCuts.set(key, { clip, decoding, cuts })
   return cuts
 }
 
@@ -1160,13 +1337,10 @@ async function soloTranscript(
     )
     soloWavs.set(audioKey, wav)
   }
-  const result = await transcribeWithCrispasrTuned(
-    request(installed, wav, clip.lang),
-    {
-      ...NT_VAD_TUNING,
-      sliceOptions: { ...NT_VAD_TUNING.sliceOptions, ...SOLO_SLICE_OPTIONS },
-    }
-  )
+  const result = await transcribe(request(installed, wav, clip.lang), {
+    ...NT_VAD_TUNING.sliceOptions,
+    ...SOLO_SLICE_OPTIONS,
+  })
   if (result.status !== 'ok')
     throw new Error(
       `solo decode of ${basename(w.source)}: ${result.reason} ${result.diagnostic ?? ''}`
@@ -1313,10 +1487,36 @@ afterAll(() => {
                 ),
               ]),
           '',
-          ...[...clipCuts.values()].map(({ clip, cuts }) => {
+          ...[...clipCuts.values()].map(({ clip, decoding, cuts }) => {
             const inside = cuts.filter((cut) => utteranceCut(clip, cut) !== -1)
-            return `Cuts in ${clip.name} (${inside.length} of ${cuts.length} inside an utterance${cutLossGated(clip) ? '' : '; reported, not gated: continuous clip'}): ${cuts.map((cut) => `${cutLabel(cut)} ${utteranceCut(clip, cut) === -1 ? 'between' : 'inside'}`).join(', ')}`
+            return `Cuts in ${clip.name} on ${decoding} (${inside.length} of ${cuts.length} inside an utterance${cutLossGated(clip) ? '' : '; reported, not gated: continuous clip'}): ${cuts.map((cut) => `${cutLabel(cut)} ${utteranceCut(clip, cut) === -1 ? 'between' : 'inside'}`).join(', ')}`
           }),
+        ]
+  const seconds = (value: number) =>
+    `${value >= 0 ? '+' : ''}${value.toFixed(2)}`
+  const captionLines =
+    captionRows.length === 0
+      ? []
+      : [
+          '',
+          '| Speech Model | Clip | First words timed | p10 s | Median s | Earliest s | Gate |',
+          '|---|---|---|---|---|---|---|',
+          ...captionRows.map(
+            (c) =>
+              `| ${c.model} | ${c.clip} | ${c.timing?.count ?? 0}/${c.utterances} | ${c.timing === null ? '-' : seconds(c.timing.p10)} | ${c.timing === null ? '-' : seconds(c.timing.median)} | ${c.timing === null ? '-' : seconds(c.timing.worst)} | ${!c.gated ? 'reported, not gated' : c.failure === null ? 'pass' : `FAIL: ${c.failure}`} |`
+          ),
+        ]
+  const memoryLines =
+    memoryRows.length === 0
+      ? []
+      : [
+          '',
+          '| Speech Model | Clip | Slices | Longest slice s | Peak RSS (one parakeet-cli) | Verdict |',
+          '|---|---|---|---|---|---|',
+          ...memoryRows.map(
+            (m) =>
+              `| ${m.model} | ${m.clip} | ${m.slices} | ${m.longestSliceSeconds.toFixed(1)} | ${m.verdict.status === 'skip' ? '-' : `${m.verdict.megabytes} MB`} | ${m.verdict.status === 'skip' ? `skipped: ${m.verdict.reason}` : m.verdict.status} |`
+          ),
         ]
   const localLines =
     localDictationRows.length === 0
@@ -1332,7 +1532,7 @@ afterAll(() => {
         ]
   const tuning = `nt-vad: slices of ${NT_VAD_TUNING.sliceOptions?.maxSliceSeconds ?? DEFAULT_VAD_SLICE_OPTIONS.maxSliceSeconds} s or less, ${NT_VAD_TUNING.beamSearch === false ? 'greedy' : '-bs 5'}, ${NT_VAD_TUNING.prompt === false ? 'no prompt' : 'prompt unless the Speech Model opts out'}`
   console.log(
-    `\n[long-audio] ${tuning}\n${[...lines, ...parityLines, ...vadLines, ...cutLines, ...localLines].join('\n')}\n`
+    `\n[long-audio] ${tuning}\n${[...lines, ...parityLines, ...vadLines, ...cutLines, ...captionLines, ...memoryLines, ...localLines].join('\n')}\n`
   )
 })
 
@@ -1361,7 +1561,7 @@ describe('long-audio check', () => {
             continue
           }
           checkPromptEcho(installed, clip.name, result.rawTranscript, failures)
-          if (decoding === 'nt-vad')
+          if (cutsItself(installed))
             longTranscripts.set(`${id}|${clip.name}`, result.rawTranscript)
           const heard = heardPerWindow(clip.windows, result.rawTranscript)
           const lost = heard
@@ -1379,7 +1579,9 @@ describe('long-audio check', () => {
             (n, w, i) => n + heard[i] * tokenizeForWer(w.text).length,
             0
           )
-          const said = punctuation(result.rawTranscript)
+          const said = punctuation(
+            await punctuatedText(installed, result.rawTranscript)
+          )
           const reference = punctuation(
             clip.windows.map((w) => w.text).join(' ')
           )
@@ -1419,7 +1621,7 @@ describe('long-audio check', () => {
           if (lost.length > 0)
             failures.push(`${clip.name}: lost ${lost.join(', ')}`)
           if (
-            decoding === 'nt-vad' &&
+            cutsItself(installed) &&
             hasPauses(clip) &&
             referenceSentenceEnds >= PUNCTUATION_GATE.referenceSentenceEnds &&
             sentenceEnds < PUNCTUATION_GATE.minSentenceEnds
@@ -1444,12 +1646,32 @@ describe('long-audio check', () => {
             failures.push(
               `${clip.name}: ${uncovered.length} utterance windows without a part`
             )
+          if (isEkko(installed)) {
+            // Caption timing (#78): where each utterance's first word starts against where
+            // its speech starts. Gated where the clip has pauses.
+            const words = (timed?.parts ?? []).flatMap((p) => p.words ?? [])
+            const timing = captionTiming(
+              firstWordStartOffsets(clip.windows, words)
+            )
+            const gated = hasPauses(clip)
+            const failure = gated ? captionTimingFailure(timing) : null
+            captionRows.push({
+              model: id,
+              clip: clip.name,
+              utterances: clip.windows.length,
+              timing,
+              gated,
+              failure,
+            })
+            if (failure !== null) failures.push(`${clip.name}: ${failure}`)
+          }
         }
 
         // Within one word of the legacy argv, or, where decoding variance moved more than
-        // one word, no further from the reference than the legacy transcript was.
-        for (const clip of shortClips.filter((c) =>
-          installed.langs.includes(c.lang)
+        // one word, no further from the reference than the legacy transcript was. A crispasr
+        // argv check: not for ekko.
+        for (const clip of shortClips.filter(
+          (c) => !isEkko(installed) && installed.langs.includes(c.lang)
         )) {
           const result = await transcribe(
             request(installed, clip.path, clip.lang)
@@ -1484,10 +1706,11 @@ describe('long-audio check', () => {
 
   // Issue #83: no word on either side of an `nt-vad` cut lost that the same utterance,
   // decoded alone and uncut, hears. Reads the long-clip transcripts the test above wrote.
-  for (const installed of models.filter((m) => decodingOf(m) === 'nt-vad')) {
+  // ekko cuts the recording itself too (#108), so it gets the same check on its own cuts.
+  for (const installed of models.filter(cutsItself)) {
     const id = installed.model.id
     test.skipIf(skipReason !== null)(
-      `${id}: no words lost at an nt-vad cut`,
+      `${id}: no words lost at a ${decodingOf(installed)} cut`,
       async () => {
         const failures: string[] = []
         let cutCount = 0
@@ -1507,7 +1730,7 @@ describe('long-audio check', () => {
             refs.slice(0, i).reduce((n, words) => n + words.length, 0)
           )
           const long = alignWords(refs.flat(), tokenizeForWer(transcript))
-          const cuts = cutsOf(clip)
+          const cuts = cutsOf(clip, decodingOf(installed))
           cutCount += cuts.length
           // Each utterance once, with every cut it sits at.
           const atCuts = new Map<number, Cut[]>()
@@ -1587,6 +1810,68 @@ describe('long-audio check', () => {
     )
   }
 
+  // Issue #108: one `parakeet-cli` process, on each long clip's longest slice, stays under
+  // 1 GB. Each process only ever sees one slice, so the longest is the worst case.
+  for (const installed of models.filter(isEkko)) {
+    const id = installed.model.id
+    test.skipIf(skipReason !== null)(
+      `${id}: one parakeet-cli on the longest slice stays under 1 GB`,
+      () => {
+        const failures: string[] = []
+        for (const clip of longClips.filter((c) =>
+          installed.langs.includes(c.lang)
+        )) {
+          const slicing = ekkoSlices(clip.path, NT_VAD_TUNING.sliceOptions)
+          if (!slicing.ok || slicing.slices.length === 0) {
+            failures.push(
+              `${clip.name}: no slice to measure (${slicing.ok ? 'no speech' : slicing.detail})`
+            )
+            continue
+          }
+          const longest = slicing.slices.reduce((a, b) =>
+            b.endSample - b.startSample > a.endSample - a.startSample ? b : a
+          )
+          const slicePath = join(dir, `memory-${id}-${clip.name}.wav`)
+          writeFileSync(
+            slicePath,
+            pcm16MonoWav(slicing.samples, slicing.sampleRate, longest)
+          )
+          const proc = Bun.spawnSync(
+            ekkoSliceArgv(parakeetCli!, installed.path, slicePath),
+            {
+              stdout: 'ignore',
+              stderr: 'ignore',
+              env: { ...process.env, ...EKKO_ENV },
+            }
+          )
+          if (proc.exitCode !== 0) {
+            failures.push(`${clip.name}: parakeet-cli exited ${proc.exitCode}`)
+            continue
+          }
+          const verdict = peakRssVerdict(proc.resourceUsage?.maxRSS)
+          memoryRows.push({
+            model: id,
+            clip: clip.name,
+            slices: slicing.slices.length,
+            longestSliceSeconds:
+              (longest.endSample - longest.startSample) / slicing.sampleRate,
+            verdict,
+          })
+          if (verdict.status === 'skip')
+            console.warn(
+              `[long-audio] ${id} ${clip.name} memory check skipped: ${verdict.reason}`
+            )
+          if (verdict.status === 'fail')
+            failures.push(
+              `${clip.name}: peak RSS ${verdict.megabytes} MB, at or over 1 GB`
+            )
+        }
+        expect(failures).toEqual([])
+      },
+      RUN_TIMEOUT_MS
+    )
+  }
+
   // A real dictation, where one exists (see the header): registered only then, so a machine
   // without it runs nothing and says nothing.
   const localDictation = existsSync(LOCAL_DICTATION)
@@ -1604,8 +1889,9 @@ describe('long-audio check', () => {
         const wallSeconds = (performance.now() - started) / 1000
         expect(result.status).toBe('ok')
         if (result.status !== 'ok') return
-        const said = punctuation(result.rawTranscript)
-        const missing = missingPhrases(result.rawTranscript)
+        const text = await punctuatedText(installed, result.rawTranscript)
+        const said = punctuation(text)
+        const missing = missingPhrases(text)
         localDictationRows.push({
           model: id,
           decoding: decodingOf(installed),
@@ -1633,7 +1919,11 @@ describe('long-audio check', () => {
 
   // Every selected installed translate-capable one: a timed one must keep its timings sane
   // while translating, and one on Edda's path must still translate without losing speech.
-  const translators = models.filter((m) => m.model.translationSupport)
+  // Translate and auto-detect are crispasr argv checks; ekko (Danish only, no translate)
+  // never gets them.
+  const translators = models.filter(
+    (m) => !isEkko(m) && m.model.translationSupport
+  )
   test.skipIf(skipReason !== null || translators.length > 0)(
     'translate to English on Danish (no translate-capable model installed)',
     () => {}
@@ -1645,7 +1935,7 @@ describe('long-audio check', () => {
         const clip = longClips.find((c) => c.name === 'da_2min')!
         const started = performance.now()
         const result = await transcribe(
-          request(translator, clip.path, 'da', true)
+          harnessRequest(translator, clip.path, 'da', true)
         )
         const wallSeconds = (performance.now() - started) / 1000
         expect(result.status).toBe('ok')
@@ -1702,7 +1992,7 @@ describe('long-audio check', () => {
 
   // ADR-0011: under auto-detect the transcript stays in the language spoken.
   for (const installed of models.filter(
-    (m) => m.pinnedLanguage === null && m.langs.length > 1
+    (m) => !isEkko(m) && m.pinnedLanguage === null && m.langs.length > 1
   )) {
     const id = installed.model.id
     test.skipIf(skipReason !== null)(
@@ -1715,7 +2005,7 @@ describe('long-audio check', () => {
         const failures: string[] = []
         for (const clip of clips) {
           const result = await transcribe({
-            ...request(installed, clip.path, clip.lang),
+            ...harnessRequest(installed, clip.path, clip.lang),
             languageCode: null,
           })
           if (result.status !== 'ok') {
