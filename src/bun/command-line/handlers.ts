@@ -45,6 +45,7 @@ import type {
 import type { ModelOperations } from '../model-operations'
 import {
   modelLabel,
+  punctuationModelMissingMessage,
   type BlockedDictationPlan,
   type DictationBlockedReason,
 } from '../../shared/dictation-plan'
@@ -446,7 +447,7 @@ const BLOCKED_PLAN_ERRORS: Record<
   parakeet_helper_missing: (_id, plan) => ['internal', plan.message],
   punctuation_model_not_installed: () => [
     'model_not_installed',
-    'Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next dictation works.',
+    punctuationModelMissingMessage('command_line_dictation'),
   ],
 }
 

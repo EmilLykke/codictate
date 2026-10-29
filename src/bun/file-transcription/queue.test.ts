@@ -21,6 +21,7 @@ import type {
 } from './types'
 
 const HVISKE = 'hviske-v5-tiny-q5_0'
+const EDDA = 'edda-v0.2-q5_0'
 const PARAKEET = 'parakeet-tdt-0.6b-v3'
 const LARGE_V3 = 'large-v3-q5_0'
 
@@ -82,6 +83,9 @@ function harness(
   const restored: string[] = []
   let installed = options.installed ?? (() => true)
   let translateToEnglish = options.translateToEnglish ?? false
+  let addPunctuation = options.addPunctuation ?? false
+  let punctuationModelInstalled = options.punctuationModelInstalled ?? true
+  let heals = 0
   let jobCounter = 0
 
   const deps: FileTranscriptionDeps = {
@@ -93,11 +97,15 @@ function harness(
       }),
       getTranslateDefaultLanguageId: () =>
         options.translateDefaultLanguageId ?? 'auto',
-      getAddPunctuation: () => options.addPunctuation ?? false,
+      getAddPunctuation: () => addPunctuation,
     },
     isModelAvailable: (id) => installed(id),
-    isPunctuationModelInstalled: () =>
-      options.punctuationModelInstalled ?? true,
+    isPunctuationModelInstalled: () => punctuationModelInstalled,
+    // Like the app's heal pass: without the Punctuation Model, Add punctuation goes off.
+    healSettings: () => {
+      heals += 1
+      if (!punctuationModelInstalled) addPunctuation = false
+    },
     punctuationRestorer: {
       restore: (text) => {
         restored.push(text)
@@ -179,6 +187,15 @@ function harness(
     },
     setTranslateToEnglish(next: boolean) {
       translateToEnglish = next
+    },
+    setPunctuationModelInstalled(next: boolean) {
+      punctuationModelInstalled = next
+    },
+    get addPunctuation() {
+      return addPunctuation
+    },
+    get heals() {
+      return heals
     },
     /** Advance the clock by whole seconds, firing the progress timer once per second. */
     tick(seconds: number) {
@@ -583,6 +600,49 @@ describe('Punctuation Restoration', () => {
     }
     expect(events).toEqual([])
     expect(h.decodes).toHaveLength(0)
+  })
+
+  test('Add punctuation on without the Punctuation Model turns the switch off, so the next file runs', async () => {
+    const h = harness({
+      speechModelId: HVISKE,
+      addPunctuation: true,
+      punctuationModelInstalled: false,
+    })
+    const refused = await h.enqueue('/files/a.wav').job.result
+    expect(refused).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('Add punctuation has been turned off'),
+    })
+    expect(h.heals).toBe(1)
+    expect(h.addPunctuation).toBe(false)
+
+    h.enqueue('/files/b.wav')
+    expect(h.decodes).toHaveLength(1)
+  })
+
+  test('the Punctuation Model deleted while the job waits turns the switch off too', async () => {
+    const h = harness({ speechModelId: HVISKE, addPunctuation: true })
+    const { job: first } = h.enqueue('/files/a.wav')
+    const { job: waiting } = h.enqueue('/files/b.wav')
+    h.setPunctuationModelInstalled(false)
+    first.cancel()
+    expect(await waiting.result).toMatchObject({
+      status: 'failed',
+      message: expect.stringContaining('Add punctuation has been turned off'),
+    })
+    expect(h.heals).toBe(1)
+    expect(h.addPunctuation).toBe(false)
+  })
+
+  test('a Speech Model override that is not installed heals nothing', async () => {
+    const h = harness({
+      speechModelId: HVISKE,
+      installed: (id) => id === HVISKE,
+    })
+    const result = await h.enqueue('/files/a.wav', { speechModelId: EDDA }).job
+      .result
+    expect(result).toMatchObject({ code: 'model_not_installed' })
+    expect(h.heals).toBe(0)
   })
 
   test('a Punctuation Restorer that fails leaves the text and its timings as they were', async () => {

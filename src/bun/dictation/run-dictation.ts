@@ -83,13 +83,13 @@ export interface DictationRunRequest {
 export interface DictationOutcome {
   status: 'ok'
   /**
-   * The Raw Transcript: what the Speech Engine produced, before any rewriting, Punctuation
-   * Restoration included.
+   * The Raw Transcript: exactly what the Speech Engine produced, before Punctuation
+   * Restoration and any rewriting.
    */
   rawTranscript: string
   /**
-   * After Punctuation Restoration, the brand table and the Dictionary, before the
-   * Formatting Mode.
+   * The Raw Transcript after Punctuation Restoration (when the plan asks for it), the brand
+   * table and the Dictionary, before the Formatting Mode.
    */
   raw: string
   /** What the caller pastes. Equal to `raw` when no Formatting Mode matched. */

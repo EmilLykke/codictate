@@ -58,7 +58,8 @@ function planned(
 ) {
   const selected = selectFileTranscription(current, overrides)
   if (selected.status !== 'ok') throw new Error(selected.message)
-  return planFileTranscription(selected.selection, everythingInstalled)
+  const planned = planFileTranscription(selected.selection, everythingInstalled)
+  return planned.status === 'blocked' ? planned.failure : planned
 }
 
 function runnable(
@@ -68,7 +69,7 @@ function runnable(
   const selected = selectFileTranscription(current, overrides)
   if (selected.status !== 'ok') throw new Error(selected.message)
   const planned = planFileTranscription(selected.selection, everythingInstalled)
-  if (planned.status !== 'runnable') throw new Error(planned.message)
+  if (planned.status !== 'runnable') throw new Error(planned.failure.message)
   return planned.plan
 }
 
@@ -157,10 +158,33 @@ describe('selectFileTranscription and planFileTranscription', () => {
       isModelAvailable: (id) => id !== HVISKE,
     })
     expect(planned).toMatchObject({
-      status: 'failed',
-      code: 'model_not_installed',
+      status: 'blocked',
+      reason: 'speech_model_not_installed',
+      failure: { status: 'failed', code: 'model_not_installed' },
     })
-    if (planned.status === 'failed') expect(planned.message).toContain(HVISKE)
+    if (planned.status === 'blocked') {
+      expect(planned.failure.message).toContain(HVISKE)
+    }
+  })
+
+  test('Add punctuation on without the Punctuation Model stops the file, and says the switch is off', () => {
+    const selected = selectFileTranscription(settings(HVISKE), {})
+    if (selected.status !== 'ok') throw new Error('unexpected')
+    expect(
+      planFileTranscription(
+        { ...selected.selection, addPunctuation: true },
+        { ...everythingInstalled, punctuationModelInstalled: false }
+      )
+    ).toEqual({
+      status: 'blocked',
+      reason: 'punctuation_model_not_installed',
+      failure: {
+        status: 'failed',
+        code: 'model_not_installed',
+        message:
+          'File transcription stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next file works.',
+      },
+    })
   })
 })
 
@@ -252,7 +276,7 @@ describe('Translate to English', () => {
         ...everythingInstalled,
         isModelAvailable: () => false,
       })
-    ).toMatchObject({ code: 'model_not_installed' })
+    ).toMatchObject({ failure: { code: 'model_not_installed' } })
   })
 })
 

@@ -23,11 +23,13 @@ import {
   NO_PARAKEET_LOAD,
   TRANSLATE_CAPABLE_MODEL_IDS,
   blockedDictationPlan,
+  blockedPlanHealsSettings,
   buildDictationPlan,
   getDictationReadiness,
   hasAnyTranslateCapableModelAvailable,
   isStreamCapableModelId,
   isTranslateCapableModelId,
+  punctuationModelMissingMessage,
   type DictationAvailability,
   type DictationBlockedReason,
   type DictationPlanInput,
@@ -942,6 +944,46 @@ describe('buildDictationPlan - Punctuation Restoration', () => {
     expect(plan.message).toBe(
       'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next press works.'
     )
+  })
+})
+
+describe('the Punctuation Model gone, with Add punctuation on', () => {
+  test('each kind of run says it stopped and that the switch is off, in its own words', () => {
+    expect(punctuationModelMissingMessage('dictation_shortcut')).toBe(
+      'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next press works.'
+    )
+    expect(punctuationModelMissingMessage('command_line_dictation')).toBe(
+      'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next dictation works.'
+    )
+    expect(punctuationModelMissingMessage('file_transcription')).toBe(
+      'File transcription stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next file works.'
+    )
+  })
+
+  test('heals the settings whatever the selection, so an override run turns the switch off too', () => {
+    expect(
+      blockedPlanHealsSettings('punctuation_model_not_installed', {
+        fromOverrides: true,
+      })
+    ).toBe(true)
+    expect(
+      blockedPlanHealsSettings('punctuation_model_not_installed', {
+        fromOverrides: false,
+      })
+    ).toBe(true)
+  })
+
+  test('any other blocked override says nothing about the settings, so nothing heals', () => {
+    expect(
+      blockedPlanHealsSettings('speech_model_not_installed', {
+        fromOverrides: true,
+      })
+    ).toBe(false)
+    expect(
+      blockedPlanHealsSettings('speech_model_not_installed', {
+        fromOverrides: false,
+      })
+    ).toBe(true)
   })
 })
 

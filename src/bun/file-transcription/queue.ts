@@ -17,6 +17,10 @@
  */
 
 import { basename, isAbsolute, join } from 'node:path'
+import {
+  blockedPlanHealsSettings,
+  type RunnableDictationPlan,
+} from '../../shared/dictation-plan'
 import { engineProcessTimeoutMs } from '../utils/whisper/engines/process-supervisor'
 import type {
   SpeechModelLocations,
@@ -64,6 +68,14 @@ export interface FileTranscriptionDeps {
   isModelAvailable(speechModelId: string): boolean
   /** The Punctuation Model is fully on disk with its pinned hashes. A question, never a write. */
   isPunctuationModelInstalled(): boolean
+  /**
+   * The app's heal pass (`AppConfig.healRunnableSettings`), run when a plan is blocked for a
+   * reason that heals whatever the selection (`blockedPlanHealsSettings`): Add punctuation on
+   * with the Punctuation Model gone. Changes the settings before it returns, so the sentence
+   * that says the switch is off is true when the caller reads it. Saving and telling the
+   * window may finish later.
+   */
+  healSettings(): void
   /** The app's one Punctuation Restorer, the one a Dictation uses. Never throws. */
   punctuationRestorer: Pick<PunctuationRestorer, 'restore'>
   locations: SpeechModelLocations
@@ -142,6 +154,28 @@ export function createFileTranscriptionQueue(
       isModelAvailable: deps.isModelAvailable,
       punctuationModelInstalled: deps.isPunctuationModelInstalled(),
     }
+  }
+
+  /**
+   * The selection's plan against what is on disk now, or the failure to report. A plan
+   * blocked for a reason the settings have to answer for heals them first, so the next file
+   * (and the next Dictation) runs.
+   */
+  function planJob(
+    selection: FileTranscriptionSelection
+  ):
+    | { status: 'runnable'; plan: RunnableDictationPlan }
+    | Extract<FileTranscriptionResult, { status: 'failed' }> {
+    const planned = planFileTranscription(selection, availability())
+    if (planned.status === 'runnable') return planned
+    if (blockedPlanHealsSettings(planned.reason, { fromOverrides: true })) {
+      try {
+        deps.healSettings()
+      } catch (err) {
+        deps.log('could not heal the settings', { err: String(err) })
+      }
+    }
+    return planned.failure
   }
 
   function emit(record: JobRecord, event: FileTranscriptionEvent): void {
@@ -287,7 +321,7 @@ export function createFileTranscriptionQueue(
     const { filePath } = record.request
     // Availability is asked again at the start of the run: weights deleted while the job
     // waited are reported, not substituted.
-    const planned = planFileTranscription(record.selection!, availability())
+    const planned = planJob(record.selection!)
     if (planned.status === 'failed') return planned
     const { plan } = planned
     if (signal.aborted) return cancelledResult()
@@ -347,19 +381,17 @@ export function createFileTranscriptionQueue(
       )
     }
 
+    const rawTranscript = {
+      text: transcribed.rawTranscript,
+      timedTranscript: transcribed.timedTranscript ?? null,
+    }
     const { text, timedTranscript } = plan.punctuationRestoration
       ? await punctuateFileTranscription(
-          {
-            text: transcribed.rawTranscript,
-            timedTranscript: transcribed.timedTranscript ?? null,
-          },
+          rawTranscript,
           deps.punctuationRestorer,
           (message, data) => deps.log(message, { jobId: record.id, ...data })
         )
-      : {
-          text: transcribed.rawTranscript,
-          timedTranscript: transcribed.timedTranscript ?? null,
-        }
+      : rawTranscript
     if (signal.aborted) return cancelledResult()
 
     return {
@@ -410,7 +442,7 @@ export function createFileTranscriptionQueue(
         break
     }
 
-    const planned = planFileTranscription(selected.selection, availability())
+    const planned = planJob(selected.selection)
     return planned.status === 'failed' ? planned : null
   }
 

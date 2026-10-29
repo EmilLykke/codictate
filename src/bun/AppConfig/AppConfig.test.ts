@@ -695,6 +695,30 @@ describe('Add punctuation', () => {
     expect(config.isPunctuationRestorationReachable()).toBe(false)
   })
 
+  test('the switch is offered while either the Dictation or the File Transcription selection is hviske', async () => {
+    const { dependencies } = punctuationConfig()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    const offered = () =>
+      config.getSettings().dictationReadiness.addPunctuation.reason !==
+      'not_offered_for_speech_model'
+    expect(offered()).toBe(false)
+
+    await config.updateFileTranscriptionSettings({ speechModelId: HVISKE })
+    expect(offered()).toBe(true)
+    expect(config.getSettings().dictationReadiness.addPunctuation.ready).toBe(
+      true
+    )
+
+    await config.updateFileTranscriptionSettings({
+      speechModelId: DEFAULT_MODEL_ID,
+    })
+    expect(offered()).toBe(false)
+
+    await config.updateTranscriptionSettings({ speechModelId: HVISKE })
+    expect(offered()).toBe(true)
+  })
+
   test('a File Transcription Settings change notifies the settings observer', async () => {
     const { dependencies } = punctuationConfig()
     const config = new AppConfig(dependencies)

@@ -21,11 +21,12 @@ import {
   stopParakeetStream,
   type StreamSession,
 } from './utils/whisper/parakeet-stream-runner'
-import type {
-  BlockedDictationPlan,
-  DictationMode,
-  DictationPlan,
-  RunnableDictationPlan,
+import {
+  blockedPlanHealsSettings,
+  type BlockedDictationPlan,
+  type DictationMode,
+  type DictationPlan,
+  type RunnableDictationPlan,
 } from '../shared/dictation-plan'
 import {
   finishObservedCorrection,
@@ -1291,8 +1292,12 @@ export const setupRecording = (
       })
       // From the settings alone, a blocked plan means the world changed under them: the
       // shortcut's surfaces and heal pass, so the next Dictation works. A blocked override
-      // says nothing about the settings, and the caller already has the reason.
-      if (!fromOverrides) void reportBlockedDictation(plan)
+      // usually says nothing about the settings, and the caller already has the reason; Add
+      // punctuation with its Punctuation Model gone is the exception, healed whatever the
+      // selection. Awaited, so the heal has run before the caller is told it has.
+      if (blockedPlanHealsSettings(plan.reason, { fromOverrides })) {
+        await reportBlockedDictation(plan)
+      }
       return { status: 'blocked', plan, fromOverrides }
     }
     if (plan.mode === 'live' && options.until === 'silence') {

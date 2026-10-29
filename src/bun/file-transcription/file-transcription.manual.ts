@@ -91,15 +91,19 @@ afterAll(() => {
  */
 function queueFor(speechModelId: string) {
   return createFileTranscriptionQueue(
-    productionFileTranscriptionDeps({
-      getFileTranscriptionSettings: () => ({
-        speechModelId,
-        transcriptionLanguageId: 'en',
-        translateToEnglish: false,
-      }),
-      getTranslateDefaultLanguageId: () => 'auto',
-      getAddPunctuation: () => false,
-    })
+    productionFileTranscriptionDeps(
+      {
+        getFileTranscriptionSettings: () => ({
+          speechModelId,
+          transcriptionLanguageId: 'en',
+          translateToEnglish: false,
+        }),
+        getTranslateDefaultLanguageId: () => 'auto',
+        getAddPunctuation: () => false,
+      },
+      // Add punctuation is off here, so nothing ever needs healing.
+      () => {}
+    )
   )
 }
 

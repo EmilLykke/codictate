@@ -50,6 +50,7 @@ import {
   type BlockedDictationPlan,
   type DictationAvailability,
   type DictationPlan,
+  type DictationPlanInput,
   type DictationReadiness,
 } from '../../shared/dictation-plan'
 import {
@@ -86,6 +87,10 @@ import {
 } from './state-helpers'
 import { disableDebug, enableDebug, log } from '../utils/logger'
 import { isPunctuationRestorationReachable } from '../utils/punctuation/punctuation-warmup'
+import {
+  fileTranscriptionPlanInput,
+  selectFileTranscription,
+} from '../file-transcription/plan'
 import {
   invalidateDictionaryCandidatesForText as getInvalidatedDictionaryCandidatesForText,
   parseDictionaryCandidates,
@@ -1264,7 +1269,8 @@ export class AppConfig {
     return getDictationReadiness(
       this.runnableDictationSettings(),
       this.dictationAvailability(),
-      { preparing: this.dependencies.isParakeetPreparing() }
+      { preparing: this.dependencies.isParakeetPreparing() },
+      this.punctuationSelections()
     )
   }
 
@@ -1333,21 +1339,28 @@ export class AppConfig {
    * the warm-up and the run cannot disagree.
    */
   public isPunctuationRestorationReachable(): boolean {
-    const dictation = this.runnableDictationSettings()
-    const file = this.getFileTranscriptionSettings()
     return isPunctuationRestorationReachable(
-      [
-        dictation,
-        {
-          ...dictation,
-          speechModelId: file.speechModelId,
-          transcriptionLanguageId: file.transcriptionLanguageId,
-          translateToEnglish: file.translateToEnglish,
-          streamMode: false,
-        },
-      ],
+      this.punctuationSelections(),
       this.dictationAvailability()
     )
+  }
+
+  /**
+   * The selections Add punctuation applies to, the Dictation's first: the Dictation's
+   * settings, and a File Transcription with no overrides as the queue would plan it
+   * (`selectFileTranscription`, `fileTranscriptionPlanInput`). Shared by the warm-up trigger
+   * and the switch's readiness, so the switch shows exactly when either run could punctuate.
+   */
+  private punctuationSelections(): [
+    DictationPlanInput,
+    ...DictationPlanInput[],
+  ] {
+    const dictation = this.runnableDictationSettings()
+    const file = selectFileTranscription(this, {})
+    // Settings are validated on every load and write, so a failure is a broken catalog.
+    return file.status === 'ok'
+      ? [dictation, fileTranscriptionPlanInput(file.selection)]
+      : [dictation]
   }
 
   /**
