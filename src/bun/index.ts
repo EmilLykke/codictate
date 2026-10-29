@@ -200,9 +200,22 @@ await modelManager.topUpInstalls(30_000)
 export const UserAppConfig = createProductionAppConfig()
 await UserAppConfig.load()
 
-/** One File Transcription queue for the command line and the window. */
+/**
+ * One File Transcription queue for the command line and the window. A File Transcription
+ * blocked by Add punctuation with its Punctuation Model gone runs the heal pass, as a blocked
+ * Dictation does, then shows the window the switch turned off. The heal changes the settings
+ * before its first await, so the refusal that says so is already true.
+ */
 const fileTranscriptions = createFileTranscriptionQueue(
-  productionFileTranscriptionDeps(UserAppConfig)
+  productionFileTranscriptionDeps(UserAppConfig, () => {
+    UserAppConfig.healRunnableSettings()
+      .then(() => pushSettingsToWebview())
+      .catch((err) =>
+        log('file-transcription', 'heal after a blocked plan failed', {
+          err: String(err),
+        })
+      )
+  })
 )
 
 const historyManager = new HistoryManager(() =>

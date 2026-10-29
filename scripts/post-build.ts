@@ -15,6 +15,7 @@ import {
   MACOS_PARAKEET_HELPER_NAMES,
 } from "../src/shared/binary-manifest";
 import {
+  ONNXRUNTIME_BINDING_DIRS,
   missingOnnxRuntimeFiles,
   onnxRuntimeBuildCopy,
 } from "./onnxruntime-bundle";
@@ -449,7 +450,7 @@ if (developerId) {
     // Libraries: no entitlements, like the `.node` files Electrobun signs.
     codesignBinary(
       path,
-      `app/bin/napi-v6/darwin/arm64/${name}`,
+      `app/${ONNXRUNTIME_BINDING_DIRS.macos}/${name}`,
       `${appIdentifier}.onnxruntime.${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
       undefined,
       developerId,

@@ -8,13 +8,18 @@
  * table to this module.
  *
  * Read-only. Nothing here writes the config or heals it: a selection whose weights are gone
- * is reported as `model_not_installed`, and the app's own heal pass repairs it.
+ * is reported as `model_not_installed`, and the app's own heal pass repairs it. A blocked
+ * plan carries its reason, so the queue can tell when the heal has to run first
+ * (`blockedPlanHealsSettings`).
  */
 
 import {
   buildDictationPlan,
   modelLabel,
+  punctuationModelMissingMessage,
   type DictationAvailability,
+  type DictationBlockedReason,
+  type DictationPlanInput,
   type RunnableDictationPlan,
 } from '../../shared/dictation-plan'
 import {
@@ -191,6 +196,32 @@ export type FileTranscriptionAvailability = Omit<
 >
 
 /**
+ * The selection as the resolver's input. One mapping, used by the run (below) and by the
+ * question of whether a File Transcription would restore punctuation
+ * (`AppConfig.isPunctuationRestorationReachable`), so the two cannot disagree. Always batch,
+ * because a file is not a Dictation and Live Transcription is a microphone session.
+ */
+export function fileTranscriptionPlanInput(
+  selection: FileTranscriptionSelection
+): DictationPlanInput {
+  return {
+    speechModelId: selection.speechModelId,
+    transcriptionLanguageId: selection.transcriptionLanguageId,
+    translateDefaultLanguageId: selection.translateDefaultLanguageId,
+    translateToEnglish: selection.translateToEnglish,
+    streamMode: false,
+    addPunctuation: selection.addPunctuation,
+  }
+}
+
+/** A plan that will not run: the resolver's reason, and the File Transcription's sentence. */
+export interface BlockedFileTranscriptionPlan {
+  status: 'blocked'
+  reason: DictationBlockedReason
+  failure: FileTranscriptionFailure
+}
+
+/**
  * The selection as a runnable batch plan, or why there is none.
  *
  * Always batch, because a file is not a Dictation and Live Transcription is a microphone
@@ -205,21 +236,26 @@ export function planFileTranscription(
   availability: FileTranscriptionAvailability
 ):
   | { status: 'runnable'; plan: RunnableDictationPlan }
-  | FileTranscriptionFailure {
-  const plan = buildDictationPlan(
-    {
-      speechModelId: selection.speechModelId,
-      transcriptionLanguageId: selection.transcriptionLanguageId,
-      translateDefaultLanguageId: selection.translateDefaultLanguageId,
-      translateToEnglish: selection.translateToEnglish,
-      streamMode: false,
-      addPunctuation: selection.addPunctuation,
-    },
-    { ...availability, streamSupported: false }
-  )
+  | BlockedFileTranscriptionPlan {
+  const plan = buildDictationPlan(fileTranscriptionPlanInput(selection), {
+    ...availability,
+    streamSupported: false,
+  })
   if (plan.status === 'runnable') return { status: 'runnable', plan }
+  return {
+    status: 'blocked',
+    reason: plan.reason,
+    failure: blockedFailure(selection, plan.reason, plan.message),
+  }
+}
+
+function blockedFailure(
+  selection: FileTranscriptionSelection,
+  reason: DictationBlockedReason,
+  planMessage: string
+): FileTranscriptionFailure {
   const label = modelLabel(selection.speechModelId)
-  switch (plan.reason) {
+  switch (reason) {
     case 'speech_model_not_installed':
       return fileTranscriptionFailure(
         'model_not_installed',
@@ -231,9 +267,10 @@ export function planFileTranscription(
         `${label} can't translate to English. Choose a Whisper Small or Large Speech Model, or turn off Translate to English.`
       )
     case 'punctuation_model_not_installed':
+      // True once the queue has run the heal pass, which it does for this reason.
       return fileTranscriptionFailure(
         'model_not_installed',
-        "Add punctuation is on, but its Danish punctuation model is not installed. Turn Add punctuation on again in Codictate's Settings to download it, or turn it off."
+        punctuationModelMissingMessage('file_transcription')
       )
     case 'no_translate_source_language':
       return fileTranscriptionFailure(
@@ -242,7 +279,7 @@ export function planFileTranscription(
       )
     default:
       // Live Transcription reasons: unreachable for a batch plan.
-      return fileTranscriptionFailure('internal', plan.message)
+      return fileTranscriptionFailure('internal', planMessage)
   }
 }
 

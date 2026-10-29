@@ -218,11 +218,12 @@ export type CapabilityReadiness<Reason extends string> =
 /** Why Add punctuation cannot run. Closed union, same contract. */
 export type AddPunctuationReadinessReason =
   /**
-   * The selection is not hviske. Edda and every other Whisper Speech Model punctuate
-   * themselves, and Parakeet too, so the switch is not offered and a Dictation ignores it.
+   * Neither the Dictation's nor the File Transcription's selection is hviske. Edda and every
+   * other Whisper Speech Model punctuate themselves, and Parakeet too, so the switch is not
+   * offered and a run ignores it.
    */
   | 'not_offered_for_speech_model'
-  /** hviske is selected, and the Punctuation Model is not fully on disk. */
+  /** hviske is selected for one of them, and the Punctuation Model is not fully on disk. */
   | 'punctuation_model_not_installed'
 
 export type TranslateReadiness = CapabilityReadiness<TranslateReadinessReason>
@@ -234,7 +235,10 @@ export type AddPunctuationReadiness =
 export interface DictationReadiness {
   translateToEnglish: TranslateReadiness
   liveTranscription: StreamModeReadiness
-  /** Can a Batch Dictation with the selected Speech Model punctuate with Add punctuation on. */
+  /**
+   * Can a Batch Dictation or a File Transcription with the selected Speech Models punctuate
+   * with Add punctuation on. Offered while either selection is hviske.
+   */
   addPunctuation: AddPunctuationReadiness
   /**
    * A Parakeet Preparation is under way right now: Parakeet is the selection, its weights are
@@ -387,14 +391,14 @@ export function offersAddPunctuation(speechModelId: string): boolean {
 }
 
 function addPunctuationReadiness(
-  input: DictationReadinessInput,
+  selections: readonly [DictationReadinessInput, ...DictationReadinessInput[]],
   availability: DictationAvailability
 ): AddPunctuationReadiness {
-  if (!offersAddPunctuation(input.speechModelId)) {
+  if (!selections.some((s) => offersAddPunctuation(s.speechModelId))) {
     return {
       ready: false,
       reason: 'not_offered_for_speech_model',
-      message: `Add punctuation is only offered for hviske. ${modelLabel(input.speechModelId)} punctuates on its own.`,
+      message: `Add punctuation is only offered for hviske. ${modelLabel(selections[0].speechModelId)} punctuates on its own.`,
       downloadModelId: null,
     }
   }
@@ -427,12 +431,24 @@ function addPunctuationReadiness(
 export function getDictationReadiness(
   input: DictationReadinessInput,
   availability: DictationAvailability,
-  parakeetLoad: ParakeetLoadStatus
+  parakeetLoad: ParakeetLoadStatus,
+  /**
+   * Every selection Add punctuation applies to, the Dictation's first: the main process
+   * passes the File Transcription's too, the same pair the Punctuation Model's warm-up asks
+   * about (`AppConfig.punctuationSelections`). Defaults to the Dictation's alone.
+   */
+  addPunctuationSelections: readonly [
+    DictationReadinessInput,
+    ...DictationReadinessInput[],
+  ] = [input]
 ): DictationReadiness {
   return {
     translateToEnglish: translateReadiness(input, availability),
     liveTranscription: streamModeReadiness(input, availability, parakeetLoad),
-    addPunctuation: addPunctuationReadiness(input, availability),
+    addPunctuation: addPunctuationReadiness(
+      addPunctuationSelections,
+      availability
+    ),
     parakeetPreparing: isParakeetPreparing(input, availability, parakeetLoad),
   }
 }
@@ -598,7 +614,58 @@ const BLOCKED_MESSAGES: Record<
   parakeet_helper_missing: () =>
     `Live transcription cannot start because the ${PARAKEET_LABEL} helper is missing from this installation. Reinstalling Codictate restores it.`,
   punctuation_model_not_installed: () =>
-    'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next press works.',
+    punctuationModelMissingMessage('dictation_shortcut'),
+}
+
+/** The one statement of the fact, shared by the blocked sentence and the heal's. */
+const PUNCTUATION_MODEL_GONE =
+  'its Danish punctuation model is no longer installed'
+
+/**
+ * What kind of run hit `punctuation_model_not_installed`. The sentence is one sentence; only
+ * the words that would be false for a run change: a File Transcription is not a Dictation,
+ * and a command-line Dictation was not a press.
+ */
+export type PunctuationModelMissingRun =
+  'dictation_shortcut' | 'command_line_dictation' | 'file_transcription'
+
+const PUNCTUATION_MODEL_MISSING_WORDS: Record<
+  PunctuationModelMissingRun,
+  { stopped: string; next: string }
+> = {
+  dictation_shortcut: { stopped: 'Dictation', next: 'press' },
+  command_line_dictation: { stopped: 'Dictation', next: 'dictation' },
+  file_transcription: { stopped: 'File transcription', next: 'file' },
+}
+
+/**
+ * The sentence for a run that stopped because Add punctuation is on and the Punctuation
+ * Model is gone. It says the switch has been turned off, so every path that shows it runs the
+ * heal pass first (`blockedPlanHealsSettings`).
+ */
+export function punctuationModelMissingMessage(
+  run: PunctuationModelMissingRun
+): string {
+  const { stopped, next } = PUNCTUATION_MODEL_MISSING_WORDS[run]
+  return `${stopped} stopped because Add punctuation is on and ${PUNCTUATION_MODEL_GONE}. Add punctuation has been turned off, so the next ${next} works.`
+}
+
+/** The heal pass's announcement for the same fact, when no run stopped for it. */
+export const PUNCTUATION_MODEL_GONE_HEAL_MESSAGE = `Add punctuation turned off because ${PUNCTUATION_MODEL_GONE}.`
+
+/**
+ * Whether a blocked plan calls for the heal pass. A plan built from the settings alone always
+ * does: the world changed under settings that were runnable. One built from overrides (a
+ * command-line Dictation's `--model`, a File Transcription's own selection) usually says
+ * nothing about the settings, except for `punctuation_model_not_installed`: Add punctuation
+ * on with the Punctuation Model gone is healed whatever the selection (`healDictationSettings`
+ * turns the switch off under any Speech Model), so it heals from every path that hits it.
+ */
+export function blockedPlanHealsSettings(
+  reason: DictationBlockedReason,
+  { fromOverrides }: { fromOverrides: boolean }
+): boolean {
+  return !fromOverrides || reason === 'punctuation_model_not_installed'
 }
 
 /**

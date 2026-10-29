@@ -4,7 +4,7 @@
  * wall clock.
  *
  *   const fileTranscriptions = createFileTranscriptionQueue(
- *     productionFileTranscriptionDeps(UserAppConfig)
+ *     productionFileTranscriptionDeps(UserAppConfig, healSettings)
  *   )
  */
 
@@ -43,12 +43,17 @@ export function inspectInputFile(
   }
 }
 
-/** `settings` is usually `UserAppConfig`; only its getters are read, never a write. */
+/**
+ * `settings` is usually `UserAppConfig`; only its getters are read, never a write. The one
+ * write is `healSettings`, the app's heal pass (see `FileTranscriptionDeps.healSettings`).
+ */
 export function productionFileTranscriptionDeps(
-  settings: FileTranscriptionSettingsReader
+  settings: FileTranscriptionSettingsReader,
+  healSettings: () => void
 ): FileTranscriptionDeps {
   return {
     settings,
+    healSettings,
     isModelAvailable: (id) => modelManager.isModelAvailable(id),
     isPunctuationModelInstalled: () => isPunctuationModelInstalled(),
     // The one a Dictation uses, so `codictate transcribe`, the Transcribe page and a

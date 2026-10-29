@@ -29,6 +29,7 @@
 import {
   NO_PARAKEET_LOAD,
   PARAKEET_LABEL,
+  PUNCTUATION_MODEL_GONE_HEAL_MESSAGE,
   getDictationReadiness,
   modelLabel,
   type DictationAvailability,
@@ -231,7 +232,7 @@ export function healDictationSettings(
     announce(
       'add_punctuation',
       'punctuation_model_not_installed',
-      'Add punctuation turned off because its Danish punctuation model is no longer installed.'
+      PUNCTUATION_MODEL_GONE_HEAL_MESSAGE
     )
   }
 

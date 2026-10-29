@@ -1,5 +1,7 @@
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { PUNCTUATION_MODEL_DOWNLOAD_MB } from "../../../shared/punctuation-model-files";
+import { formatModelSize } from "../../../shared/speech-models";
 import type { AppSettings } from "../../../shared/types";
 import { appEvents } from "../../app-events";
 import {
@@ -12,11 +14,12 @@ import { Switch } from "../Common/Switch";
 type Download = { inFlight: boolean; fraction: number; error?: string };
 
 /**
- * "Add punctuation", offered while an hviske Speech Model is selected. The main process
- * decides that (readiness says `not_offered_for_speech_model` for every other selection), and
- * it decides when the switch is on: turning it on downloads the Danish punctuation model
- * first, and `settings.addPunctuation` turns true only after a verified install. Turning it
- * off keeps the files, so turning it on again is instant.
+ * "Add punctuation", offered while the Dictation or the File Transcription selection is an
+ * hviske Speech Model. The main process decides that (readiness says
+ * `not_offered_for_speech_model` when neither is), and it decides when the switch is on:
+ * turning it on downloads the Danish punctuation model first, and `settings.addPunctuation`
+ * turns true only after a verified install. Turning it off keeps the files, so turning it on
+ * again is instant.
  */
 export function AddPunctuationSwitch({ settings }: { settings: AppSettings }) {
   const [download, setDownload] = useState<Download>({
@@ -59,9 +62,9 @@ export function AddPunctuationSwitch({ settings }: { settings: AppSettings }) {
         <div className="min-w-0">
           <p className="text-[15px] text-overlay/80">Add punctuation</p>
           <p className="mt-0.5 text-[13px] leading-snug text-overlay/40">
-            {settings.punctuationModelInstalled
-              ? "Adds commas, full stops and capitals to hviske's Danish text."
-              : "Adds commas, full stops and capitals to hviske's Danish text. Turning it on downloads a 22 MB Danish punctuation model."}
+            Adds commas, full stops and capitals to hviske's Danish text.
+            {!settings.punctuationModelInstalled &&
+              ` Turning it on downloads a ${formatModelSize(PUNCTUATION_MODEL_DOWNLOAD_MB)} Danish punctuation model.`}
           </p>
         </div>
         <div className="pt-0.5">

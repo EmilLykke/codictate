@@ -430,6 +430,10 @@ beforeAll(async () => {
       getTranslateDefaultLanguageId: () => 'auto',
       getAddPunctuation: () => state.addPunctuation,
     },
+    // Like the app's heal pass: without the Punctuation Model, Add punctuation goes off.
+    healSettings: () => {
+      state.addPunctuation = false
+    },
     isModelAvailable: (id) => state.installed.has(id),
     isPunctuationModelInstalled: () => state.punctuationModelInstalled,
     // Stands in for ekko-pnc: a capital at the start and a full stop at the end, same words.

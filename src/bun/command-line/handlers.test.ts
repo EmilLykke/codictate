@@ -1051,6 +1051,35 @@ describe('dictate: the checks, in order', () => {
   })
 })
 
+describe('dictate: the Punctuation Model gone', () => {
+  test('says the Dictation stopped and Add punctuation is off, in command-line words', async () => {
+    const f = allowed()
+    f.dictation.nextStart = {
+      status: 'blocked',
+      plan: blockedDictationPlan(
+        'batch',
+        'punctuation_model_not_installed',
+        'hviske-v5-tiny-q5_0'
+      ),
+      fromOverrides: true,
+    }
+    expect(
+      await createCommandHandlers(f.deps).dictate(
+        req('dictate', {
+          ...DICTATE_ARGS,
+          speechModelId: 'hviske-v5-tiny-q5_0',
+        }),
+        context().ctx
+      )
+    ).toEqual({
+      type: 'error',
+      code: 'model_not_installed',
+      message:
+        'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next dictation works.',
+    })
+  })
+})
+
 describe('dictate: running', () => {
   test('passes the request through, with overrides checked and coerced', async () => {
     const f = allowed()
