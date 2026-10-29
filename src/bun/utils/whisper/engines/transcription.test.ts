@@ -119,12 +119,7 @@ describe('transcriptionRequestFromPlan', () => {
   })
 
   it('derives an ekko Request with the GGUF path and no language, translate or backend', () => {
-    // The catalog has no ekko entry yet (#103), so this is an hviske plan run as ekko.
-    const plan: RunnableDictationPlan = {
-      ...planFor('hviske-v5-tiny-q5_0'),
-      engineId: EKKO_ENGINE_ID,
-      speechModelId: 'ekko-v1-tiny-q5_0',
-    }
+    const plan = planFor('ekko-v1-tiny-q5_0', { transcriptionLanguageId: 'en' })
 
     expect(
       transcriptionRequestFromPlan(plan, '/tmp/capture.wav', 180_000, locations)

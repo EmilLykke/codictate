@@ -370,8 +370,11 @@ describe('models.list', () => {
     if (result.type !== 'result') throw new Error('expected a result')
     expect(result.models).toHaveLength(SPEECH_MODELS.length)
     for (const model of result.models) {
-      expect(['whisper', 'parakeet', 'hviske']).toContain(model.engine)
+      expect(['whisper', 'parakeet', 'hviske', 'ekko']).toContain(model.engine)
     }
+    expect(
+      result.models.find((m) => m.id === 'ekko-v1-tiny-q5_0')
+    ).toMatchObject({ engine: 'ekko', curated: false, downloadSizeMB: 152 })
   })
 })
 

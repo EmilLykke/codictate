@@ -64,7 +64,7 @@ the same reason: its `NOTICE`, `MODEL_LICENSE.md` and `LICENSES/*` differ from e
 
 Mirror commit: `d60b91ae714fdccf4ecd7a9f22a06b349c87ffc1` (published 2026-10-29; the GGUF's
 size and sha256 verified against the table below at that commit). The app pins this commit,
-not `main`, once the catalog entry lands.
+not `main` (`EKKO_V1_TINY_MIRROR_REVISION` in `src/shared/speech-models.ts`).
 
 ### Contents
 

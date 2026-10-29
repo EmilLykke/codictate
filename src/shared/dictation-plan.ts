@@ -142,7 +142,7 @@ export interface DictationReadinessInput {
  * cannot arrive without `tsc` demanding a sentence for it.
  */
 export type TranslateReadinessReason =
-  /** A single-language Speech Model is selected (hviske, Edda): its weights cannot translate. */
+  /** A single-language Speech Model is selected (hviske, Edda, ekko): its weights cannot translate. */
   | 'single_language_selected'
   /** A turbo, English-only or Parakeet selection: translation is not in the weights. */
   | 'model_cannot_translate'
@@ -647,9 +647,8 @@ function runTranscriptionLanguageId(input: DictationPlanInput): string {
 
 /**
  * Speech Engines whose Raw Transcript always goes through Punctuation Restoration, with no
- * switch. The ekko Speech Engine (#87) writes no punctuation or capitals of its own, so it
- * joins the `SpeechEngineId` union already listed here; until it does, this matches nothing.
- * #87 also owns its blocked reason for a missing Punctuation Model.
+ * switch. The ekko Speech Engine (#87) writes no punctuation or capitals of its own. #87 also
+ * owns its blocked reason for a missing Punctuation Model.
  */
 const ENGINES_ALWAYS_RESTORING_PUNCTUATION: readonly string[] = ['ekko']
 

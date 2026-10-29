@@ -266,6 +266,7 @@ test('public engine names', () => {
   expect(publicEngineName('whisper_cpp')).toBe('whisper')
   expect(publicEngineName('whisperkit')).toBe('parakeet')
   expect(publicEngineName('hviske')).toBe('hviske')
+  expect(publicEngineName('ekko')).toBe('ekko')
 })
 
 test('encodeLine is one JSON object and a newline', () => {
@@ -360,6 +361,25 @@ describe('docs/CLI.md examples fit the protocol types', () => {
       `{"type":"result","file":"/abs/path/memo.m4a","text":"Hej.","language":"da","speechModelId":"hviske-v5-tiny-q5_0",
  "engine":"hviske","audioSeconds":61.2,"processingSeconds":4.8,"translated":false,
  "formatted":"1\\n00:00:00,000 --> 00:00:01,200\\nHej.\\n\\n"}`,
+      typed
+    )
+  })
+
+  test('transcribe result from ekko', () => {
+    const typed: TranscribeResult = {
+      type: 'result',
+      file: '/abs/path/memo.m4a',
+      text: 'Hej. Det her er en test.',
+      language: 'da',
+      speechModelId: 'ekko-v1-tiny-q5_0',
+      engine: 'ekko',
+      audioSeconds: 3.1,
+      processingSeconds: 0.4,
+      translated: false,
+    }
+    roundTrips(
+      `{"type":"result","file":"/abs/path/memo.m4a","text":"Hej. Det her er en test.","language":"da",
+ "speechModelId":"ekko-v1-tiny-q5_0","engine":"ekko","audioSeconds":3.1,"processingSeconds":0.4,"translated":false}`,
       typed
     )
   })

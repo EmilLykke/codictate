@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'bun:test'
 import {
   BROWSABLE_SPEECH_MODELS,
+  CURATED_SPEECH_MODELS,
   DEFAULT_MODEL_ID,
+  EKKO_ENGINE_ID,
   RECOMMENDED_DANISH_SPEECH_MODEL_ID,
   SPEECH_MODELS,
+  compareBrowseOrder,
   fluidAudioModelFolderName,
   getSpeechModel,
+  pinnedTranscriptionLanguageId,
+  singleFileModelDownloadUrl,
 } from './speech-models'
 
 /**
@@ -140,5 +145,76 @@ describe('RECOMMENDED_DANISH_SPEECH_MODEL_ID', () => {
 
   it('leaves the bundled default alone', () => {
     expect(DEFAULT_MODEL_ID).toBe('large-v3-turbo-q5_0')
+  })
+})
+
+/**
+ * ekko-v1-tiny (#103): in the catalog and resolvable, but not browsable or downloadable from
+ * the window yet (#105 adds it to the browse modal and the Settings list).
+ */
+describe('the ekko catalog entry', () => {
+  const EKKO = 'ekko-v1-tiny-q5_0'
+
+  it('is an ekko Speech Model', () => {
+    const model = getSpeechModel(EKKO)
+    expect(model?.engine).toBe(EKKO_ENGINE_ID)
+    expect(model?.artifactName).toBe('ekko-v1-tiny-q5_0.gguf')
+    expect(model?.modeSupport).toBe('normal')
+    expect(model?.label).toBe('Ekko V1 Tiny Q5')
+    expect(model?.description).toBe(
+      'Danish model · Danish only, fastest Danish model, adds punctuation, 9.9 WER'
+    )
+  })
+
+  it('comes right after Edda in the catalog', () => {
+    const ids = SPEECH_MODELS.map((m) => m.id)
+    expect(ids.indexOf(EKKO)).toBe(ids.indexOf('edda-v0.2-q5_0') + 1)
+  })
+
+  it('sorts between Edda q5_0 and hviske f16, best first', () => {
+    const danish = ['hviske-v5-tiny-f16', EKKO, 'edda-v0.2-q5_0'].map((id) =>
+      getSpeechModel(id)!
+    )
+    expect(danish.sort(compareBrowseOrder).map((m) => m.id)).toEqual([
+      'edda-v0.2-q5_0',
+      EKKO,
+      'hviske-v5-tiny-f16',
+    ])
+  })
+
+  it('is not curated', () => {
+    expect(getSpeechModel(EKKO)?.curated).toBeUndefined()
+    expect(CURATED_SPEECH_MODELS.some((m) => m.id === EKKO)).toBe(false)
+  })
+
+  it('is pinned to Danish', () => {
+    expect(getSpeechModel(EKKO)?.supportedTranscriptionLanguageIds).toEqual([
+      'da',
+    ])
+    expect(pinnedTranscriptionLanguageId(EKKO)).toBe('da')
+  })
+
+  it('cannot translate', () => {
+    expect(getSpeechModel(EKKO)?.translationSupport).toBe(false)
+  })
+
+  it('downloads the pinned GGUF from the ekko-v1-tiny Mirror commit', () => {
+    const model = getSpeechModel(EKKO)!
+    expect(model.sha256).toBe(
+      'f5380485d80d552ae46313185126d7ade54b2e7360cb0d15b91f1ab26ced7791'
+    )
+    expect(singleFileModelDownloadUrl(model)).toBe(
+      'https://huggingface.co/emillykkegrann/ekko-v1-tiny-GGUF/resolve/d60b91ae714fdccf4ecd7a9f22a06b349c87ffc1/ekko-v1-tiny-q5_0.gguf'
+    )
+  })
+
+  it('counts ekko-pnc in its download size, and its measured peak RAM', () => {
+    const model = getSpeechModel(EKKO)!
+    expect(model.downloadSizeMB).toBe(152)
+    expect(model.peakRamMB).toBe(300)
+  })
+
+  it('is not in the browse modal yet', () => {
+    expect(BROWSABLE_SPEECH_MODELS.some((m) => m.engine === 'ekko')).toBe(false)
   })
 })

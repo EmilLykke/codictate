@@ -37,10 +37,14 @@ const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter((m) => !m.bundled)
 describe('model downloads', () => {
   for (const model of DOWNLOADABLE_MODELS) {
     // Every single-file Speech Model, checked at the exact URL the app builds: the
-    // whisper.cpp repo for stock Whisper, the Mirror for hviske and Edda. This also catches
-    // a Mirror that lost a Quantization: the repo-level checks below would still pass with
-    // four of five files present.
-    if (model.engine === 'whisper_cpp' || model.engine === 'hviske') {
+    // whisper.cpp repo for stock Whisper, the Mirror for hviske, Edda and ekko. This also
+    // catches a Mirror that lost a Quantization: the repo-level checks below would still pass
+    // with four of five files present.
+    if (
+      model.engine === 'whisper_cpp' ||
+      model.engine === 'hviske' ||
+      model.engine === 'ekko'
+    ) {
       test(
         `${model.id}: single-file download is accessible`,
         async () => {
