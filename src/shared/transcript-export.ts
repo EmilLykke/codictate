@@ -34,7 +34,7 @@ export interface TranscriptExportSource {
   audioSeconds: number
   /** `null` for a History entry saved before Processing Time was recorded. */
   processingSeconds: number | null
-  /** The Raw Transcript. */
+  /** The Raw Transcript, after Punctuation Restoration where it applies. */
   text: string
   timedTranscript: TimedTranscript | null
 }

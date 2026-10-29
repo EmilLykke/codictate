@@ -14,6 +14,7 @@
 import {
   buildDictationPlan,
   modelLabel,
+  type DictationAvailability,
   type RunnableDictationPlan,
 } from '../../shared/dictation-plan'
 import {
@@ -42,12 +43,15 @@ import type {
 
 /**
  * What a File Transcription reads from the config: the File Transcription Settings (already
- * healed and validated) and the translate default, the source language a translate run from
- * automatic detection uses. `AppConfig` satisfies it structurally.
+ * healed and validated), the translate default, the source language a translate run from
+ * automatic detection uses, and the Add punctuation switch. `AppConfig` satisfies it
+ * structurally.
  */
 export interface FileTranscriptionSettingsReader {
   getFileTranscriptionSettings(): FileTranscriptionSettings
   getTranslateDefaultLanguageId(): string
+  /** Global, as for a Dictation: only an hviske selection reads it. */
+  getAddPunctuation(): boolean
 }
 
 export interface FileTranscriptionFailure {
@@ -72,6 +76,8 @@ export interface FileTranscriptionSelection {
   translateToEnglish: boolean
   /** The source language a translate run from automatic detection uses. */
   translateDefaultLanguageId: string
+  /** The Add punctuation switch, as a Dictation reads it. */
+  addPunctuation: boolean
 }
 
 function override(value: string | null | undefined): string | null {
@@ -173,21 +179,30 @@ export function selectFileTranscription(
       translateToEnglish:
         request.translateToEnglish ?? current.translateToEnglish,
       translateDefaultLanguageId: settings.getTranslateDefaultLanguageId(),
+      addPunctuation: settings.getAddPunctuation(),
     },
   }
 }
+
+/** What is on disk, asked fresh for each plan. Batch only, so streaming never comes up. */
+export type FileTranscriptionAvailability = Omit<
+  DictationAvailability,
+  'streamSupported'
+>
 
 /**
  * The selection as a runnable batch plan, or why there is none.
  *
  * Always batch, because a file is not a Dictation and Live Transcription is a microphone
- * session. Translate to English runs exactly as a Dictation's would: the plan refuses a
- * Speech Model that cannot translate, and a translate run from automatic detection takes
- * the translate default as its source language. Nothing substitutes.
+ * session. Translate to English and Add punctuation run exactly as a Dictation's would: the
+ * plan refuses a Speech Model that cannot translate, a translate run from automatic detection
+ * takes the translate default as its source language, and an hviske selection with Add
+ * punctuation on is punctuated, or refused when the Punctuation Model is gone. Nothing
+ * substitutes.
  */
 export function planFileTranscription(
   selection: FileTranscriptionSelection,
-  isModelAvailable: (speechModelId: string) => boolean
+  availability: FileTranscriptionAvailability
 ):
   | { status: 'runnable'; plan: RunnableDictationPlan }
   | FileTranscriptionFailure {
@@ -198,16 +213,9 @@ export function planFileTranscription(
       translateDefaultLanguageId: selection.translateDefaultLanguageId,
       translateToEnglish: selection.translateToEnglish,
       streamMode: false,
-      // Punctuation Restoration for File Transcription is #97: until the queue punctuates,
-      // its plan never asks for it, so an hviske File Transcription runs as it always has.
-      addPunctuation: false,
+      addPunctuation: selection.addPunctuation,
     },
-    // Batch only, so whether this platform can stream never comes up.
-    {
-      isModelAvailable,
-      streamSupported: false,
-      punctuationModelInstalled: false,
-    }
+    { ...availability, streamSupported: false }
   )
   if (plan.status === 'runnable') return { status: 'runnable', plan }
   const label = modelLabel(selection.speechModelId)
@@ -221,6 +229,11 @@ export function planFileTranscription(
       return fileTranscriptionFailure(
         'cannot_translate',
         `${label} can't translate to English. Choose a Whisper Small or Large Speech Model, or turn off Translate to English.`
+      )
+    case 'punctuation_model_not_installed':
+      return fileTranscriptionFailure(
+        'model_not_installed',
+        "Add punctuation is on, but its Danish punctuation model is not installed. Turn Add punctuation on again in Codictate's Settings to download it, or turn it off."
       )
     case 'no_translate_source_language':
       return fileTranscriptionFailure(

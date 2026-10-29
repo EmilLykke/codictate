@@ -130,6 +130,9 @@ const state = {
     translateToEnglish: false,
   },
   installed: new Set<string>(),
+  /** The Add punctuation switch, and whether its Punctuation Model is on disk. */
+  addPunctuation: false,
+  punctuationModelInstalled: true,
   notifications: [] as { title: string; body: string }[],
   downloadError: null as string | null,
   downloadStepMs: 300,
@@ -425,8 +428,18 @@ beforeAll(async () => {
     settings: {
       getFileTranscriptionSettings: () => ({ ...state.file }),
       getTranslateDefaultLanguageId: () => 'auto',
+      getAddPunctuation: () => state.addPunctuation,
     },
     isModelAvailable: (id) => state.installed.has(id),
+    isPunctuationModelInstalled: () => state.punctuationModelInstalled,
+    // Stands in for ekko-pnc: a capital at the start and a full stop at the end, same words.
+    punctuationRestorer: {
+      restore: (text) =>
+        Promise.resolve({
+          text: `${text.charAt(0).toUpperCase()}${text.slice(1)}.`,
+          restored: true,
+        }),
+    },
     locations: {
       getModelPath: (id) => `/nonexistent/${id}.bin`,
       getParakeetInstallDir: (id) => `/nonexistent/${id}`,
@@ -569,6 +582,8 @@ beforeEach(() => {
     SMALL_ID,
     HVISKE_ID,
   ])
+  state.addPunctuation = false
+  state.punctuationModelInstalled = true
   state.notifications = []
   state.downloadError = null
   state.cancelledDownloads = []
@@ -838,6 +853,30 @@ describe.skipIf(process.platform === 'win32')(
         ])
         expect(progress[0].audioSeconds).toBeNull()
         expect(progress[1].audioSeconds).toBe(61.2)
+      })
+
+      test('hviske with Add punctuation on: the transcript comes back punctuated', async () => {
+        audio('memo.json', { text: 'hej med dig' })
+        state.file.speechModelId = HVISKE_ID
+        state.addPunctuation = true
+        const ran = await codictate(['transcribe', 'memo.json'])
+        expectQuietSuccess(ran)
+        expect(ran.stdout).toBe('Hej med dig.\n')
+      })
+
+      test('Add punctuation on without its Punctuation Model: model_not_installed, exit 4', async () => {
+        audio('memo.json', { text: 'hej med dig' })
+        state.file.speechModelId = HVISKE_ID
+        state.addPunctuation = true
+        state.punctuationModelInstalled = false
+        const ran = await codictate(['transcribe', 'memo.json', '--json'])
+        expect(ran.code).toBe(4)
+        const lines = events(ran.stdout)
+        expect(lines[lines.length - 1]).toMatchObject({
+          type: 'error',
+          code: 'model_not_installed',
+        })
+        expectOneErrorLine(ran.stderr)
       })
 
       test('an empty transcript is success with empty text', async () => {
@@ -1198,6 +1237,21 @@ describe.skipIf(process.platform === 'win32')(
             if (format === 'vtt')
               expect(caption.startsWith('WEBVTT')).toBe(true)
           }
+        })
+
+        test('srt with Add punctuation on: the captions show the punctuated words', async () => {
+          audio('memo.json', { text: 'hej med dig', timed: true, seconds: 2 })
+          state.file.speechModelId = HVISKE_ID
+          state.addPunctuation = true
+          const ran = await codictate([
+            'transcribe',
+            'memo.json',
+            '--format',
+            'srt',
+          ])
+          expectQuietSuccess(ran)
+          expect(ran.stdout).toContain('-->')
+          expect(ran.stdout).toContain('Hej med dig.')
         })
 
         test('json under --json: the result carries the document in formatted', async () => {

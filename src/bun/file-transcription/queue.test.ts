@@ -66,6 +66,10 @@ function harness(
     installed?: (id: string) => boolean
     files?: Record<string, 'file' | 'missing' | 'not_a_file'>
     audioSeconds?: number | null
+    addPunctuation?: boolean
+    punctuationModelInstalled?: boolean
+    /** The Punctuation Restorer's answers by input; any other input comes back unrestored. */
+    punctuated?: Record<string, string>
   } = {}
 ) {
   let now = 1_000_000
@@ -75,6 +79,7 @@ function harness(
   const transcribes: TranscribeCall[] = []
   const created: string[] = []
   const removed: string[] = []
+  const restored: string[] = []
   let installed = options.installed ?? (() => true)
   let translateToEnglish = options.translateToEnglish ?? false
   let jobCounter = 0
@@ -88,8 +93,22 @@ function harness(
       }),
       getTranslateDefaultLanguageId: () =>
         options.translateDefaultLanguageId ?? 'auto',
+      getAddPunctuation: () => options.addPunctuation ?? false,
     },
     isModelAvailable: (id) => installed(id),
+    isPunctuationModelInstalled: () =>
+      options.punctuationModelInstalled ?? true,
+    punctuationRestorer: {
+      restore: (text) => {
+        restored.push(text)
+        const answer = options.punctuated?.[text]
+        return Promise.resolve(
+          answer === undefined
+            ? { text, restored: false }
+            : { text: answer, restored: true }
+        )
+      },
+    },
     locations: {
       getModelPath: (id) => `/models/${id}.bin`,
       getParakeetInstallDir: (id) => `/models/${id}`,
@@ -153,6 +172,7 @@ function harness(
     transcribes,
     created,
     removed,
+    restored,
     timers,
     setInstalled(next: (id: string) => boolean) {
       installed = next
@@ -359,6 +379,226 @@ describe('result fields', () => {
     })
     const result = await job.result
     expect(result.status === 'ok' && result.timedTranscript).toBeNull()
+  })
+})
+
+describe('Punctuation Restoration', () => {
+  /** Runs one job on hviske to the end, the Speech Engine giving `engine`. */
+  async function punctuatedRun(
+    options: Parameters<typeof harness>[0],
+    engine: TranscriptionResult
+  ) {
+    const h = harness({ speechModelId: HVISKE, ...options })
+    const { job } = h.enqueue('/files/a.wav')
+    h.decodes[0].done.resolve(decoded)
+    await flush()
+    h.transcribes[0].done.resolve(engine)
+    return { h, result: await job.result }
+  }
+
+  test('hviske with Add punctuation on comes back punctuated', async () => {
+    const { result } = await punctuatedRun(
+      {
+        addPunctuation: true,
+        punctuated: {
+          'hej med dig hvordan går det': 'Hej med dig, hvordan går det?',
+        },
+      },
+      transcript('hej med dig hvordan går det')
+    )
+    expect(result).toMatchObject({
+      status: 'ok',
+      text: 'Hej med dig, hvordan går det?',
+    })
+  })
+
+  test.each([
+    ['hviske with Add punctuation off', HVISKE, false],
+    [
+      'a Speech Model other than hviske, with Add punctuation on',
+      LARGE_V3,
+      true,
+    ],
+  ] as const)(
+    '%s is left as the Speech Engine wrote it',
+    async (_name, speechModelId, addPunctuation) => {
+      const { h, result } = await punctuatedRun(
+        {
+          speechModelId,
+          transcriptionLanguageId: 'da',
+          addPunctuation,
+          punctuated: { 'hej med dig': 'Hej med dig.' },
+        },
+        transcript('hej med dig')
+      )
+      expect(result).toMatchObject({ status: 'ok', text: 'hej med dig' })
+      expect(h.restored).toEqual([])
+    }
+  )
+
+  test('the Timed Transcript is rebuilt on the punctuated text, word for word', async () => {
+    // hviske's parts can end inside a word (`køben` | `havn`), and its words can too
+    // (`di` | `g`): a span keeps the punctuated form of each word it starts, and a span
+    // left holding only the rest of a word is dropped, its time going to its neighbour.
+    const raw = 'hej med dig jeg bor i københavn nu og det er dejligt'
+    const punctuated = 'Hej med dig. Jeg bor i København, nu og det er dejligt.'
+    const { result } = await punctuatedRun(
+      { addPunctuation: true, punctuated: { [raw]: punctuated } },
+      {
+        status: 'ok',
+        rawTranscript: raw,
+        timedTranscript: {
+          text: raw,
+          parts: [
+            {
+              text: 'hej med dig',
+              start: 0,
+              end: 1,
+              words: [
+                { text: 'hej', start: 0, end: 0.3 },
+                { text: 'med', start: 0.3, end: 0.6 },
+                { text: 'di', start: 0.6, end: 0.8 },
+                { text: 'g', start: 0.8, end: 1 },
+              ],
+            },
+            {
+              text: 'jeg bor i køben',
+              start: 1,
+              end: 2,
+              words: [
+                { text: 'jeg', start: 1, end: 1.3 },
+                { text: 'bor', start: 1.3, end: 1.6 },
+                { text: 'i', start: 1.6, end: 1.7 },
+                { text: 'køben', start: 1.7, end: 2 },
+              ],
+            },
+            {
+              text: 'havn nu',
+              start: 2,
+              end: 2.5,
+              words: [
+                { text: 'havn', start: 2, end: 2.3 },
+                { text: 'nu', start: 2.3, end: 2.5 },
+              ],
+            },
+            {
+              text: 'og det er dej',
+              start: 2.5,
+              end: 3.2,
+              words: [
+                { text: 'og', start: 2.5, end: 2.7 },
+                { text: 'det', start: 2.7, end: 2.9 },
+                { text: 'er', start: 2.9, end: 3 },
+                { text: 'dej', start: 3, end: 3.2 },
+              ],
+            },
+            {
+              text: 'ligt',
+              start: 3.2,
+              end: 3.5,
+              words: [{ text: 'ligt', start: 3.2, end: 3.5 }],
+            },
+          ],
+        },
+      }
+    )
+    expect(result).toMatchObject({ status: 'ok', text: punctuated })
+    expect(result.status === 'ok' && result.timedTranscript).toEqual({
+      text: punctuated,
+      parts: [
+        {
+          text: 'Hej med dig.',
+          start: 0,
+          end: 1,
+          words: [
+            { text: 'Hej', start: 0, end: 0.3 },
+            { text: 'med', start: 0.3, end: 0.6 },
+            { text: 'dig.', start: 0.6, end: 1 },
+          ],
+        },
+        {
+          text: 'Jeg bor i København,',
+          start: 1,
+          end: 2,
+          words: [
+            { text: 'Jeg', start: 1, end: 1.3 },
+            { text: 'bor', start: 1.3, end: 1.6 },
+            { text: 'i', start: 1.6, end: 1.7 },
+            { text: 'København,', start: 1.7, end: 2 },
+          ],
+        },
+        {
+          text: 'nu',
+          start: 2,
+          end: 2.5,
+          words: [{ text: 'nu', start: 2, end: 2.5 }],
+        },
+        {
+          text: 'og det er dejligt.',
+          start: 2.5,
+          end: 3.5,
+          words: [
+            { text: 'og', start: 2.5, end: 2.7 },
+            { text: 'det', start: 2.7, end: 2.9 },
+            { text: 'er', start: 2.9, end: 3 },
+            { text: 'dejligt.', start: 3, end: 3.5 },
+          ],
+        },
+      ],
+    })
+  })
+
+  test('a Timed Transcript that cannot be rebuilt sends the whole File Transcription back unpunctuated', async () => {
+    const timed = {
+      text: 'hej med dig',
+      parts: [{ text: 'hej med dig', start: 0.2, end: 1.4 }],
+    }
+    const { result } = await punctuatedRun(
+      // Two words where there were three: no word maps onto its times any more.
+      { addPunctuation: true, punctuated: { 'hej med dig': 'Hej med-dig.' } },
+      { status: 'ok', rawTranscript: 'hej med dig', timedTranscript: timed }
+    )
+    expect(result).toMatchObject({
+      status: 'ok',
+      text: 'hej med dig',
+      timedTranscript: timed,
+    })
+  })
+
+  test('Add punctuation on without the Punctuation Model is refused at once, in a sentence about the file', async () => {
+    const h = harness({
+      speechModelId: HVISKE,
+      addPunctuation: true,
+      punctuationModelInstalled: false,
+    })
+    const { job, events } = h.enqueue('/files/a.wav')
+    const result = await job.result
+    expect(result).toMatchObject({
+      status: 'failed',
+      code: 'model_not_installed',
+    })
+    if (result.status === 'failed') {
+      expect(result.message).toContain('Add punctuation')
+      expect(result.message).not.toContain('Dictation')
+    }
+    expect(events).toEqual([])
+    expect(h.decodes).toHaveLength(0)
+  })
+
+  test('a Punctuation Restorer that fails leaves the text and its timings as they were', async () => {
+    const timed = {
+      text: 'hej med dig',
+      parts: [{ text: 'hej med dig', start: 0.2, end: 1.4 }],
+    }
+    const { result } = await punctuatedRun(
+      { addPunctuation: true, punctuated: {} },
+      { status: 'ok', rawTranscript: 'hej med dig', timedTranscript: timed }
+    )
+    expect(result).toMatchObject({
+      status: 'ok',
+      text: 'hej med dig',
+      timedTranscript: timed,
+    })
   })
 })
 

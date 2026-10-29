@@ -1,6 +1,7 @@
 /**
  * The Timed Transcript (GLOSSARY.md): a Raw Transcript and when each part of it was spoken.
- * Its text is always exactly the Raw Transcript. Parts and words are spans of that text, in
+ * Its text is always exactly the File Transcription's text: the Raw Transcript, after
+ * Punctuation Restoration where it applies. Parts and words are spans of that text, in
  * order, with only whitespace (or nothing) between them, so nothing built from it can say
  * anything the Raw Transcript does not. Pure.
  */
@@ -20,7 +21,7 @@ export interface TimedPart extends TimedSpan {
 }
 
 export interface TimedTranscript {
-  /** Always exactly the Raw Transcript. */
+  /** Always exactly the File Transcription's text. */
   text: string
   /** Non-empty, in spoken order. */
   parts: TimedPart[]

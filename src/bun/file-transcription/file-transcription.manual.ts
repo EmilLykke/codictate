@@ -98,6 +98,7 @@ function queueFor(speechModelId: string) {
         translateToEnglish: false,
       }),
       getTranslateDefaultLanguageId: () => 'auto',
+      getAddPunctuation: () => false,
     })
   )
 }

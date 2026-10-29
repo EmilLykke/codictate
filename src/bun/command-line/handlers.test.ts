@@ -614,6 +614,7 @@ describe('transcribe: Translate to English', () => {
         translateToEnglish: true,
       }),
       getTranslateDefaultLanguageId: () => 'da',
+      getAddPunctuation: () => false,
     }
     const f = fakeDeps({ fileSettings: settings })
     const running = createCommandHandlers(f.deps).transcribe(
