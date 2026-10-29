@@ -98,6 +98,7 @@ const IDENTITY = {
 const INERT_BUNDLE = '--codictate-e2e-inert'
 
 const HVISKE_ID = 'hviske-v5-tiny-q5_0'
+const EKKO_ID = 'ekko-v1-tiny-q5_0'
 const SMALL_ID = 'small-q5_1'
 const NOT_INSTALLED_ID = 'large-v3-q5_0'
 const DOWNLOADABLE_ID = 'medium.en-q5_0'
@@ -868,6 +869,38 @@ describe.skipIf(process.platform === 'win32')(
         expect(ran.stdout).toBe('Hej med dig.\n')
       })
 
+      test('ekko: always Danish and punctuated, the same text a window job gets', async () => {
+        const file = audio('memo.json', {
+          text: 'hej det her er en test',
+          seconds: 3.1,
+        })
+        state.installed.add(EKKO_ID)
+        state.file.speechModelId = EKKO_ID
+        // Add punctuation stays off: ekko is punctuated without it.
+        const ran = await codictate(['transcribe', 'memo.json', '--json'])
+        expectQuietSuccess(ran)
+        const lines = events(ran.stdout)
+        expect(lines[lines.length - 1]).toEqual({
+          type: 'result',
+          file,
+          text: 'Hej det her er en test.',
+          language: 'da',
+          speechModelId: EKKO_ID,
+          engine: 'ekko',
+          audioSeconds: 3.1,
+          processingSeconds: expect.any(Number),
+          translated: false,
+        })
+        const windowResult = await queue.enqueue({
+          filePath: file,
+          origin: { kind: 'window' },
+        }).result
+        expect(windowResult).toMatchObject({
+          status: 'ok',
+          text: 'Hej det her er en test.',
+        })
+      })
+
       test('Add punctuation on without its Punctuation Model: model_not_installed, exit 4', async () => {
         audio('memo.json', { text: 'hej med dig' })
         state.file.speechModelId = HVISKE_ID
@@ -1256,6 +1289,44 @@ describe.skipIf(process.platform === 'win32')(
           expectQuietSuccess(ran)
           expect(ran.stdout).toContain('-->')
           expect(ran.stdout).toContain('Hej med dig.')
+        })
+
+        test('srt with ekko: the captions show the punctuated words', async () => {
+          audio('memo.json', { text: 'hej med dig', timed: true, seconds: 2 })
+          state.installed.add(EKKO_ID)
+          state.file.speechModelId = EKKO_ID
+          const ran = await codictate([
+            'transcribe',
+            'memo.json',
+            '--format',
+            'srt',
+          ])
+          expectQuietSuccess(ran)
+          expect(ran.stdout).toContain('-->')
+          expect(ran.stdout).toContain('Hej med dig.')
+        })
+
+        test('ekko with no timings: the text still comes back, captions are captions_unavailable', async () => {
+          audio('memo.json', { text: 'hej med dig' })
+          state.installed.add(EKKO_ID)
+          state.file.speechModelId = EKKO_ID
+          const text = await codictate(['transcribe', 'memo.json'])
+          expectQuietSuccess(text)
+          expect(text.stdout).toBe('Hej med dig.\n')
+          const captions = await codictate([
+            'transcribe',
+            'memo.json',
+            '--format',
+            'srt',
+            '--json',
+          ])
+          expect(captions.code).toBe(2)
+          const lines = events(captions.stdout)
+          expect(lines[lines.length - 1]).toMatchObject({
+            type: 'error',
+            code: 'captions_unavailable',
+          })
+          expectOneErrorLine(captions.stderr)
         })
 
         test('json under --json: the result carries the document in formatted', async () => {
