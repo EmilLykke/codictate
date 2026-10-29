@@ -17,7 +17,13 @@ ELECTROBUN_APPLEIDPASS=xxxx-xxxx-xxxx-xxxx   # app-specific password from applei
 
 ## What gets signed
 
-Electrobun signs `Contents/MacOS/`, frameworks, and `.node` files. `scripts/post-build.ts` additionally signs everything under `native-helpers/` - these are not covered by Electrobun's signer and must be signed before the outer `codesignAppBundle` pass, otherwise notarization fails.
+Electrobun signs `Contents/MacOS/`, frameworks, and `.node` files under `Resources/app/bun/` only. Nothing else under `Resources/app/` is covered by Electrobun's signer, so `scripts/post-build.ts` signs it before the outer `codesignAppBundle` pass, otherwise notarization fails:
+
+- everything under `native-helpers/` (below)
+- `bin/codictate`, the command line (identifier `<app id>.cli`, `entitlements/codictate-cli.entitlements`)
+- `bin/napi-v6/darwin/arm64/onnxruntime_binding.node` and `libonnxruntime.1.dylib`, ONNX Runtime for the Punctuation Restorer (identifiers `<app id>.onnxruntime.onnxruntimebindingnode` and `<app id>.onnxruntime.libonnxruntime1dylib`, no entitlements). They sit there, not under `bun/`, because the bundled main process requires the binding from `../bin/napi-v6/<platform>/<arch>/` (`ONNXRUNTIME_BINDING_DIRS` in `scripts/onnxruntime-bundle.ts`). The npm package ships them ad hoc signed, and the hardened-runtime launcher's library validation would refuse to load them that way.
+
+post-build fails the build when `bin/codictate` or either ONNX Runtime file is missing, since Electrobun only logs a missing copy source and carries on.
 
 Each helper is signed with `--options runtime --timestamp` and its own entitlements plist from `entitlements/`. The identifier is derived from the app bundle ID, e.g. `app.codictate.native.keylistener`. The Parakeet helper's executable name differs per channel (`CodictateParakeetHelper`, `CodictateParakeetHelperCanary`, `CodictateParakeetHelperDev`; see `src/shared/binary-manifest.ts`); the renamed ones keep the identifier and entitlements of `CodictateParakeetHelper`.
 
@@ -40,6 +46,10 @@ codesign -d --entitlements - --xml "/path/to/Codictate.app/Contents/MacOS/launch
 
 # Inspect a helper
 codesign -dv --entitlements - "/path/to/Codictate.app/Contents/Resources/app/native-helpers/MicRecorder"
+
+# Inspect ONNX Runtime (expect your Developer ID, flags=0x10000(runtime), a Timestamp)
+codesign -dv "/path/to/Codictate.app/Contents/Resources/app/bin/napi-v6/darwin/arm64/onnxruntime_binding.node"
+codesign -dv "/path/to/Codictate.app/Contents/Resources/app/bin/napi-v6/darwin/arm64/libonnxruntime.1.dylib"
 ```
 
 ## Common issues
@@ -47,6 +57,7 @@ codesign -dv --entitlements - "/path/to/Codictate.app/Contents/Resources/app/nat
 | Symptom | Cause |
 |---------|-------|
 | Notarization: unsigned nested binary | Add the binary to `post-build.ts` signing loop + `entitlements/` |
+| Punctuation Restoration fails to load in the packaged app only | `bin/napi-v6/darwin/arm64/` lacks the binding or `libonnxruntime.1.dylib`, or they are not signed with the app's Team ID (library validation) |
 | Microphone never prompts | `audio-input` entitlement is a string instead of boolean `true` |
 | App missing from Privacy & Security | `launcher` was renamed, or signing identity mismatch |
 | Transcription crash under hardened runtime | `crispasr.entitlements` needs `allow-unsigned-executable-memory` |

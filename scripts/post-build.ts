@@ -14,6 +14,10 @@ import {
   BINARY_MANIFEST,
   MACOS_PARAKEET_HELPER_NAMES,
 } from "../src/shared/binary-manifest";
+import {
+  missingOnnxRuntimeFiles,
+  onnxRuntimeBuildCopy,
+} from "./onnxruntime-bundle";
 
 if (process.platform !== "darwin") {
   console.log("[post-build] non-macOS host detected, skipping macOS bundle patching");
@@ -310,6 +314,37 @@ const cliPath = join(resourcesDir, "app", "bin", "codictate");
   console.log("[post-build] Verified Resources/app/bin/codictate is a Mach-O executable");
 }
 
+// ─── ONNX Runtime (scripts/onnxruntime-bundle.ts) ────────────────────────────
+// onnxruntime-node's binding and the one library it links, copied by electrobun.config.ts to
+// Resources/app/bin/napi-v6/darwin/arm64 because that is where the bundled main process
+// requires the binding from. Electrobun signs `.node` files only under Resources/app/bun and
+// no dylib at all, so both are signed here. The launcher runs with hardened runtime, whose
+// library validation refuses to load either one unless it carries our Team ID: the
+// package's own ad hoc signatures are not enough.
+
+const onnxRuntimePaths = Object.values(onnxRuntimeBuildCopy("macos")).map((destination) =>
+  join(resourcesDir, "app", destination),
+);
+{
+  const missing = missingOnnxRuntimeFiles(join(resourcesDir, "app"), "macos");
+  if (missing.length > 0) {
+    for (const file of missing) {
+      console.error(
+        `[post-build] Resources/app/${file} missing — run bun install --frozen-lockfile (it comes from onnxruntime-node)`,
+      );
+    }
+    process.exit(1);
+  }
+  for (const path of onnxRuntimePaths) {
+    const kind = Bun.spawnSync(["file", "-b", path], { stdout: "pipe" }).stdout.toString();
+    if (!isCodesignableMachO(path) || !kind.includes("arm64")) {
+      console.error(`[post-build] ${path} is not an arm64 Mach-O library. file(1) said: ${kind.trim()}`);
+      process.exit(1);
+    }
+  }
+  console.log("[post-build] Verified ONNX Runtime binding and library in Resources/app/bin/napi-v6");
+}
+
 const machoNativeHelpers = listCodesignableNativeHelpers(nativeHelpersDir);
 
 // Non-dev builds are code-signed and notarized by Electrobun; unsigned Mach-O under
@@ -317,7 +352,7 @@ const machoNativeHelpers = listCodesignableNativeHelpers(nativeHelpersDir);
 // cannot sign them.
 if (buildEnv !== "dev" && !developerId) {
   console.error(
-    "[post-build] ELECTROBUN_DEVELOPER_ID is required to sign native helpers and the command line (stable/canary build).",
+    "[post-build] ELECTROBUN_DEVELOPER_ID is required to sign native helpers, the command line and ONNX Runtime (stable/canary build).",
   );
   process.exit(1);
 }
@@ -408,9 +443,22 @@ if (developerId) {
     developerId,
   );
   console.log("[post-build] Signed and verified the codictate command line");
+
+  for (const path of onnxRuntimePaths) {
+    const name = basename(path);
+    // Libraries: no entitlements, like the `.node` files Electrobun signs.
+    codesignBinary(
+      path,
+      `app/bin/napi-v6/darwin/arm64/${name}`,
+      `${appIdentifier}.onnxruntime.${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+      undefined,
+      developerId,
+    );
+  }
+  console.log("[post-build] Signed and verified the ONNX Runtime binding and library");
 } else if (buildEnv === "dev") {
   console.log(
-    "[post-build] Skipping native helper and command-line codesign (dev build, no ELECTROBUN_DEVELOPER_ID)",
+    "[post-build] Skipping native helper, command-line and ONNX Runtime codesign (dev build, no ELECTROBUN_DEVELOPER_ID)",
   );
 }
 
