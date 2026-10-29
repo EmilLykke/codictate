@@ -1,0 +1,70 @@
+{
+  "description": "ekko-v1-tiny q5_0 on the full FLEURS da_dk corpus, Raw Transcript before Punctuation Restoration (#104)",
+  "hardware": {
+    "chip": "Apple M4 Max",
+    "ram": "36 GB",
+    "os": "macOS",
+    "osVersion": "26.6.2"
+  },
+  "runDate": "2026-10-29T21:57:11.426Z",
+  "config": {
+    "sampleSize": 927,
+    "sampleSizeBasis": "pooled-v2",
+    "warmupCount": 3,
+    "normalization": "whisper-basic",
+    "sampleSelection": {
+      "mode": "target",
+      "requested": 927
+    }
+  },
+  "librispeech": {},
+  "fleurs": {
+    "da_dk": {
+      "parakeet-cli": {
+        "ekko-v1-tiny-q5_0": {
+          "wer": 0.09926433538244482,
+          "referenceWords": 19846,
+          "wordErrors": 1970,
+          "meanRTF": 0.01716427757405103,
+          "peakRSS_MB": {
+            "min": 299,
+            "avg": 299,
+            "max": 299
+          },
+          "utteranceCount": 927,
+          "failures": 0,
+          "speedV2": {
+            "responseMsPerAudioSec": 17.16427757405103,
+            "responseMs": 181224.90533900005,
+            "audioDurationSec": 10558.26,
+            "wallRtf": 0.01716427757405103,
+            "medianResponseMs": 188.9835829999938,
+            "p90ResponseMs": 239.6620829999738,
+            "attemptedCount": 927,
+            "respondedCount": 927,
+            "speedExcludedCount": 0,
+            "missingDurationCount": 0,
+            "failureCount": 0,
+            "timeoutCount": 0,
+            "sampleCount": 927,
+            "inferenceRtf": null,
+            "inferenceMs": 0,
+            "inferenceAudioSec": 0,
+            "inferenceSampleCount": 0,
+            "inferenceSkippedCount": 927
+          },
+          "totalAudioSec": 10558.26,
+          "totalWallSec": 181.22490533900006,
+          "cer": 0.077235381732571,
+          "referenceChars": 124878,
+          "charErrors": 9645,
+          "sampleRange": {
+            "startIndex": 0,
+            "endIndex": 927,
+            "manifestFingerprint": "930:fb108dc24a71f657"
+          }
+        }
+      }
+    }
+  }
+}

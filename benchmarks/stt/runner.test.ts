@@ -1018,6 +1018,23 @@ describe("adapterFor", () => {
     );
   });
 
+  test("builds an ekko Request on the GGUF, with no language and no crispasr backend", () => {
+    const [entry] = danishPool(1);
+    const request = adapterFor(
+      "ekko-v1-tiny-q5_0",
+      "/weights/ekko-v1-tiny-q5_0.gguf",
+      "crispasr",
+    ).prepare(entry);
+
+    expect(request).toEqual({
+      engineId: "ekko",
+      speechModelId: "ekko-v1-tiny-q5_0",
+      audioPath: entry.audioPath,
+      timeoutMs: 180_000,
+      modelPath: "/weights/ekko-v1-tiny-q5_0.gguf",
+    });
+  });
+
   test("derives a longer Request deadline from a long benchmark clip", () => {
     const [base] = danishPool(1);
     const request = adapterFor(

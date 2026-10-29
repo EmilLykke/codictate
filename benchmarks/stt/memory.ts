@@ -1,4 +1,5 @@
 import { getPlatformRuntime } from "../../src/bun/platform/runtime";
+import type { PlatformRuntime } from "../../src/shared/platform";
 
 interface MemoryResult {
   peakRssBytes: number | null;
@@ -19,24 +20,45 @@ function parseMaxRss(stderr: string): number | null {
   return null;
 }
 
-export async function measurePeakRss(command: string[]): Promise<MemoryResult> {
-  const platform = getPlatformRuntime();
-
-  let timeCmd: string[];
-  if (platform === "macos") {
-    timeCmd = ["/usr/bin/time", "-l", ...command];
-  } else {
-    timeCmd = ["/usr/bin/time", "-v", ...command];
-  }
-
-  const proc = Bun.spawn(timeCmd, {
-    stdout: "pipe",
-    stderr: "pipe",
+/**
+ * The `/usr/bin/time` argv and the env the measured process runs with.
+ *
+ * `env` is the measured command's whole environment, defaulting to this process's own.
+ * ekko needs one: parakeet-cli reads `PARAKEET_ATT_CONTEXT` (`EKKO_ENV`), and peak RSS
+ * has to be measured on the process the adapter actually runs. The locale is forced on
+ * top either way, because the report is parsed in English.
+ */
+export function peakRssInvocation(
+  command: string[],
+  options: {
+    platform: PlatformRuntime;
+    env?: Record<string, string | undefined>;
+  },
+): { argv: string[]; env: Record<string, string | undefined> } {
+  const timeFlag = options.platform === "macos" ? "-l" : "-v";
+  return {
+    argv: ["/usr/bin/time", timeFlag, ...command],
     env: {
-      ...process.env,
+      ...(options.env ?? process.env),
       LC_ALL: "en_US.UTF-8",
       LANG: "en_US.UTF-8",
     },
+  };
+}
+
+export async function measurePeakRss(
+  command: string[],
+  options?: { env?: Record<string, string | undefined> },
+): Promise<MemoryResult> {
+  const invocation = peakRssInvocation(command, {
+    platform: getPlatformRuntime(),
+    env: options?.env,
+  });
+
+  const proc = Bun.spawn(invocation.argv, {
+    stdout: "pipe",
+    stderr: "pipe",
+    env: invocation.env,
   });
 
   const stderrChunks: Uint8Array[] = [];

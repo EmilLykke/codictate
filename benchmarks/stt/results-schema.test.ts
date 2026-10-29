@@ -21,6 +21,7 @@ import {
   CODICTATE_V2_HARNESS,
   assertOneAsrHarnessPerSpeechModel,
   SELECTABLE_BENCHMARK_HARNESSES,
+  harnessBucketForModel,
 } from "./results-schema";
 import { CODICTATE_TIMING_REGIME } from "./runner";
 import {
@@ -338,5 +339,21 @@ describe("the v2 record layout", () => {
     // It runs only ekko and is forced per Speech Model. Selecting it would run a Whisper
     // Speech Model on crispasr and file the result under parakeet-cli.
     expect(SELECTABLE_BENCHMARK_HARNESSES).toEqual(["crispasr"]);
+  });
+});
+
+describe("harnessBucketForModel", () => {
+  test("files ekko under parakeet-cli whichever Harness the Run selected", () => {
+    // parakeet-cli is the only runtime that loads the ekko GGUF, so that is what produced
+    // the number, the way crispasr produced every hviske number.
+    expect(harnessBucketForModel("ekko-v1-tiny-q5_0", "crispasr")).toBe(
+      "parakeet-cli",
+    );
+    expect(harnessBucketForModel("hviske-v5-tiny-q5_0", "whisper-cli")).toBe(
+      "crispasr",
+    );
+    expect(harnessBucketForModel("large-v3-turbo-q5_0", "crispasr")).toBe(
+      "crispasr",
+    );
   });
 });

@@ -1078,11 +1078,15 @@ async function runStages(
       const runsOwnHelper =
         getSpeechModel(modelId)?.engine === PARAKEET_ENGINE_ID;
       console.log(
-        `\n[${modelId} / ${runsOwnHelper ? "parakeet helper" : harness}]`,
+        `\n[${modelId} / ${runsOwnHelper ? "parakeet helper" : bucket}]`,
       );
-      if (runsOwnHelper || bucket !== harness) {
+      if (runsOwnHelper) {
         console.log(
           `  [${modelId}] recorded under "${bucket}": Parakeet runs through its own helper, so harness does not apply`,
+        );
+      } else if (bucket !== harness) {
+        console.log(
+          `  [${modelId}] recorded under "${bucket}": this Speech Model loads only there, so the selected "${harness}" does not apply`,
         );
       }
     }

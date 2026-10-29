@@ -738,8 +738,8 @@ believing the two numbers are the same measurement.
 - A v1 aggregate leaf never becomes v2 per-clip measurements.
 - A v1 fingerprint field stays readable and is never compared against a v2 fingerprint.
 - **v1 reader tests stay green.** v2 tests are added alongside; no v1 test is rewritten to
-  v2. `benchmarks/stt/results-archive.manual.ts` stays pinned to the seven committed
-  Benchmark Runs.
+  v2. `benchmarks/stt/results-archive.manual.ts` stays pinned to the committed
+  Benchmark Runs (thirty today).
 - Full v2 results replace the leaderboard **only after separate publication approval**. The
   v2 staging reader exists; nothing is deployed.
 - Smoke output lives in `results/smoke/<batch>/`, is git-ignored, and is excluded from the
