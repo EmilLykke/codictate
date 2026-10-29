@@ -8,8 +8,8 @@
 // `NOTICE` / `MODEL_LICENSE.md` / `LICENSES/*` at their roots, copied unchanged, so two
 // upstreams cannot share a Mirror root.
 //
-// Today that is ekko-pnc, the Punctuation Model. ekko-v1-tiny (#90, #101) is added as a
-// second entry in MIRRORS, with its own destination repo.
+// Two Mirrors, each with its own destination repo: ekko-pnc, the Punctuation Model (#89),
+// and ekko-v1-tiny q5_0, the ekko Speech Engine's weights (#90, #101).
 //
 // YOU RUN THIS, NOT THE AGENT
 // The upload needs a Hugging Face *write* token, which must never be pasted into an agent
@@ -17,7 +17,7 @@
 //
 //   read -s HF_WRITE_TOKEN && export HF_WRITE_TOKEN   # write access to the destination
 //   bun run scripts/mirror-ekko.ts --dry-run
-//   bun run scripts/mirror-ekko.ts
+//   bun run scripts/mirror-ekko.ts --only ekko-v1-tiny   # or no --only for every Mirror
 //
 // The sources are ungated, so no read token is needed. The write token is not printed,
 // logged, or passed on a command line: it reaches the `hf` CLI through its environment
@@ -37,8 +37,10 @@ import { dirname, join, sep } from 'node:path'
 import { createHash } from 'node:crypto'
 
 export type MirrorFile = {
-  /** Path in the source repo, kept unchanged in the Mirror. */
+  /** Path in the Mirror, and in the source repo unless `sourcePath` says otherwise. */
   path: string
+  /** Where the file lives in the source repo, when the Mirror moves it (only ever to its root). */
+  sourcePath?: string
   bytes: number
   sha256: string
 }
@@ -123,6 +125,57 @@ const EKKO_PNC_FILES: readonly MirrorFile[] = [
   },
 ]
 
+const EKKO_V1_TINY_SOURCE_REPO = 'RyeAI/ekko-v1-tiny'
+/** Checked 2026-10-29: still `main` (#87). */
+const EKKO_V1_TINY_SOURCE_REVISION = '3658535e7b2fa98d5d9aad8114573c0fab1e6203'
+
+/**
+ * q5_0 only (#78): no other Quantization, no `.nemo`, no `onnx-sherpa/`. The GGUF moves
+ * from `gguf-parakeet.cpp/` to the Mirror root; the licence files keep their paths. Sizes
+ * from the Hugging Face tree API at EKKO_V1_TINY_SOURCE_REVISION, the GGUF's sha256 is its
+ * upstream LFS oid, and the licence hashes were measured on the files at that revision.
+ * The licence files differ from ekko-pnc's (NVIDIA Open Model License), which is why this
+ * is a Mirror of its own.
+ */
+const EKKO_V1_TINY_FILES: readonly MirrorFile[] = [
+  {
+    path: 'ekko-v1-tiny-q5_0.gguf',
+    sourcePath: 'gguf-parakeet.cpp/ekko-v1-tiny-q5_0.gguf',
+    bytes: 134710976,
+    sha256: 'f5380485d80d552ae46313185126d7ade54b2e7360cb0d15b91f1ab26ced7791',
+  },
+  {
+    path: 'NOTICE',
+    bytes: 391,
+    sha256: '1d720ec5fac9815e9374778a39406cb23a775b44c7fb0185709461cc597affef',
+  },
+  {
+    path: 'MODEL_LICENSE.md',
+    bytes: 1078,
+    sha256: '3f0c10a453c459d4342fe0f079c98677fd733f9a49b5ad2084b5e2e159370c07',
+  },
+  {
+    path: 'LICENSES/CC-BY-4.0.txt',
+    bytes: 18657,
+    sha256: '9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411',
+  },
+  {
+    path: 'LICENSES/CORAL-LICENSE',
+    bytes: 14112,
+    sha256: 'ee93c98df9a894464d1c042b66c6039543776c463d06d1a6e93f176e08ca67bd',
+  },
+  {
+    path: 'LICENSES/FTSPEECH-LICENSE.md',
+    bytes: 486,
+    sha256: '39708f5d77ae217b3a540363cb1b37fe079478e4ed1d3464f38d05d5a1c58b9a',
+  },
+  {
+    path: 'LICENSES/NVIDIA-OPEN-MODEL-LICENSE.pdf',
+    bytes: 79005,
+    sha256: '4d2fb590aa9b30c47f2058bff17291df7fa2aa0c1bd775a20703da9bb267cfab',
+  },
+]
+
 /**
  * Null when a downloaded file is the pinned one, else the sentence to fail with. A Mirror
  * is a byte copy, so any difference means the source moved, never a refresh.
@@ -137,7 +190,7 @@ export function checkMirrorFile(
     `  expected ${file.bytes} bytes, sha256 ${file.sha256}\n` +
     `  actual   ${actual.bytes} bytes, sha256 ${actual.sha256}\n` +
     '  Different bytes are a new model, not a refresh: re-pin deliberately, regenerate\n' +
-    '  the parity fixtures, and update the app table and docs/EKKO_MIRROR.md together.'
+    '  any parity fixtures, and update the app table and docs/EKKO_MIRROR.md together.'
   )
 }
 
@@ -207,6 +260,17 @@ export const MIRRORS: readonly Mirror[] = [
     files: EKKO_PNC_FILES,
     commitMessage: `Mirror ekko-pnc int8 ONNX from ${EKKO_PNC_SOURCE_REPO}@${EKKO_PNC_SOURCE_REVISION.slice(0, 7)} (CC BY 4.0)`,
     readme: ekkoPncReadme,
+  },
+  {
+    id: 'ekko-v1-tiny',
+    sourceRepo: EKKO_V1_TINY_SOURCE_REPO,
+    sourceRevision: EKKO_V1_TINY_SOURCE_REVISION,
+    /** Override with EKKO_V1_TINY_MIRROR_REPO to publish under a different account. */
+    destRepo:
+      process.env.EKKO_V1_TINY_MIRROR_REPO?.trim() || 'emillykkegrann/ekko-v1-tiny-GGUF',
+    files: EKKO_V1_TINY_FILES,
+    commitMessage: `Mirror ekko-v1-tiny q5_0 GGUF from ${EKKO_V1_TINY_SOURCE_REPO}@${EKKO_V1_TINY_SOURCE_REVISION.slice(0, 7)} (NVIDIA Open Model License)`,
+    readme: ekkoV1TinyReadme,
   },
 ]
 
@@ -280,6 +344,63 @@ down, open an issue on the Codictate repository and it will be removed.
 `
 }
 
+function ekkoV1TinyReadme(): string {
+  const source = `https://huggingface.co/${EKKO_V1_TINY_SOURCE_REPO}`
+  return `---
+license: other
+license_name: nvidia-open-model-license
+license_link: https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/
+base_model: ${EKKO_V1_TINY_SOURCE_REPO}
+pipeline_tag: automatic-speech-recognition
+tags:
+  - speech-recognition
+  - danish
+  - gguf
+  - parakeet.cpp
+language:
+  - da
+---
+
+# ekko-v1-tiny q5_0 GGUF (mirror)
+
+This is an **unmodified mirror** of the q5_0 GGUF of
+[\`${EKKO_V1_TINY_SOURCE_REPO}\`](${source}) at revision \`${EKKO_V1_TINY_SOURCE_REVISION}\`, made by
+[RyeAI](https://huggingface.co/RyeAI). All credit for the model belongs to them.
+
+It exists so [Codictate](https://github.com/EmilLykke/codictate) can transcribe Danish
+dictation with [parakeet.cpp](https://github.com/mudler/parakeet.cpp) without depending on
+the upstream repository staying unchanged. Every file is a byte-for-byte copy; nothing was
+converted or retrained. Upstream the GGUF lives at
+\`gguf-parakeet.cpp/ekko-v1-tiny-q5_0.gguf\`; here it sits at the root.
+
+## Licence
+
+Ekko v1 Tiny is derived from \`nvidia/parakeet-rnnt-110m-da-dk\` and is licensed by NVIDIA
+Corporation under the **NVIDIA Open Model License**. RyeAI applies CC BY 4.0 to its own
+modifications, and the CoRal and FT Speech terms apply in addition. The upstream
+\`MODEL_LICENSE.md\`, \`NOTICE\` and \`LICENSES/\` are copied here unchanged and are the terms
+that apply. Codictate is free and open source software with no paid version.
+
+- Original model: [\`${EKKO_V1_TINY_SOURCE_REPO}\`](${source})
+- Original author: [RyeAI](https://huggingface.co/RyeAI)
+- Licence: NVIDIA Open Model License, see \`MODEL_LICENSE.md\` and \`LICENSES/NVIDIA-OPEN-MODEL-LICENSE.pdf\`
+
+## Files
+
+| File | Bytes | sha256 |
+| --- | --- | --- |
+${EKKO_V1_TINY_FILES.map((f) => `| \`${f.path}\` | ${f.bytes} | \`${f.sha256}\` |`).join('\n')}
+
+Only q5_0 is mirrored. For the other Quantizations, the \`.nemo\` checkpoint, the ONNX
+export, the training details and the evaluation, see the original repository.
+
+## Requests
+
+If RyeAI would like the attribution worded differently, or would prefer this mirror taken
+down, open an issue on the Codictate repository and it will be removed.
+`
+}
+
 // --- Running it -----------------------------------------------------------------------
 
 const ROOT = join(import.meta.dir, '..')
@@ -318,6 +439,11 @@ function runHf(
   return { ok: proc.exitCode === 0, stdout, stderr: proc.stderr.toString() }
 }
 
+/** `hf download --local-dir` keeps the source layout, so this is also where it lands. */
+function sourcePathOf(file: MirrorFile): string {
+  return file.sourcePath ?? file.path
+}
+
 async function sha256Of(path: string): Promise<string> {
   const hash = createHash('sha256')
   for await (const chunk of createReadStream(path)) hash.update(chunk)
@@ -353,7 +479,7 @@ async function mirrorOne(
     [
       'download',
       mirror.sourceRepo,
-      ...mirror.files.map((f) => f.path),
+      ...mirror.files.map(sourcePathOf),
       '--revision',
       mirror.sourceRevision,
       '--local-dir',
@@ -368,7 +494,7 @@ async function mirrorOne(
   // Step 2: a Mirror is a byte copy, so every file must be exactly the pinned one.
   console.log('--- Verifying size and sha256 against the pins ---')
   for (const file of mirror.files) {
-    const path = join(downloadDir, file.path)
+    const path = join(downloadDir, sourcePathOf(file))
     if (!existsSync(path)) fail(`Expected ${path} after download, but it is missing.`)
     const actual = { bytes: statSync(path).size, sha256: await sha256Of(path) }
     console.log(`  ${file.path}: ${actual.bytes} bytes, ${actual.sha256}`)
@@ -383,7 +509,7 @@ async function mirrorOne(
   for (const file of mirror.files) {
     const target = join(uploadDir, file.path)
     mkdirSync(dirname(target), { recursive: true })
-    copyFileSync(join(downloadDir, file.path), target)
+    copyFileSync(join(downloadDir, sourcePathOf(file)), target)
   }
   writeFileSync(join(uploadDir, README_PATH), mirror.readme())
   const problems = stagedUploadProblems(mirror, listFiles(uploadDir))

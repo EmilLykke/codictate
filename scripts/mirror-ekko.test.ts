@@ -36,6 +36,96 @@ describe('the ekko-pnc Mirror', () => {
   })
 })
 
+const ekkoV1Tiny = () => {
+  const mirror = MIRRORS.find((m) => m.id === 'ekko-v1-tiny')
+  if (!mirror) throw new Error('ekko-v1-tiny is not a Mirror')
+  return mirror
+}
+
+describe('the ekko-v1-tiny Mirror', () => {
+  test('publishes to its own repo, not the ekko-pnc one', () => {
+    expect(ekkoV1Tiny().destRepo).toBe('emillykkegrann/ekko-v1-tiny-GGUF')
+    expect(ekkoPnc().destRepo).toBe('emillykkegrann/ekko-pnc-ONNX')
+  })
+
+  test('copies q5_0 and the licence files from the pinned revision, and nothing else', () => {
+    const mirror = ekkoV1Tiny()
+    expect(mirror.sourceRepo).toBe('RyeAI/ekko-v1-tiny')
+    expect(mirror.sourceRevision).toBe('3658535e7b2fa98d5d9aad8114573c0fab1e6203')
+    expect(mirror.files.map((f) => f.path).sort()).toEqual(
+      [
+        'ekko-v1-tiny-q5_0.gguf',
+        'NOTICE',
+        'MODEL_LICENSE.md',
+        'LICENSES/CC-BY-4.0.txt',
+        'LICENSES/CORAL-LICENSE',
+        'LICENSES/FTSPEECH-LICENSE.md',
+        'LICENSES/NVIDIA-OPEN-MODEL-LICENSE.pdf',
+      ].sort(),
+    )
+  })
+
+  test('takes the GGUF from its upstream folder and puts it at the Mirror root', () => {
+    const gguf = ekkoV1Tiny().files.find((f) => f.path === 'ekko-v1-tiny-q5_0.gguf')
+    expect(gguf?.sourcePath).toBe('gguf-parakeet.cpp/ekko-v1-tiny-q5_0.gguf')
+    expect(gguf?.bytes).toBe(134710976)
+    expect(gguf?.sha256).toBe(
+      'f5380485d80d552ae46313185126d7ade54b2e7360cb0d15b91f1ab26ced7791',
+    )
+  })
+
+  test('its model card names the upstream repo, its commit and the NVIDIA licence', () => {
+    const readme = ekkoV1Tiny().readme()
+    expect(readme).toContain('RyeAI/ekko-v1-tiny')
+    expect(readme).toContain('3658535e7b2fa98d5d9aad8114573c0fab1e6203')
+    expect(readme).toContain('license_name: nvidia-open-model-license')
+    expect(readme).toContain(
+      '| `ekko-v1-tiny-q5_0.gguf` | 134710976 | `f5380485d80d552ae46313185126d7ade54b2e7360cb0d15b91f1ab26ced7791` |',
+    )
+    expect(readme).not.toContain('ekko-pnc')
+  })
+
+  test('a GGUF that is not the pinned one stops the run before anything is staged', () => {
+    const gguf = ekkoV1Tiny().files.find((f) => f.path === 'ekko-v1-tiny-q5_0.gguf')
+    if (!gguf) throw new Error('the GGUF is not mirrored')
+    // The q5_k file from the same folder: a different Quantization, not a refresh.
+    const problem = checkMirrorFile(gguf, {
+      bytes: 136067776,
+      sha256: '0e6b74d8a823747cbaf0256fd97710fc805a556ba2e18f085d36003dfc8b5bf6',
+    })
+    expect(problem).toContain('ekko-v1-tiny-q5_0.gguf is not the pinned file')
+    expect(problem).toContain('136067776')
+  })
+
+  test('its stage holds the GGUF at the root, and refuses the upstream folder or other Quantizations', () => {
+    const staged = [
+      'README.md',
+      'ekko-v1-tiny-q5_0.gguf',
+      'NOTICE',
+      'MODEL_LICENSE.md',
+      'LICENSES/CC-BY-4.0.txt',
+      'LICENSES/CORAL-LICENSE',
+      'LICENSES/FTSPEECH-LICENSE.md',
+      'LICENSES/NVIDIA-OPEN-MODEL-LICENSE.pdf',
+    ]
+    expect(stagedUploadProblems(ekkoV1Tiny(), staged)).toEqual([])
+    const problems = stagedUploadProblems(ekkoV1Tiny(), [
+      ...staged.filter((p) => p !== 'ekko-v1-tiny-q5_0.gguf'),
+      'gguf-parakeet.cpp/ekko-v1-tiny-q5_0.gguf',
+      'ekko-v1-tiny-q8_0.gguf',
+    ]).join('\n')
+    expect(problems).toContain('unexpected file staged: gguf-parakeet.cpp/ekko-v1-tiny-q5_0.gguf')
+    expect(problems).toContain('unexpected file staged: ekko-v1-tiny-q8_0.gguf')
+    expect(problems).toContain('missing from the stage: ekko-v1-tiny-q5_0.gguf')
+  })
+
+  test('--only picks it alone', () => {
+    expect(selectMirrors(['--only', 'ekko-v1-tiny']).map((m) => m.id)).toEqual([
+      'ekko-v1-tiny',
+    ])
+  })
+})
+
 describe('checking a downloaded file', () => {
   const onnx = () => {
     const file = ekkoPnc().files.find((f) => f.path === 'pnc.int8.onnx')
