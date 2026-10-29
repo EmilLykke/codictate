@@ -44,9 +44,10 @@ export function parakeetTranscribeArgv(
 export const transcribeWithParakeet: SpeechEngineAdapter<
   ParakeetTranscriptionRequest
 > = async (request) => {
-  // Serialise behind an in-flight preparation rather than racing it. Recording is already
+  // Serialise behind an in-flight background load rather than racing it. Recording is already
   // over by the time this runs and the indicator says "transcribing", so the wait is visible
-  // and it is the same compile this spawn would otherwise have paid for itself.
+  // and it is the same load - 0.15 s, or a Parakeet Preparation - this spawn would otherwise
+  // have paid for itself.
   await awaitParakeetWarmup()
 
   // The pre-spawn race check, both halves: the Native Helper is still in the installation,

@@ -1,148 +1,179 @@
 /**
- * The two decisions inside automatic Parakeet warmup that are worth pinning: whether a
- * selection has just made a preparation worth spawning, and whether prepared weights should
- * be loaded ahead of the first Dictation to absorb a Cold Start.
+ * The two parts of the background Parakeet load that are worth pinning: whether a settle calls
+ * for a load, and when the in-flight load starts and stops counting as a Parakeet Preparation.
  *
- * The rest of the module is lifecycle glue - a promise handle, a settings push, a bounded
- * wait - and tests over glue only restate the glue. This function is the seam ADR-0005 cares
- * about, because it is the thing that used to be written out three times, slightly
- * differently, at boot, at a settings write and after a download.
+ * The rest of the module is lifecycle glue - reading the selection, spawning the helper, a
+ * bounded wait - and tests over glue only restate the glue. The predicate is the seam ADR-0005
+ * cares about, because it is the thing that used to be written out three times, slightly
+ * differently, at boot, at a settings write and after a download. The tracker runs a fake load,
+ * so nothing here spawns a helper.
  */
 
 import { describe, expect, test } from 'bun:test'
 import {
-  shouldStartParakeetColdStartLoad,
-  shouldStartParakeetWarmup,
-  type ParakeetColdStartState,
-  type ParakeetWarmupState,
+  createParakeetLoadTracker,
+  shouldStartParakeetLoad,
+  type ParakeetLoadState,
 } from './parakeet-warmup'
 
-/** Parakeet selected, weights on disk, cold, nothing running: the case that should warm. */
-function state(
-  overrides: Partial<ParakeetWarmupState> = {}
-): ParakeetWarmupState {
+/** Parakeet just became the selection, weights on disk, nothing running: the case that loads. */
+function state(overrides: Partial<ParakeetLoadState> = {}): ParakeetLoadState {
   return {
     selectedEngineId: 'whisperkit',
     weightsInstalled: true,
     helperSupported: true,
-    alreadyPrepared: false,
-    preparationInFlight: false,
-    previousAttemptFailed: false,
+    alreadyLoadable: false,
+    loadInFlight: false,
     ...overrides,
   }
 }
 
-describe('shouldStartParakeetWarmup', () => {
-  test('selecting Parakeet with its weights installed starts a preparation', () => {
-    expect(shouldStartParakeetWarmup(state())).toBe(true)
+describe('shouldStartParakeetLoad', () => {
+  test('launch, selecting Parakeet or finishing its download starts a load', () => {
+    expect(shouldStartParakeetLoad(state())).toBe(true)
   })
 
-  test('a Whisper or hviske selection never warms Parakeet', () => {
+  test('a Whisper or hviske selection never loads Parakeet', () => {
     expect(
-      shouldStartParakeetWarmup(state({ selectedEngineId: 'whisper_cpp' }))
+      shouldStartParakeetLoad(state({ selectedEngineId: 'whisper_cpp' }))
     ).toBe(false)
-    expect(
-      shouldStartParakeetWarmup(state({ selectedEngineId: 'hviske' }))
-    ).toBe(false)
-  })
-
-  test('a selection the catalog has never heard of never warms Parakeet', () => {
-    expect(shouldStartParakeetWarmup(state({ selectedEngineId: null }))).toBe(
+    expect(shouldStartParakeetLoad(state({ selectedEngineId: 'hviske' }))).toBe(
       false
     )
   })
 
-  test('nothing is warmed where the Native Helper does not ship', () => {
-    expect(shouldStartParakeetWarmup(state({ helperSupported: false }))).toBe(
+  test('a selection the catalog has never heard of never loads Parakeet', () => {
+    expect(shouldStartParakeetLoad(state({ selectedEngineId: null }))).toBe(
       false
     )
   })
 
-  test('weights that are not on disk cannot be prepared', () => {
-    expect(shouldStartParakeetWarmup(state({ weightsInstalled: false }))).toBe(
+  test('nothing is loaded where the Native Helper does not ship', () => {
+    expect(shouldStartParakeetLoad(state({ helperSupported: false }))).toBe(
       false
     )
   })
 
-  test('an already prepared Parakeet is not prepared again', () => {
-    expect(shouldStartParakeetWarmup(state({ alreadyPrepared: true }))).toBe(
+  test('weights that are not on disk cannot be loaded', () => {
+    expect(shouldStartParakeetLoad(state({ weightsInstalled: false }))).toBe(
       false
     )
-  })
-
-  /**
-   * The concurrency rule. Boot, a settings write and a finished download can all want a
-   * preparation within the same second, and two compiles of the same weights race each other.
-   */
-  test('a preparation already running is joined, not duplicated', () => {
-    expect(
-      shouldStartParakeetWarmup(state({ preparationInFlight: true }))
-    ).toBe(false)
   })
 
   /**
    * Settings writes are frequent - every language, duration and toggle change is one - so a
-   * broken helper must not be respawned by each of them.
+   * settle that changes nothing about Parakeet must not respawn the helper, broken or not.
    */
-  test('a preparation that already failed is not retried in this process', () => {
-    expect(
-      shouldStartParakeetWarmup(state({ previousAttemptFailed: true }))
-    ).toBe(false)
+  test('a settle that leaves Parakeet selected and installed loads nothing', () => {
+    expect(shouldStartParakeetLoad(state({ alreadyLoadable: true }))).toBe(
+      false
+    )
+  })
+
+  /**
+   * The concurrency rule. Boot, a settings write and a finished download can all want a load
+   * within the same second, and two Preparations of the same weights race each other.
+   */
+  test('a load already running is joined, not duplicated', () => {
+    expect(shouldStartParakeetLoad(state({ loadInFlight: true }))).toBe(false)
   })
 })
 
-/** Parakeet selected, prepared, weights on disk, nothing loaded yet: the case that should load. */
-function coldState(
-  overrides: Partial<ParakeetColdStartState> = {}
-): ParakeetColdStartState {
-  return {
-    selectedEngineId: 'whisperkit',
-    weightsInstalled: true,
-    helperSupported: true,
-    alreadyPrepared: true,
-    preparationInFlight: false,
-    loadedThisProcess: false,
-    ...overrides,
-  }
+function deferred() {
+  let resolve!: () => void
+  let reject!: (err: unknown) => void
+  const promise = new Promise<void>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
 }
 
-describe('shouldStartParakeetColdStartLoad', () => {
-  test('a prepared Parakeet is loaded once at launch, before the first Dictation', () => {
-    expect(shouldStartParakeetColdStartLoad(coldState())).toBe(true)
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+describe('createParakeetLoadTracker', () => {
+  const PREPARING_AFTER_MS = 20
+
+  function tracker() {
+    let pushes = 0
+    const loads = createParakeetLoadTracker({
+      preparingAfterMs: PREPARING_AFTER_MS,
+      onPreparingChanged: () => {
+        pushes += 1
+      },
+    })
+    return { loads, pushes: () => pushes }
+  }
+
+  /** The common case: prepared weights load in about 0.15 s, and Settings never mentions it. */
+  test('a load that ends inside the threshold never says preparing and pushes nothing', async () => {
+    const { loads, pushes } = tracker()
+    const load = deferred()
+    expect(loads.start(() => load.promise)).toBe(true)
+    expect(loads.inFlight).not.toBeNull()
+    expect(loads.preparing).toBe(false)
+    load.resolve()
+    await loads.inFlight
+    await sleep(PREPARING_AFTER_MS * 2)
+    expect(loads.inFlight).toBeNull()
+    expect(loads.preparing).toBe(false)
+    expect(pushes()).toBe(0)
   })
 
-  test('a second load in the same process buys nothing', () => {
-    expect(
-      shouldStartParakeetColdStartLoad(coldState({ loadedThisProcess: true }))
-    ).toBe(false)
+  test('a load past the threshold says preparing, and stops saying it when it ends', async () => {
+    const { loads, pushes } = tracker()
+    const load = deferred()
+    loads.start(() => load.promise)
+    await sleep(PREPARING_AFTER_MS * 2)
+    expect(loads.preparing).toBe(true)
+    expect(pushes()).toBe(1)
+
+    const pending = loads.inFlight
+    load.resolve()
+    await pending
+    expect(loads.preparing).toBe(false)
+    expect(loads.inFlight).toBeNull()
+    expect(pushes()).toBe(2)
   })
 
-  test('unprepared weights get a preparation, not a load', () => {
+  test('a second load is refused while one is running', async () => {
+    const { loads } = tracker()
+    const load = deferred()
+    loads.start(() => load.promise)
+    const first = loads.inFlight
+    let secondRan = false
     expect(
-      shouldStartParakeetColdStartLoad(coldState({ alreadyPrepared: false }))
+      loads.start(async () => {
+        secondRan = true
+      })
     ).toBe(false)
+    expect(loads.inFlight).toBe(first)
+    load.resolve()
+    await first
+    expect(secondRan).toBe(false)
   })
 
-  test('a preparation still running loads the weights itself', () => {
-    expect(
-      shouldStartParakeetColdStartLoad(coldState({ preparationInFlight: true }))
-    ).toBe(false)
+  /** A Dictation awaits the in-flight promise, so a failed load must still let it through. */
+  test('a failed load resolves the in-flight promise and clears preparing', async () => {
+    const { loads, pushes } = tracker()
+    const load = deferred()
+    loads.start(() => load.promise)
+    await sleep(PREPARING_AFTER_MS * 2)
+    const pending = loads.inFlight
+    load.reject(new Error('helper exited'))
+    await expect(pending).resolves.toBeUndefined()
+    expect(loads.preparing).toBe(false)
+    expect(loads.inFlight).toBeNull()
+    expect(pushes()).toBe(2)
   })
 
-  test('only a selected, installed Parakeet on a platform with its helper is loaded', () => {
-    expect(
-      shouldStartParakeetColdStartLoad(
-        coldState({ selectedEngineId: 'whisper_cpp' })
-      )
-    ).toBe(false)
-    expect(
-      shouldStartParakeetColdStartLoad(coldState({ selectedEngineId: null }))
-    ).toBe(false)
-    expect(
-      shouldStartParakeetColdStartLoad(coldState({ weightsInstalled: false }))
-    ).toBe(false)
-    expect(
-      shouldStartParakeetColdStartLoad(coldState({ helperSupported: false }))
-    ).toBe(false)
+  test('a new load can start once the previous one has ended', async () => {
+    const { loads } = tracker()
+    const first = deferred()
+    loads.start(() => first.promise)
+    const pending = loads.inFlight
+    first.resolve()
+    await pending
+    expect(loads.start(() => Promise.resolve())).toBe(true)
   })
 })

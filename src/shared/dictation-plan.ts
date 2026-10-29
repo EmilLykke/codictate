@@ -129,9 +129,24 @@ export interface DictationReadinessInput {
   speechModelId: string
   transcriptionLanguageId: string
   translateDefaultLanguageId: string
-  /** Parakeet has finished its one-time on-device preparation. */
-  parakeetCoreMlReady: boolean
 }
+
+/**
+ * What the main process knows about Parakeet's background load right now. Not a setting and
+ * not availability: it is a fact about a process that is running, owned by
+ * `src/bun/utils/whisper/parakeet-warmup.ts`, so it arrives beside the settings rather than
+ * inside them.
+ */
+export interface ParakeetLoadStatus {
+  /**
+   * The background load has run for more than about a second, which a load of prepared
+   * weights never does: a Parakeet Preparation is under way.
+   */
+  preparing: boolean
+}
+
+/** For callers that read only `ready` and `reason`, which a load never changes. */
+export const NO_PARAKEET_LOAD: ParakeetLoadStatus = { preparing: false }
 
 /**
  * Why Translate to English cannot run. Closed union, so a new way for it to be unavailable
@@ -202,14 +217,15 @@ export interface DictationReadiness {
   translateToEnglish: TranslateReadiness
   liveTranscription: StreamModeReadiness
   /**
-   * Parakeet's one-time on-device preparation is under way right now: it is the selection,
-   * its weights are installed, and it has not reported done yet.
+   * A Parakeet Preparation is under way right now: Parakeet is the selection, its weights are
+   * installed, and its background load has run past the threshold (`ParakeetLoadStatus`).
    *
    * A fact rather than a `CapabilityReadiness`, because nothing is unavailable while it runs
-   * - a Dictation started inside the window waits for it. It is shipped instead of left to
+   * - a Dictation started inside the window still runs, only slower. It is shipped instead of left to
    * the Settings screen because deciding it there means a component reading raw availability
-   * and reaching its own conclusion, which is the pattern ADR-0005 removes. Goes false on
-   * the settings push that follows the preparation, so the line clears itself.
+   * and reaching its own conclusion, which is the pattern ADR-0005 removes. The main process
+   * pushes settings when the threshold passes and again when the load ends, so the line
+   * appears and clears itself.
    */
   parakeetPreparing: boolean
 }
@@ -286,7 +302,8 @@ function translateReadiness(
 
 function streamModeReadiness(
   input: DictationReadinessInput,
-  availability: DictationAvailability
+  availability: DictationAvailability,
+  parakeetLoad: ParakeetLoadStatus
 ): StreamModeReadiness {
   if (!availability.streamSupported) {
     return {
@@ -324,17 +341,18 @@ function streamModeReadiness(
     }
   }
 
-  // A cold Parakeet is ready, and its preparation is already running: selecting Parakeet
-  // starts it. Warmup was a readiness reason nobody could act on, and ADR-0005 takes it out
-  // of the user-facing set rather than dressing it up as unavailability. What is left is a
-  // fact, and it stops being said the moment the preparation reports done - the settings push
-  // recomputes this, so the copy corrects itself with no restart and no second attempt.
+  // A Parakeet in the middle of a Preparation is ready: a Live Transcription started now opens
+  // the microphone at once and its text catches up when the load is done.
+  // Warmup was a readiness reason nobody could act on, and ADR-0005 takes it out of the
+  // user-facing set rather than dressing it up as unavailability. What is left is a fact, and
+  // it stops being said the moment the load ends - the settings push recomputes this, so the
+  // copy corrects itself with no restart and no second attempt.
   return {
     ready: true,
     reason: null,
-    message: input.parakeetCoreMlReady
-      ? 'Live transcription: continuous dictation.'
-      : `Live transcription: continuous dictation. ${PARAKEET_LABEL} is preparing itself on this device; a dictation started before it finishes waits for it.`,
+    message: isParakeetPreparing(input, availability, parakeetLoad)
+      ? `Live transcription: continuous dictation. ${PARAKEET_LABEL} is preparing itself on this device; a dictation started before it finishes still works, its text just arrives later.`
+      : 'Live transcription: continuous dictation.',
     downloadModelId: null,
   }
 }
@@ -349,27 +367,31 @@ function streamModeReadiness(
  */
 export function getDictationReadiness(
   input: DictationReadinessInput,
-  availability: DictationAvailability
+  availability: DictationAvailability,
+  parakeetLoad: ParakeetLoadStatus
 ): DictationReadiness {
   return {
     translateToEnglish: translateReadiness(input, availability),
-    liveTranscription: streamModeReadiness(input, availability),
-    parakeetPreparing: isParakeetPreparing(input, availability),
+    liveTranscription: streamModeReadiness(input, availability, parakeetLoad),
+    parakeetPreparing: isParakeetPreparing(input, availability, parakeetLoad),
   }
 }
 
 /**
- * The three conditions that make a preparation possible, in one place. Deliberately not a
- * readiness reason: see `DictationReadiness.parakeetPreparing`.
+ * The conditions under which Settings says Parakeet is preparing, in one place. Deliberately
+ * not a readiness reason: see `DictationReadiness.parakeetPreparing`. The selection is checked
+ * here as well as by the load's own trigger, because a load keeps running when the user
+ * switches away from Parakeet in the middle of it.
  */
 function isParakeetPreparing(
   input: DictationReadinessInput,
-  availability: DictationAvailability
+  availability: DictationAvailability,
+  parakeetLoad: ParakeetLoadStatus
 ): boolean {
   return (
     input.speechModelId === DEFAULT_STREAM_CAPABLE_MODEL_ID &&
     availability.isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID) &&
-    !input.parakeetCoreMlReady
+    parakeetLoad.preparing
   )
 }
 

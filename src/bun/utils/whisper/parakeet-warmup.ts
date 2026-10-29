@@ -1,33 +1,34 @@
-import { requireRuntimeBinary } from '../../platform/binaries'
 /**
- * Parakeet's one-time on-device preparation, and the single place that decides when it runs.
+ * The one background load of Parakeet, and the single place that decides when it runs.
  *
- * Parakeet (FluidAudio) compiles its weights for the machine that will run them before the
- * first transcription can start, and that compile takes a minute or two. It used to be the
- * user's problem: a readiness reason nobody could act on, a Settings hint warning that the
- * app "may look stuck", and three uncoordinated callers each deciding for themselves whether
- * to prepare. ADR-0005 takes it out of the user-facing set - preparation starts as soon as
- * Parakeet becomes the selected Speech Model, so nobody is asked to wait for something they
- * were never told had started.
+ * Before Parakeet (FluidAudio) can transcribe anything, its weights have to be fitted to this
+ * device: a Parakeet Preparation, which on the Mac is the Neural Engine compiling the encoder
+ * and takes 12 to 19 s. Loading weights that are already prepared takes about 0.15 s. Which of
+ * the two a load will be cannot be known ahead of it: a Preparation is needed again when
+ * another installed copy of Codictate (another release channel, a development build) has used
+ * the same weights, after a system update, or when the system frees disk space. So there is
+ * no "already prepared" fact to keep, and no separate slow-load case to handle - every slow
+ * load measured was a Preparation.
+ *
+ * What this module does instead is load the Dictation's Speech Model in the background, while
+ * it is Parakeet and its weights are installed, at the moments a Preparation is most likely to
+ * be due: once at launch, when Parakeet becomes the selection, and when its download finishes.
+ * Usually that is the 0.15 s load and nobody notices; when it is a Preparation, it is paid here
+ * instead of inside the user's next Dictation. File Transcription Settings choosing Parakeet
+ * starts nothing - a File Transcription pays any Preparation in its own Processing Time.
  *
  * Two rules make that safe:
  *
- * - **One preparation at a time.** Selection changes fire repeatedly, and boot, a settings
- *   write and a finished download can all want a preparation at once. Two overlapping
- *   compiles are two processes racing over the same files, so `ensureParakeetWarm` is
- *   idempotent: it joins the in-flight preparation rather than starting a second one.
- * - **A Dictation started mid-preparation waits for it.** `awaitParakeetWarmup` is what the
- *   run path calls before it spawns the helper. Waiting is honest here - the wait *is* the
- *   compile, which the run would have paid for itself anyway - and serialising it is what
- *   stops a press racing the preparation and coming back with nothing.
- *
- * Preparation happens once per installed copy of the weights. A Cold Start does not go away
- * with it: after a restart, the first process to load the prepared weights still takes
- * seconds. So once per app process, while Parakeet is selected and prepared, this module also
- * loads the weights in the background, so the user's first Dictation does not pay for it.
- * Nothing waits on that load. Two processes loading prepared weights side by side is safe,
- * and waiting would hold the Live Transcription helper back from opening the microphone,
- * which is exactly the speech a Cold Start must never cost.
+ * - **One background load at a time.** Selection changes fire repeatedly, and boot, a settings
+ *   write and a finished download can all arrive at once, so a load is held in a single
+ *   in-flight promise and this module never starts a second one beside it.
+ * - **A Batch Dictation started mid-load waits for it.** `awaitParakeetWarmup` is what the
+ *   batch run path calls before it spawns the helper. Its recording is already over and was
+ *   made by a separate recorder, so waiting loses nothing - the wait *is* the load, which the
+ *   run would have paid for itself anyway - and it never starts a second Preparation.
+ *   Live Transcription does not wait: its helper opens the microphone before it loads, so a
+ *   wait would lose speech. Two helpers preparing the same weights at once both finish (just
+ *   slower), so spawning beside the background load is safe.
  *
  * See docs/adr/0005-no-runtime-fallbacks-for-dictation.md.
  */
@@ -39,6 +40,7 @@ import {
   type SpeechEngineId,
 } from '../../../shared/speech-models'
 import { getPlatform } from '../../platform'
+import { requireRuntimeBinary } from '../../platform/binaries'
 import { getPlatformCapabilities } from '../../platform/runtime'
 import { modelManager } from './model-manager'
 import { log } from '../logger'
@@ -50,210 +52,223 @@ import {
 } from './engines/process-supervisor'
 
 /**
- * How long the run path waits for an in-flight preparation before spawning regardless.
+ * How long the run path waits for an in-flight load before spawning regardless.
  *
- * Generous, because the compile it waits for genuinely takes a minute or two. The bound
- * exists only so a wedged helper process cannot wedge every later Dictation with it: past
- * it the Dictation spawns and does its own loading, which costs one slow Dictation instead
- * of all of them.
+ * Generous, because a Preparation genuinely takes seconds. The bound exists only so a wedged
+ * helper process cannot wedge every later Dictation with it: past it the Dictation spawns and
+ * does its own loading, which costs one slow Dictation instead of all of them.
  */
 const WARMUP_WAIT_TIMEOUT_MS =
   ENGINE_PROCESS_TIMEOUT_MS + ENGINE_PROCESS_CLEANUP_GRACE_MS
 
 /**
- * Everything the "should we prepare right now" decision depends on, as plain values so the
+ * How long a load runs before Settings says Parakeet is preparing.
+ *
+ * A load of prepared weights is done in about 0.15 s, so a load still running after a second
+ * is a Parakeet Preparation. Saying "preparing" from the first millisecond would flash the
+ * line on every launch for a load nobody waits on.
+ */
+export const PARAKEET_PREPARING_AFTER_MS = 1000
+
+/**
+ * Everything the "should we load right now" decision depends on, as plain values so the
  * decision can be tested without a spawn, a filesystem or a platform probe.
  */
-export interface ParakeetWarmupState {
-  /** Engine of the selected Speech Model, or null when the catalog has never heard of it. */
+export interface ParakeetLoadState {
+  /** Engine of the Dictation's selected Speech Model, or null when the catalog has never heard of it. */
   selectedEngineId: SpeechEngineId | null
   /** The selected Speech Model's weights are on disk. */
   weightsInstalled: boolean
   /** This platform ships the Parakeet Native Helper at all (Linux does not). */
   helperSupported: boolean
-  /** Preparation has already completed on this device. */
-  alreadyPrepared: boolean
-  /** A preparation started earlier has not finished yet. */
-  preparationInFlight: boolean
-  /** Preparing these weights already failed once in this process. */
-  previousAttemptFailed: boolean
+  /**
+   * The same Speech Model was already selected and installed at the previous settle in this
+   * process. False at launch, after it becomes the selection and after its download finishes:
+   * the three moments a load is for.
+   */
+  alreadyLoadable: boolean
+  /** A load started earlier has not finished yet. */
+  loadInFlight: boolean
+}
+
+/** Parakeet is the Dictation's selection, its weights are installed, and its helper ships here. */
+export function isParakeetLoadable(
+  state: Pick<
+    ParakeetLoadState,
+    'selectedEngineId' | 'weightsInstalled' | 'helperSupported'
+  >
+): boolean {
+  return (
+    state.helperSupported &&
+    state.selectedEngineId === PARAKEET_ENGINE_ID &&
+    state.weightsInstalled
+  )
 }
 
 /**
- * Whether selection has just made a preparation worth starting.
+ * Whether this settle calls for a background load.
  *
  * Every arm below is a reason a spawn would be wasted or harmful, which is why this is a
  * function and not an inline condition at three call sites - that arrangement is what let
  * boot, a settings write and a finished download each answer it slightly differently.
  */
-export function shouldStartParakeetWarmup(state: ParakeetWarmupState): boolean {
-  if (!state.helperSupported) return false
-  if (state.selectedEngineId !== PARAKEET_ENGINE_ID) return false
-  if (!state.weightsInstalled) return false
-  if (state.alreadyPrepared) return false
-  if (state.preparationInFlight) return false
-  // A failed preparation is not retried by the next settings write. Settings writes are
-  // frequent - every language, duration and toggle change is one - so retrying on each would
-  // respawn a broken helper indefinitely. The next launch tries again, and a real Dictation
-  // still prepares the weights as a side effect of running them.
-  if (state.previousAttemptFailed) return false
+export function shouldStartParakeetLoad(state: ParakeetLoadState): boolean {
+  if (!isParakeetLoadable(state)) return false
+  // Nothing happened to Parakeet since the last settle. Settings writes are frequent - every
+  // language, duration and toggle change is one - so loading on each would respawn the helper
+  // for nothing, and respawn a broken one indefinitely after a failed load. A failed load is
+  // tried again only when the user selects or downloads Parakeet again, or on the next launch.
+  if (state.alreadyLoadable) return false
+  if (state.loadInFlight) return false
   return true
 }
 
-/** Everything the "load ahead of the first Dictation" decision depends on. */
-export interface ParakeetColdStartState {
-  selectedEngineId: SpeechEngineId | null
-  weightsInstalled: boolean
-  helperSupported: boolean
-  alreadyPrepared: boolean
-  preparationInFlight: boolean
-  /** This app process has already loaded these weights, or tried to. */
-  loadedThisProcess: boolean
-}
-
 /**
- * Whether to load the prepared weights now, so the first Dictation after a restart does not
- * pay the Cold Start. Once per app process: a second load in the same process finds the
- * weights warm and buys nothing.
+ * The single in-flight load and the "preparing" fact derived from how long it has run.
+ *
+ * A factory rather than module state so the threshold and the settings pushes it drives can
+ * be tested with a fake load instead of a spawned helper.
  */
-export function shouldStartParakeetColdStartLoad(
-  state: ParakeetColdStartState
-): boolean {
-  if (!state.helperSupported) return false
-  if (state.selectedEngineId !== PARAKEET_ENGINE_ID) return false
-  if (!state.weightsInstalled) return false
-  // Unprepared weights get a preparation instead, which loads them as part of the compile.
-  if (!state.alreadyPrepared) return false
-  if (state.preparationInFlight) return false
-  if (state.loadedThisProcess) return false
-  return true
+export interface ParakeetLoadTracker {
+  /** The load running right now, or null. Never rejects. */
+  readonly inFlight: Promise<void> | null
+  /** The load running right now has run past the threshold: a Parakeet Preparation. */
+  readonly preparing: boolean
+  /** Start `run` as the in-flight load. Returns false, starting nothing, when one is running. */
+  start(run: () => Promise<unknown>): boolean
+}
+
+export function createParakeetLoadTracker(options: {
+  preparingAfterMs: number
+  /** Called when `preparing` turns true and when it turns false again. */
+  onPreparingChanged: () => void
+}): ParakeetLoadTracker {
+  let inFlight: Promise<void> | null = null
+  let preparing = false
+
+  const track = async (run: () => Promise<unknown>): Promise<void> => {
+    const timer = setTimeout(() => {
+      preparing = true
+      options.onPreparingChanged()
+    }, options.preparingAfterMs)
+    try {
+      await run()
+    } catch (err) {
+      log('parakeet', 'background model load failed', { err: String(err) })
+    } finally {
+      clearTimeout(timer)
+      // Cleared before the push, so the settings it carries already say the load is over.
+      inFlight = null
+      if (preparing) {
+        preparing = false
+        options.onPreparingChanged()
+      }
+    }
+  }
+
+  return {
+    get inFlight() {
+      return inFlight
+    },
+    get preparing() {
+      return preparing
+    },
+    start(run) {
+      if (inFlight !== null) return false
+      inFlight = track(run)
+      return true
+    },
+  }
 }
 
 /**
- * The state this module cannot see for itself. `AppConfig` owns the selection and the
- * persisted "already prepared" flag, and `index.ts` owns the window and the tray, so both
- * arrive as callbacks rather than as imports - which is also what keeps `AppConfig` free of
- * any knowledge that a preparation spawns a process.
+ * The state this module cannot see for itself. `AppConfig` owns the selection and `index.ts`
+ * owns the window, so both arrive as callbacks rather than as imports - which is also what
+ * keeps `AppConfig` free of any knowledge that a load spawns a process.
  */
 export interface ParakeetWarmupHost {
-  /** The Speech Model the user has selected right now. */
+  /** The Speech Model the Dictation has selected right now. */
   getSelectedSpeechModelId(): string
-  /** Whether preparation has already completed on this device. */
-  isPrepared(): boolean
-  /** Persist that preparation is done, so nothing keeps mentioning the wait. */
-  markPrepared(): Promise<void>
   /**
-   * Called after `markPrepared`. This is the "no restart" half of the feature: it pushes
-   * settings to the window and resyncs the tray, so Live Transcription becomes available on
-   * its own the moment the compile finishes.
+   * `isParakeetPreparing()` changed. Pushes settings to the window, so Settings states the
+   * Preparation once it has run past the threshold and drops the line when it ends.
    */
-  onPrepared(): void
+  onPreparingChanged(): void
 }
 
 let host: ParakeetWarmupHost | null = null
-let inFlight: Promise<void> | null = null
-const failedModelIds = new Set<string>()
-const loadedModelIds = new Set<string>()
+let tracker: ParakeetLoadTracker | null = null
+/** The Speech Model that was selected and installed at the previous settle, or null. */
+let loadableModelId: string | null = null
 
 /** Wired once, from `index.ts`, before the first `ensureParakeetWarm`. */
 export function installParakeetWarmup(next: ParakeetWarmupHost): void {
   host = next
-}
-
-async function prepare(
-  current: ParakeetWarmupHost,
-  speechModelId: string
-): Promise<void> {
-  try {
-    const prepared = await runParakeetWarmup(speechModelId)
-    if (!prepared) {
-      failedModelIds.add(speechModelId)
-      return
-    }
-    // The compile just loaded the weights, so there is no Cold Start left in this process.
-    loadedModelIds.add(speechModelId)
-    await current.markPrepared()
-    current.onPrepared()
-  } catch (err) {
-    log('parakeet', 'model preparation failed', { err: String(err) })
-    failedModelIds.add(speechModelId)
-  } finally {
-    inFlight = null
-  }
+  tracker = createParakeetLoadTracker({
+    preparingAfterMs: PARAKEET_PREPARING_AFTER_MS,
+    onPreparingChanged: () => next.onPreparingChanged(),
+  })
 }
 
 /**
- * Start a preparation if the selection now calls for one, or else load the prepared weights
- * once for this process. Safe to call on every settings settle: it is a cheap check, and it
- * never starts a second concurrent compile.
+ * A background load has run for more than `PARAKEET_PREPARING_AFTER_MS`. Read by `AppConfig`
+ * for `DictationReadiness.parakeetPreparing`; the readiness check adds that Parakeet is still
+ * the selection.
+ */
+export function isParakeetPreparing(): boolean {
+  return tracker?.preparing ?? false
+}
+
+/**
+ * Start a background load if this settle calls for one. Safe to call on every settings settle:
+ * it is a cheap check, and it never starts a second load beside a running one.
  */
 export function ensureParakeetWarm(): void {
   const current = host
-  if (current === null) return
+  const loads = tracker
+  if (current === null || loads === null) return
   const speechModelId = current.getSelectedSpeechModelId()
-  const selection = {
+  const state = {
     selectedEngineId: getSpeechModel(speechModelId)?.engine ?? null,
     weightsInstalled: modelManager.isModelAvailable(speechModelId),
     // The same flag `AppConfig.dictationAvailability()` reads. It answers "does this platform
     // have the Parakeet Native Helper", which is a packaging fact, not a Live Transcription
-    // setting - a batch Parakeet Dictation needs the preparation just as much.
+    // setting - a Batch Dictation on Parakeet needs the load just as much.
     helperSupported: getPlatformCapabilities().supportsStreamMode,
-    alreadyPrepared: current.isPrepared(),
-    preparationInFlight: inFlight !== null,
+    alreadyLoadable: loadableModelId === speechModelId,
+    loadInFlight: loads.inFlight !== null,
   }
-  if (
-    shouldStartParakeetWarmup({
-      ...selection,
-      previousAttemptFailed: failedModelIds.has(speechModelId),
-    })
-  ) {
-    inFlight = prepare(current, speechModelId)
-    return
-  }
-  if (
-    shouldStartParakeetColdStartLoad({
-      ...selection,
-      loadedThisProcess: loadedModelIds.has(speechModelId),
-    })
-  ) {
-    loadedModelIds.add(speechModelId)
-    log('parakeet', 'loading prepared model ahead of the first dictation', {
-      speechModelId,
-    })
-    // Not `inFlight`: nothing waits on this load (see the module comment), and it never
-    // rejects, because `runParakeetWarmup` turns every failure into a logged `false`.
-    void runParakeetWarmup(speechModelId)
-  }
+  loadableModelId = isParakeetLoadable(state) ? speechModelId : null
+  if (!shouldStartParakeetLoad(state)) return
+  // `runParakeetWarmup` turns every failure into a log line, and the tracker logs
+  // anything that still escapes, so the in-flight promise never rejects.
+  loads.start(() => runParakeetWarmup(speechModelId))
 }
 
 /**
- * Hold a Dictation until the in-flight preparation finishes. Returns immediately when there
- * is none, which is the overwhelmingly common case.
+ * Hold a Batch Dictation until the in-flight load finishes. Returns immediately when there is
+ * none, which is the overwhelmingly common case, and within about 0.15 s when the load finds
+ * the weights prepared.
  *
- * Called from the run path *after* the press has already been acknowledged - the start chime
- * has played and the recording indicator is up - so the wait is never a silent press. What it
- * buys is that a Dictation during the preparation window does not spawn a second helper
- * against half-compiled weights and exit with nothing to show for it.
+ * Called from the batch run path after recording has ended and the indicator says
+ * "transcribing", so the wait is visible and loses nothing. Never call it before a Live
+ * Transcription spawn: that helper opens the microphone, and a wait in front of it is speech
+ * lost.
  */
 export async function awaitParakeetWarmup(): Promise<void> {
-  const pending = inFlight
+  const pending = tracker?.inFlight ?? null
   if (pending === null) return
-  log('parakeet', 'dictation waiting for in-flight model preparation')
+  log('parakeet', 'dictation waiting for in-flight model load')
   let timer: ReturnType<typeof setTimeout> | undefined
   const bound = new Promise<void>((resolve) => {
     timer = setTimeout(() => {
-      log(
-        'parakeet',
-        'stopped waiting for model preparation, spawning anyway',
-        {
-          waitedMs: WARMUP_WAIT_TIMEOUT_MS,
-        }
-      )
+      log('parakeet', 'stopped waiting for model load, spawning anyway', {
+        waitedMs: WARMUP_WAIT_TIMEOUT_MS,
+      })
       resolve()
     }, WARMUP_WAIT_TIMEOUT_MS)
   })
   try {
-    // `pending` never rejects: `prepare` swallows everything into the failed set.
     await Promise.race([pending, bound])
   } finally {
     if (timer !== undefined) clearTimeout(timer)
@@ -261,25 +276,28 @@ export async function awaitParakeetWarmup(): Promise<void> {
 }
 
 /**
- * The preparation itself: load the weights once against half a second of silence, so the
- * compile happens here instead of inside the user's first Dictation.
- *
- * Same routine that used to live in speech2text.ts, with one change: the Speech Model id is
- * a parameter. It was the last hardcoded Speech Model id on the run path.
+ * The load itself: run the weights once against half a second of silence, so whatever loading
+ * them costs - 0.15 s, or a whole Parakeet Preparation - is paid here instead of inside the
+ * user's next Dictation.
  *
  * Correct on Windows as-is - `CodictateWindowsHelper transcribe <wav> <modelDir>` takes the
  * same arguments as the macOS helper - and inert on Linux, where resolving the helper throws
- * and the catch below turns that into a skipped preparation rather than a crash.
+ * and the catch below turns that into a logged, skipped load rather than a crash. Never
+ * rejects.
  */
-async function runParakeetWarmup(speechModelId: string): Promise<boolean> {
-  if (!modelManager.isModelAvailable(speechModelId)) return false
+async function runParakeetWarmup(speechModelId: string): Promise<void> {
+  if (!modelManager.isModelAvailable(speechModelId)) return
   let warmupPath: string | undefined
   try {
     const helper = requireRuntimeBinary('parakeet')
     const modelDir = modelManager.getParakeetInstallDir(speechModelId)
     warmupPath = getPlatform().getTempPath('codictate-warmup.wav')
     await Bun.write(warmupPath, createSilentWav())
-    log('parakeet', 'starting model warmup', { speechModelId, modelDir })
+    log('parakeet', 'loading model in the background', {
+      speechModelId,
+      modelDir,
+    })
+    const startedAt = performance.now()
     // stderr is captured rather than ignored. The helper reports its phases there, and
     // discarding them is what let a mismatched model directory read as a freeze: FluidAudio
     // was re-downloading 461 MB on every attempt and saying so to nobody.
@@ -296,22 +314,28 @@ async function runParakeetWarmup(speechModelId: string): Promise<boolean> {
       timedOut ||
       (supervised.status === 'exited' &&
         (!supervised.outputComplete || supervised.exitCode !== 0))
-    log('parakeet', failed ? 'model warmup failed' : 'model warmup complete', {
-      exitCode,
-      ...(timedOut ? { timeoutMs: ENGINE_PROCESS_TIMEOUT_MS } : {}),
-      ...(stderr === '' ? {} : { stderr: stderr.slice(-2000) }),
-    })
-    return !failed
+    log(
+      'parakeet',
+      failed
+        ? 'background model load failed'
+        : 'background model load complete',
+      {
+        exitCode,
+        // About 150 ms for prepared weights; seconds means this load was a Parakeet Preparation.
+        elapsedMs: Math.round(performance.now() - startedAt),
+        ...(timedOut ? { timeoutMs: ENGINE_PROCESS_TIMEOUT_MS } : {}),
+        ...(stderr === '' ? {} : { stderr: stderr.slice(-2000) }),
+      }
+    )
   } catch (err) {
-    log('parakeet', 'model warmup error', { err: String(err) })
-    return false
+    log('parakeet', 'background model load error', { err: String(err) })
   } finally {
     if (warmupPath) {
       try {
         unlinkSync(warmupPath)
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-          log('parakeet', 'could not remove warmup audio', {
+          log('parakeet', 'could not remove background load audio', {
             path: warmupPath,
             err: String(err),
           })

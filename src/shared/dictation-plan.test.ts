@@ -20,6 +20,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   DEFAULT_TRANSLATE_DOWNLOAD_MODEL_ID,
+  NO_PARAKEET_LOAD,
   TRANSLATE_CAPABLE_MODEL_IDS,
   blockedDictationPlan,
   buildDictationPlan,
@@ -66,7 +67,6 @@ const input = (
   speechModelId: TRANSCRIBE_ONLY,
   transcriptionLanguageId: 'auto',
   translateDefaultLanguageId: 'auto',
-  parakeetCoreMlReady: false,
   ...overrides,
 })
 
@@ -81,11 +81,17 @@ const planInput = (
   ...overrides,
 })
 
-const translate = (i: DictationReadinessInput, a: DictationAvailability) =>
-  getDictationReadiness(i, a).translateToEnglish
+/** A background Parakeet load that has run past the threshold: a Parakeet Preparation. */
+const PREPARING = { preparing: true }
 
-const live = (i: DictationReadinessInput, a: DictationAvailability) =>
-  getDictationReadiness(i, a).liveTranscription
+const translate = (i: DictationReadinessInput, a: DictationAvailability) =>
+  getDictationReadiness(i, a, NO_PARAKEET_LOAD).translateToEnglish
+
+const live = (
+  i: DictationReadinessInput,
+  a: DictationAvailability,
+  load = NO_PARAKEET_LOAD
+) => getDictationReadiness(i, a, load).liveTranscription
 
 describe('TRANSLATE_CAPABLE_MODEL_IDS', () => {
   test('holds only multilingual whisper.cpp models, in catalog order', () => {
@@ -272,12 +278,11 @@ describe('getDictationReadiness - Translate to English', () => {
 })
 
 describe('getDictationReadiness - Live Transcription', () => {
-  test('is ready with Parakeet installed, selected, warm and on a supported language', () => {
+  test('is ready with Parakeet installed, selected and on a supported language', () => {
     const readiness = live(
       input({
         speechModelId: PARAKEET,
         transcriptionLanguageId: 'da',
-        parakeetCoreMlReady: true,
       }),
       available(PARAKEET)
     )
@@ -286,24 +291,34 @@ describe('getDictationReadiness - Live Transcription', () => {
   })
 
   /**
-   * Warmup is not a readiness reason. A cold Parakeet is being prepared right now - selecting
-   * it starts the preparation - so the toggle stays live and the copy states the fact rather
-   * than asking the user to do anything about it.
+   * A Parakeet Preparation is not a readiness reason. A Dictation started during one waits for
+   * it, so the toggle stays live and the copy states the fact rather than asking the user to do
+   * anything about it.
    */
-  test('is ready while Parakeet is still cold, and says it is preparing', () => {
+  test('is ready during a Parakeet Preparation, and says it is preparing', () => {
     const readiness = live(
-      input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
-      available(PARAKEET)
+      input({ speechModelId: PARAKEET }),
+      available(PARAKEET),
+      PREPARING
     )
     expect(readiness.ready).toBe(true)
     expect(readiness.message).toContain('preparing')
   })
 
-  test('the platform question comes before everything else', () => {
+  test('says nothing about preparing when no long load is running', () => {
     const readiness = live(
-      input({ speechModelId: PARAKEET, parakeetCoreMlReady: true }),
-      { isModelAvailable: () => false, streamSupported: false }
+      input({ speechModelId: PARAKEET }),
+      available(PARAKEET)
     )
+    expect(readiness.ready).toBe(true)
+    expect(readiness.message).not.toContain('preparing')
+  })
+
+  test('the platform question comes before everything else', () => {
+    const readiness = live(input({ speechModelId: PARAKEET }), {
+      isModelAvailable: () => false,
+      streamSupported: false,
+    })
     expect(readiness.reason).toBe('unsupported_platform')
     expect(readiness.downloadModelId).toBeNull()
   })
@@ -329,7 +344,6 @@ describe('getDictationReadiness - Live Transcription', () => {
         input({
           speechModelId: PARAKEET,
           transcriptionLanguageId: 'ja',
-          parakeetCoreMlReady: true,
         }),
         available(PARAKEET)
       ).reason
@@ -338,49 +352,50 @@ describe('getDictationReadiness - Live Transcription', () => {
 })
 
 describe('getDictationReadiness - parakeetPreparing', () => {
-  const preparing = (i: DictationReadinessInput, a: DictationAvailability) =>
-    getDictationReadiness(i, a).parakeetPreparing
+  const preparing = (
+    i: DictationReadinessInput,
+    a: DictationAvailability,
+    load = PREPARING
+  ) => getDictationReadiness(i, a, load).parakeetPreparing
 
-  test('true when Parakeet is selected and installed but not yet prepared', () => {
+  test('true when Parakeet is selected and installed and its load has run long', () => {
     expect(
-      preparing(
-        input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
-        available(PARAKEET)
-      )
+      preparing(input({ speechModelId: PARAKEET }), available(PARAKEET))
     ).toBe(true)
   })
 
-  test('false once the preparation reports done, so the line clears itself', () => {
+  /** The common load of prepared weights takes about 0.15 s and never reaches the threshold. */
+  test('false while no load has run past the threshold, and again once it ends', () => {
     expect(
       preparing(
-        input({ speechModelId: PARAKEET, parakeetCoreMlReady: true }),
-        available(PARAKEET)
+        input({ speechModelId: PARAKEET }),
+        available(PARAKEET),
+        NO_PARAKEET_LOAD
       )
     ).toBe(false)
   })
 
-  test('false when Parakeet is not the selection, however cold it is', () => {
+  /** A load keeps running when the user switches away from Parakeet in the middle of it. */
+  test('false when Parakeet is not the selection, whatever is loading', () => {
     expect(
       preparing(
-        input({ speechModelId: TRANSCRIBE_ONLY, parakeetCoreMlReady: false }),
+        input({ speechModelId: TRANSCRIBE_ONLY }),
         available(PARAKEET, TRANSCRIBE_ONLY)
       )
     ).toBe(false)
   })
 
   test('false before the weights are on disk: nothing can be preparing yet', () => {
-    expect(
-      preparing(
-        input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
-        available()
-      )
-    ).toBe(false)
+    expect(preparing(input({ speechModelId: PARAKEET }), available())).toBe(
+      false
+    )
   })
 
-  test('does not make Live Transcription unavailable - a Dictation waits for it', () => {
+  test('does not make Live Transcription unavailable - a Dictation still runs', () => {
     const readiness = getDictationReadiness(
-      input({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
-      available(PARAKEET)
+      input({ speechModelId: PARAKEET }),
+      available(PARAKEET),
+      PREPARING
     )
     expect(readiness.parakeetPreparing).toBe(true)
     expect(readiness.liveTranscription.ready).toBe(true)
@@ -469,8 +484,9 @@ describe('getDictationReadiness - the copy', () => {
 
   test('carries no functions, so it survives the RPC bridge', () => {
     const readiness = getDictationReadiness(
-      input({ speechModelId: TRANSCRIBE_ONLY }),
-      available()
+      input({ speechModelId: PARAKEET }),
+      available(PARAKEET),
+      PREPARING
     )
     expect(JSON.parse(JSON.stringify(readiness))).toEqual(readiness)
   })
@@ -870,7 +886,8 @@ describe('buildDictationPlan agrees with getDictationReadiness', () => {
           )
           const readiness = getDictationReadiness(
             input({ ...shared, translateDefaultLanguageId: 'auto' }),
-            availability
+            availability,
+            NO_PARAKEET_LOAD
           ).translateToEnglish
           expect(plan.status === 'runnable').toBe(readiness.ready)
         }
@@ -887,11 +904,15 @@ describe('buildDictationPlan agrees with getDictationReadiness', () => {
             planInput({ ...shared, streamMode: true }),
             availability
           )
-          const readiness = getDictationReadiness(
-            input({ ...shared, translateDefaultLanguageId: 'auto' }),
-            availability
-          ).liveTranscription
-          expect(plan.status === 'runnable').toBe(readiness.ready)
+          // A Parakeet Preparation changes the copy, never whether it runs.
+          for (const load of [NO_PARAKEET_LOAD, PREPARING]) {
+            const readiness = getDictationReadiness(
+              input({ ...shared, translateDefaultLanguageId: 'auto' }),
+              availability,
+              load
+            ).liveTranscription
+            expect(plan.status === 'runnable').toBe(readiness.ready)
+          }
         }
       }
     }

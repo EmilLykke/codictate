@@ -116,6 +116,8 @@ export interface AppConfigDependencies {
   readonly getModelAvailability: () => Record<string, boolean>
   readonly detectFormattingAvailable: () => boolean
   readonly isFormatterModelInstalled: (tier: FormatterModelTier) => boolean
+  /** A background Parakeet load has run long enough to be a Parakeet Preparation. */
+  readonly isParakeetPreparing: () => boolean
 }
 
 const RECORDING_INDICATOR_MODES = new Set<RecordingIndicatorMode>([
@@ -260,7 +262,6 @@ interface PersistedMainSettings {
   recordingIndicatorMode: RecordingIndicatorMode
   recordingIndicatorPosition: { x: number; y: number } | null
   streamMode: boolean
-  parakeetCoreMlReady: boolean
   streamTranscriptionMode: StreamTranscriptionMode
   userDisplayName: string
   formatting: Omit<FormattingSettings, 'available' | 'modelAvailability'>
@@ -306,7 +307,6 @@ export class AppConfig {
   private recordingIndicatorMode: RecordingIndicatorMode
   private recordingIndicatorPosition: { x: number; y: number } | null
   private streamMode: boolean
-  private parakeetCoreMlReady: boolean
   private streamTranscriptionMode: StreamTranscriptionMode
   private userDisplayName: string
   private formatting: FormattingSettings
@@ -404,7 +404,6 @@ export class AppConfig {
     this.recordingIndicatorMode = 'always'
     this.recordingIndicatorPosition = null
     this.streamMode = false
-    this.parakeetCoreMlReady = false
     this.streamTranscriptionMode = 'vad'
     this.userDisplayName = ''
     this.formatting = defaultFormattingSettings(
@@ -444,7 +443,6 @@ export class AppConfig {
       recordingIndicatorMode: this.recordingIndicatorMode,
       recordingIndicatorPosition: this.recordingIndicatorPosition,
       streamMode: this.streamMode,
-      parakeetCoreMlReady: this.parakeetCoreMlReady,
       streamTranscriptionMode: this.streamTranscriptionMode,
       userDisplayName: this.userDisplayName,
       formatting: {
@@ -586,9 +584,9 @@ export class AppConfig {
       this.shortcutHoldOnlyId = null
     }
     if (typeof raw.streamMode === 'boolean') this.streamMode = raw.streamMode
-    // A config written before this flag existed has never seen a preparation run. Weights on
-    // disk are not prepared weights, so it starts unprepared and gets one.
-    this.parakeetCoreMlReady = raw.parakeetCoreMlReady === true
+    // `parakeetCoreMlReady` in an older config is ignored and dropped on the next save. Whether
+    // Parakeet's weights are prepared is not a fact Codictate can keep: a Parakeet Preparation
+    // can be needed again at any launch (parakeet-warmup.ts).
     if (
       raw.streamTranscriptionMode === 'live' ||
       raw.streamTranscriptionMode === 'vad'
@@ -1050,7 +1048,6 @@ export class AppConfig {
       recordingIndicatorMode: this.recordingIndicatorMode,
       recordingIndicatorPosition: this.recordingIndicatorPosition,
       streamMode: this.streamMode,
-      parakeetCoreMlReady: this.parakeetCoreMlReady,
       streamTranscriptionMode: this.streamTranscriptionMode,
       userDisplayName: this.userDisplayName,
       formatting: {
@@ -1106,7 +1103,6 @@ export class AppConfig {
       translateDefaultLanguageId: this.translateDefaultLanguageId,
       translateToEnglish: this.translateToEnglish,
       streamMode: this.streamMode,
-      parakeetCoreMlReady: this.parakeetCoreMlReady,
     }
   }
 
@@ -1118,7 +1114,6 @@ export class AppConfig {
     this.translateDefaultLanguageId = next.translateDefaultLanguageId
     this.translateToEnglish = next.translateToEnglish
     this.streamMode = next.streamMode
-    this.parakeetCoreMlReady = next.parakeetCoreMlReady
   }
 
   private recordHealAnnouncements(
@@ -1251,7 +1246,8 @@ export class AppConfig {
   private getDictationReadiness(): DictationReadiness {
     return getDictationReadiness(
       this.runnableDictationSettings(),
-      this.dictationAvailability()
+      this.dictationAvailability(),
+      { preparing: this.dependencies.isParakeetPreparing() }
     )
   }
 
@@ -1901,20 +1897,6 @@ export class AppConfig {
   public getAudioDuckingIncludeSpeakers(): boolean {
     return this.audioDucking.includeSpeakers
   }
-
-  public isParakeetCoreMlReady(): boolean {
-    return this.parakeetCoreMlReady
-  }
-
-  public async markParakeetCoreMlReady(): Promise<void> {
-    if (this.parakeetCoreMlReady) return
-    this.parakeetCoreMlReady = true
-    await this.saveMain()
-  }
-
-  // No `resetParakeetCoreMlReady`: warmup cannot outlive the weights it prepared, so the
-  // heal pass clears the flag whenever Parakeet is not installed. Quietly - it is state the
-  // user never chose.
 
   public getStreamMode(): boolean {
     return this.streamMode

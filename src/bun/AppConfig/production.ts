@@ -7,6 +7,7 @@ import {
   getPlatformCapabilities,
 } from '../platform/runtime'
 import { modelManager } from '../utils/whisper/model-manager'
+import { isParakeetPreparing } from '../utils/whisper/parakeet-warmup'
 import {
   detectFormattingAvailable,
   isFormatterModelInstalled,
@@ -24,6 +25,7 @@ const productionDependencies: AppConfigDependencies = {
   getModelAvailability: () => modelManager.getAvailabilityMap(),
   detectFormattingAvailable,
   isFormatterModelInstalled,
+  isParakeetPreparing,
 }
 
 /** Production adapter for filesystem, platform, and installed-model dependencies. */

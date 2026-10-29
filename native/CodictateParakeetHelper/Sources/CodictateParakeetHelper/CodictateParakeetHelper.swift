@@ -578,10 +578,10 @@ struct CodictateParakeetHelperMain {
     // Audio Ducking is not this helper's job: Codictate runs `MicRecorder duck` beside it.
     installStreamSignalHandlersForCleanup()
 
-    // Capture starts before the models load. After a restart, loading the prepared weights
-    // takes seconds (a Cold Start), and a mic opened only after that loses everything said in
-    // the meantime. The stream is unbounded, so every chunk waits there until the loop reads
-    // it: a Cold Start costs latency, never speech.
+    // Capture starts before the models load. A load that needs a Parakeet Preparation first
+    // takes seconds, and a mic opened only after that loses everything said in the meantime.
+    // The stream is unbounded, so every chunk waits there until the loop reads it: a
+    // Preparation costs latency, never speech.
     let device = try resolveStreamInputDevice(deviceRef: deviceRef, mode: mode)
     let (audioStream, audioContinuation) = AsyncStream<[Float]>.makeStream()
     let capture = try StreamInputCapture(device: device) { samples in

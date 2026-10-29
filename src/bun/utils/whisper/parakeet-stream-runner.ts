@@ -12,7 +12,6 @@ import {
   type RunnableDictationPlan,
 } from '../../../shared/dictation-plan'
 import { modelManager } from './model-manager'
-import { awaitParakeetWarmup } from './parakeet-warmup'
 import { log } from '../logger'
 import type { AudioDucking } from '../audio/audio-ducking'
 
@@ -92,14 +91,11 @@ export async function startParakeetStream(
   const blocked = checkParakeetStreamRuntimeReady(plan)
   if (blocked !== null) return { status: 'blocked', plan: blocked }
 
-  // A press that lands inside Parakeet's one-time preparation waits for it instead of racing
-  // it. Not a blocked plan: the press is already acknowledged by the caller (start chime,
-  // recording indicator, tray) before this function is reached, the wait is the compile the
-  // spawn below would have paid for anyway, and blocking would make the user press twice for
-  // something that is about to work on its own. What it prevents is two helper processes
-  // compiling the same weights, where the loser exits with nothing and the press appears to
-  // have done nothing at all.
-  await awaitParakeetWarmup()
+  // No `awaitParakeetWarmup()` here, unlike a Batch Dictation. This helper opens the
+  // microphone itself, before it loads the model, so waiting on the background load would
+  // lose everything said during it - up to a whole Parakeet Preparation. Spawning beside the
+  // background load is safe: two helpers preparing the same weights at once both finish
+  // (measured: both exit 0, just slower), and the next load is fast.
 
   const binary = requireRuntimeBinary('parakeet')
   const modelDir = modelManager.getParakeetInstallDir(plan.speechModelId)

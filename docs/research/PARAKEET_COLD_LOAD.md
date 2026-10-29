@@ -545,6 +545,10 @@ macOS and Windows:
   it rather than spawning a second helper. The persisted "prepared" flag no longer decides
   anything. Only the Dictation's Speech Model is loaded; a File Transcription on Parakeet pays any
   Preparation in its Processing Time.
+- **Only a Batch Dictation waits on that load. Live Transcription never does:** its helper opens
+  the mic before it loads, so a wait would lose speech. Spawning beside the background load is
+  safe: two helpers compiling the same weights at once both exited 0 (15.5 s and 26.4 s), and the
+  next run was warm (0.15 s). **[measured, 2026-10-29]**
 - **Settings shows "Preparing" only once a load has run for more than about 1 s.** The recording
   indicator is unchanged: on Live Transcription the mic is already open and text catches up, on
   Batch the transcribing state lasts longer.

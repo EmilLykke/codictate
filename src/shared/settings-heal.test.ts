@@ -67,7 +67,6 @@ function settings(
     translateDefaultLanguageId: 'auto',
     translateToEnglish: false,
     streamMode: false,
-    parakeetCoreMlReady: false,
     ...overrides,
   }
 }
@@ -102,7 +101,6 @@ describe('healDictationSettings - nothing to do', () => {
     const input = settings({
       speechModelId: PARAKEET,
       streamMode: true,
-      parakeetCoreMlReady: true,
     })
     const result = healDictationSettings(input, availability([PARAKEET]))
     expect(result.settings).toEqual(input)
@@ -283,7 +281,6 @@ describe('healDictationSettings - Live Transcription', () => {
       settings({
         speechModelId: PARAKEET,
         streamMode: true,
-        parakeetCoreMlReady: true,
       }),
       availability([])
     )
@@ -308,7 +305,6 @@ describe('healDictationSettings - Live Transcription', () => {
         settings({
           speechModelId: PARAKEET,
           streamMode: true,
-          parakeetCoreMlReady: true,
         }),
         availability([PARAKEET], false)
       )
@@ -322,29 +318,10 @@ describe('healDictationSettings - Live Transcription', () => {
           speechModelId: PARAKEET,
           transcriptionLanguageId: 'ja',
           streamMode: true,
-          parakeetCoreMlReady: true,
         }),
         availability([PARAKEET])
       )
     ).toEqual(['language_not_supported_by_parakeet'])
-  })
-
-  /**
-   * Warmup is transient runtime state the user cannot act on, so it is not a heal reason.
-   * A cold Parakeet run prepares itself; ADR-0005 takes `need_warmup` out of the
-   * user-facing set entirely.
-   */
-  test('leaves Live Transcription on while Parakeet is still cold', () => {
-    const result = healDictationSettings(
-      settings({
-        speechModelId: PARAKEET,
-        streamMode: true,
-        parakeetCoreMlReady: false,
-      }),
-      availability([PARAKEET])
-    )
-    expect(result.settings.streamMode).toBe(true)
-    expect(result.announcements).toEqual([])
   })
 
   test('says nothing about Live Transcription when it was already off', () => {
@@ -357,26 +334,7 @@ describe('healDictationSettings - Live Transcription', () => {
   })
 })
 
-describe('healDictationSettings - the quiet corrections', () => {
-  test('clears the Parakeet preparation flag when the weights are gone, silently', () => {
-    const result = healDictationSettings(
-      settings({ parakeetCoreMlReady: true }),
-      availability([])
-    )
-    expect(result.settings.parakeetCoreMlReady).toBe(false)
-    expect(result.announcements).toEqual([])
-    expect(result.unchanged).toBe(false)
-  })
-
-  test('keeps the Parakeet preparation flag while the weights are installed', () => {
-    const result = healDictationSettings(
-      settings({ parakeetCoreMlReady: true }),
-      availability([PARAKEET])
-    )
-    expect(result.settings.parakeetCoreMlReady).toBe(true)
-    expect(result.unchanged).toBe(true)
-  })
-
+describe('healDictationSettings - what it leaves alone', () => {
   test('never touches the transcription or translate default languages', () => {
     const result = healDictationSettings(
       settings({
@@ -384,7 +342,6 @@ describe('healDictationSettings - the quiet corrections', () => {
         transcriptionLanguageId: 'ja',
         translateDefaultLanguageId: 'de',
         streamMode: true,
-        parakeetCoreMlReady: true,
       }),
       availability([PARAKEET])
     )
@@ -417,7 +374,6 @@ describe('healDictationSettings - announcements', () => {
         settings({
           speechModelId: PARAKEET,
           streamMode: true,
-          parakeetCoreMlReady: true,
         }),
         availability([PARAKEET], false),
       ],
@@ -434,7 +390,6 @@ describe('healDictationSettings - announcements', () => {
           speechModelId: PARAKEET,
           transcriptionLanguageId: 'ja',
           streamMode: true,
-          parakeetCoreMlReady: true,
         }),
         availability([PARAKEET]),
       ],
@@ -586,7 +541,6 @@ describe('applyRunnableDictationPatch - accepted', () => {
       settings({
         speechModelId: PARAKEET,
         streamMode: true,
-        parakeetCoreMlReady: true,
       }),
       { speechModelId: TRANSCRIBE_ONLY },
       availability([PARAKEET])
@@ -622,9 +576,9 @@ describe('applyRunnableDictationPatch - accepted', () => {
     expect(outcome.kind).toBe('accepted')
   })
 
-  test('turning Live Transcription on while Parakeet is still cold is allowed', () => {
+  test('turning Live Transcription on with Parakeet selected is allowed', () => {
     const outcome = applyRunnableDictationPatch(
-      settings({ speechModelId: PARAKEET, parakeetCoreMlReady: false }),
+      settings({ speechModelId: PARAKEET }),
       { streamMode: true },
       availability([PARAKEET])
     )
@@ -670,15 +624,6 @@ describe('isRunnableDictationSettings', () => {
     expect(
       isRunnableDictationSettings(
         settings({ speechModelId: PARAKEET, streamMode: true }),
-        availability([])
-      )
-    ).toBe(false)
-  })
-
-  test('is false when a quiet correction is still outstanding', () => {
-    expect(
-      isRunnableDictationSettings(
-        settings({ parakeetCoreMlReady: true }),
         availability([])
       )
     ).toBe(false)

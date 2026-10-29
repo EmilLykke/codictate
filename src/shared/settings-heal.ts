@@ -27,6 +27,7 @@
  */
 
 import {
+  NO_PARAKEET_LOAD,
   PARAKEET_LABEL,
   getDictationReadiness,
   modelLabel,
@@ -35,7 +36,6 @@ import {
 } from './dictation-plan'
 import {
   DEFAULT_MODEL_ID,
-  DEFAULT_STREAM_CAPABLE_MODEL_ID,
   coerceTranscriptionLanguageIdForModel,
   isValidSpeechModelId,
 } from './speech-models'
@@ -56,8 +56,6 @@ export interface RunnableDictationSettings {
   translateDefaultLanguageId: string
   translateToEnglish: boolean
   streamMode: boolean
-  /** Parakeet has finished its one-time on-device preparation. */
-  parakeetCoreMlReady: boolean
 }
 
 /**
@@ -76,7 +74,6 @@ const RUNNABLE_DICTATION_SETTINGS_FIELDS: Record<
   translateDefaultLanguageId: true,
   translateToEnglish: true,
   streamMode: true,
-  parakeetCoreMlReady: true,
 }
 
 const RUNNABLE_DICTATION_SETTINGS_KEYS = Object.keys(
@@ -144,20 +141,12 @@ export function healDictationSettings(
     )
   }
 
-  // Quiet: warmup is a fact about installed weights, so it cannot outlive them. Deleting
-  // Parakeet and downloading it again has to prepare the new copy.
-  if (
-    next.parakeetCoreMlReady &&
-    !availability.isModelAvailable(DEFAULT_STREAM_CAPABLE_MODEL_ID)
-  ) {
-    next.parakeetCoreMlReady = false
-  }
-
   // The same readiness the webview is shipped, asked here about the *corrected* settings.
   // One definition of "can this run", so the heal pass and the UI cannot disagree about the
   // single-language combination or about anything else. What differs is only the tense: readiness
   // says why an option is unavailable, an announcement says what was switched off.
-  const readiness = getDictationReadiness(next, availability)
+  // A Parakeet Preparation never makes anything unrunnable, so the load is left out.
+  const readiness = getDictationReadiness(next, availability, NO_PARAKEET_LOAD)
 
   const translate = readiness.translateToEnglish
   if (next.translateToEnglish && !translate.ready) {
@@ -352,10 +341,10 @@ export function fileTranscriptionTranslateReadiness(
       speechModelId: settings.speechModelId,
       transcriptionLanguageId: settings.transcriptionLanguageId,
       translateDefaultLanguageId: context.translateDefaultLanguageId,
-      // Readiness for Live Transcription is not asked for here, and translate ignores it.
-      parakeetCoreMlReady: false,
     },
-    availability
+    availability,
+    // A File Transcription never starts the background load, and translate ignores it.
+    NO_PARAKEET_LOAD
   ).translateToEnglish
 }
 

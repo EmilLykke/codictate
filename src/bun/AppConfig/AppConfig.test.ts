@@ -39,6 +39,7 @@ function testDependencies(
     getModelAvailability: () => ({ [DEFAULT_MODEL_ID]: true }),
     detectFormattingAvailable: () => true,
     isFormatterModelInstalled: () => false,
+    isParakeetPreparing: () => false,
     ...overrides,
   }
 }
@@ -176,12 +177,70 @@ describe('AppConfig dependency seam', () => {
     expect(existingInstall.getSettings().onboardingCompleted).toBe(true)
   })
 
-  test('a config from before Parakeet Preparation existed is not prepared, whatever is on disk', async () => {
-    const dependencies = testDependencies({ isModelAvailable: () => true })
-    writeFileSync(dependencies.paths.mainConfig, '{}')
+  /**
+   * Whether Parakeet's weights are prepared is no longer kept: a Parakeet Preparation can be
+   * needed again at any launch. A config written while it was kept still loads, and the key
+   * goes away on the next save.
+   */
+  test('a config carrying the retired Parakeet prepared flag loads, and drops it on save', async () => {
+    const dependencies = testDependencies()
+    writeFileSync(
+      dependencies.paths.mainConfig,
+      JSON.stringify({ parakeetCoreMlReady: true, funModeEnabled: false })
+    )
     const config = new AppConfig(dependencies)
     await config.load()
-    expect(config.isParakeetCoreMlReady()).toBe(false)
+    await config.updateGeneralSettings({ funModeEnabled: true })
+    const persisted = JSON.parse(
+      readFileSync(dependencies.paths.mainConfig, 'utf8')
+    ) as Record<string, unknown>
+    expect(persisted.funModeEnabled).toBe(true)
+    expect('parakeetCoreMlReady' in persisted).toBe(false)
+  })
+})
+
+describe('dictationReadiness.parakeetPreparing', () => {
+  const PARAKEET = 'parakeet-tdt-0.6b-v3'
+
+  async function parakeetConfig(isParakeetPreparing: () => boolean) {
+    const config = new AppConfig(
+      testDependencies({
+        isModelAvailable: (id) => id === DEFAULT_MODEL_ID || id === PARAKEET,
+        getModelAvailability: () => ({
+          [DEFAULT_MODEL_ID]: true,
+          [PARAKEET]: true,
+        }),
+        isParakeetPreparing,
+      })
+    )
+    await config.load()
+    return config
+  }
+
+  test('follows the background load while Parakeet is the selection', async () => {
+    let preparing = false
+    const config = await parakeetConfig(() => preparing)
+    await config.updateTranscriptionSettings({ speechModelId: PARAKEET })
+    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(
+      false
+    )
+    preparing = true
+    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(true)
+    preparing = false
+    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(
+      false
+    )
+  })
+
+  test('is false once the selection moves off Parakeet mid-load', async () => {
+    const config = await parakeetConfig(() => true)
+    await config.updateTranscriptionSettings({ speechModelId: PARAKEET })
+    await config.updateTranscriptionSettings({
+      speechModelId: DEFAULT_MODEL_ID,
+    })
+    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(
+      false
+    )
   })
 })
 

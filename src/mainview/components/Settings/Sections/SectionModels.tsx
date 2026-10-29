@@ -32,10 +32,10 @@ export function SectionModels({
 }: Props) {
   const [isBrowseOpen, setIsBrowseOpen] = useState(false);
 
-  // Preparation is automatic and starts the moment Parakeet becomes the selection, so this is
-  // a statement of what is happening rather than a warning about a first run. The main
-  // process decides it (ADR-0005: this screen derives nothing from raw availability) and the
-  // settings push that reports it finished takes the line away without a restart.
+  // Parakeet loads in the background on its own, so this is a statement of what is happening
+  // rather than a warning about a first run. The main process decides it (ADR-0005: this
+  // screen derives nothing from raw availability), says it only once a load has run past
+  // about a second, and the settings push that reports the load ended takes the line away.
   const isPreparingParakeet = settings.dictationReadiness.parakeetPreparing;
 
   // Curated whisper.cpp models, plus anything the user has already downloaded - hviske
