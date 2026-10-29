@@ -27,6 +27,50 @@ export interface BinaryArtifact {
   remediation: string
 }
 
+/** The release channel a build is for, from `CODICTATE_CHANNEL`. */
+export type BuildChannel = 'stable' | 'canary' | 'dev'
+
+/** Reads `CODICTATE_CHANNEL` the way electrobun.config.ts does: unset is dev, anything but canary or dev is stable. */
+export function buildChannelFrom(value: string | undefined): BuildChannel {
+  if (value === undefined || value === 'dev') return 'dev'
+  return value === 'canary' ? 'canary' : 'stable'
+}
+
+// `process` is typed only in the Bun tsconfig, and src/shared is also checked against the DOM one.
+declare const process: { env: Record<string, string | undefined> }
+
+/**
+ * The channel this code was built for. electrobun.config.ts inlines `CODICTATE_CHANNEL` into the
+ * app's Bun bundle (`build.bun.define`), so a packaged app knows its channel with no env set; the
+ * build config, the build hooks and a source run read the real env.
+ */
+export const BUILD_CHANNEL: BuildChannel = buildChannelFrom(
+  process.env.CODICTATE_CHANNEL
+)
+
+/**
+ * The macOS Parakeet helper's executable name per channel. The Neural Engine keeps one compiled
+ * copy of the encoder per (process name, model folder), and a binary with another signing
+ * identity under the same name replaces it: a 12-19 s recompile. Every channel shares one model
+ * folder, so with one name each switch between stable, canary and a dev build recompiled
+ * (docs/research/PARAKEET_COLD_LOAD.md, section 2.3 item 3). Windows has no Neural Engine compile,
+ * so its helper keeps one name on every channel.
+ *
+ * One Swift product: it is vendored under the dev name, so anything run from a checkout uses the
+ * dev slot, and the stable and canary builds rename it when they copy it into the bundle.
+ */
+export const MACOS_PARAKEET_HELPER_NAMES: Record<BuildChannel, string> = {
+  stable: 'CodictateParakeetHelper',
+  canary: 'CodictateParakeetHelperCanary',
+  dev: 'CodictateParakeetHelperDev',
+}
+
+const macosParakeet = (channel: BuildChannel): BinaryArtifact => ({
+  source: `vendors/parakeet/${MACOS_PARAKEET_HELPER_NAMES.dev}`,
+  destination: `native-helpers/${MACOS_PARAKEET_HELPER_NAMES[channel]}`,
+  remediation: `${MACOS_PARAKEET_HELPER_NAMES[channel]} not found. Run \`bun scripts/pre-build.ts\`, then rebuild the app.`,
+})
+
 const windowsHelper: BinaryArtifact = {
   source:
     'native/CodictateWindowsHelper/target/release/CodictateWindowsHelper.exe',
@@ -43,7 +87,7 @@ const sileroVad: BinaryArtifact = {
     'Silero VAD weights not found. Run `bun run scripts/pre-build.ts --crispasr-only`, then rebuild the app.',
 }
 
-const macos: Record<BinaryId, BinaryArtifact> = {
+const macosShared: Omit<Record<BinaryId, BinaryArtifact>, 'parakeet'> = {
   keyboard: {
     source: 'src/bun/utils/keyboard/KeyListener',
     destination: 'native-helpers/KeyListener',
@@ -67,12 +111,6 @@ const macos: Record<BinaryId, BinaryArtifact> = {
     destination: 'native-helpers/CodictateObserverHelper',
     remediation:
       'CodictateObserverHelper not found. Run `bun scripts/pre-build.ts`, then rebuild the app.',
-  },
-  parakeet: {
-    source: 'vendors/parakeet/CodictateParakeetHelper',
-    destination: 'native-helpers/CodictateParakeetHelper',
-    remediation:
-      'CodictateParakeetHelper not found. Run `bun scripts/pre-build.ts`, then rebuild the app.',
   },
   llama: {
     source: 'vendors/llama/llama-completion',
@@ -99,47 +137,53 @@ const windows: Record<BinaryId, BinaryArtifact | null> = {
   keyboard: windowsHelper,
   microphone: windowsHelper,
   window: windowsHelper,
+  // One name on every channel: Windows has no Neural Engine compile slot to keep apart.
   parakeet: windowsHelper,
   observer: null,
   media: windowsHelper,
   llama: {
-    ...macos.llama,
-    source: macos.llama.source + '.exe',
-    destination: macos.llama.destination + '.exe',
+    ...macosShared.llama,
+    source: macosShared.llama.source + '.exe',
+    destination: macosShared.llama.destination + '.exe',
   },
   crispasr: {
-    ...macos.crispasr,
-    source: macos.crispasr.source + '.exe',
-    destination: macos.crispasr.destination + '.exe',
+    ...macosShared.crispasr,
+    source: macosShared.crispasr.source + '.exe',
+    destination: macosShared.crispasr.destination + '.exe',
   },
   'silero-vad': sileroVad,
 }
 
-export const BINARY_MANIFEST: Record<
-  PlatformRuntime,
-  Record<BinaryId, BinaryArtifact | null>
-> = {
-  macos,
-  windows,
-  linux: {
-    keyboard: null,
-    microphone: null,
-    window: null,
-    observer: null,
-    parakeet: null,
-    media: null,
-    llama: macos.llama,
-    crispasr: macos.crispasr,
-    'silero-vad': sileroVad,
-  },
+/** Every platform's artifacts for one channel's build. Only the macOS Parakeet helper differs. */
+export function binaryManifest(
+  channel: BuildChannel
+): Record<PlatformRuntime, Record<BinaryId, BinaryArtifact | null>> {
+  return {
+    macos: { ...macosShared, parakeet: macosParakeet(channel) },
+    windows,
+    linux: {
+      keyboard: null,
+      microphone: null,
+      window: null,
+      observer: null,
+      parakeet: null,
+      media: null,
+      llama: macosShared.llama,
+      crispasr: macosShared.crispasr,
+      'silero-vad': sileroVad,
+    },
+  }
 }
+
+export const BINARY_MANIFEST = binaryManifest(BUILD_CHANNEL)
 
 /** The same destinations are consumed by packaging and runtime lookup. */
 export function binaryBuildCopy(
-  platform: PlatformRuntime
+  platform: PlatformRuntime,
+  channel: BuildChannel = BUILD_CHANNEL
 ): Record<string, string> {
   return Object.fromEntries(
-    Object.values(BINARY_MANIFEST[platform])
+    Object.values(binaryManifest(channel)[platform])
       .filter((artifact): artifact is BinaryArtifact => artifact !== null)
       .map(({ source, destination }) => [source, destination])
   )

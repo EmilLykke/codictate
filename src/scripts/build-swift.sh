@@ -32,11 +32,14 @@ cp "$OBSERVER_BIN_DIR/CodictateObserverHelper" "$OBSERVER_VENDOR_BIN"
 chmod +x "$OBSERVER_VENDOR_BIN"
 
 # Keep the vendored Parakeet helper fresh during normal dev/start flows.
-# `electrobun` copies from `vendors/parakeet/CodictateParakeetHelper`, so relying
+# `electrobun` copies from `vendors/parakeet/CodictateParakeetHelperDev`, so relying
 # only on `scripts/pre-build.ts` leaves a stale helper in the app bundle.
+# Vendored under the dev name, and renamed per channel when bundled, because the Neural
+# Engine keeps one compiled encoder per process name (MACOS_PARAKEET_HELPER_NAMES in
+# src/shared/binary-manifest.ts). macOS only; Windows keeps one name.
 PARAKEET_PKG="native/CodictateParakeetHelper"
 PARAKEET_VENDOR_DIR="vendors/parakeet"
-PARAKEET_VENDOR_BIN="$PARAKEET_VENDOR_DIR/CodictateParakeetHelper"
+PARAKEET_VENDOR_BIN="$PARAKEET_VENDOR_DIR/CodictateParakeetHelperDev"
 
 mkdir -p "$PARAKEET_VENDOR_DIR"
 NEMO_LIB="$PARAKEET_PKG/Vendor/lib/libtext_processing_rs.a"
@@ -48,6 +51,8 @@ swift build -c release --package-path "$PARAKEET_PKG"
 PARAKEET_BIN_DIR="$(swift build -c release --show-bin-path --package-path "$PARAKEET_PKG")"
 cp "$PARAKEET_BIN_DIR/CodictateParakeetHelper" "$PARAKEET_VENDOR_BIN"
 chmod +x "$PARAKEET_VENDOR_BIN"
+# The pre-rename vendored copy would run in stable's compile slot.
+rm -f "$PARAKEET_VENDOR_DIR/CodictateParakeetHelper"
 
 # File Transcription's AVFoundation audio extraction (docs/CLI.md).
 MEDIA_HELPER_VENDOR_DIR="vendors/media-helper"

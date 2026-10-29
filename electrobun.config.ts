@@ -1,4 +1,7 @@
-import { binaryBuildCopy } from "./src/shared/binary-manifest";
+import {
+  binaryBuildCopy,
+  buildChannelFrom,
+} from "./src/shared/binary-manifest";
 import { cliBinarySource } from "./scripts/build-native-cli";
 import type { ElectrobunConfig } from "electrobun";
 import {
@@ -36,7 +39,10 @@ const buildCopy: Record<string, string> = {
   "docs/licenses/edda": "licenses/edda",
   "docs/licenses/tinyld": "licenses/tinyld",
   "docs/licenses/silero-vad": "licenses/silero-vad",
-  ...binaryBuildCopy(isWindowsHost ? "windows" : "macos"),
+  ...binaryBuildCopy(
+    isWindowsHost ? "windows" : "macos",
+    buildChannelFrom(buildChannel),
+  ),
   // The `codictate` command line (docs/CLI.md). Its path inside the bundle is part of the
   // contract: the client finds its app from it, and callers run it from there.
   [cliBinarySource(process.platform)]: isWindowsHost
@@ -106,6 +112,13 @@ export default {
   build: {
     copy: buildCopy,
     watchIgnore: ["dist/**"],
+    bun: {
+      // The packaged app has no CODICTATE_CHANNEL in its env. Inlining it lets
+      // src/shared/binary-manifest.ts find this channel's macOS Parakeet helper.
+      define: {
+        "process.env.CODICTATE_CHANNEL": JSON.stringify(buildChannel),
+      },
+    },
     mac: {
       // Electrobun still consumes a legacy .iconset. `scripts/pre-build.ts`
       // regenerates it from `src/assets/images/MacAppIconFlat.svg`, a borderless

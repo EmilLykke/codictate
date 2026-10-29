@@ -3,13 +3,17 @@
 // The iconset is committed to the repo, but this script regenerates missing
 // sizes so a fresh clone still builds correctly.
 
-import { join } from "path";
+import { basename, join } from "path";
 import {
   existsSync,
   readdirSync,
   mkdirSync,
   statSync,
 } from "fs";
+import {
+  BINARY_MANIFEST,
+  MACOS_PARAKEET_HELPER_NAMES,
+} from "../src/shared/binary-manifest";
 
 if (process.platform !== "darwin") {
   console.log("[post-build] non-macOS host detected, skipping macOS bundle patching");
@@ -156,13 +160,30 @@ const helperEntitlementsByBasename: Record<string, string> = {
     "CodictateMediaHelper.entitlements",
   ),
 };
+/**
+ * This channel's Parakeet helper: the one Swift product, renamed per channel when
+ * electrobun.config.ts copies it (MACOS_PARAKEET_HELPER_NAMES in binary-manifest.ts).
+ * Read from the same manifest and env as that copy, so the two cannot disagree.
+ */
+const parakeetHelperName = basename(BINARY_MANIFEST.macos.parakeet!.destination);
+/**
+ * The name a helper's entitlements plist and signing identifier are keyed on. Every channel's
+ * Parakeet helper uses the stable name, so a renamed one keeps the entitlements and the
+ * identifier it had before the rename (`<app id>.native.codictateparakeethelper`): the app
+ * identifier already names the channel, and only the executable name decides the compile slot.
+ */
+function signingNameForHelper(name: string): string {
+  return Object.values(MACOS_PARAKEET_HELPER_NAMES).includes(name)
+    ? MACOS_PARAKEET_HELPER_NAMES.stable
+    : name;
+}
 const CODESIGN_RETRIES = 3;
 const buildEnv = process.env.ELECTROBUN_BUILD_ENV ?? "dev";
 
-function resolveEntitlementsForHelper(basename: string): string | undefined {
-  const mapped = helperEntitlementsByBasename[basename];
+function resolveEntitlementsForHelper(name: string): string | undefined {
+  const mapped = helperEntitlementsByBasename[name];
   if (mapped && existsSync(mapped)) return mapped;
-  const fallback = join(entitlementsRoot, `${basename}.entitlements`);
+  const fallback = join(entitlementsRoot, `${name}.entitlements`);
   if (existsSync(fallback)) return fallback;
   return undefined;
 }
@@ -241,9 +262,19 @@ function verifyRequiredHelperExecutable(
 }
 
 verifyRequiredHelperExecutable(
-  "CodictateParakeetHelper",
+  parakeetHelperName,
   "Re-run: bun run scripts/pre-build.ts",
 );
+// Another channel's name in this bundle would run in that channel's compile slot. Electrobun
+// rebuilds the bundle folder from scratch, so this only trips if that ever stops being true.
+for (const name of Object.values(MACOS_PARAKEET_HELPER_NAMES)) {
+  if (name !== parakeetHelperName && existsSync(join(nativeHelpersDir, name))) {
+    console.error(
+      `[post-build] native-helpers/${name} must not ship in a build that runs ${parakeetHelperName}`,
+    );
+    process.exit(1);
+  }
+}
 verifyRequiredHelperExecutable(
   "llama-completion",
   "Re-run: bun run scripts/pre-build.ts",
@@ -360,8 +391,8 @@ if (developerId) {
     codesignBinary(
       binaryPath,
       `native-helpers/${name}`,
-      `${appIdentifier}.native.${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
-      resolveEntitlementsForHelper(name),
+      `${appIdentifier}.native.${signingNameForHelper(name).toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+      resolveEntitlementsForHelper(signingNameForHelper(name)),
       developerId,
     );
   }

@@ -19,7 +19,7 @@ ELECTROBUN_APPLEIDPASS=xxxx-xxxx-xxxx-xxxx   # app-specific password from applei
 
 Electrobun signs `Contents/MacOS/`, frameworks, and `.node` files. `scripts/post-build.ts` additionally signs everything under `native-helpers/` - these are not covered by Electrobun's signer and must be signed before the outer `codesignAppBundle` pass, otherwise notarization fails.
 
-Each helper is signed with `--options runtime --timestamp` and its own entitlements plist from `entitlements/`. The identifier is derived from the app bundle ID, e.g. `app.codictate.native.keylistener`.
+Each helper is signed with `--options runtime --timestamp` and its own entitlements plist from `entitlements/`. The identifier is derived from the app bundle ID, e.g. `app.codictate.native.keylistener`. The Parakeet helper's executable name differs per channel (`CodictateParakeetHelper`, `CodictateParakeetHelperCanary`, `CodictateParakeetHelperDev`; see `src/shared/binary-manifest.ts`); the renamed ones keep the identifier and entitlements of `CodictateParakeetHelper`.
 
 Signing targets are discovered by Mach-O magic detection, not by a hardcoded name list, and `native-helpers/` is walked recursively. That matters for the two Vendor Binaries that ship as a binary plus sibling dylibs: `llama-completion` at the top of `native-helpers/`, and `crispasr` in its own `native-helpers/crispasr/` subdirectory (its `ggml` libraries collide by name with llama's). `whisper-cli` is retired and no longer signed or shipped; its `entitlements/whisper-cli.entitlements` plist was deleted with it.
 

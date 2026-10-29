@@ -33,6 +33,7 @@ import {
   type VendorArchive,
 } from "./vendor-manifest";
 import { SPEECH_MODELS, whisperModelDownloadUrl } from "../src/shared/speech-models";
+import { MACOS_PARAKEET_HELPER_NAMES } from "../src/shared/binary-manifest";
 
 const VENDORS_DIR = "./vendors";
 
@@ -91,7 +92,14 @@ const CRISPASR_BUILD_SIGNATURE = [
 
 const PARAKEET_PKG = join(import.meta.dir, "..", "native", "CodictateParakeetHelper");
 const PARAKEET_DIR = join(VENDORS_DIR, "parakeet");
-const PARAKEET_BINARY = join(PARAKEET_DIR, "CodictateParakeetHelper");
+/**
+ * The Swift product is `CodictateParakeetHelper`; it is vendored under the dev name so a run from
+ * the checkout never takes stable's Neural Engine compile slot. electrobun.config.ts renames it
+ * per channel when it copies it into the bundle (MACOS_PARAKEET_HELPER_NAMES).
+ */
+const PARAKEET_BINARY = join(PARAKEET_DIR, MACOS_PARAKEET_HELPER_NAMES.dev);
+/** Where the helper was vendored before the per-channel names; removed so nothing runs it. */
+const LEGACY_PARAKEET_BINARY = join(PARAKEET_DIR, MACOS_PARAKEET_HELPER_NAMES.stable);
 const MAC_ICON_COMPOSER_EXPORT = join(
   import.meta.dir,
   "..",
@@ -864,7 +872,10 @@ async function vendorParakeetHelper() {
   mkdirSync(PARAKEET_DIR, { recursive: true });
   Bun.spawnSync(["cp", built, PARAKEET_BINARY]);
   chmodSync(PARAKEET_BINARY, 0o755);
-  console.log("[pre-build] CodictateParakeetHelper vendored successfully");
+  rmSync(LEGACY_PARAKEET_BINARY, { force: true });
+  console.log(
+    `[pre-build] CodictateParakeetHelper vendored successfully as ${PARAKEET_BINARY}`,
+  );
 }
 
 async function vendorObserverHelper() {
