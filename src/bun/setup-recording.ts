@@ -50,6 +50,11 @@ import { DICTATION_HOLD_QUALIFY_MS } from '../shared/dictation-shortcut'
 import type { AppStatus, ShortcutId } from '../shared/types'
 import { runDictation, type DictationOutcome } from './dictation/run-dictation'
 import type { FailedTranscription } from './utils/whisper/engines/transcription'
+import {
+  spawnsParakeetSessionAtRecordStart,
+  startParakeetSession,
+  type ParakeetSession,
+} from './utils/whisper/engines/parakeet-session'
 import { windowsUsesModifierReleaseHold } from '../shared/shortcut-options'
 import { checkMicrophoneAuthorization } from './utils/audio/check-mic-authorization'
 import { log } from './utils/logger'
@@ -192,6 +197,12 @@ export const setupRecording = (
   const instance = Symbol('setupRecording')
   let recorderProc: ReturnType<typeof Bun.spawn> | null = null
   let recordingSession: RecordingSession | null = null
+  /**
+   * The Parakeet helper of the Batch Dictation that is recording or transcribing, spawned
+   * when its recording started so the model loads while the user speaks. Held here so Escape
+   * can kill it at once; the capture handler discards or uses it on every other path.
+   */
+  let batchParakeetSession: ParakeetSession | null = null
   let sessionStarting = false
   let sessionStopping = false
   let transcriptionPipelineActive = false
@@ -418,6 +429,7 @@ export const setupRecording = (
   const releaseDictationPipeline = (claim: DictationClaim) => {
     transcriptionPipelineActive = false
     recordingSession = null
+    batchParakeetSession = null
     releaseDictation(claim)
     setTrayIdle()
     onStatusChange?.('ready')
@@ -442,7 +454,8 @@ export const setupRecording = (
     session: RecordingSession,
     capture: CaptureResult,
     delivery: DictationDelivery,
-    languageCheck: LanguageWhileRecording | null
+    languageCheck: LanguageWhileRecording | null,
+    parakeetSession: ParakeetSession | null
   ) => {
     // The recorder has exited, whichever way. Nothing newer can be running: this Dictation
     // still holds the claim until the release below.
@@ -457,6 +470,7 @@ export const setupRecording = (
       capture.discarded || session.discard || delivery.signal?.aborted === true
     if (cancelled || capture.skipReason !== null) {
       languageCheck?.cancel()
+      parakeetSession?.discard()
       releaseDictationPipeline(delivery.claim)
       delivery.onFinished?.(
         cancelled
@@ -507,6 +521,7 @@ export const setupRecording = (
         onAppliedEntries: (entries) => appConfig.notifyAppliedEntries(entries),
         raw: delivery.raw,
         signal: delivery.signal,
+        parakeetSession: parakeetSession ?? undefined,
       })
 
       if (delivery.signal?.aborted === true) {
@@ -550,6 +565,9 @@ export const setupRecording = (
       finish = { status: 'error', message: `The Dictation failed: ${message}` }
     } finally {
       languageCheck?.cancel()
+      // A no-op when the engine ran, which closes the session itself. Here for a throw
+      // before it got that far, so the helper never outlives its Dictation.
+      parakeetSession?.discard()
       releaseDictationPipeline(delivery.claim)
     }
 
@@ -575,6 +593,9 @@ export const setupRecording = (
     if (recordingSession) recordingSession.discard = true
     recorderProc.kill()
     recorderProc = null
+    // Now rather than when the killed recorder reports back: a Parakeet Preparation for a
+    // Dictation that will never transcribe should stop at once.
+    batchParakeetSession?.discard()
     setTrayIdle()
     onStatusChange?.('ready')
     if (appConfig.getSoundEffectsEnabled()) playCancelSound()
@@ -892,6 +913,15 @@ export const setupRecording = (
       }
       recordingSession = session
       let languageCheck: LanguageWhileRecording | null = null
+      // Before the recorder, so the capture handler always has it, however soon the recorder
+      // exits: every path out of this Dictation then uses or discards it.
+      const parakeetSession = spawnsParakeetSessionAtRecordStart(plan)
+        ? startParakeetSession({
+            speechModelId: plan.speechModelId,
+            modelDir: modelManager.getParakeetInstallDir(plan.speechModelId),
+          })
+        : null
+      batchParakeetSession = parakeetSession
       recorderProc = await startRecording(
         appConfig,
         plan,
@@ -902,7 +932,8 @@ export const setupRecording = (
             session,
             capture,
             delivery,
-            languageCheck
+            languageCheck,
+            parakeetSession
           ),
         getAudioDevices
       )
@@ -913,6 +944,7 @@ export const setupRecording = (
         resetHoldGate()
         activeRecordingMode = null
         recordingSession.discard = true
+        batchParakeetSession?.discard()
         const p = recorderProc
         recorderProc = null
         setTrayIdle()
@@ -936,6 +968,8 @@ export const setupRecording = (
     } catch (err) {
       // No recorder, so no capture will ever arrive to release the claim.
       log('mic', 'failed to start recording', { err: String(err) })
+      batchParakeetSession?.discard()
+      batchParakeetSession = null
       recorderProc = null
       recordingSession = null
       resetHoldGate()

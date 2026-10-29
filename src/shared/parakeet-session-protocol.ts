@@ -1,9 +1,16 @@
 /**
  * NDJSON protocol for a persistent Parakeet batch-transcription session.
  *
- * The ordinary `transcribe <wavPath> <modelDir>` command stays one-shot for Dictation.
- * The benchmark uses `transcribe-session <modelDir>` so one Native Helper can load the
- * Speech Model once and answer several sequential Sample requests.
+ * `transcribe-session <modelDir>` loads the Speech Model, writes `ready`, then answers each
+ * `{id, audioPath}` line on stdin with a `final` line, and exits when stdin closes. A Batch
+ * Dictation spawns one when its recording starts, so the model loads while the user speaks,
+ * and sends it one request (`src/bun/utils/whisper/engines/parakeet-session.ts`). The
+ * benchmark uses it to load once and answer several sequential Sample requests. The one-shot
+ * `transcribe <wavPath> <modelDir>` stays for File Transcription and the command line.
+ *
+ * A `final` carries the same text (after inverse text normalization) and the same optional
+ * `timing` as the one-shot `final`; `parseParakeetFinal` in `parakeet-output.ts` reads the
+ * timing, so there is one reader for it.
  */
 
 export const PARAKEET_TRANSCRIBE_SESSION_COMMAND = 'transcribe-session'

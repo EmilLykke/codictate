@@ -32,6 +32,7 @@ import {
   type SpeechEngineId,
 } from '../../../../shared/speech-models'
 import type { TimedTranscript } from '../../../../shared/timed-transcript'
+import type { ParakeetSession } from './parakeet-session'
 
 /**
  * A Whisper or hviske run on the crispasr ASR Harness.
@@ -92,8 +93,15 @@ export interface ParakeetTranscriptionRequest {
   /** Absolute path to the Parakeet install directory (Core ML on macOS, ONNX on Windows). */
   modelDir: string
   /**
+   * The helper a Batch Dictation spawned when its recording started, loaded (or loading) with
+   * these weights. The adapter sends the audio to it instead of spawning the one-shot
+   * `transcribe`, and the session closes itself afterwards. Absent for File Transcription,
+   * the command line's `transcribe` and the benchmark, which have no recording phase.
+   */
+  session?: ParakeetSession
+  /**
    * Cancels the run: the engine process is terminated and the Result is a `cancelled`
-   * failure. File Transcription passes one; the Dictation path does not.
+   * failure. File Transcription passes one; so does a command-line Dictation.
    */
   signal?: AbortSignal
   /**

@@ -1,21 +1,27 @@
-import { requireRuntimeBinary } from '../../../platform/binaries'
 /**
  * The Parakeet Speech Engine Adapter: one batch transcription on the Parakeet Native Helper.
+ *
+ * Two ways to reach the helper, one Result. A Batch Dictation hands in the session it spawned
+ * when recording started (`parakeet-session.ts`), so the model has been loading while the
+ * user spoke. File Transcription, the `codictate transcribe` command line and the benchmark
+ * have no recording phase and spawn the one-shot `transcribe` here.
  *
  * Batch only. Live Transcription stays outside this interface - the helper captures the mic
  * and pastes for itself, so there is nothing to return - and lives in
  * `parakeet-stream-runner.ts`. See docs/adr/0006-dictation-returns-an-outcome.md.
  */
 
-import { existsSync } from 'node:fs'
 import { log } from '../../logger'
-import { awaitParakeetWarmup } from '../parakeet-warmup'
 import {
   decodeEngineStderr,
   decodeEngineStdout,
   stderrTail,
 } from './drain-stream'
 import { parseParakeetFinal } from './parakeet-output'
+import {
+  checkParakeetRuntime,
+  type ParakeetSessionRun,
+} from './parakeet-session'
 import { parakeetTimedTranscript } from './parakeet-timings'
 import { lowerProcessPriority } from './process-priority'
 import { superviseProcess } from './process-supervisor'
@@ -44,40 +50,43 @@ export function parakeetTranscribeArgv(
 export const transcribeWithParakeet: SpeechEngineAdapter<
   ParakeetTranscriptionRequest
 > = async (request) => {
-  // Serialise behind an in-flight background load rather than racing it. Recording is already
-  // over by the time this runs and the indicator says "transcribing", so the wait is visible
-  // and it is the same load - 0.15 s, or a Parakeet Preparation - this spawn would otherwise
-  // have paid for itself.
-  await awaitParakeetWarmup()
+  const run = request.session
+    ? await request.session.transcribe(request)
+    : await transcribeOnce(request)
+  if (run.status === 'failed') return run
+  const { final } = run
 
-  // The pre-spawn race check, both halves: the Native Helper is still in the installation,
-  // and the weights are still on disk. Whether that directory is *complete* was answered
-  // when the plan was built; what a race can change is whether it is there at all.
-  let helper: string
-  try {
-    helper = requireRuntimeBinary('parakeet')
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
-    log('parakeet', 'helper binary missing at spawn time', { err: detail })
-    return failedTranscription(
-      'engine_runtime_missing',
-      request.speechModelId,
-      detail
-    )
-  }
-  if (!existsSync(request.modelDir)) {
-    log('parakeet', 'weights missing at spawn time', {
-      modelId: request.speechModelId,
-      modelDir: request.modelDir,
+  const rawTranscript = final.text.trim()
+  // Timings that do not line up with the transcript leave it untimed, never wrong.
+  const timedTranscript = parakeetTimedTranscript(rawTranscript, final.timing)
+  if (
+    final.timing !== null &&
+    rawTranscript !== '' &&
+    timedTranscript === null
+  ) {
+    log('parakeet', 'timing did not line up with the transcript', {
+      unit: final.timing.unit,
+      items: final.timing.items.length,
     })
-    return failedTranscription(
-      'engine_runtime_missing',
-      request.speechModelId,
-      `weights not on disk: ${request.modelDir}`
-    )
   }
 
-  // A cancel that landed while this waited on the preparation spawns nothing.
+  log('parakeet', 'transcription complete', {
+    viaSession: request.session !== undefined,
+    transcriptLength: rawTranscript.length,
+    timedParts: timedTranscript?.parts.length ?? 0,
+  })
+
+  return { status: 'ok', rawTranscript, timedTranscript }
+}
+
+/** The one-shot `transcribe`: spawn, load, transcribe, exit, under one deadline. */
+async function transcribeOnce(
+  request: ParakeetTranscriptionRequest
+): Promise<ParakeetSessionRun> {
+  const checked = checkParakeetRuntime(request.speechModelId, request.modelDir)
+  if ('status' in checked) return checked
+  const { helper } = checked
+
   if (request.signal?.aborted) {
     return failedTranscription('cancelled', request.speechModelId)
   }
@@ -176,25 +185,5 @@ export const transcribeWithParakeet: SpeechEngineAdapter<
     )
   }
 
-  const rawTranscript = final.text.trim()
-  // Timings that do not line up with the transcript leave it untimed, never wrong.
-  const timedTranscript = parakeetTimedTranscript(rawTranscript, final.timing)
-  if (
-    final.timing !== null &&
-    rawTranscript !== '' &&
-    timedTranscript === null
-  ) {
-    log('parakeet', 'timing did not line up with the transcript', {
-      unit: final.timing.unit,
-      items: final.timing.items.length,
-    })
-  }
-
-  log('parakeet', 'transcription complete', {
-    exitCode: supervised.exitCode,
-    transcriptLength: rawTranscript.length,
-    timedParts: timedTranscript?.parts.length ?? 0,
-  })
-
-  return { status: 'ok', rawTranscript, timedTranscript }
+  return { status: 'final', final }
 }

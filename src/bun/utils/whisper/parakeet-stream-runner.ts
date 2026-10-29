@@ -91,11 +91,10 @@ export async function startParakeetStream(
   const blocked = checkParakeetStreamRuntimeReady(plan)
   if (blocked !== null) return { status: 'blocked', plan: blocked }
 
-  // No `awaitParakeetWarmup()` here, unlike a Batch Dictation. This helper opens the
-  // microphone itself, before it loads the model, so waiting on the background load would
-  // lose everything said during it - up to a whole Parakeet Preparation. Spawning beside the
-  // background load is safe: two helpers preparing the same weights at once both finish
-  // (measured: both exit 0, just slower), and the next load is fast.
+  // Spawn at once and never wait on anything first. This helper opens the microphone
+  // itself, before it loads the model, so it loads while the user speaks and a Parakeet
+  // Preparation never loses speech. A Batch Dictation now does the same: its helper is
+  // spawned when recording starts (`parakeet-batch-session.ts`).
 
   const binary = requireRuntimeBinary('parakeet')
   const modelDir = modelManager.getParakeetInstallDir(plan.speechModelId)

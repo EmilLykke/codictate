@@ -27,7 +27,6 @@
  */
 
 import {
-  NO_PARAKEET_LOAD,
   PARAKEET_LABEL,
   PUNCTUATION_MODEL_GONE_HEAL_MESSAGE,
   getDictationReadiness,
@@ -153,8 +152,7 @@ export function healDictationSettings(
   // One definition of "can this run", so the heal pass and the UI cannot disagree about the
   // single-language combination or about anything else. What differs is only the tense: readiness
   // says why an option is unavailable, an announcement says what was switched off.
-  // A Parakeet Preparation never makes anything unrunnable, so the load is left out.
-  const readiness = getDictationReadiness(next, availability, NO_PARAKEET_LOAD)
+  const readiness = getDictationReadiness(next, availability)
 
   const translate = readiness.translateToEnglish
   if (next.translateToEnglish && !translate.ready) {
@@ -365,9 +363,7 @@ export function fileTranscriptionTranslateReadiness(
       transcriptionLanguageId: settings.transcriptionLanguageId,
       translateDefaultLanguageId: context.translateDefaultLanguageId,
     },
-    availability,
-    // A File Transcription never starts the background load, and translate ignores it.
-    NO_PARAKEET_LOAD
+    availability
   ).translateToEnglish
 }
 

@@ -23,6 +23,7 @@
  */
 
 import type { RunnableDictationPlan } from '../../shared/dictation-plan'
+import { PARAKEET_ENGINE_ID } from '../../shared/speech-models'
 import type { FormattingModeId } from '../../shared/formatting-modes'
 import type {
   DictionaryEntry,
@@ -35,6 +36,7 @@ import { appPunctuationRestorer } from '../utils/punctuation/app-punctuation-res
 import type { PunctuationRestorer } from '../utils/punctuation/punctuation-restorer'
 import { runTranscription } from '../utils/whisper/engines/run-transcription'
 import { engineProcessTimeoutMs } from '../utils/whisper/engines/process-supervisor'
+import type { ParakeetSession } from '../utils/whisper/engines/parakeet-session'
 import {
   transcriptionRequestFromPlan,
   type FailedTranscription,
@@ -69,6 +71,11 @@ export interface DictationRunRequest {
    * (`language-while-recording.ts`). Under automatic detection only.
    */
   detectedLanguage?: string
+  /**
+   * The Parakeet helper spawned when the recording started (`parakeet-session.ts`), for a
+   * plan on Parakeet. The Speech Engine Adapter sends the audio to it.
+   */
+  parakeetSession?: ParakeetSession
 }
 
 /**
@@ -139,17 +146,24 @@ export interface DictationRunDependencies {
 }
 
 const realDependencies = (): DictationRunDependencies => ({
-  runEngine: (request) =>
-    runTranscription({
-      ...transcriptionRequestFromPlan(
-        request.plan,
-        request.audioPath,
-        engineProcessTimeoutMs(request.durationMs),
-        modelManager,
-        request.detectedLanguage
-      ),
-      signal: request.signal,
-    }),
+  runEngine: (request) => {
+    const engineRequest = transcriptionRequestFromPlan(
+      request.plan,
+      request.audioPath,
+      engineProcessTimeoutMs(request.durationMs),
+      modelManager,
+      request.detectedLanguage
+    )
+    return runTranscription(
+      engineRequest.engineId === PARAKEET_ENGINE_ID
+        ? {
+            ...engineRequest,
+            signal: request.signal,
+            session: request.parakeetSession,
+          }
+        : { ...engineRequest, signal: request.signal }
+    )
+  },
   punctuationRestorer: appPunctuationRestorer(),
   formatTranscript: async (transcript, settings) => {
     const formatterRequest = await buildFormatterRequest(transcript, settings)

@@ -34,20 +34,6 @@ export type SpeechEngineId = 'whisper_cpp' | 'whisperkit' | 'hviske'
 
 export type SpeechModelModeSupport = 'normal' | 'stream' | 'both'
 
-/**
- * Settings / model row: what is happening during a Parakeet Preparation, shown only while
- * `DictationReadiness.parakeetPreparing` says one is under way (Parakeet selected and
- * installed, and its background load running past about a second).
- *
- * The three sentences this replaces all described the old behaviour, where preparation
- * happened inside the user's first Dictation and the app "may look stuck". ADR-0005 moves
- * the load into the background instead, so there is nothing to warn about and nothing to
- * ask the user to do - only a fact to state, which disappears on its own when the settings
- * push says the load ended.
- */
-export const PARAKEET_PREPARING_SETTINGS_HINT =
-  'Codictate is preparing Parakeet for this device. It usually takes under half a minute, runs in the background, and a dictation started before it finishes still works, only slower.'
-
 /** European-language set aligned with Parakeet TDT v3 multilingual (25 locales we expose in Settings). */
 const PARAKEET_V3_TRANSCRIPTION_LANGUAGE_IDS = [
   'en',

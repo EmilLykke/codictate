@@ -122,8 +122,6 @@ export interface AppConfigDependencies {
   readonly getModelAvailability: () => Record<string, boolean>
   readonly detectFormattingAvailable: () => boolean
   readonly isFormatterModelInstalled: (tier: FormatterModelTier) => boolean
-  /** A background Parakeet load has run long enough to be a Parakeet Preparation. */
-  readonly isParakeetPreparing: () => boolean
   /** The Punctuation Model is fully on disk with its pinned hashes. */
   readonly isPunctuationModelInstalled: () => boolean
 }
@@ -372,13 +370,13 @@ export class AppConfig {
 
   /**
    * Wired once at boot. Everything derived from the `(settings, availability)` pair that
-   * lives outside this class - today only Parakeet's automatic preparation - has to hear
+   * lives outside this class - today only the Punctuation Model's background load - has to hear
    * about every change to either half, and there are two entry points rather than one: a
    * transcription settings write, and the heal pass that runs at boot, on a download, on a
    * delete and after a blocked Dictation.
    *
    * A callback rather than a direct call, so that `AppConfig` stays the settings adapter and
-   * needs to know nothing about the process a preparation spawns.
+   * needs to know nothing about what the observer loads.
    */
   private runnableDictationObserver: (() => void) | null = null
 
@@ -601,7 +599,7 @@ export class AppConfig {
     }
     // `parakeetCoreMlReady` in an older config is ignored and dropped on the next save. Whether
     // Parakeet's weights are prepared is not a fact Codictate can keep: a Parakeet Preparation
-    // can be needed again at any launch (parakeet-warmup.ts).
+    // can be needed again at any launch.
     if (
       raw.streamTranscriptionMode === 'live' ||
       raw.streamTranscriptionMode === 'vad'
@@ -1205,8 +1203,8 @@ export class AppConfig {
 
     if (!result.unchanged || fileChanged) await this.saveMain()
     // Notified either way: still a settled `(settings, availability)` pair, and the
-    // availability half may be what moved - a finished Parakeet download changes nothing
-    // about the settings and is exactly the moment a preparation becomes possible.
+    // availability half may be what moved - a finished download changes nothing about the
+    // settings and is exactly the moment a background load becomes possible.
     this.notifyRunnableDictationSettled()
     return result.announcements
   }
@@ -1269,7 +1267,6 @@ export class AppConfig {
     return getDictationReadiness(
       this.runnableDictationSettings(),
       this.dictationAvailability(),
-      { preparing: this.dependencies.isParakeetPreparing() },
       this.punctuationSelections()
     )
   }

@@ -1,4 +1,3 @@
-import type { ReadableStreamDefaultReader } from "node:stream/web";
 import {
   PARAKEET_TRANSCRIBE_SESSION_COMMAND,
   encodeParakeetSessionRequest,
@@ -13,22 +12,14 @@ import {
   type ParakeetTranscriptionRequest,
   type TranscriptionResult,
 } from "../../src/bun/utils/whisper/engines/transcription";
+import {
+  NdjsonLineReader,
+  collectStderr,
+  type ParakeetSessionProcess,
+  type StderrCollector,
+} from "../../src/bun/utils/whisper/engines/parakeet-session";
 
-const STDERR_TAIL_CHARS = 4_000;
-
-interface SessionInput {
-  write(data: string | Uint8Array): unknown;
-  flush?(): unknown;
-  end(): unknown;
-}
-
-export interface ParakeetSessionProcess {
-  readonly stdin: SessionInput;
-  readonly stdout: ReadableStream<Uint8Array>;
-  readonly stderr?: ReadableStream<Uint8Array>;
-  readonly exited: Promise<number>;
-  kill(signal?: number | NodeJS.Signals): void;
-}
+export type { ParakeetSessionProcess };
 
 export type SpawnParakeetSession = (
   argv: string[],
@@ -46,98 +37,6 @@ export interface ParakeetBenchmarkSessionOptions {
   resolveHelperBinary: () => string;
   spawn?: SpawnParakeetSession;
   cleanupGraceMs?: number;
-}
-
-class NdjsonLineReader {
-  private readonly reader: ReadableStreamDefaultReader<Uint8Array>;
-  private readonly decoder = new TextDecoder("utf-8", { fatal: true });
-  private buffered = "";
-  private ended = false;
-
-  constructor(stream: ReadableStream<Uint8Array>) {
-    this.reader = stream.getReader();
-  }
-
-  async nextLine(): Promise<string | null> {
-    while (true) {
-      const newline = this.buffered.indexOf("\n");
-      if (newline >= 0) {
-        const line = this.buffered.slice(0, newline).replace(/\r$/, "");
-        this.buffered = this.buffered.slice(newline + 1);
-        return line;
-      }
-
-      if (this.ended) {
-        if (this.buffered === "") return null;
-        const line = this.buffered.replace(/\r$/, "");
-        this.buffered = "";
-        return line;
-      }
-
-      const { done, value } = await this.reader.read();
-      if (done) {
-        this.buffered += this.decoder.decode();
-        this.ended = true;
-      } else if (value) {
-        this.buffered += this.decoder.decode(value, { stream: true });
-      }
-    }
-  }
-
-  async cancel(): Promise<void> {
-    try {
-      await this.reader.cancel();
-    } catch {
-      // The process may have closed the pipe in the same turn.
-    }
-  }
-}
-
-interface StderrCollector {
-  readonly completed: Promise<void>;
-  tail(): string;
-  cancel(): Promise<void>;
-}
-
-function collectStderr(stream?: ReadableStream<Uint8Array>): StderrCollector {
-  if (!stream) {
-    return {
-      completed: Promise.resolve(),
-      tail: () => "",
-      cancel: async () => {},
-    };
-  }
-
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  const completed = (async () => {
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (!value) continue;
-        text = (text + decoder.decode(value, { stream: true })).slice(
-          -STDERR_TAIL_CHARS,
-        );
-      }
-      text = (text + decoder.decode()).slice(-STDERR_TAIL_CHARS);
-    } catch {
-      // Cancellation is normal during a deadline or protocol failure.
-    }
-  })();
-
-  return {
-    completed,
-    tail: () => text.trim(),
-    cancel: async () => {
-      try {
-        await reader.cancel();
-      } catch {
-        // The process may have closed the pipe in the same turn.
-      }
-    },
-  };
 }
 
 interface SessionState {

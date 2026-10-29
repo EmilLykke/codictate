@@ -425,10 +425,9 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           ) {
             deps.onStreamModeChanged?.()
           }
-          // No warmup call here. Selecting Parakeet starts its background load, but the
-          // trigger lives on `AppConfig`'s runnable-settings observer so that the tray menu
-          // and the "download then select" path get it too - see `installParakeetWarmup` in
-          // index.ts.
+          // No warmup call here. Background loads (the Punctuation Model's) hang off
+          // `AppConfig`'s runnable-settings observer, so the tray menu and the "download
+          // then select" path get them too. Parakeet loads nothing until a Dictation starts.
           return true
         },
         setAudioDevice: async ({ index }) => {

@@ -60,11 +60,14 @@ struct TranscribeSessionRequest {
     audio_path: String,
 }
 
+/// A session `final`: the one-shot `final` plus the request id it answers.
 #[derive(Serialize)]
 struct SessionFinalTranscriptMessage {
     kind: &'static str,
     id: u64,
     text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    timing: Option<Timing>,
 }
 
 struct TextInjector {
@@ -329,10 +332,6 @@ fn load_wav_for_transcription(wav_path: &str) -> Result<Vec<f32>, String> {
     resample_to_recording_rate(&samples, sample_rate)
 }
 
-fn transcribe_wav(model: &mut ParakeetTDT, wav_path: &str) -> Result<String, String> {
-    transcribe_samples(model, load_wav_for_transcription(wav_path)?)
-}
-
 fn transcribe_wav_timed(
     model: &mut ParakeetTDT,
     wav_path: &str,
@@ -442,11 +441,13 @@ pub fn handle_transcribe_session(args: &[String]) -> ExitCode {
             }
 
             log_phase(format!("transcribe session request {}...", request.id));
-            let text = transcribe_wav(&mut model, &request.audio_path)?;
+            let TimedTranscription { text, timing } =
+                transcribe_wav_timed(&mut model, &request.audio_path)?;
             emit_json(&SessionFinalTranscriptMessage {
                 kind: "final",
                 id: request.id,
                 text,
+                timing,
             })
             .map_err(|err| format!("failed to write session response: {err}"))?;
         }
@@ -724,6 +725,7 @@ mod tests {
             kind: "final",
             id: 7,
             text: "hej verden".to_string(),
+            timing: None,
         })
         .expect("final response should encode");
 
@@ -731,6 +733,23 @@ mod tests {
         assert_eq!(
             final_response,
             r#"{"kind":"final","id":7,"text":"hej verden"}"#
+        );
+    }
+
+    #[test]
+    fn session_final_carries_the_same_timing_as_the_batch_final() {
+        let timing = sentence_timing("Hej verden.", &[token("Hej verden.", 0.0, 1.25)]);
+        let line = serde_json::to_string(&SessionFinalTranscriptMessage {
+            kind: "final",
+            id: 1,
+            text: "Hej verden.".to_string(),
+            timing,
+        })
+        .expect("final response should encode");
+
+        assert_eq!(
+            line,
+            r#"{"kind":"final","id":1,"text":"Hej verden.","timing":{"unit":"sentence","items":[{"text":"Hej verden.","start":0.0,"end":1.25}]}}"#
         );
     }
 

@@ -23,10 +23,7 @@ import { StatsManager } from './utils/stats/stats-manager'
 import { APP_DATA_DIR, RECORDING_PATH } from './platform/runtime'
 import { modelManager } from './utils/whisper/model-manager'
 import { SPEECH_MODELS } from '../shared/speech-models'
-import {
-  ensureParakeetWarm,
-  installParakeetWarmup,
-} from './utils/whisper/parakeet-warmup'
+import { killParakeetSessions } from './utils/whisper/engines/parakeet-session'
 import { appPunctuationRestorer } from './utils/punctuation/app-punctuation-restorer'
 import { createPunctuationWarmup } from './utils/punctuation/punctuation-warmup'
 import type {
@@ -498,24 +495,7 @@ const pushSettingsToWebview = () =>
   win.send.updateSettings(UserAppConfig.getSettings())
 
 /**
- * Parakeet's background load, wired once.
- *
- * There used to be three callers of the warmup routine - here at boot, the transcription
- * settings write in `setup-window.ts`, and the completion of a Parakeet download - each with
- * its own idea of when a load was due and none of them aware of the others. ADR-0005 makes
- * the `(settings, availability)` pair the trigger, and `AppConfig` already funnels every
- * change to it through two entry points, so one observer covers launch, selection and a
- * finished download, and cannot start two overlapping loads.
- *
- * `onPreparingChanged` carries a Parakeet Preparation into the window: the settings push
- * shows "preparing" once a load has run past a second and takes it away when the load ends.
- */
-installParakeetWarmup({
-  getSelectedSpeechModelId: () => UserAppConfig.getSpeechModelId(),
-  onPreparingChanged: pushSettingsToWebview,
-})
-/**
- * The Punctuation Model's background load, on the same trigger: at launch and on every settle
+ * The Punctuation Model's background load: at launch and on every settle
  * of the settings and availability, it loads the Punctuation Model when a Dictation or File
  * Transcription with the current selections would restore punctuation, so the first
  * punctuated Dictation does not pay for the load.
@@ -524,10 +504,7 @@ const ensurePunctuationWarm = createPunctuationWarmup({
   restorer: appPunctuationRestorer(),
   isReachable: () => UserAppConfig.isPunctuationRestorationReachable(),
 })
-UserAppConfig.observeRunnableDictationSettings(() => {
-  ensureParakeetWarm()
-  ensurePunctuationWarm()
-})
+UserAppConfig.observeRunnableDictationSettings(ensurePunctuationWarm)
 
 trayHandlers = setupTray(
   (onAction) => win.getOrCreateWindow(onAction),
@@ -864,6 +841,7 @@ startDeviceMonitor()
 Electrobun.events.on('before-quit', () => {
   // First, and synchronously: a decoder or Speech Engine left running would outlive the app.
   fileTranscriptions.cancelAll()
+  killParakeetSessions()
   win.removeDroppedFiles()
   trayHandlers.setTrayIdle()
   void (async () => {
@@ -874,6 +852,7 @@ Electrobun.events.on('before-quit', () => {
   commandLineServer?.close()
 })
 process.on('exit', () => {
+  killParakeetSessions()
   keyboard.stop()
   commandLineServer?.close()
 })

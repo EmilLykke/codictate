@@ -534,26 +534,32 @@ of an open mic outweighs a sub-second cached load.
 
 ## 7. Decisions (2026-10-29)
 
-Settled in a review of this note. Domain wording is in `GLOSSARY.md` (Parakeet Preparation).
+Settled in a review of this note, and revised the same day: the background load is gone.
+Domain wording is in `GLOSSARY.md` (Parakeet Preparation).
 
 macOS and Windows:
 - **Parakeet Preparation can recur, and Cold Start is not a separate thing.** Every slow load
   measured was a recompile; loading a prepared copy takes about 20 ms. The glossary drops Cold
   Start.
-- **One load path.** Parakeet loads in the background at app launch, when it becomes the selected
-  Speech Model, and when its download finishes. A Dictation that starts during that load waits on
-  it rather than spawning a second helper. The persisted "prepared" flag no longer decides
-  anything. Only the Dictation's Speech Model is loaded; a File Transcription on Parakeet pays any
-  Preparation in its Processing Time.
-- **Only a Batch Dictation waits on that load. Live Transcription never does:** its helper opens
-  the mic before it loads, so a wait would lose speech. Spawning beside the background load is
-  safe: two helpers compiling the same weights at once both exited 0 (15.5 s and 26.4 s), and the
-  next run was warm (0.15 s). **[measured, 2026-10-29]**
-- **Settings shows "Preparing" only once a load has run for more than about 1 s.** The recording
-  indicator is unchanged: on Live Transcription the mic is already open and text catches up, on
-  Batch the transcribing state lasts longer.
-- **No wake trigger (M2).** Launch already covers app updates, OS updates and reboots (there is no
-  launch at login), and sleep showed no eviction.
+- **No background load.** Codictate loads nothing at launch, on selection or after a download.
+  The background load shipped first, and every launch on the developer Mac then paid a 12-19 s
+  Neural Engine compile, audible, even when nobody dictated. There is no persisted "prepared"
+  flag either.
+- **The helper loads while the user speaks.** A Batch Dictation on Parakeet spawns its helper
+  (`transcribe-session`) when recording starts, the way iOS warms up at record start (I1). When
+  recording stops it sends the one request; if the load is still running, the Dictation waits
+  for it while the indicator says transcribing. The load has its own bound from the spawn, and
+  the transcription deadline starts when the request is sent. A Dictation that is cancelled,
+  discarded or too short kills the helper. A helper that dies or fails to load fails the
+  Dictation with a typed reason; nothing spawns a second one.
+- **Live Transcription already did this:** its helper opens the mic before it loads, so a
+  Preparation never loses speech.
+- **File Transcription and `codictate transcribe` keep the one-shot `transcribe`.** They have no
+  recording phase, and pay any Preparation in their Processing Time.
+- **Settings says nothing about preparing.** The recording indicator is unchanged: on Live
+  Transcription the mic is already open and text catches up, on Batch the transcribing state
+  lasts longer.
+- **No wake trigger (M2).** Nothing loads ahead of a Dictation.
 - **Each channel's macOS helper gets its own executable name** (stable, canary, dev), to be
   confirmed on the real helpers. Windows has no Neural Engine compile, so this is macOS only.
 - **Rejected:** M4 (GPU encoder), per-channel model folders or clones. **Parked:** M1 (resident

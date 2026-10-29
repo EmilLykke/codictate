@@ -39,7 +39,6 @@ function testDependencies(
     getModelAvailability: () => ({ [DEFAULT_MODEL_ID]: true }),
     detectFormattingAvailable: () => true,
     isFormatterModelInstalled: () => false,
-    isParakeetPreparing: () => false,
     isPunctuationModelInstalled: () => false,
     ...overrides,
   }
@@ -197,51 +196,6 @@ describe('AppConfig dependency seam', () => {
     ) as Record<string, unknown>
     expect(persisted.funModeEnabled).toBe(true)
     expect('parakeetCoreMlReady' in persisted).toBe(false)
-  })
-})
-
-describe('dictationReadiness.parakeetPreparing', () => {
-  const PARAKEET = 'parakeet-tdt-0.6b-v3'
-
-  async function parakeetConfig(isParakeetPreparing: () => boolean) {
-    const config = new AppConfig(
-      testDependencies({
-        isModelAvailable: (id) => id === DEFAULT_MODEL_ID || id === PARAKEET,
-        getModelAvailability: () => ({
-          [DEFAULT_MODEL_ID]: true,
-          [PARAKEET]: true,
-        }),
-        isParakeetPreparing,
-      })
-    )
-    await config.load()
-    return config
-  }
-
-  test('follows the background load while Parakeet is the selection', async () => {
-    let preparing = false
-    const config = await parakeetConfig(() => preparing)
-    await config.updateTranscriptionSettings({ speechModelId: PARAKEET })
-    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(
-      false
-    )
-    preparing = true
-    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(true)
-    preparing = false
-    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(
-      false
-    )
-  })
-
-  test('is false once the selection moves off Parakeet mid-load', async () => {
-    const config = await parakeetConfig(() => true)
-    await config.updateTranscriptionSettings({ speechModelId: PARAKEET })
-    await config.updateTranscriptionSettings({
-      speechModelId: DEFAULT_MODEL_ID,
-    })
-    expect(config.getSettings().dictationReadiness.parakeetPreparing).toBe(
-      false
-    )
   })
 })
 

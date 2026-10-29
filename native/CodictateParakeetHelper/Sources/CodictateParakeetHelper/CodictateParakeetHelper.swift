@@ -515,7 +515,10 @@ struct CodictateParakeetHelperMain {
     let audioPath: String
   }
 
-  /// Benchmark-only batch session. Dictation keeps using the compatible one-shot command.
+  /// Loads the model once, writes `ready`, then answers each request line with a `final` that
+  /// carries the same text and `timing` as `transcribe`. A Batch Dictation spawns it when its
+  /// recording starts, so the load happens while the user speaks; the benchmark uses it to
+  /// load once for many Samples. Exits when stdin closes.
   static func transcribeSessionCommand(_ args: [String]) async throws {
     guard let modelPath = args.first else { usage() }
     let modelDir = URL(fileURLWithPath: modelPath, isDirectory: true)
@@ -544,7 +547,11 @@ struct CodictateParakeetHelperMain {
       logPhase("transcribe session: request \(request.id)…")
       let result = try await transcribeOnce(asr, URL(fileURLWithPath: request.audioPath))
       let text = applyInverseTextNormalization(result.text)
-      emitJSON(["kind": "final", "id": request.id, "text": text])
+      var final: [String: Any] = ["kind": "final", "id": request.id, "text": text]
+      if let timing = spokenWordTiming(transcript: text, tokenTimings: result.tokenTimings) {
+        final["timing"] = timing
+      }
+      emitJSON(final)
     }
 
     logPhase("transcribe session: stdin closed")

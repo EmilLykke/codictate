@@ -7,7 +7,6 @@ import {
   getPlatformCapabilities,
 } from '../platform/runtime'
 import { modelManager } from '../utils/whisper/model-manager'
-import { isParakeetPreparing } from '../utils/whisper/parakeet-warmup'
 import { isPunctuationModelInstalled } from '../utils/punctuation/punctuation-model-files'
 import {
   detectFormattingAvailable,
@@ -26,7 +25,6 @@ const productionDependencies: AppConfigDependencies = {
   getModelAvailability: () => modelManager.getAvailabilityMap(),
   detectFormattingAvailable,
   isFormatterModelInstalled,
-  isParakeetPreparing,
   isPunctuationModelInstalled: () => isPunctuationModelInstalled(),
 }
 
