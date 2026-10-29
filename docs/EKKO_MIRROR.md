@@ -62,8 +62,9 @@ Punctuation Restoration change (#89). This is not legal advice.
 The Mirror repo is **`emillykkegrann/ekko-v1-tiny-GGUF`**, never the ekko-pnc repo, for
 the same reason: its `NOTICE`, `MODEL_LICENSE.md` and `LICENSES/*` differ from ekko-pnc's.
 
-Mirror commit: `TODO(#101): record the commit the publish prints` (not published yet). The
-app pins this commit, not `main`, once the catalog entry lands.
+Mirror commit: `d60b91ae714fdccf4ecd7a9f22a06b349c87ffc1` (published 2026-10-29; the GGUF's
+size and sha256 verified against the table below at that commit). The app pins this commit,
+not `main`, once the catalog entry lands.
 
 ### Contents
 
