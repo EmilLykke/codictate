@@ -16,11 +16,8 @@ The Mirror repo is **`emillykkegrann/ekko-pnc-ONNX`**, never the ekko-v1-tiny re
 upstreams ship a different `NOTICE`, `MODEL_LICENSE.md` and `LICENSES/*` at their roots,
 copied unchanged, so they cannot share a root.
 
-> **TODO (maintainer): Mirror commit not recorded yet.** The Mirror is not published. Run
-> the publish below, then replace this note with the commit the script prints as
-> `Mirror commit:`. The app pins that commit, not `main`.
-
-Mirror commit: `TODO`
+Mirror commit: `44b0483333423a31d36907f1d71dee7e71045a42` (published 2026-10-29; every file verified
+against the table below at that commit). The app pins this commit, not `main`.
 
 ### Contents
 
