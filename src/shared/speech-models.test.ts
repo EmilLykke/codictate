@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import {
   BROWSABLE_SPEECH_MODELS,
+  DEFAULT_MODEL_ID,
+  RECOMMENDED_DANISH_SPEECH_MODEL_ID,
   SPEECH_MODELS,
   fluidAudioModelFolderName,
   getSpeechModel,
@@ -104,5 +106,39 @@ describe('BROWSABLE_SPEECH_MODELS', () => {
     expect(SPEECH_MODELS.findIndex((m) => m.id === 'tiny')).toBeLessThan(
       SPEECH_MODELS.findIndex((m) => m.id === 'large-v3')
     )
+  })
+})
+
+/**
+ * The browse modal marks one Speech Model "Recommended for Danish" (#86, #99): Edda q5_0,
+ * the most accurate Danish model at the smallest Edda size. It is a marker only, so the
+ * model stays out of the curated list and the bundled default does not move.
+ */
+describe('RECOMMENDED_DANISH_SPEECH_MODEL_ID', () => {
+  it('is Edda q5_0', () => {
+    expect(RECOMMENDED_DANISH_SPEECH_MODEL_ID).toBe('edda-v0.2-q5_0')
+  })
+
+  it('names a browsable, uncurated, Danish-only model', () => {
+    const model = getSpeechModel(RECOMMENDED_DANISH_SPEECH_MODEL_ID)
+    expect(model?.curated).toBeUndefined()
+    expect(model?.supportedTranscriptionLanguageIds).toEqual(['da'])
+    expect(
+      BROWSABLE_SPEECH_MODELS.some(
+        (m) => m.id === RECOMMENDED_DANISH_SPEECH_MODEL_ID
+      )
+    ).toBe(true)
+  })
+
+  it('says why in the description', () => {
+    expect(
+      getSpeechModel(RECOMMENDED_DANISH_SPEECH_MODEL_ID)?.description
+    ).toBe(
+      'Danish model · Danish only, most accurate Danish model, Q5 quantized, smallest and fastest, 7.5 WER'
+    )
+  })
+
+  it('leaves the bundled default alone', () => {
+    expect(DEFAULT_MODEL_ID).toBe('large-v3-turbo-q5_0')
   })
 })
