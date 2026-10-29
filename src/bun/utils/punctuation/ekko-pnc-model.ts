@@ -41,6 +41,7 @@ async function loadEkkoPncModel(modelDir: string): Promise<PunctuationModel> {
   const labels = labelTable(config, modelDir)
   const encode = pretokenizedEncoder(tokenizerJson)
 
+  await disableOnnxRuntimeTelemetry()
   const ort = await import('onnxruntime-node')
   const modelPath = join(modelDir, MODEL_FILE)
   let session: Awaited<ReturnType<typeof ort.InferenceSession.create>>
@@ -82,6 +83,48 @@ async function loadEkkoPncModel(modelDir: string): Promise<PunctuationModel> {
       return { data: logits.data as Float32Array, dims: logits.dims }
     },
   }
+}
+
+let telemetryDisabled = false
+
+/**
+ * ONNX Runtime 1.30's macOS and Linux builds send usage telemetry to Microsoft by default
+ * (a 1DS uploader to mobile.events.data.microsoft.com, queued in
+ * `~/Library/Application Support/Microsoft/DeveloperTools/.onnxruntime/onnxruntime.db` and
+ * keyed to a persistent device id). Codictate promises no analytics. `ORT_DISABLE_TELEMETRY=1`
+ * is the full opt-out: read with `getenv` when the first OrtEnv starts the uploader, it stops
+ * the uploader, the database and the device id from ever being created. onnxruntime-node has
+ * no JavaScript switch for it, and Bun's `process.env` never reaches the C environment, so it
+ * is set with libc `setenv` before onnxruntime-node is first imported.
+ *
+ * Windows is left alone: its build reports through an ETW provider instead and, per
+ * `telemetry_environment.h`, does not read this variable.
+ */
+async function disableOnnxRuntimeTelemetry(): Promise<void> {
+  if (telemetryDisabled || process.platform === 'win32') return
+  const { dlopen, FFIType } = await import('bun:ffi')
+  const libc = dlopen(
+    process.platform === 'darwin' ? '/usr/lib/libSystem.B.dylib' : 'libc.so.6',
+    {
+      setenv: {
+        args: [FFIType.cstring, FFIType.cstring, FFIType.i32],
+        returns: FFIType.i32,
+      },
+    }
+  )
+  try {
+    const status = libc.symbols.setenv(
+      Buffer.from('ORT_DISABLE_TELEMETRY\0'),
+      Buffer.from('1\0'),
+      1
+    )
+    if (status !== 0) {
+      throw new Error('could not set ORT_DISABLE_TELEMETRY for ONNX Runtime')
+    }
+  } finally {
+    libc.close()
+  }
+  telemetryDisabled = true
 }
 
 /** `{int(key): value for key, value in config["id2label"].items()}`. */
