@@ -1,6 +1,6 @@
 # Parakeet cold load on macOS and iOS
 
-Research note, 2026-10-28, updated 2026-10-29 with the eviction measurements. Question: why is the first Parakeet TDT 0.6B v3 Dictation slow on the
+Research note, 2026-10-28, updated 2026-10-29 with the eviction, GPU encoder and process-name measurements and the decisions in section 7. Question: why is the first Parakeet TDT 0.6B v3 Dictation slow on the
 Codictate macOS app and the Codictate iOS app, what is the best fix on each platform, what does it
 cost to keep the model loaded, and do other on-device speech models avoid the problem.
 
@@ -17,23 +17,28 @@ so (linked), **[unverified]** = could not trace to a primary source or measure; 
   it.** On this Mac a cold `transcribe` took 12.6 to 14.4 s, and the system log shows
   `ANECompilerService` compiling the network for 10 to 12 s of that. A warm run takes 0.15 s.
   **[measured]**
-- **There is one compiled copy per model folder, and a differently signed helper replaces it.**
-  With only the installed helper in play, the copy stayed warm across a 10-minute idle gap (0.18 s).
-  Running the repo's ad-hoc signed helper on the same folder recompiled (13.4 s), and the installed
-  helper right after it recompiled again (12.7 s). **[measured, 2026-10-29]** An earlier reading
-  of "gone after 5 to 8.5 minutes" was this eviction, not a time limit.
-- **That is why this Mac is slow so often.** Stable (`app.codictate...`), canary
-  (`app.codictate.canary...`) and dev builds (ad-hoc) all load
-  `~/Library/Application Support/codictate/models` with three different signing identifiers, so
-  every switch between them costs a 12 to 14 s compile. **[measured]** A user who runs only the
-  stable app pays it far less often: on first use, and after events not measured here (app update,
-  OS update, reboot, low disk). **[unverified which of those evict]**
-- **The boot "Cold Start" load therefore can help a one-channel user**, as long as nothing else
-  recompiled the folder since. On this Mac today it did not run, because the selected Speech Model
-  is Whisper `large-v3-turbo-q5_0`, not Parakeet. **[measured]**
-- **Mac fix: keep one helper process alive with the model loaded.** A loaded, idle helper used 0 s
-  of CPU over 15+ minutes and had a 25 to 29 MB footprint. Its Neural Engine memory (about 470 MB)
-  is tagged by the kernel as "neural, no footprint" and reclaimable. **[measured]**
+- **There is one compiled copy per process name and model folder, and a differently signed
+  binary under the same name replaces it.** With only the installed helper in play, the copy
+  stayed warm across a 10-minute idle gap (0.18 s). Running the repo's ad-hoc signed helper on the
+  same folder recompiled (13.4 s), and the installed helper right after it recompiled again
+  (12.7 s). Binaries with different names on the same folder kept separate copies, and a rebuilt
+  binary with the same identifier stayed warm. **[measured, 2026-10-29]** An earlier reading of
+  "gone after 5 to 8.5 minutes" was this eviction, not a time limit.
+- **That is why this Mac is slow so often.** Stable, canary and dev builds all run as
+  `CodictateParakeetHelper` on `~/Library/Application Support/codictate/models` with three
+  different signing identifiers, so every switch between them costs a 12 to 19 s compile,
+  stable and canary included. **[measured]** A user who runs only the stable app pays it far less
+  often: on first use, after an OS update, and possibly after a reboot or low disk. An app update
+  probably does not recompile (same identifier, new code hash stayed warm with ad-hoc signing).
+  **[reboot and a signed update unverified]**
+- **The fix is when the load happens, not keeping a process alive.** Loading in the background
+  at launch and on selection, with a Dictation waiting on that load, moves nearly every compile
+  away from a Dictation. Giving each channel's helper its own executable name stops the channels
+  evicting each other. A resident helper (M1) would also work (0 s idle CPU, 25 to 29 MB
+  footprint, about 470 MB reclaimable Neural Engine memory **[measured]**) but is parked; see
+  section 7.
+- **Encoder on GPU is not the answer.** It skips the compile, but uses 2.4 GB RSS instead of
+  80 MB, a 1.1 GB cache, and slows back to 2.5 to 3 s after a few idle minutes. **[measured]**
 - **iOS fix: start loading when recording starts, not after it stops, and load at bootstrap.**
   Today the model only loads inside `transcribe()`, and `warmUp()` is never called. Expect a full
   recompile after every app update (12 s on iPhone 16 Pro Max, 51 to 181 s on iPhone 18 Pro Max
@@ -153,15 +158,47 @@ What this shows:
    On this Mac three helpers share the folder: stable `app.codictate.native.codictateparakeethelper`,
    canary `app.codictate.canary.native.codictateparakeethelper` (both team `L256GR2793`) and the dev
    build's ad-hoc `CodictateParakeetHelper`. All channels use the same `APP_DATA_DIR`
-   (`src/bun/platform/runtime.ts`). Whether stable and canary (same team, different identifier)
-   evict each other was not run, but they differ in the same field the ad-hoc helper does.
+   (`src/bun/platform/runtime.ts`). Stable (0.0.69) and canary (0.0.55) evict each other too
+   **[measured, 2026-10-29]**:
+
+   | Run | Helper | Wall |
+   |---|---|---:|
+   | 1 | stable | 14.20 s (cold) |
+   | 2 | stable | 0.14 s |
+   | 3 | canary | 19.39 s (recompiled) |
+   | 4 | canary | 0.10 s |
+   | 5 | stable | 13.02 s (recompiled) |
+   | 6 | canary | 12.62 s (recompiled) |
+   | 7 | stable | 12.66 s (recompiled) |
+
+   **What the slot is keyed on**, from a probe binary and the repo helper on APFS clones of the
+   model folder (clones share disk blocks but have their own paths) **[measured, 2026-10-29]**:
+   - Two binaries with different process names (`Probe-v1`, `CodictateParakeetHelper`) on the
+     same path kept separate warm copies: 13.12 s cold, then 0.16 to 0.19 s for each after.
+   - Two binaries with the same name and different signing identifiers on the same path evicted
+     each other every switch (12.9 to 13.0 s). On different clones they did not (0.15 to 0.21 s).
+   - The same identifier under a new name got its own cold slot (13.98 s) and left the old one warm.
+   - A rebuilt binary (new code hash, same identifier and name) stayed warm (0.09 s). Ad-hoc
+     signing only; a Developer ID signed update was not tested.
+
+   So the slot is one per (process name, model path), and a different signing identity under the
+   same name replaces it. Giving each channel's helper its own executable name, or its own APFS
+   clone of the model folder, should each stop the eviction. The name change is inferred from the
+   probe runs, not yet tested on the real helpers.
+
+   Side finding: canary 0.0.55 rejects the 0.5 s warmup WAV with `invalidAudioData`, because
+   FluidAudio 0.13.6 required at least 1 s of audio
+   (`AsrManager+Transcription.swift:9`). The models load first, so the compile still happens; only
+   the exit code fails, which left the persisted "prepared" flag unset. Fixed in `aaf2f69`
+   (FluidAudio 0.17.7, minimum 0.3 s), first shipped in v0.0.61.
 4. **The e5 bundle cache does exist but does not hold the encoder.**
    `~/Library/Caches/CodictateParakeetHelper/com.apple.e5rt.e5bundlecache/25G83/` holds 46 entries
    (217 MB in total), sized about 23 MB, 12 MB, 1 MB and 80 KB: the decoder, joint and preprocessor
    pieces, not a 450 MB encoder program. The folder name `25G83` is the macOS build number, so an
    OS update starts a new folder. **[measured]** The general `getconf DARWIN_USER_CACHE_DIR` has no
    entry for the helper; the per-process cache sits under `~/Library/Caches/<process name>/`.
-5. **The boot "Cold Start" load in `parakeet-warmup.ts` only partly helps.** It runs once per app
+5. **The boot "Cold Start" load in `parakeet-warmup.ts` only partly helps** (the code's name; it
+   is the same load, and every slow one measured was a Parakeet Preparation). It runs once per app
    process (`loadedThisProcess`). For a user on one channel it keeps the copy compiled until
    something evicts it. It does not help after another channel or a dev build recompiled the
    folder, or after whatever else evicts the copy (untested: update, reboot, low disk).
@@ -297,8 +334,21 @@ when DirectML fails, which is outside this note.
 - Gain: removes the ANE compile entirely on the Mac. GPU compile caching across processes was not
   measured here **[unverified]**.
 - Risks: more power while transcribing; competes with the GPU used by the Whisper/hviske harness
-  (Metal). Not usable for iOS background work (see I4). Worth a measurement on this Mac before
-  choosing it, because it may be a one-line change that makes per-spawn loads fast.
+  (Metal). Not usable for iOS background work (see I4).
+- Measured 2026-10-29 with a FluidAudio 0.17.7 probe on copies of the model folder, one process
+  per run **[measured]**:
+
+  | | GPU encoder | ANE (default) |
+  |---|---|---|
+  | First-ever load | 5.75 s load + 2.34 s first transcribe = 8.59 s | 14.18 s |
+  | Warm spawn, 0.5 s silence | 0.42 to 0.43 s wall | 0.13 to 0.14 s wall |
+  | Warm spawn after 2 to 3 min idle | 2.5 to 3.0 s load (5 of 5 times) | 0.09 to 0.16 s |
+  | Max RSS / peak footprint, warm | 2.41 GB / 1.44 GB | 79 MB / 37 MB |
+  | Cache on disk | 1.1 GB under `~/Library/Caches/<process name>/` | none in the user's caches |
+  | 23.67 s LibriSpeech clip, later transcribes | RTF about 0.0048 | RTF about 0.0047 |
+
+  Transcripts were byte-identical. **Rejected:** it only wins on a first-ever load, and costs
+  about 30 times the memory, a 1.1 GB cache and a slow load after idle.
 
 **M5. Core ML APIs that do not help here.**
 - `MLModel.load(contentsOf:configuration:)` loads asynchronously
@@ -316,8 +366,10 @@ when DirectML fails, which is outside this note.
 - Because a differently signed helper replaces the compiled copy, stable, canary and dev builds
   sharing `~/Library/Application Support/codictate/models` recompile on every switch.
   **[measured for ad-hoc vs Developer ID]**
-- Options: give each channel its own models folder (costs disk: about 470 MB per Parakeet copy),
-  or accept it as a developer-only cost. M1 hides it for whichever channel is running, but the
+- Options: give each channel's helper its own executable name (no disk cost; the slot is keyed on
+  the process name, see 2.3), give each channel an APFS clone of the models folder (no disk cost,
+  but clone bookkeeping on every download and delete), give each channel its own downloaded
+  folder (about 470 MB each), or accept it. M1 hides it for whichever channel is running, but the
   first load after a switch still compiles.
 - When measuring load times, use one helper only, or the numbers mix the eviction into the result.
 
@@ -464,23 +516,56 @@ and `DictationTranscriber` is the only system-hosted option.
 
 ## 6. Recommendation
 
-**macOS:** first, know that much of the slowness seen on the developer Mac is stable, canary and
-dev helpers evicting each other's compiled copy (M6); a one-channel user hits the compile far less.
-Then build M1, a resident Parakeet helper that loads when Parakeet is selected and stays up, with
-M2's wake check on top: it makes every Dictation independent of the compile cache, costs zero idle
-CPU and about 470 MB of reclaimable Neural Engine memory. The per-process "Cold Start" load becomes
-redundant once M1 exists. Do the same for the Windows Rust helper in the same change (parity).
-Still open, and cheap to measure: which real-user events evict the copy (reboot, app update, OS
-update), and M4 (GPU encoder), which would avoid the compile altogether at some power cost.
+**macOS:** much of the slowness seen on the developer Mac is stable, canary and dev helpers
+evicting each other's compiled copy (M6); a one-channel user hits the compile far less, and the
+2026-10-29 measurements suggest an app update does not cause one. So fix when the load happens
+rather than keeping a process alive: load in the background at launch, on selection and after a
+download, and have a Dictation wait on that load. Stop the channels evicting each other by giving
+each channel's helper its own executable name. M4 (GPU encoder) was measured and rejected. M1
+(resident helper) stays a fallback if users still report a slow first Dictation after that ships.
+The decisions are in section 7.
 
-**iOS:** do I1 (warm up at record start) and I2 (warm up at bootstrap and on the first foreground
-launch after an update) now; both are small. Add I3's memory-warning release. Keep the Neural Engine
-(not GPU). Then measure on a phone with the Core ML Instrument to see whether the slow first
+**iOS:** do I1 (warm up at record start) and I2 (the first foreground launch after an update)
+now; both are small. Add I3's memory-warning release and I5's exact FluidAudio pin. Keep the Neural
+Engine (not GPU). Then measure on a phone with the Core ML Instrument to see whether the slow first
 Dictation is a cached load (fixed by I1) or a recompile (only hidden by I1, and avoided by I2 if the
 app is opened first). Do not extend the warm session just to keep the model loaded: the battery cost
 of an open mic outweighs a sub-second cached load.
 
-## 7. Sources
+## 7. Decisions (2026-10-29)
+
+Settled in a review of this note. Domain wording is in `GLOSSARY.md` (Parakeet Preparation).
+
+macOS and Windows:
+- **Parakeet Preparation can recur, and Cold Start is not a separate thing.** Every slow load
+  measured was a recompile; loading a prepared copy takes about 20 ms. The glossary drops Cold
+  Start.
+- **One load path.** Parakeet loads in the background at app launch, when it becomes the selected
+  Speech Model, and when its download finishes. A Dictation that starts during that load waits on
+  it rather than spawning a second helper. The persisted "prepared" flag no longer decides
+  anything. Only the Dictation's Speech Model is loaded; a File Transcription on Parakeet pays any
+  Preparation in its Processing Time.
+- **Settings shows "Preparing" only once a load has run for more than about 1 s.** The recording
+  indicator is unchanged: on Live Transcription the mic is already open and text catches up, on
+  Batch the transcribing state lasts longer.
+- **No wake trigger (M2).** Launch already covers app updates, OS updates and reboots (there is no
+  launch at login), and sleep showed no eviction.
+- **Each channel's macOS helper gets its own executable name** (stable, canary, dev), to be
+  confirmed on the real helpers. Windows has no Neural Engine compile, so this is macOS only.
+- **Rejected:** M4 (GPU encoder), per-channel model folders or clones. **Parked:** M1 (resident
+  helper).
+
+iOS (`codictate-app`):
+- I1 for Parakeet only; Whisper and hviske wait until someone checks whether their Metal work runs
+  with the host in the background.
+- I2 on the first foreground launch after an update, not on a background relaunch.
+- I3 and I5 as written.
+
+Parked: `DictationTranscriber` as a Danish system-hosted Speech Engine (section 5).
+
+Still unmeasured: whether a reboot evicts the compiled copy, and a Developer ID signed app update.
+
+## 8. Sources
 
 Apple
 - WWDC23 10049, Improve Core ML integration with async prediction (transcript): https://developer.apple.com/videos/play/wwdc2023/10049/
