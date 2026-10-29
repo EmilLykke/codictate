@@ -41,6 +41,7 @@ const buildCopy: Record<string, string> = {
   "docs/licenses/tinyld": "licenses/tinyld",
   "docs/licenses/silero-vad": "licenses/silero-vad",
   "docs/licenses/ekko-pnc": "licenses/ekko-pnc",
+  "docs/licenses/ekko-v1-tiny": "licenses/ekko-v1-tiny",
   "docs/licenses/onnxruntime": "licenses/onnxruntime",
   "docs/licenses/huggingface-tokenizers": "licenses/huggingface-tokenizers",
   "docs/licenses/parakeet-cpp": "licenses/parakeet-cpp",

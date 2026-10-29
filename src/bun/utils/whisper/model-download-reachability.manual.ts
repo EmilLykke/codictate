@@ -6,8 +6,9 @@
  * flaky connection, in an offline CI job and behind a proxy, and it never imports
  * `model-manager.ts`: no bug in `downloadModel` can make it fail. What it does check is
  * real and worth checking on purpose - that the URLs the app builds still resolve, that
- * the hviske and Edda Mirrors still carry every Quantization, and that the ekko-pnc Mirror
- * still serves every pinned file of the Punctuation Model at its pinned size.
+ * the hviske and Edda Mirrors still carry every Quantization, that the ekko-pnc Mirror
+ * still serves every pinned file of the Punctuation Model at its pinned size, and that the
+ * ekko-v1-tiny Mirror serves its GGUF and the licence files the app bundles.
  *
  * Run it deliberately:
  *
@@ -22,8 +23,13 @@
  */
 
 import { describe, test, expect } from 'bun:test'
+import { statSync } from 'node:fs'
+import { join } from 'node:path'
 import { listFiles, downloadFile } from '@huggingface/hub'
 import {
+  EKKO_ENGINE_ID,
+  EKKO_V1_TINY_MIRROR_REPO_ID,
+  EKKO_V1_TINY_MIRROR_REVISION,
   SPEECH_MODELS,
   singleFileModelDownloadUrl,
 } from '../../../shared/speech-models'
@@ -139,6 +145,59 @@ describe('Punctuation Model downloads', () => {
         expect(res.status).toBe(200)
         expect(Number(res.headers.get('Content-Length') ?? '0')).toBe(
           file.bytes
+        )
+      },
+      { timeout: 15_000 }
+    )
+  }
+})
+
+// An ekko download is its GGUF plus the Punctuation Model above. The GGUF is checked at the
+// size the Mirror doc pins, and the licence files the app bundles in docs/licenses/ekko-v1-tiny
+// against the Mirror's own, so a re-mirror that changed either shows up here.
+describe('ekko-v1-tiny Mirror', () => {
+  const ekkoModels = SPEECH_MODELS.filter((m) => m.engine === EKKO_ENGINE_ID)
+  const licenceDir = join(
+    import.meta.dir,
+    '../../../../docs/licenses/ekko-v1-tiny'
+  )
+  const licenceFiles = [
+    'NOTICE',
+    'MODEL_LICENSE.md',
+    'LICENSES/CC-BY-4.0.txt',
+    'LICENSES/CORAL-LICENSE',
+    'LICENSES/FTSPEECH-LICENSE.md',
+    'LICENSES/NVIDIA-OPEN-MODEL-LICENSE.pdf',
+  ]
+
+  test('the catalog has the one ekko Speech Model, q5_0', () => {
+    expect(ekkoModels.map((m) => m.id)).toEqual(['ekko-v1-tiny-q5_0'])
+  })
+
+  test(
+    'serves the GGUF at its pinned size',
+    async () => {
+      const res = await fetch(singleFileModelDownloadUrl(ekkoModels[0]!), {
+        method: 'HEAD',
+      })
+      expect(res.status).toBe(200)
+      expect(Number(res.headers.get('Content-Length') ?? '0')).toBe(134710976)
+    },
+    { timeout: 15_000 }
+  )
+
+  for (const path of licenceFiles) {
+    test(
+      `serves ${path} at the size the app bundles`,
+      async () => {
+        const url = `https://huggingface.co/${EKKO_V1_TINY_MIRROR_REPO_ID}/resolve/${EKKO_V1_TINY_MIRROR_REVISION}/${path}`
+        const res = await fetch(url, {
+          method: 'HEAD',
+          headers: { 'Accept-Encoding': 'identity' },
+        })
+        expect(res.status).toBe(200)
+        expect(Number(res.headers.get('Content-Length') ?? '0')).toBe(
+          statSync(join(licenceDir, path)).size
         )
       },
       { timeout: 15_000 }

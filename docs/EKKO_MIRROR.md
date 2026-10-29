@@ -98,6 +98,18 @@ NVIDIA Open Model License (`LICENSES/NVIDIA-OPEN-MODEL-LICENSE.pdf`). RyeAI appl
 and the FT Speech statement apply in addition, as `MODEL_LICENSE.md` sets out. All of them
 are copied unchanged. This is not legal advice.
 
+The app bundles the same `NOTICE`, `MODEL_LICENSE.md` and `LICENSES/*`, byte for byte, from
+`docs/licenses/ekko-v1-tiny/` (`licenses/ekko-v1-tiny` in the app), like Edda's; the
+electrobun config test pins their sha256 to the table above, and the reachability manual
+check compares their sizes with the Mirror's.
+
+### Download
+
+Downloading ekko in the app (or `codictate models download ekko-v1-tiny-q5_0`) fetches the
+GGUF from this Mirror through the single-file path, sha256 checked, then ekko-pnc from its
+Mirror when it is missing, as one download. ekko counts as installed only with both on
+disk, and deleting it removes the GGUF only.
+
 ## Re-running the mirror script
 
 ```bash
