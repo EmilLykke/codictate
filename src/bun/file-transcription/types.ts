@@ -82,7 +82,10 @@ export type FileTranscriptionResult =
   | {
       status: 'ok'
       filePath: string
-      /** The Raw Transcript. Empty for silence, which is a success. */
+      /**
+       * The Raw Transcript, after Punctuation Restoration when the plan asks for it (hviske
+       * with Add punctuation on). Empty for silence, which is a success.
+       */
       text: string
       /** The Transcription Language the run was fixed to, or `null` when the engine detected it. */
       language: string | null

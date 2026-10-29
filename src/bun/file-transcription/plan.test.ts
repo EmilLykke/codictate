@@ -17,7 +17,10 @@ const HVISKE = 'hviske-v5-tiny-q5_0'
 const EDDA = 'edda-v0.2-q5_0'
 const LARGE_V3 = 'large-v3-q5_0'
 
-const everythingInstalled = () => true
+const everythingInstalled = {
+  isModelAvailable: () => true,
+  punctuationModelInstalled: true,
+}
 const locations = {
   getModelPath: (id: string) => `/models/${id}.bin`,
   getParakeetInstallDir: (id: string) => `/models/${id}-coreml`,
@@ -39,6 +42,7 @@ function settings(
       translateToEnglish,
     }),
     getTranslateDefaultLanguageId: () => translateDefaultLanguageId,
+    getAddPunctuation: () => false,
   }
 }
 
@@ -148,10 +152,10 @@ describe('selectFileTranscription and planFileTranscription', () => {
   test('missing weights are model_not_installed, naming the Speech Model, and nothing substitutes', () => {
     const selected = selectFileTranscription(settings(HVISKE), {})
     if (selected.status !== 'ok') throw new Error('unexpected')
-    const planned = planFileTranscription(
-      selected.selection,
-      (id) => id !== HVISKE
-    )
+    const planned = planFileTranscription(selected.selection, {
+      ...everythingInstalled,
+      isModelAvailable: (id) => id !== HVISKE,
+    })
     expect(planned).toMatchObject({
       status: 'failed',
       code: 'model_not_installed',
@@ -198,6 +202,7 @@ describe('Translate to English', () => {
         transcriptionLanguageId: 'auto',
         translateToEnglish: true,
         translateDefaultLanguageId: 'de',
+        addPunctuation: false,
       },
     })
   })
@@ -243,7 +248,10 @@ describe('Translate to English', () => {
     const selected = selectFileTranscription(settings(TURBO, 'da', true), {})
     if (selected.status !== 'ok') throw new Error('unexpected')
     expect(
-      planFileTranscription(selected.selection, () => false)
+      planFileTranscription(selected.selection, {
+        ...everythingInstalled,
+        isModelAvailable: () => false,
+      })
     ).toMatchObject({ code: 'model_not_installed' })
   })
 })

@@ -5,8 +5,10 @@
  * A job is: resolve the plan (ADR-0005's one resolver, read-only), decode the file to a
  * 16 kHz mono WAV in a temp directory of its own, run the Speech Engine on it, and return
  * the Raw Transcript (in English when Translate to English is on), with its Timed Transcript
- * when the Speech Engine timed it. No Dictionary, no Formatting Mode, nothing pasted: a file is not a
- * Dictation. And a Dictation never waits for one. The queue holds no lock a Dictation takes,
+ * when the Speech Engine timed it. When the plan asks for Punctuation Restoration (hviske
+ * with Add punctuation on), the Raw Transcript and its Timed Transcript are punctuated
+ * together, by the Punctuation Restorer a Dictation uses (punctuate.ts). No brand table, no
+ * Dictionary, no Formatting Mode, nothing pasted: a file is not a Dictation. And a Dictation never waits for one. The queue holds no lock a Dictation takes,
  * and the decoder and the engine run at lowered OS priority.
  *
  * Everything that touches the machine comes in through `FileTranscriptionDeps`, so the
@@ -21,6 +23,7 @@ import type {
   TranscriptionRequest,
   TranscriptionResult,
 } from '../utils/whisper/engines/transcription'
+import type { PunctuationRestorer } from '../utils/punctuation/punctuation-restorer'
 import type { DecodeAudioOptions, DecodeAudioResult } from './extract-audio'
 import {
   engineFailureLine,
@@ -30,9 +33,11 @@ import {
   publicEngineName,
   resultLanguage,
   selectFileTranscription,
+  type FileTranscriptionAvailability,
   type FileTranscriptionSelection,
   type FileTranscriptionSettingsReader,
 } from './plan'
+import { punctuateFileTranscription } from './punctuate'
 import type {
   FileTranscriptionEvent,
   FileTranscriptionJob,
@@ -57,6 +62,10 @@ export interface FileTranscriptionDeps {
   settings: FileTranscriptionSettingsReader
   /** `modelManager.isModelAvailable`: a question, never a write. */
   isModelAvailable(speechModelId: string): boolean
+  /** The Punctuation Model is fully on disk with its pinned hashes. A question, never a write. */
+  isPunctuationModelInstalled(): boolean
+  /** The app's one Punctuation Restorer, the one a Dictation uses. Never throws. */
+  punctuationRestorer: Pick<PunctuationRestorer, 'restore'>
   locations: SpeechModelLocations
   /** Whether the path names an existing regular file. */
   inspectInput(filePath: string): 'file' | 'missing' | 'not_a_file'
@@ -127,6 +136,13 @@ export function createFileTranscriptionQueue(
   const changeListeners = new Set<
     (jobs: FileTranscriptionJobSnapshot[]) => void
   >()
+
+  function availability(): FileTranscriptionAvailability {
+    return {
+      isModelAvailable: deps.isModelAvailable,
+      punctuationModelInstalled: deps.isPunctuationModelInstalled(),
+    }
+  }
 
   function emit(record: JobRecord, event: FileTranscriptionEvent): void {
     for (const listener of [...record.listeners]) {
@@ -271,10 +287,7 @@ export function createFileTranscriptionQueue(
     const { filePath } = record.request
     // Availability is asked again at the start of the run: weights deleted while the job
     // waited are reported, not substituted.
-    const planned = planFileTranscription(
-      record.selection!,
-      deps.isModelAvailable
-    )
+    const planned = planFileTranscription(record.selection!, availability())
     if (planned.status === 'failed') return planned
     const { plan } = planned
     if (signal.aborted) return cancelledResult()
@@ -334,10 +347,25 @@ export function createFileTranscriptionQueue(
       )
     }
 
+    const { text, timedTranscript } = plan.punctuationRestoration
+      ? await punctuateFileTranscription(
+          {
+            text: transcribed.rawTranscript,
+            timedTranscript: transcribed.timedTranscript ?? null,
+          },
+          deps.punctuationRestorer,
+          (message, data) => deps.log(message, { jobId: record.id, ...data })
+        )
+      : {
+          text: transcribed.rawTranscript,
+          timedTranscript: transcribed.timedTranscript ?? null,
+        }
+    if (signal.aborted) return cancelledResult()
+
     return {
       status: 'ok',
       filePath,
-      text: transcribed.rawTranscript,
+      text,
       language: resultLanguage(plan),
       speechModelId: plan.speechModelId,
       engine: publicEngineName(plan.engineId),
@@ -348,7 +376,7 @@ export function createFileTranscriptionQueue(
         Math.max(0, deps.clock.now() - record.startedAt!) / 1000,
         1
       ),
-      timedTranscript: transcribed.timedTranscript ?? null,
+      timedTranscript,
     }
   }
 
@@ -382,10 +410,7 @@ export function createFileTranscriptionQueue(
         break
     }
 
-    const planned = planFileTranscription(
-      selected.selection,
-      deps.isModelAvailable
-    )
+    const planned = planFileTranscription(selected.selection, availability())
     return planned.status === 'failed' ? planned : null
   }
 

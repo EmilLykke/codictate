@@ -54,9 +54,10 @@ A command that records the microphone or changes what Codictate is doing needs *
 
 ### `transcribe` - File Transcription
 
-Transcribes audio or video files with the Speech Model and Transcription Language from the File Transcription Settings (the ones set for File Transcriptions on Codictate's Transcribe page, the same ones a File Transcription started in the window uses), unless `--model` or `--language` overrides them. Translate to English is off unless `--translate` asks for it. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
+Transcribes audio or video files with the Speech Model and Transcription Language from the File Transcription Settings (the ones set for File Transcriptions on Codictate's Transcribe page, the same ones a File Transcription started in the window uses), unless `--model` or `--language` overrides them. Translate to English is off unless `--translate` asks for it. Returns the Raw Transcript: no Dictionary, no Formatting Mode, nothing pasted. With hviske and Add punctuation on, the Raw Transcript comes back punctuated, exactly as on the Transcribe page, and so do its captions. Any format the platform can decode is accepted (AVFoundation on macOS, Media Foundation on Windows).
 
 - `--model <id>` uses that Speech Model for this call only. It must be installed (exit `4` otherwise); nothing is downloaded implicitly. Settings do not change.
+- With hviske and Add punctuation on, Danish punctuation needs its punctuation model installed; if it is gone, the call exits `4` with `model_not_installed` rather than return unpunctuated text.
 - `--language <id|auto>` overrides the Transcription Language for this call only. It is coerced for the Speech Model exactly as a settings change would be (Parakeet is always `auto`; hviske and Edda are always `da`).
 - `models use` and `languages use` change the Dictation's Speech Model and Transcription Language, not the File Transcription Settings.
 - Several files run one after another. Each is its own File Transcription. A failure does not stop the rest (its error names the file as typed: `codictate: a.m4a: ...`); the exit code is the first failure's. Only an unreachable app or a contract mismatch stops the remaining files.
@@ -80,11 +81,11 @@ Human output: the transcript on stdout, followed by a newline. With several file
 
 ### `dictate` - a Dictation from the command line
 
-Records from the microphone, with the recording indicator shown exactly as for the Dictation Shortcut, and runs a full Dictation: the Dictionary and the Formatting Mode are applied, and it is kept in History and Stats like any Dictation.
+Records from the microphone, with the recording indicator shown exactly as for the Dictation Shortcut, and runs a full Dictation: Punctuation Restoration (hviske with Add punctuation on), the Dictionary and the Formatting Mode are applied, and it is kept in History and Stats like any Dictation.
 
 - Without `--paste`, the text is printed and nothing is pasted. A Live Transcription produces no text to print, so a Dictation that prints always runs as a Batch Dictation, whatever the Live Transcription setting.
 - With `--paste`, the text is placed at the cursor as the Dictation Shortcut would place it, and the Live Transcription setting is honoured, unless `--model` names a Speech Model that cannot do Live Transcription: then that one Dictation is a Batch Dictation. When the Dictation is a Live Transcription, there is no text in the result (`"text":""`, `"live":true`), and `--until silence` is refused with exit `2`.
-- `--raw` skips the Dictionary and the Formatting Mode.
+- `--raw` returns the Speech Engine's output as it is: no Punctuation Restoration, no Dictionary, no Formatting Mode. `rawText` in the result is always that output.
 - `--formatting-mode <id>` uses that Formatting Mode for this Dictation instead of the one Codictate would pick.
 - `--model`, `--language`: as for `transcribe`.
 - **Ending it.** By default (`--until enter`) the Dictation ends on Enter or on the first Ctrl-C (SIGINT), and is then transcribed. A second Ctrl-C, or SIGTERM, cancels it (exit `130` / `143`) and nothing is transcribed. `--until silence` also ends it after a pause in speech. `--max <seconds>` ends it after that long; Codictate's own maximum recording duration always applies. `codictate stop` from another process ends it too. When stdin is not a terminal, Enter is not read.
@@ -201,7 +202,7 @@ Every event has a `type`. Consumers must ignore event types and fields they do n
 | 2 | `cannot_translate` | Translate to English cannot run with this Speech Model or Transcription Language |
 | 2 | `captions_unavailable` | Captions were asked for, and there is no Timed Transcript to make them from |
 | 3 | `input_unreadable`, `no_audio` | The file cannot be read, or has no audio track |
-| 4 | `model_not_installed` | The Speech Model's weights are not installed |
+| 4 | `model_not_installed` | The Speech Model's weights are not installed, or Add punctuation is on and its punctuation model is not |
 | 5 | `engine_failed` | The Speech Engine failed |
 | 6 | `app_unavailable` | Codictate could not be started or did not answer (client only) |
 | 7 | `command_line_control_off` | The command needs Command-Line Control |

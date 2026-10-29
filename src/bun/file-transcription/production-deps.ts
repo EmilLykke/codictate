@@ -1,6 +1,7 @@
 /**
  * The real machine behind the File Transcription queue: `modelManager`, the media Native
- * Helper, the Speech Engine Adapters, the temp directory and the wall clock.
+ * Helper, the Speech Engine Adapters, the Punctuation Restorer, the temp directory and the
+ * wall clock.
  *
  *   const fileTranscriptions = createFileTranscriptionQueue(
  *     productionFileTranscriptionDeps(UserAppConfig)
@@ -11,6 +12,8 @@ import { closeSync, openSync, readSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { estimateWavDurationSecFromBytes } from '../../shared/wav-duration'
 import { log } from '../utils/logger'
+import { appPunctuationRestorer } from '../utils/punctuation/app-punctuation-restorer'
+import { isPunctuationModelInstalled } from '../utils/punctuation/punctuation-model-files'
 import { runTranscription } from '../utils/whisper/engines/run-transcription'
 import { modelManager } from '../utils/whisper/model-manager'
 import { extractAudioToWav } from './extract-audio'
@@ -47,6 +50,10 @@ export function productionFileTranscriptionDeps(
   return {
     settings,
     isModelAvailable: (id) => modelManager.isModelAvailable(id),
+    isPunctuationModelInstalled: () => isPunctuationModelInstalled(),
+    // The one a Dictation uses, so `codictate transcribe`, the Transcribe page and a
+    // Dictation punctuate the same words the same way, on one loaded Punctuation Model.
+    punctuationRestorer: appPunctuationRestorer(),
     locations: modelManager,
     inspectInput: inspectInputFile,
     // One directory per job, so two jobs, or a job and a Dictation (which records to its

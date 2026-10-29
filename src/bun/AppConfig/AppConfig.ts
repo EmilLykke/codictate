@@ -1951,6 +1951,11 @@ export class AppConfig {
     return this.audioDucking.includeSpeakers
   }
 
+  /** The Add punctuation switch. Global; only an hviske selection reads it. */
+  public getAddPunctuation(): boolean {
+    return this.addPunctuation
+  }
+
   public getStreamMode(): boolean {
     return this.streamMode
   }
