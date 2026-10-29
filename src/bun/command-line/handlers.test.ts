@@ -868,6 +868,7 @@ const BATCH_PLAN: RunnableDictationPlan = {
   transcriptionLanguageId: 'auto',
   languageCode: null,
   translateToEnglish: false,
+  punctuationRestoration: false,
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0))

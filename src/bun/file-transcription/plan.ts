@@ -198,9 +198,16 @@ export function planFileTranscription(
       translateDefaultLanguageId: selection.translateDefaultLanguageId,
       translateToEnglish: selection.translateToEnglish,
       streamMode: false,
+      // Punctuation Restoration for File Transcription is #97: until the queue punctuates,
+      // its plan never asks for it, so an hviske File Transcription runs as it always has.
+      addPunctuation: false,
     },
     // Batch only, so whether this platform can stream never comes up.
-    { isModelAvailable, streamSupported: false }
+    {
+      isModelAvailable,
+      streamSupported: false,
+      punctuationModelInstalled: false,
+    }
   )
   if (plan.status === 'runnable') return { status: 'runnable', plan }
   const label = modelLabel(selection.speechModelId)

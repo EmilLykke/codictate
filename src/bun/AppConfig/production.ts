@@ -8,6 +8,7 @@ import {
 } from '../platform/runtime'
 import { modelManager } from '../utils/whisper/model-manager'
 import { isParakeetPreparing } from '../utils/whisper/parakeet-warmup'
+import { isPunctuationModelInstalled } from '../utils/punctuation/punctuation-model-files'
 import {
   detectFormattingAvailable,
   isFormatterModelInstalled,
@@ -26,6 +27,7 @@ const productionDependencies: AppConfigDependencies = {
   detectFormattingAvailable,
   isFormatterModelInstalled,
   isParakeetPreparing,
+  isPunctuationModelInstalled: () => isPunctuationModelInstalled(),
 }
 
 /** Production adapter for filesystem, platform, and installed-model dependencies. */

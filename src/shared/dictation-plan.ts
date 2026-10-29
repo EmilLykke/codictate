@@ -56,6 +56,12 @@ import {
 export interface DictationAvailability {
   isModelAvailable: (speechModelId: string) => boolean
   streamSupported: boolean
+  /**
+   * The Punctuation Model (ekko-pnc) is fully on disk with its pinned hashes. A plain fact
+   * rather than a predicate, since there is only one: the main process computes it and the
+   * window is shipped it.
+   */
+  punctuationModelInstalled: boolean
 }
 
 /**
@@ -209,13 +215,27 @@ export type CapabilityReadiness<Reason extends string> =
       downloadModelId: string | null
     }
 
+/** Why Add punctuation cannot run. Closed union, same contract. */
+export type AddPunctuationReadinessReason =
+  /**
+   * The selection is not hviske. Edda and every other Whisper Speech Model punctuate
+   * themselves, and Parakeet too, so the switch is not offered and a Dictation ignores it.
+   */
+  | 'not_offered_for_speech_model'
+  /** hviske is selected, and the Punctuation Model is not fully on disk. */
+  | 'punctuation_model_not_installed'
+
 export type TranslateReadiness = CapabilityReadiness<TranslateReadinessReason>
 export type StreamModeReadiness = CapabilityReadiness<StreamModeReadinessReason>
+export type AddPunctuationReadiness =
+  CapabilityReadiness<AddPunctuationReadinessReason>
 
 /** What the webview is shipped, and the whole of what it knows about what can run. */
 export interface DictationReadiness {
   translateToEnglish: TranslateReadiness
   liveTranscription: StreamModeReadiness
+  /** Can a Batch Dictation with the selected Speech Model punctuate with Add punctuation on. */
+  addPunctuation: AddPunctuationReadiness
   /**
    * A Parakeet Preparation is under way right now: Parakeet is the selection, its weights are
    * installed, and its background load has run past the threshold (`ParakeetLoadStatus`).
@@ -358,6 +378,45 @@ function streamModeReadiness(
 }
 
 /**
+ * The Add punctuation switch is offered for hviske alone. Edda's own punctuation is already
+ * as good as what the Punctuation Model adds (#85), and every other Speech Model punctuates
+ * itself. The ekko Speech Engine (#87) restores punctuation with no switch at all.
+ */
+export function offersAddPunctuation(speechModelId: string): boolean {
+  return isHviskeSpeechModelId(speechModelId)
+}
+
+function addPunctuationReadiness(
+  input: DictationReadinessInput,
+  availability: DictationAvailability
+): AddPunctuationReadiness {
+  if (!offersAddPunctuation(input.speechModelId)) {
+    return {
+      ready: false,
+      reason: 'not_offered_for_speech_model',
+      message: `Add punctuation is only offered for hviske. ${modelLabel(input.speechModelId)} punctuates on its own.`,
+      downloadModelId: null,
+    }
+  }
+  if (!availability.punctuationModelInstalled) {
+    return {
+      ready: false,
+      reason: 'punctuation_model_not_installed',
+      message:
+        'Add punctuation needs the Danish punctuation model, which is not installed. Turning it on downloads it.',
+      // Not a Speech Model, so no Speech Model download unblocks it: the switch does.
+      downloadModelId: null,
+    }
+  }
+  return {
+    ready: true,
+    reason: null,
+    message: 'Add punctuation: commas, full stops and capitals in Danish.',
+    downloadModelId: null,
+  }
+}
+
+/**
  * The single answer to "what can run right now", for every surface that asks.
  *
  * Computed in the main process (`AppConfig.getSettings`) and shipped whole, because the
@@ -373,6 +432,7 @@ export function getDictationReadiness(
   return {
     translateToEnglish: translateReadiness(input, availability),
     liveTranscription: streamModeReadiness(input, availability, parakeetLoad),
+    addPunctuation: addPunctuationReadiness(input, availability),
     parakeetPreparing: isParakeetPreparing(input, availability, parakeetLoad),
   }
 }
@@ -424,6 +484,11 @@ export interface DictationPlanInput {
   translateDefaultLanguageId: string
   translateToEnglish: boolean
   streamMode: boolean
+  /**
+   * The Add punctuation switch. Global, but only an hviske selection reads it
+   * (`offersAddPunctuation`); every other Speech Model ignores it.
+   */
+  addPunctuation: boolean
 }
 
 /**
@@ -431,7 +496,7 @@ export interface DictationPlanInput {
  * bucket, because `BLOCKED_MESSAGES` below is an exhaustive `Record` over it and `tsc`
  * refuses to compile a member without a sentence.
  *
- * Seven of the eight share their names with `SettingsHealReason`, on purpose - a blocked
+ * Eight of the nine share their names with `SettingsHealReason`, on purpose - a blocked
  * plan and the heal that follows it are the same fact in two tenses ("this cannot run" and
  * "this was switched off"), so they should not need a translation table between them.
  */
@@ -454,6 +519,12 @@ export type DictationBlockedReason =
    * snapshot reaches it.
    */
   | 'parakeet_helper_missing'
+  /**
+   * Add punctuation is on for an hviske selection and the Punctuation Model is not fully on
+   * disk. Blocked rather than run unpunctuated: a silent drop of a switch the user turned on
+   * is the fallback ADR-0005 rules out.
+   */
+  | 'punctuation_model_not_installed'
 
 /** A Dictation that will run, exactly as described. Nothing downstream re-derives a field. */
 export interface RunnableDictationPlan {
@@ -475,6 +546,12 @@ export interface RunnableDictationPlan {
   languageCode: string | null
   /** Whether the run passes `-tr`. Never true on a live plan. */
   translateToEnglish: boolean
+  /**
+   * Whether the Raw Transcript goes through Punctuation Restoration before the brand table,
+   * the Dictionary and the Formatting Mode. True for the ekko Speech Engine, and for hviske
+   * with Add punctuation on; never true on a live plan.
+   */
+  punctuationRestoration: boolean
 }
 
 /**
@@ -520,6 +597,8 @@ const BLOCKED_MESSAGES: Record<
     `Live transcription cannot start because ${PARAKEET_LABEL} does not support the selected transcription language.`,
   parakeet_helper_missing: () =>
     `Live transcription cannot start because the ${PARAKEET_LABEL} helper is missing from this installation. Reinstalling Codictate restores it.`,
+  punctuation_model_not_installed: () =>
+    'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next press works.',
 }
 
 /**
@@ -556,6 +635,14 @@ function runTranscriptionLanguageId(input: DictationPlanInput): string {
     ? input.transcriptionLanguageId
     : input.translateDefaultLanguageId
 }
+
+/**
+ * Speech Engines whose Raw Transcript always goes through Punctuation Restoration, with no
+ * switch. The ekko Speech Engine (#87) writes no punctuation or capitals of its own, so it
+ * joins the `SpeechEngineId` union already listed here; until it does, this matches nothing.
+ * #87 also owns its blocked reason for a missing Punctuation Model.
+ */
+const ENGINES_ALWAYS_RESTORING_PUNCTUATION: readonly string[] = ['ekko']
 
 /**
  * The whole run decision, as one value.
@@ -607,6 +694,8 @@ export function buildDictationPlan(
       // to English is a whisper.cpp flag with no live equivalent.
       languageCode: null,
       translateToEnglish: false,
+      // Parakeet pastes its own text as it goes; there is no Raw Transcript to punctuate.
+      punctuationRestoration: false,
     }
   }
 
@@ -627,6 +716,11 @@ export function buildDictationPlan(
     ) {
       return blocked('no_translate_source_language')
     }
+  }
+
+  const addPunctuation = input.addPunctuation && offersAddPunctuation(selected)
+  if (addPunctuation && !availability.punctuationModelInstalled) {
+    return blocked('punctuation_model_not_installed')
   }
 
   // A single-language Speech Model (hviske, Edda) is pinned to its language rather than
@@ -651,5 +745,8 @@ export function buildDictationPlan(
         ? null
         : whisperCodeForTranscriptionId(transcriptionLanguageId),
     translateToEnglish: input.translateToEnglish,
+    punctuationRestoration:
+      addPunctuation ||
+      ENGINES_ALWAYS_RESTORING_PUNCTUATION.includes(model.engine),
   }
 }
