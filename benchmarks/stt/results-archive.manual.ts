@@ -12,8 +12,8 @@
  * numbers to match; fix the read path.
  *
  * This is deliberately outside the default `bun test` run - the `.manual.ts` suffix keeps
- * it out of test discovery. The assertions are pinned to the seven archived runs that exist
- * today (`coverage.runCount` is asserted to be exactly 7), so an eighth Benchmark Run turns
+ * it out of test discovery. The assertions are pinned to the thirty archived runs that exist
+ * today (`coverage.runCount` is asserted to be exactly 30), so a thirty-first Benchmark Run turns
  * the suite red without anything having broken. Its subject is the archive on disk, not
  * the code under change, which makes it a check to run when the archive moves rather than
  * a gate on every commit.
@@ -148,14 +148,14 @@ describe("pre-harness archived runs", () => {
 describe("coverage across every archived run", () => {
   const coverage = loadCoverage(RESULTS_DIR);
 
-  test("all seven run directories are counted", () => {
+  test("all thirty run directories are counted", () => {
     const runDirs = readdirSync(RESULTS_DIR).filter(
       (d) =>
         /^\d{4}-\d{2}-\d{2}/.test(d) &&
         existsSync(join(RESULTS_DIR, d, "stt.json")),
     );
     expect(coverage.runCount).toBe(runDirs.length);
-    expect(coverage.runCount).toBe(7);
+    expect(coverage.runCount).toBe(30);
   });
 
   test("archived whisper-cli Combinations count as measured", () => {
@@ -250,8 +250,17 @@ describe("sample cursors across the archive", () => {
     ).toBe(47);
   });
 
-  test("the crispasr 400-clip run sets a cursor on both dataset families", () => {
-    for (const datasetKey of ["test-clean", "test-other", "es_419", "hu_hu"]) {
+  test("the crispasr runs set a cursor on both dataset families", () => {
+    // The 400-clip run of 2026-09-04 first set these at 397; the full-corpus runs since
+    // took every one of them to the end of its consumable range.
+    const expected: Record<string, number> = {
+      "test-clean": 2617,
+      "test-other": 2936,
+      es_419: 905,
+      hu_hu: 902,
+      da_dk: 927,
+    };
+    for (const [datasetKey, depth] of Object.entries(expected)) {
       expect(
         deepestCursorForDataset(
           coverage.cursors,
@@ -259,8 +268,29 @@ describe("sample cursors across the archive", () => {
           "large-v3-q5_0",
           datasetKey,
         ),
-      ).toBe(397);
+      ).toBe(depth);
     }
+  });
+
+  test("ekko's cursor is under parakeet-cli, the Harness that ran it", () => {
+    // `2026-10-29_21-54-05_ekko-v1-tiny-danish`, all 927 consumable da_dk clips. Under
+    // the selected crispasr it would read as a Combination nobody has measured.
+    expect(
+      deepestCursorForDataset(
+        coverage.cursors,
+        "parakeet-cli",
+        "ekko-v1-tiny-q5_0",
+        "da_dk",
+      ),
+    ).toBe(927);
+    expect(
+      deepestCursorForDataset(
+        coverage.cursors,
+        DEFAULT_HARNESS_LABEL,
+        "ekko-v1-tiny-q5_0",
+        "da_dk",
+      ),
+    ).toBe(0);
   });
 
   test("every recorded range agrees with its own utteranceCount", () => {

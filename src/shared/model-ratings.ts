@@ -19,6 +19,7 @@ export const MODEL_RATINGS: Record<string, ModelRatings> = {
   'edda-v0.2-f16': { speed: 8, accuracy: 9, languages: 1 },
   'edda-v0.2-q5_0': { speed: 9, accuracy: 9, languages: 1 },
   'edda-v0.2-q8_0': { speed: 9, accuracy: 9, languages: 1 },
+  'ekko-v1-tiny-q5_0': { speed: 10, accuracy: 9, languages: 1 },
   'hviske-v5-tiny-f16': { speed: 9, accuracy: 9, languages: 1 },
   'hviske-v5-tiny-q4_k': { speed: 10, accuracy: 9, languages: 1 },
   'hviske-v5-tiny-q5_0': { speed: 10, accuracy: 9, languages: 1 },

@@ -10,10 +10,12 @@
 
 import {
   DEFAULT_ASR_HARNESS,
+  EKKO_ASR_HARNESS,
   HVISKE_ASR_HARNESS,
   type AsrHarnessId,
 } from "../../src/shared/asr-harness";
 import {
+  EKKO_ENGINE_ID,
   getSpeechModel,
   isHviskeSpeechModelId,
 } from "../../src/shared/speech-models";
@@ -234,7 +236,7 @@ export function flattenDatasetResults(
 /**
  * Which Harness bucket a model's results belong in.
  *
- * Two Speech Engines ignore the run's selected Harness, and both are recorded under
+ * Three Speech Engines ignore the run's selected Harness, and all are recorded under
  * the Harness that actually produced the numbers rather than the one that was asked
  * for:
  *
@@ -244,6 +246,8 @@ export function flattenDatasetResults(
  * - hviske GGUF weights load only under crispasr's cohere backend, so `runner.ts`
  *   forces that Harness. Recording an hviske result under any other selected Harness
  *   would attribute crispasr's measurement to a Harness that never ran it.
+ * - ekko GGUF weights load only in parakeet-cli, which the ekko adapter always runs and
+ *   no Run can select, so ekko lands in the `parakeet-cli` bucket for the same reason.
  */
 export function harnessBucketForModel(
   modelId: string,
@@ -253,6 +257,8 @@ export function harnessBucketForModel(
     return DEFAULT_HARNESS_LABEL;
   }
   if (isHviskeSpeechModelId(modelId)) return HVISKE_ASR_HARNESS;
+  if (getSpeechModel(modelId)?.engine === EKKO_ENGINE_ID)
+    return EKKO_ASR_HARNESS;
   return harness;
 }
 

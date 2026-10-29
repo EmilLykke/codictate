@@ -1,5 +1,5 @@
 import { requireRuntimeBinary } from "../../src/bun/platform/binaries";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MODELS_DIR } from "../../src/bun/platform/runtime";
@@ -8,9 +8,11 @@ import {
   isHviskeSpeechModelId,
   pinnedTranscriptionLanguageId,
   PARAKEET_ENGINE_ID,
+  EKKO_ENGINE_ID,
 } from "../../src/shared/speech-models";
 import {
   DEFAULT_ASR_HARNESS,
+  EKKO_ASR_HARNESS,
   HVISKE_ASR_HARNESS,
   HVISKE_CRISPASR_BACKEND,
   type AsrHarnessId,
@@ -18,6 +20,13 @@ import {
 import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-harness-command";
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
 import { parakeetTranscribeArgv } from "../../src/bun/utils/whisper/engines/parakeet-engine";
+import {
+  EKKO_ENV,
+  ekkoSliceArgv,
+  ekkoSlices,
+  pcm16MonoWav,
+} from "../../src/bun/utils/whisper/engines/ekko-engine";
+import { findAsrHarnessBinary } from "../../src/bun/utils/whisper/find-asr-harness";
 import { writeNtVadSlices } from "../../src/bun/utils/whisper/engines/crispasr-engine";
 import { runTranscription } from "../../src/bun/utils/whisper/engines/run-transcription";
 import { engineProcessTimeoutMs } from "../../src/bun/utils/whisper/engines/process-supervisor";
@@ -404,10 +413,11 @@ function harnessInvocationFor(
  * Benchmark Combination: the Speech Model, its resolved weights, and the Sample's own
  * language.
  *
- * The Request carries no ASR Harness because there is one (ADR-0002) and the adapter resolves
- * it. `harnessInvocationFor` is still asked, for the two things that do vary per Speech Model
- * - the forced language of hviske and Edda, and hviske's forced crispasr backend - and if a second Harness is ever
- * added, the Harness belongs in the Request rather than back in a second argv builder here.
+ * The Request carries no ASR Harness because each adapter resolves its own (ADR-0002): ekko's
+ * is always `parakeet-cli` and every Whisper Speech Model's is `crispasr`, so an ekko Request
+ * is what forces the ekko Harness. `harnessInvocationFor` is still asked, for the two things
+ * that do vary per Whisper Speech Model - the forced language of hviske and Edda, and hviske's
+ * forced crispasr backend.
  */
 function transcriptionRequestFor(
   modelId: string,
@@ -427,6 +437,19 @@ function transcriptionRequestFor(
       audioPath,
       timeoutMs,
       modelDir: modelPath,
+    };
+  }
+
+  // ekko takes no language (parakeet-cli has no such flag; the model is Danish only) and no
+  // crispasr backend. Its Harness, `parakeet-cli`, is the adapter's own, whatever the Run
+  // selected; `harnessBucketForModel` files the result under it.
+  if (speech.engine === EKKO_ENGINE_ID) {
+    return {
+      engineId: EKKO_ENGINE_ID,
+      speechModelId: modelId,
+      audioPath,
+      timeoutMs,
+      modelPath,
     };
   }
 
@@ -1021,11 +1044,37 @@ async function measureModelMemory(
   const speech = getSpeechModel(modelId);
   if (!speech) return null;
 
-  // crispasr writes its JSON here (ADR-0010), and reads an `nt-vad` run's slices from it.
-  // Peak RSS ignores both; they only must not litter.
+  // crispasr writes its JSON here (ADR-0010), and reads an `nt-vad` run's slices from it;
+  // ekko's slice WAV goes here too. Peak RSS ignores all of them; they only must not litter.
   const outputDir = mkdtempSync(join(tmpdir(), "codictate-bench-crispasr-"));
   try {
     let command: string[];
+
+    if (speech.engine === EKKO_ENGINE_ID) {
+      // The adapter's own read-and-cut, and its argv and env on the first slice: the adapter
+      // spawns parakeet-cli once per slice, so one slice is one measured process. No slices
+      // is silence, which the adapter never spawns for either.
+      const slicing = ekkoSlices(sampleEntry.audioPath);
+      if (!slicing.ok)
+        throw new Error(`${sampleEntry.audioPath}: ${slicing.detail}`);
+      if (slicing.slices.length === 0) return null;
+      const slicePath = join(outputDir, "slice.wav");
+      writeFileSync(
+        slicePath,
+        pcm16MonoWav(slicing.samples, slicing.sampleRate, slicing.slices[0]),
+      );
+      const result = await measurePeakRss(
+        ekkoSliceArgv(
+          await findAsrHarnessBinary(EKKO_ASR_HARNESS),
+          modelPath,
+          slicePath,
+        ),
+        { env: { ...process.env, ...EKKO_ENV } },
+      );
+      return result.peakRssBytes === null
+        ? null
+        : Math.round(result.peakRssBytes / 1024 / 1024);
+    }
 
     if (speech.engine === PARAKEET_ENGINE_ID) {
       // The adapter's argv, not a second copy of it: peak RSS has to be measured on the
