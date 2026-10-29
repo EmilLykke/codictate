@@ -31,6 +31,7 @@ import {
   type TimedPiece,
 } from '../../../../shared/timed-transcript'
 import { log } from '../../logger'
+import { awaitEkkoWarmup, EKKO_WARMUP_TIMEOUT_MS } from '../ekko-warmup'
 import { findAsrHarnessBinary } from '../find-asr-harness'
 import { decodeEngineStderr, stderrTail } from './drain-stream'
 import {
@@ -193,9 +194,66 @@ export function ekkoSlices(
   }
 }
 
+/**
+ * The app adapter. It first waits, bounded, for a warm-up in flight (`ekko-warmup.ts`): that
+ * run is paying the setup this one would otherwise pay beside it.
+ */
 export const transcribeWithEkko: SpeechEngineAdapter<
   EkkoTranscriptionRequest
-> = (request) => transcribeWithEkkoTuned(request, {})
+> = async (request) => {
+  await awaitEkkoWarmup()
+  return transcribeWithEkkoTuned(request, {})
+}
+
+/** The warm-up's audio: half a second of 16 kHz silence. */
+const WARMUP_SAMPLE_RATE = 16_000
+const WARMUP_SAMPLES = WARMUP_SAMPLE_RATE / 2
+
+/**
+ * One warm-up: the slice command, with `EKKO_ENV`, on half a second of silence in its own temp
+ * directory, supervised for `EKKO_WARMUP_TIMEOUT_MS`. What it pays for is `parakeet-cli`'s
+ * setup (on the Mac the Metal compile, cached by macOS afterwards), not the transcript, which
+ * is ignored. Rejects on any failure; `ekko-warmup.ts` logs it.
+ */
+export async function warmUpEkko(
+  modelPath: string,
+  deps: EkkoDeps = realEkkoDeps
+): Promise<void> {
+  if (!existsSync(modelPath)) {
+    throw new Error(`ekko GGUF not on disk: ${modelPath}`)
+  }
+  const binary = await deps.resolveBinary()
+  const runDir = mkdtempSync(join(tmpdir(), 'codictate-ekko-warmup-'))
+  try {
+    const wavPath = join(runDir, 'silence.wav')
+    writeFileSync(
+      wavPath,
+      pcm16MonoWav(new Float32Array(WARMUP_SAMPLES), WARMUP_SAMPLE_RATE)
+    )
+    log('ekko', 'warming up parakeet-cli', { binary, model: modelPath })
+    const proc = deps.spawn(ekkoSliceArgv(binary, modelPath, wavPath), {
+      env: { ...process.env, ...EKKO_ENV },
+    })
+    const supervised = await superviseProcess(proc, {
+      stdout: proc.stdout,
+      stderr: proc.stderr,
+      timeoutMs: EKKO_WARMUP_TIMEOUT_MS,
+      clock: deps.clock,
+    })
+    const stderr = stderrTail(decodeEngineStderr(supervised.stderr))
+    if (supervised.status === 'timed_out') {
+      throw new Error(`timed out after ${EKKO_WARMUP_TIMEOUT_MS} ms: ${stderr}`)
+    }
+    if (!supervised.outputComplete) {
+      throw new Error(`output pipes did not close: ${stderr}`)
+    }
+    if (supervised.exitCode !== 0) {
+      throw new Error(`exit ${supervised.exitCode}: ${stderr}`)
+    }
+  } finally {
+    rmSync(runDir, { recursive: true, force: true })
+  }
+}
 
 /** `transcribeWithEkko` with slice options. Only the long-audio check passes any. */
 export async function transcribeWithEkkoTuned(
