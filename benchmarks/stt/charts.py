@@ -428,7 +428,7 @@ def condition_label(key: str) -> str:
 # results-schema.ts, NOT with the runnable ASR_HARNESS_IDS in
 # src/shared/asr-harness.ts - dropping a retired label here would make the archived
 # whisper-cli buckets unreadable to the chart script.
-HARNESS_LABELS = ("crispasr", "whisper-cli")
+HARNESS_LABELS = ("crispasr", "whisper-cli", "parakeet-cli")
 
 # The bucket whose rows keep the bare model id. Tracks DEFAULT_HARNESS_LABEL (the
 # shipping Harness) so chart labels match report.md row labels.

@@ -3,7 +3,8 @@
 //
 // - MicRecorder:       built from Swift via `bun run build:native` (Core Audio capture + device list)
 // - llama-completion:  downloaded prebuilt from the pinned upstream llama.cpp release
-// - crispasr:          downloaded prebuilt from the pinned CrispASR release (the ASR Harness)
+// - crispasr:          downloaded prebuilt from the pinned CrispASR release (the default ASR Harness)
+// - parakeet-cli:      downloaded prebuilt from the pinned parakeet.cpp release (ekko's ASR Harness)
 // - ggml-silero-v6.2.0.bin: Silero VAD weights crispasr loads on the `-nt --vad` path (ADR-0010)
 // - CodictateParakeetHelper: Swift + FluidAudio + NeMo ITN (text-processing-rs static lib)
 // - ggml-large-v3-turbo-q5_0.bin: Whisper multilingual model from Hugging Face
@@ -28,6 +29,11 @@ import {
   CRISPASR_WINDOWS_ARCHIVE,
   CRISPASR_MACOS_DYLIBS,
   CRISPASR_WINDOWS_DLLS,
+  PARAKEET_CPP_VERSION,
+  PARAKEET_CPP_RELEASE_BASE,
+  PARAKEET_CLI_MACOS_ARCHIVE,
+  PARAKEET_CLI_WINDOWS_ARCHIVE,
+  PARAKEET_CPP_LICENSE_FILE,
   SILERO_VAD,
   SILERO_VAD_VENDOR_DIR,
   type VendorArchive,
@@ -38,7 +44,7 @@ import { MACOS_PARAKEET_HELPER_NAMES } from "../src/shared/binary-manifest";
 const VENDORS_DIR = "./vendors";
 
 // Holds the bundled Whisper Speech Model only. Nothing from whisper.cpp is built here any
-// more: crispasr is the single ASR Harness and ships as a verified prebuilt archive.
+// more: crispasr is the Whisper ASR Harness and ships as a verified prebuilt archive.
 const WHISPER_DIR = join(VENDORS_DIR, "whisper");
 const WINDOWS_DIR = join(VENDORS_DIR, "windows");
 const WINDOWS_TRAY_ICON = join(WINDOWS_DIR, "TrayIcon.ico");
@@ -76,7 +82,7 @@ const LLAMA_BUILD_SIGNATURE = [
   `vulkan=${process.platform === "win32" ? "on" : "off"}`,
 ].join("\n");
 
-// crispasr, the second ASR Harness (docs/adr/0002-asr-harness-abstraction.md).
+// crispasr, the default ASR Harness (docs/adr/0002-asr-harness-abstraction.md).
 // Prebuilt only: there is no source build path, and the macOS asset is a single
 // arm64 binary plus libc2pa_c.dylib.
 const CRISPASR_DIR = join(VENDORS_DIR, "crispasr");
@@ -88,6 +94,19 @@ const CRISPASR_BUILD_SIGNATURE = [
   `platform=${process.platform}`,
   `arch=${process.arch}`,
   `variant=${process.platform === "win32" ? "vulkan" : "macos-arm64"}`,
+].join("\n");
+
+// parakeet-cli, the ekko Speech Engine's ASR Harness (docs/adr/0002-asr-harness-abstraction.md).
+// Prebuilt only, and the binary ships alone: no dylibs or DLLs beside it.
+const PARAKEET_CLI_DIR = join(VENDORS_DIR, "parakeet-cli");
+const PARAKEET_CLI_BINARY_NAME = process.platform === "win32" ? "parakeet-cli.exe" : "parakeet-cli";
+const PARAKEET_CLI_BINARY = join(PARAKEET_CLI_DIR, PARAKEET_CLI_BINARY_NAME);
+const PARAKEET_CLI_BUILD_STAMP = join(PARAKEET_CLI_DIR, "build-stamp.txt");
+const PARAKEET_CLI_BUILD_SIGNATURE = [
+  `version=${PARAKEET_CPP_VERSION}`,
+  `platform=${process.platform}`,
+  `arch=${process.arch}`,
+  `variant=${process.platform === "win32" ? "win-cpu-x64" : "macos-metal-arm64"}`,
 ].join("\n");
 
 const PARAKEET_PKG = join(import.meta.dir, "..", "native", "CodictateParakeetHelper");
@@ -513,6 +532,50 @@ async function vendorCrispasrBinaries() {
 
   writeFileSync(CRISPASR_BUILD_STAMP, CRISPASR_BUILD_SIGNATURE);
   console.log(`[pre-build] crispasr ${CRISPASR_VERSION} vendored from the prebuilt release`);
+}
+
+/** Fetch the pinned prebuilt parakeet-cli and parakeet.cpp's licence. */
+async function vendorParakeetCliBinaries() {
+  if (
+    existsSync(PARAKEET_CLI_BINARY) &&
+    existsSync(PARAKEET_CLI_BUILD_STAMP) &&
+    readFileSync(PARAKEET_CLI_BUILD_STAMP, "utf8") === PARAKEET_CLI_BUILD_SIGNATURE
+  ) {
+    console.log("[pre-build] parakeet-cli already vendored, skipping");
+    return;
+  }
+
+  if (process.platform !== "darwin" && process.platform !== "win32") {
+    console.log(
+      `[pre-build] No parakeet-cli asset for ${process.platform}, skipping (that platform cannot run ekko)`,
+    );
+    return;
+  }
+
+  rmSync(PARAKEET_CLI_DIR, { recursive: true, force: true });
+  const workDir = join(VENDORS_DIR, ".parakeet-cli-download");
+  rmSync(workDir, { recursive: true, force: true });
+
+  try {
+    const isMac = process.platform === "darwin";
+    const sourceDir = await fetchVendorArchive(
+      PARAKEET_CPP_RELEASE_BASE,
+      isMac ? PARAKEET_CLI_MACOS_ARCHIVE : PARAKEET_CLI_WINDOWS_ARCHIVE,
+      workDir,
+    );
+    copyVendorFiles(
+      sourceDir,
+      PARAKEET_CLI_DIR,
+      [PARAKEET_CLI_BINARY_NAME, PARAKEET_CPP_LICENSE_FILE],
+      "parakeet-cli",
+    );
+    if (isMac) chmodSync(PARAKEET_CLI_BINARY, 0o755);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+
+  writeFileSync(PARAKEET_CLI_BUILD_STAMP, PARAKEET_CLI_BUILD_SIGNATURE);
+  console.log(`[pre-build] parakeet-cli ${PARAKEET_CPP_VERSION} vendored from the prebuilt release`);
 }
 
 async function buildLlamaFromSource() {
@@ -968,7 +1031,8 @@ async function vendorWhisperModel() {
 
 // Single-target flags are handled before the per-platform branches, because those
 // branches exit. Vendoring one binary must work the same on macOS and Windows:
-// `find-asr-harness.ts` points users at `--crispasr-only` on both.
+// the binary manifest's remediation points users at `--crispasr-only` and
+// `--parakeet-cli-only` on both.
 if (process.argv.includes("--llama-only")) {
   await vendorLlamaBinaries();
   console.log("[pre-build] llama-completion ready");
@@ -979,6 +1043,12 @@ if (process.argv.includes("--crispasr-only")) {
   await vendorCrispasrBinaries();
   await vendorSileroVad();
   console.log("[pre-build] crispasr ready");
+  process.exit(0);
+}
+
+if (process.argv.includes("--parakeet-cli-only")) {
+  await vendorParakeetCliBinaries();
+  console.log("[pre-build] parakeet-cli ready");
   process.exit(0);
 }
 
@@ -1001,6 +1071,7 @@ if (process.platform === "win32") {
   await vendorLlamaBinaries();
   await vendorCrispasrBinaries();
   await vendorSileroVad();
+  await vendorParakeetCliBinaries();
   await vendorWhisperModel();
   console.log("[pre-build] Windows dependencies ready");
   process.exit(0);
@@ -1012,6 +1083,7 @@ if (process.platform === "linux") {
   // without any ASR Harness now that the whisper.cpp source build is gone.
   await vendorCrispasrBinaries();
   await vendorSileroVad();
+  await vendorParakeetCliBinaries();
   await vendorWhisperModel();
   console.log("[pre-build] Linux dependencies ready");
   process.exit(0);
@@ -1030,6 +1102,7 @@ syncWindowsAppIconFromIconset();
 await vendorLlamaBinaries();
 await vendorCrispasrBinaries();
 await vendorSileroVad();
+await vendorParakeetCliBinaries();
 await vendorParakeetHelper();
 await vendorObserverHelper();
 await vendorWhisperModel();

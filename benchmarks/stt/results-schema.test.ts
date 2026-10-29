@@ -19,7 +19,8 @@ import {
   v1DatasetLocation,
   V2_RECORDS_DIRNAME,
   CODICTATE_V2_HARNESS,
-  assertSingleRunnableAsrHarness,
+  assertOneAsrHarnessPerSpeechModel,
+  SELECTABLE_BENCHMARK_HARNESSES,
 } from "./results-schema";
 import { CODICTATE_TIMING_REGIME } from "./runner";
 import {
@@ -328,7 +329,14 @@ describe("the v2 record layout", () => {
   test("the measuring harness is the product, not the ASR Harness", () => {
     expect(CODICTATE_V2_HARNESS).toBe("codictate");
     // And the argument that lets the ASR Harness stay out of the compatibility key is
-    // asserted rather than commented: exactly one is runnable.
-    expect(() => assertSingleRunnableAsrHarness()).not.toThrow();
+    // asserted rather than commented: a Run can select exactly one ASR Harness, so each
+    // Speech Model is measured by one.
+    expect(() => assertOneAsrHarnessPerSpeechModel()).not.toThrow();
+  });
+
+  test("parakeet-cli is runnable but a Run cannot select it", () => {
+    // It runs only ekko and is forced per Speech Model. Selecting it would run a Whisper
+    // Speech Model on crispasr and file the result under parakeet-cli.
+    expect(SELECTABLE_BENCHMARK_HARNESSES).toEqual(["crispasr"]);
   });
 });

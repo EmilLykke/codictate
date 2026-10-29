@@ -9,7 +9,6 @@
  */
 
 import {
-  ASR_HARNESS_IDS,
   DEFAULT_ASR_HARNESS,
   HVISKE_ASR_HARNESS,
   type AsrHarnessId,
@@ -51,9 +50,15 @@ import {
  * measured again, and a `continue` on an unrecognised key throws it away without a
  * word.
  *
- * `whisper-cli` is historical and NOT runnable. It stays here permanently.
+ * `whisper-cli` is historical and NOT runnable. It stays here permanently. `parakeet-cli`
+ * entered with the Harness itself (the compile-time guard below requires it), before any
+ * Run measured with it.
  */
-export const BENCHMARK_HARNESS_LABELS = ["crispasr", "whisper-cli"] as const;
+export const BENCHMARK_HARNESS_LABELS = [
+  "crispasr",
+  "whisper-cli",
+  "parakeet-cli",
+] as const;
 
 export type BenchmarkHarnessLabel = (typeof BENCHMARK_HARNESS_LABELS)[number];
 
@@ -308,13 +313,13 @@ export const V2_RECORDS_DIRNAME = "_v2";
  * thing being instrumented, `codictate` or `wispr-flow` - and it is half of the
  * compatibility key that decides whether two measurements of one clip may replace each
  * other. Codictate's own **ASR Harness** is a different dimension with a different
- * meaning, and it is absent from the key because it collapses: `crispasr` is the only
- * runnable one (ADR-0002), so every v2 record that can exist was produced by it, and
- * `whisper-cli`'s archived measurements are v1 aggregate leaves that can never become v2
- * Samples.
+ * meaning, and it is absent from the key because it collapses: each Speech Model runs on
+ * exactly one (ADR-0002; `crispasr` for Whisper and hviske, `parakeet-cli` for ekko), so
+ * the model half of the key already names it, and `whisper-cli`'s archived measurements
+ * are v1 aggregate leaves that can never become v2 Samples.
  *
- * `assertSingleRunnableAsrHarness` below is the tripwire on that argument. If a second
- * ASR Harness ever becomes runnable, `harness` here has to become `codictate/<harness>`
+ * `assertOneAsrHarnessPerSpeechModel` below is the tripwire on that argument. If a Run can
+ * ever measure one Speech Model under two ASR Harnesses, `harness` here has to become `codictate/<harness>`
  * and the contract's `compatibilityKey` has to grow the dimension - otherwise two
  * Harnesses' measurements of one clip would pool as newer-and-older measurements of the
  * same thing, and the newest would publish under the other's name.
@@ -322,18 +327,33 @@ export const V2_RECORDS_DIRNAME = "_v2";
 export const CODICTATE_V2_HARNESS = "codictate" as const;
 
 /**
- * Refuses to pool v2 records while more than one ASR Harness is runnable.
+ * The ASR Harnesses a Benchmark Run may be asked for, by `--harness` or the TUI.
+ *
+ * Not `ASR_HARNESS_IDS`. `parakeet-cli` is runnable but never selected: it runs only the
+ * ekko Speech Engine, whose weights load nowhere else, so the runner forces it per Speech
+ * Model the way it forces crispasr for hviske (#104). Selecting it would run a Whisper
+ * Speech Model on crispasr and file the result under `parakeet-cli`.
+ */
+export const SELECTABLE_BENCHMARK_HARNESSES: readonly AsrHarnessId[] = [
+  DEFAULT_ASR_HARNESS,
+];
+
+/**
+ * Refuses to pool v2 records unless each Speech Model is measured by one ASR Harness.
+ *
+ * That holds while a Run can select exactly one Harness: every other Harness is forced per
+ * Speech Model, so the Harness that measured a record follows from its Model ID.
  *
  * Called from the pooling path rather than left as a comment, because the failure it
- * guards against is silent: a second runnable Harness would produce records that look
+ * guards against is silent: a second selectable Harness would produce records that look
  * compatible and are not. Failing here costs a message; not failing costs a leaderboard.
  */
-export function assertSingleRunnableAsrHarness(): void {
-  if (ASR_HARNESS_IDS.length === 1) return;
+export function assertOneAsrHarnessPerSpeechModel(): void {
+  if (SELECTABLE_BENCHMARK_HARNESSES.length === 1) return;
   throw new Error(
-    `${ASR_HARNESS_IDS.length} ASR Harnesses are runnable (${ASR_HARNESS_IDS.join(", ")}), but a v2 ` +
+    `${SELECTABLE_BENCHMARK_HARNESSES.length} ASR Harnesses are selectable (${SELECTABLE_BENCHMARK_HARNESSES.join(", ")}), but a v2 ` +
       `run record records only the measuring harness "${CODICTATE_V2_HARNESS}". Two ASR Harnesses ` +
-      `measuring one clip would pool as two measurements of the same series. Put the ASR Harness ` +
+      `measuring one clip of one Speech Model would pool as two measurements of the same series. Put the ASR Harness ` +
       `into the record's harness field and into the contract's compatibilityKey first.`,
   );
 }
@@ -445,7 +465,7 @@ export function pooledV2Leaves(
   records: readonly RunRecordV2[],
   options?: { computeCer?: (location: V1DatasetLocation) => boolean },
 ): PooledV2Result {
-  assertSingleRunnableAsrHarness();
+  assertOneAsrHarnessPerSpeechModel();
 
   const computeCer =
     options?.computeCer ?? ((location) => location.field === "fleurs");
@@ -468,7 +488,7 @@ export function pooledV2Leaves(
       ...location,
       // Recovered from the Model ID and the shipping Harness, exactly as the run that
       // wrote the record would have filed it. Sound only while one ASR Harness is
-      // runnable, which `assertSingleRunnableAsrHarness` above is the guard for.
+      // selectable, which `assertOneAsrHarnessPerSpeechModel` above is the guard for.
       harness: harnessBucketForModel(bucket.model, DEFAULT_HARNESS_LABEL),
       modelId: bucket.model,
       sampleCount: bucket.samples.length,

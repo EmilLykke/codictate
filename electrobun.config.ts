@@ -43,6 +43,7 @@ const buildCopy: Record<string, string> = {
   "docs/licenses/ekko-pnc": "licenses/ekko-pnc",
   "docs/licenses/onnxruntime": "licenses/onnxruntime",
   "docs/licenses/huggingface-tokenizers": "licenses/huggingface-tokenizers",
+  "docs/licenses/parakeet-cpp": "licenses/parakeet-cpp",
   ...binaryBuildCopy(
     isWindowsHost ? "windows" : "macos",
     buildChannelFrom(buildChannel),

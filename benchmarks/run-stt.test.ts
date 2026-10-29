@@ -272,8 +272,8 @@ describe("completed-record checkpoint recovery", () => {
 describe("parseStageId", () => {
   test("a resumed stage's Harness bucket comes from its own stage id", () => {
     // Not from `harnesses[0]`. That is right only while exactly one ASR Harness is
-    // runnable, and the tripwire for that assumption sits on the pooling path - so a
-    // second runnable Harness would mislabel a resumed leaf before any pooling ran.
+    // selectable, and the tripwire for that assumption sits on the pooling path - so a
+    // second selectable Harness would mislabel a resumed leaf before any pooling ran.
     expect(
       parseStageId(stageIdFor("da_dk", "crispasr", "large-v3-q5_0")),
     ).toEqual({

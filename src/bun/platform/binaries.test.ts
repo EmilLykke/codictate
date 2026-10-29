@@ -71,6 +71,8 @@ describe('packaging and runtime binary contract', () => {
       'vendors/crispasr/crispasr.exe': 'native-helpers/crispasr/crispasr.exe',
       'vendors/silero-vad/ggml-silero-v6.2.0.bin':
         'native-helpers/crispasr/ggml-silero-v6.2.0.bin',
+      'vendors/parakeet-cli/parakeet-cli.exe':
+        'native-helpers/parakeet-cli/parakeet-cli.exe',
     })
     const paths = location('windows', [
       '/package/Resources/native-helpers/CodictateWindowsHelper.exe',
@@ -112,6 +114,30 @@ describe('packaging and runtime binary contract', () => {
     expect(() =>
       requireRuntimeBinary('silero-vad', location('macos', []))
     ).toThrow('crispasr-only')
+  })
+
+  test('parakeet-cli ships in its own folder under native-helpers on every platform', () => {
+    expect(binaryBuildCopy('macos')['vendors/parakeet-cli/parakeet-cli']).toBe(
+      'native-helpers/parakeet-cli/parakeet-cli'
+    )
+    expect(binaryBuildCopy('linux')['vendors/parakeet-cli/parakeet-cli']).toBe(
+      'native-helpers/parakeet-cli/parakeet-cli'
+    )
+    expect(
+      binaryBuildCopy('windows')['vendors/parakeet-cli/parakeet-cli.exe']
+    ).toBe('native-helpers/parakeet-cli/parakeet-cli.exe')
+
+    const checkout = location('macos', [
+      '/checkout/vendors/parakeet-cli/parakeet-cli',
+    ])
+    expect(requireRuntimeBinary('parakeet-cli', checkout)).toBe(
+      '/checkout/vendors/parakeet-cli/parakeet-cli'
+    )
+    for (const platform of ['macos', 'windows'] as const) {
+      expect(() =>
+        requireRuntimeBinary('parakeet-cli', location(platform, []))
+      ).toThrow('--parakeet-cli-only')
+    }
   })
 
   test('unsupported helpers stay unavailable even if another platform binary exists', () => {

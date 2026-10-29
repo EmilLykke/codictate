@@ -39,6 +39,19 @@ describe("the app bundle knows its channel", () => {
   });
 });
 
+describe("the app bundle carries parakeet-cli and its licence", () => {
+  test("electrobun.config.ts copies parakeet-cli from the binary manifest and bundles parakeet.cpp's MIT licence", async () => {
+    const config = await loadConfig();
+    const parakeetCli = BINARY_MANIFEST[process.platform === "win32" ? "windows" : "macos"]["parakeet-cli"]!;
+    expect(config.build.copy[parakeetCli.source]).toBe(parakeetCli.destination);
+    expect(config.build.copy["docs/licenses/parakeet-cpp"]).toBe("licenses/parakeet-cpp");
+    const licence = await Bun.file(
+      join(import.meta.dir, "..", "docs", "licenses", "parakeet-cpp", "LICENSE"),
+    ).text();
+    expect(licence).toContain("MIT License");
+  });
+});
+
 /**
  * onnxruntime-node's `dist/binding.js` requires its binding at
  * `../bin/napi-v6/<platform>/<arch>/onnxruntime_binding.node`, relative to the module that
