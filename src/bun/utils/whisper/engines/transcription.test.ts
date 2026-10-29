@@ -36,8 +36,13 @@ function planFor(
       translateDefaultLanguageId: 'auto',
       translateToEnglish: overrides.translateToEnglish ?? false,
       streamMode: overrides.streamMode ?? false,
+      addPunctuation: false,
     },
-    { isModelAvailable: () => true, streamSupported: true }
+    {
+      isModelAvailable: () => true,
+      streamSupported: true,
+      punctuationModelInstalled: false,
+    }
   )
   if (plan.status !== 'runnable') {
     throw new Error(`expected a runnable plan, got ${plan.reason}`)

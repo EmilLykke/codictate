@@ -221,6 +221,7 @@ class FakeDictation implements CommandLineDictationControl {
         options.transcriptionLanguageId ?? state.transcriptionLanguageId,
       languageCode: null,
       translateToEnglish: false,
+      punctuationRestoration: false,
     }
     let settle!: (result: CommandLineDictationResult) => void
     const result = new Promise<CommandLineDictationResult>((resolve) => {

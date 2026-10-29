@@ -59,6 +59,15 @@ const available = (...ids: string[]): DictationAvailability => ({
   isModelAvailable: (id) =>
     ids.includes(id) || (getSpeechModel(id)?.bundled ?? false),
   streamSupported: true,
+  punctuationModelInstalled: false,
+})
+
+/** The same snapshot with the Punctuation Model on disk. */
+const withPunctuationModel = (
+  availability: DictationAvailability
+): DictationAvailability => ({
+  ...availability,
+  punctuationModelInstalled: true,
 })
 
 const input = (
@@ -78,6 +87,7 @@ const planInput = (
   translateDefaultLanguageId: 'auto',
   translateToEnglish: false,
   streamMode: false,
+  addPunctuation: false,
   ...overrides,
 })
 
@@ -318,6 +328,7 @@ describe('getDictationReadiness - Live Transcription', () => {
     const readiness = live(input({ speechModelId: PARAKEET }), {
       isModelAvailable: () => false,
       streamSupported: false,
+      punctuationModelInstalled: false,
     })
     expect(readiness.reason).toBe('unsupported_platform')
     expect(readiness.downloadModelId).toBeNull()
@@ -402,6 +413,55 @@ describe('getDictationReadiness - parakeetPreparing', () => {
   })
 })
 
+describe('getDictationReadiness - Add punctuation', () => {
+  const punctuation = (i: DictationReadinessInput, a: DictationAvailability) =>
+    getDictationReadiness(i, a, NO_PARAKEET_LOAD).addPunctuation
+
+  test('is ready for hviske with the Punctuation Model on disk', () => {
+    expect(
+      punctuation(
+        input({ speechModelId: HVISKE }),
+        withPunctuationModel(available(HVISKE))
+      ).ready
+    ).toBe(true)
+  })
+
+  test('says the Punctuation Model is missing for hviske without it', () => {
+    const readiness = punctuation(
+      input({ speechModelId: HVISKE }),
+      available(HVISKE)
+    )
+    expect(readiness.ready).toBe(false)
+    expect(readiness.reason).toBe('punctuation_model_not_installed')
+    // The Punctuation Model is not a Speech Model: no Speech Model download unblocks it.
+    expect(readiness.downloadModelId).toBeNull()
+  })
+
+  test('is not offered for Edda or any other Speech Model', () => {
+    for (const speechModelId of [EDDA, TRANSLATE_CAPABLE, PARAKEET]) {
+      const readiness = punctuation(
+        input({ speechModelId }),
+        withPunctuationModel(available(speechModelId))
+      )
+      expect(readiness.ready).toBe(false)
+      expect(readiness.reason).toBe('not_offered_for_speech_model')
+    }
+  })
+
+  test('the two reasons carry their own sentences', () => {
+    const missing = punctuation(input({ speechModelId: HVISKE }), available())
+    const notOffered = punctuation(
+      input({ speechModelId: EDDA }),
+      withPunctuationModel(available())
+    )
+    expect(missing.message).not.toBe(notOffered.message)
+    for (const message of [missing.message, notOffered.message]) {
+      expect(message.length).toBeGreaterThan(0)
+      expect(message).not.toContain('undefined')
+    }
+  })
+})
+
 describe('getDictationReadiness - the copy', () => {
   test('every reason carries its own sentence, and no two reasons share one', () => {
     const translateCases: [DictationReadinessInput, DictationAvailability][] = [
@@ -431,7 +491,11 @@ describe('getDictationReadiness - the copy', () => {
     const liveCases: [DictationReadinessInput, DictationAvailability][] = [
       [
         input({ speechModelId: PARAKEET }),
-        { isModelAvailable: () => true, streamSupported: false },
+        {
+          isModelAvailable: () => true,
+          streamSupported: false,
+          punctuationModelInstalled: true,
+        },
       ],
       [input({ speechModelId: PARAKEET }), available()],
       [input({ speechModelId: TRANSLATE_CAPABLE }), available(PARAKEET)],
@@ -693,7 +757,11 @@ describe('buildDictationPlan - missing weights', () => {
   test('blocks a Speech Model id the catalog has never heard of', () => {
     const plan = buildDictationPlan(
       planInput({ speechModelId: 'not-a-model' }),
-      { isModelAvailable: () => true, streamSupported: true }
+      {
+        isModelAvailable: () => true,
+        streamSupported: true,
+        punctuationModelInstalled: true,
+      }
     )
     if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
     expect(plan.reason).toBe('speech_model_not_installed')
@@ -717,7 +785,11 @@ describe('buildDictationPlan - Live Transcription', () => {
   test('the platform question comes before everything else', () => {
     const plan = buildDictationPlan(
       planInput({ speechModelId: PARAKEET, streamMode: true }),
-      { isModelAvailable: () => false, streamSupported: false }
+      {
+        isModelAvailable: () => false,
+        streamSupported: false,
+        punctuationModelInstalled: false,
+      }
     )
     if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
     expect(plan.reason).toBe('live_transcription_unsupported_platform')
@@ -772,6 +844,107 @@ describe('buildDictationPlan - Live Transcription', () => {
   })
 })
 
+/**
+ * Punctuation Restoration: the ekko-pnc Punctuation Model adds punctuation and capitals to a
+ * Raw Transcript. An opt-in for hviske ("Add punctuation", global, off by default), always on
+ * for the ekko Speech Engine once it ships (#87), and never for anything else - Edda and every
+ * other Whisper Speech Model punctuate themselves, and Live Transcription is Parakeet's own.
+ */
+describe('buildDictationPlan - Punctuation Restoration', () => {
+  const restoration = (plan: ReturnType<typeof buildDictationPlan>) => {
+    if (plan.status !== 'runnable') throw new Error('expected a runnable plan')
+    return plan.punctuationRestoration
+  }
+
+  test('an hviske run restores punctuation when Add punctuation is on', () => {
+    expect(
+      restoration(
+        buildDictationPlan(
+          planInput({ speechModelId: HVISKE, addPunctuation: true }),
+          withPunctuationModel(available(HVISKE))
+        )
+      )
+    ).toBe(true)
+  })
+
+  test('an hviske run leaves the Raw Transcript alone when Add punctuation is off', () => {
+    expect(
+      restoration(
+        buildDictationPlan(
+          planInput({ speechModelId: HVISKE, addPunctuation: false }),
+          withPunctuationModel(available(HVISKE))
+        )
+      )
+    ).toBe(false)
+  })
+
+  test('Edda ignores Add punctuation', () => {
+    expect(
+      restoration(
+        buildDictationPlan(
+          planInput({ speechModelId: EDDA, addPunctuation: true }),
+          withPunctuationModel(available(EDDA))
+        )
+      )
+    ).toBe(false)
+  })
+
+  test('Edda runs with Add punctuation on even when the Punctuation Model is missing', () => {
+    expect(
+      restoration(
+        buildDictationPlan(
+          planInput({ speechModelId: EDDA, addPunctuation: true }),
+          available(EDDA)
+        )
+      )
+    ).toBe(false)
+  })
+
+  test('every other batch Speech Model ignores Add punctuation', () => {
+    for (const speechModelId of [
+      TRANSLATE_CAPABLE,
+      TRANSCRIBE_ONLY,
+      PARAKEET,
+    ]) {
+      expect(
+        restoration(
+          buildDictationPlan(
+            planInput({ speechModelId, addPunctuation: true }),
+            withPunctuationModel(available(speechModelId))
+          )
+        )
+      ).toBe(false)
+    }
+  })
+
+  test('a live plan never restores punctuation', () => {
+    expect(
+      restoration(
+        buildDictationPlan(
+          planInput({
+            speechModelId: PARAKEET,
+            streamMode: true,
+            addPunctuation: true,
+          }),
+          withPunctuationModel(available(PARAKEET))
+        )
+      )
+    ).toBe(false)
+  })
+
+  test('hviske with Add punctuation on and the Punctuation Model missing is blocked, never run unpunctuated', () => {
+    const plan = buildDictationPlan(
+      planInput({ speechModelId: HVISKE, addPunctuation: true }),
+      available(HVISKE)
+    )
+    if (plan.status !== 'blocked') throw new Error('expected a blocked plan')
+    expect(plan.reason).toBe('punctuation_model_not_installed')
+    expect(plan.message).toBe(
+      'Dictation stopped because Add punctuation is on and its Danish punctuation model is no longer installed. Add punctuation has been turned off, so the next press works.'
+    )
+  })
+})
+
 describe('buildDictationPlan - the blocked reasons', () => {
   test('every reason carries its own sentence, and no two reasons share one', () => {
     const cases: [DictationPlanInput, DictationAvailability][] = [
@@ -793,7 +966,11 @@ describe('buildDictationPlan - the blocked reasons', () => {
       ],
       [
         planInput({ speechModelId: PARAKEET, streamMode: true }),
-        { isModelAvailable: () => true, streamSupported: false },
+        {
+          isModelAvailable: () => true,
+          streamSupported: false,
+          punctuationModelInstalled: true,
+        },
       ],
       [planInput({ speechModelId: PARAKEET, streamMode: true }), available()],
       [
@@ -808,6 +985,10 @@ describe('buildDictationPlan - the blocked reasons', () => {
         }),
         available(PARAKEET),
       ],
+      [
+        planInput({ speechModelId: HVISKE, addPunctuation: true }),
+        available(HVISKE),
+      ],
     ]
 
     const messages = new Map<DictationBlockedReason, string>()
@@ -817,7 +998,7 @@ describe('buildDictationPlan - the blocked reasons', () => {
         throw new Error('case is unexpectedly runnable')
       messages.set(plan.reason, plan.message)
     }
-    // The eighth reason is the pre-spawn race check, which no settings snapshot can reach.
+    // The ninth reason is the pre-spawn race check, which no settings snapshot can reach.
     messages.set(
       'parakeet_helper_missing',
       blockedDictationPlan('live', 'parakeet_helper_missing', PARAKEET).message
@@ -831,6 +1012,7 @@ describe('buildDictationPlan - the blocked reasons', () => {
       'no_translate_source_language',
       'parakeet_helper_missing',
       'parakeet_not_installed',
+      'punctuation_model_not_installed',
       'speech_model_not_installed',
     ])
     const all = [...messages.values()]
@@ -871,7 +1053,11 @@ describe('buildDictationPlan agrees with getDictationReadiness', () => {
     available(HVISKE, TRANSLATE_CAPABLE),
     available(PARAKEET),
     available(TRANSLATE_CAPABLE, HVISKE, PARAKEET, ENGLISH_ONLY),
-    { isModelAvailable: () => true, streamSupported: false },
+    {
+      isModelAvailable: () => true,
+      streamSupported: false,
+      punctuationModelInstalled: true,
+    },
   ]
 
   test('translate runs exactly when readiness says it can', () => {
@@ -912,6 +1098,36 @@ describe('buildDictationPlan agrees with getDictationReadiness', () => {
               load
             ).liveTranscription
             expect(plan.status === 'runnable').toBe(readiness.ready)
+          }
+        }
+      }
+    }
+  })
+
+  test('Add punctuation runs exactly when readiness says it can, and is ignored where it is not offered', () => {
+    for (const speechModelId of [...selections, EDDA]) {
+      for (const snapshot of snapshots) {
+        for (const availability of [snapshot, withPunctuationModel(snapshot)]) {
+          if (!availability.isModelAvailable(speechModelId)) continue
+          const plan = buildDictationPlan(
+            planInput({ speechModelId, addPunctuation: true }),
+            availability
+          )
+          const readiness = getDictationReadiness(
+            input({ speechModelId }),
+            availability,
+            NO_PARAKEET_LOAD
+          ).addPunctuation
+          if (readiness.reason === 'not_offered_for_speech_model') {
+            expect(plan.status).toBe('runnable')
+            if (plan.status === 'runnable') {
+              expect(plan.punctuationRestoration).toBe(false)
+            }
+            continue
+          }
+          expect(plan.status === 'runnable').toBe(readiness.ready)
+          if (plan.status === 'runnable') {
+            expect(plan.punctuationRestoration).toBe(true)
           }
         }
       }

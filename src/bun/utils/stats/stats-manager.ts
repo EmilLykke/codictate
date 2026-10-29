@@ -59,7 +59,14 @@ export class StatsManager {
     try {
       const file = Bun.file(this.statsPath)
       if (!(await file.exists())) return { entries: [] }
-      return (await file.json()) as StatsIndex
+      const index = (await file.json()) as StatsIndex
+      // Rows written before a field existed lack its key. They read as unknown (`null`), the
+      // same as a row backfilled from History, rather than as `undefined`.
+      index.entries = index.entries.map((entry) => ({
+        ...entry,
+        punctuationRestored: entry.punctuationRestored ?? null,
+      }))
+      return index
     } catch {
       return { entries: [] }
     }
@@ -128,6 +135,11 @@ export class StatsManager {
         return { start: 0, prevStart: 0 }
       }
     }
+  }
+
+  /** Every recorded session, oldest first as stored. */
+  async getSessions(): Promise<StatsSessionEntry[]> {
+    return (await this.readIndex()).entries
   }
 
   async getSummary(range: StatsRange = 'all'): Promise<StatsSummary> {
@@ -299,6 +311,7 @@ export class StatsManager {
           durationMs: h.durationMs ?? 0,
           engineId: null,
           formattingUsed: null,
+          punctuationRestored: null,
           languageId: null,
         })
         added++

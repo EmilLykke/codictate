@@ -41,6 +41,7 @@ const ALL_REASONS: SettingsHealReason[] = [
   'parakeet_not_installed',
   'model_cannot_stream',
   'language_not_supported_by_parakeet',
+  'punctuation_model_not_installed',
 ]
 
 /**
@@ -49,14 +50,20 @@ const ALL_REASONS: SettingsHealReason[] = [
  */
 function availability(
   installed: string[],
-  streamSupported = true
+  streamSupported = true,
+  punctuationModelInstalled = false
 ): DictationAvailability {
   return {
     isModelAvailable: (id) =>
       installed.includes(id) || (getSpeechModel(id)?.bundled ?? false),
     streamSupported,
+    punctuationModelInstalled,
   }
 }
+
+/** The same, with the Punctuation Model fully on disk. */
+const withPunctuationModel = (installed: string[]) =>
+  availability(installed, true, true)
 
 function settings(
   overrides: Partial<RunnableDictationSettings> = {}
@@ -67,6 +74,7 @@ function settings(
     translateDefaultLanguageId: 'auto',
     translateToEnglish: false,
     streamMode: false,
+    addPunctuation: false,
     ...overrides,
   }
 }
@@ -334,6 +342,87 @@ describe('healDictationSettings - Live Transcription', () => {
   })
 })
 
+describe('healDictationSettings - Add punctuation', () => {
+  test('turns Add punctuation off and says so when the Punctuation Model is gone', () => {
+    const result = healDictationSettings(
+      settings({ speechModelId: HVISKE, addPunctuation: true }),
+      availability([HVISKE])
+    )
+    expect(result.settings.addPunctuation).toBe(false)
+    expect(result.settings.speechModelId).toBe(HVISKE)
+    expect(result.announcements).toEqual([
+      {
+        target: 'add_punctuation',
+        reason: 'punctuation_model_not_installed',
+        message:
+          'Add punctuation turned off because its Danish punctuation model is no longer installed.',
+      },
+    ])
+  })
+
+  test('leaves Add punctuation on while the Punctuation Model is installed', () => {
+    const input = settings({ speechModelId: HVISKE, addPunctuation: true })
+    const result = healDictationSettings(input, withPunctuationModel([HVISKE]))
+    expect(result.unchanged).toBe(true)
+    expect(result.announcements).toEqual([])
+  })
+
+  /**
+   * The switch is global: only hviske reads it, but leaving hviske for Edda and coming back
+   * keeps it, and the File Transcription selection reads it too.
+   */
+  test('leaves Add punctuation on under a Speech Model that ignores it', () => {
+    const input = settings({
+      speechModelId: TRANSLATE_CAPABLE,
+      addPunctuation: true,
+    })
+    const result = healDictationSettings(
+      input,
+      withPunctuationModel([TRANSLATE_CAPABLE])
+    )
+    expect(result.unchanged).toBe(true)
+  })
+
+  /**
+   * Without the Punctuation Model the switch cannot be on for any selection: it only turns
+   * true after a verified install, and a File Transcription on hviske reads it whatever the
+   * Dictation's Speech Model is.
+   */
+  test('turns Add punctuation off without the Punctuation Model under any selection', () => {
+    const result = healDictationSettings(
+      settings({ speechModelId: TRANSLATE_CAPABLE, addPunctuation: true }),
+      availability([TRANSLATE_CAPABLE])
+    )
+    expect(result.settings.addPunctuation).toBe(false)
+    expect(result.announcements.map((a) => a.reason)).toEqual([
+      'punctuation_model_not_installed',
+    ])
+  })
+
+  test('refuses turning Add punctuation on without the Punctuation Model', () => {
+    const outcome = applyRunnableDictationPatch(
+      settings({ speechModelId: HVISKE }),
+      { addPunctuation: true },
+      availability([HVISKE])
+    )
+    expect(outcome.kind).toBe('refused')
+    expect(outcome.kind === 'refused' && outcome.refusedTargets).toEqual([
+      'add_punctuation',
+    ])
+  })
+
+  test('accepts turning Add punctuation on with the Punctuation Model installed', () => {
+    const outcome = applyRunnableDictationPatch(
+      settings({ speechModelId: HVISKE }),
+      { addPunctuation: true },
+      withPunctuationModel([HVISKE])
+    )
+    expect(outcome.kind === 'accepted' && outcome.settings.addPunctuation).toBe(
+      true
+    )
+  })
+})
+
 describe('healDictationSettings - what it leaves alone', () => {
   test('never touches the transcription or translate default languages', () => {
     const result = healDictationSettings(
@@ -392,6 +481,10 @@ describe('healDictationSettings - announcements', () => {
           streamMode: true,
         }),
         availability([PARAKEET]),
+      ],
+      [
+        settings({ speechModelId: HVISKE, addPunctuation: true }),
+        availability([HVISKE]),
       ],
     ]
     for (const [input, avail] of cases) {
