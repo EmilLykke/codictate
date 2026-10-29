@@ -5,8 +5,9 @@
  * it out of test discovery. It hits Hugging Face over the network, so it fails on a
  * flaky connection, in an offline CI job and behind a proxy, and it never imports
  * `model-manager.ts`: no bug in `downloadModel` can make it fail. What it does check is
- * real and worth checking on purpose - that the URLs the app builds still resolve and
- * that the hviske and Edda Mirrors still carry every Quantization.
+ * real and worth checking on purpose - that the URLs the app builds still resolve, that
+ * the hviske and Edda Mirrors still carry every Quantization, and that the ekko-pnc Mirror
+ * still serves every pinned file of the Punctuation Model at its pinned size.
  *
  * Run it deliberately:
  *
@@ -16,8 +17,8 @@
  * The leading `./` matters: without it `bun test` reads the argument as a name filter,
  * finds nothing that matches the default test globs, and exits without running anything.
  *
- * Run it after changing a download URL, a Mirror or the Speech Model list, and before a
- * release.
+ * Run it after changing a download URL, a Mirror, the Speech Model list or the Punctuation
+ * Model's pinned table, and before a release.
  */
 
 import { describe, test, expect } from 'bun:test'
@@ -26,6 +27,10 @@ import {
   SPEECH_MODELS,
   singleFileModelDownloadUrl,
 } from '../../../shared/speech-models'
+import {
+  PUNCTUATION_MODEL_FILES,
+  punctuationModelFileUrl,
+} from '../punctuation/punctuation-model-files'
 
 const DOWNLOADABLE_MODELS = SPEECH_MODELS.filter((m) => !m.bundled)
 
@@ -111,5 +116,28 @@ describe('model downloads', () => {
         { timeout: 30_000 }
       )
     }
+  }
+})
+
+// Not a Speech Model, so not in the list above: every file the "Add punctuation" switch
+// installs, at the exact URL it downloads from. A size that moved means the Mirror commit
+// no longer holds what the pinned sha256 table describes.
+describe('Punctuation Model downloads', () => {
+  for (const file of PUNCTUATION_MODEL_FILES) {
+    test(
+      `ekko-pnc ${file.path}: download is accessible at its pinned size`,
+      async () => {
+        // Identity, or the CDN gzips the text files and sends no Content-Length.
+        const res = await fetch(punctuationModelFileUrl(file), {
+          method: 'HEAD',
+          headers: { 'Accept-Encoding': 'identity' },
+        })
+        expect(res.status).toBe(200)
+        expect(Number(res.headers.get('Content-Length') ?? '0')).toBe(
+          file.bytes
+        )
+      },
+      { timeout: 15_000 }
+    )
   }
 })

@@ -16,6 +16,7 @@ import type {
   HistoryEntry,
   HistorySettingsPatch,
   ModelDownloadProgress,
+  PunctuationModelDownloadProgress,
   NavigateRequest,
   SettingsPane,
   ShortcutId,
@@ -104,6 +105,11 @@ const rpc = Electroview.defineRPC<WebviewRPCType>({
         error?: string
       }) => {
         appEvents.emit('formatterModelProgress', data)
+      },
+      updatePunctuationModelProgress: (
+        data: PunctuationModelDownloadProgress
+      ) => {
+        appEvents.emit('punctuationModelProgress', data)
       },
       historyEntryAdded: () => {
         appEvents.emit('historyEntryAdded')
@@ -620,6 +626,14 @@ export function cancelFormatterModelDownload(): void {
 
 export function deleteFormatterModel(tier: FormatterModelTier): void {
   rpc.send.deleteFormatterModel({ tier })
+}
+
+export function turnOnAddPunctuation(): void {
+  rpc.send.turnOnAddPunctuation({})
+}
+
+export function cancelPunctuationModelDownload(): void {
+  rpc.send.cancelPunctuationModelDownload({})
 }
 
 export function openExternalUrl(url: string): void {

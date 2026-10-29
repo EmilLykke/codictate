@@ -556,6 +556,17 @@ export interface ModelDownloadProgress {
 }
 
 /**
+ * Turning Add punctuation on: the Punctuation Model's download, then `done`. `done` without
+ * `error` follows the settings push that turned the switch on; with `error` the switch stayed
+ * off ('Cancelled' after Cancel).
+ */
+export interface PunctuationModelDownloadProgress {
+  progressFraction: number
+  done: boolean
+  error?: string
+}
+
+/**
  * What sits at `~/.local/bin/codictate` on macOS, relative to this app's client.
  *
  * - `installed`: a symlink to this app's client.
@@ -902,6 +913,14 @@ export type WebviewRPCType = {
       downloadFormatterModel: { tier: FormatterModelTier }
       cancelFormatterModelDownload: {}
       deleteFormatterModel: { tier: FormatterModelTier }
+      /**
+       * Turn Add punctuation on: downloads the Punctuation Model first when it is not
+       * installed, and writes the setting only after the verified install. Progress and the
+       * outcome arrive as `updatePunctuationModelProgress`. Turning it off is an ordinary
+       * `updateTranscriptionSettings` write.
+       */
+      turnOnAddPunctuation: {}
+      cancelPunctuationModelDownload: {}
       openExternalUrl: { url: string }
       openHistoryFolder: {}
       /**
@@ -943,6 +962,7 @@ export type WebviewRPCType = {
         done: boolean
         error?: string
       }
+      updatePunctuationModelProgress: PunctuationModelDownloadProgress
       historyEntryAdded: {}
       statsUpdated: {}
       /** The File Transcription queue changed, or a window File Transcription finished. */

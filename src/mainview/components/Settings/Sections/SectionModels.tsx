@@ -8,6 +8,7 @@ import {
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
 import { ModelBrowseModal } from "../ModelBrowseModal";
+import { AddPunctuationSwitch } from "../AddPunctuationSwitch";
 import { settingsHelperClass } from "../settings-shared";
 import { openExternalUrl } from "../../../rpc";
 
@@ -106,6 +107,7 @@ export function SectionModels({
           onCancelDownload={onCancelDownload}
           onDelete={onModelDelete}
         />
+        <AddPunctuationSwitch settings={settings} />
         <button
           type="button"
           onClick={() => setIsBrowseOpen(true)}
