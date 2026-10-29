@@ -1,0 +1,39 @@
+name: ekko Windows runtime check
+
+# One-off check for issue #72 on a GitHub-hosted Windows x64 runner: does onnxruntime-node
+# (ekko-pnc) run under Bun 1.3.13 baseline, and does parakeet.cpp's parakeet-cli (ekko-v1-tiny)
+# run with no DLLs next to it? Lives only on task/ekko-windows-runtime-check.
+# The runner has no GPU or Vulkan loader, so the vulkan build is expected to fail here.
+
+on:
+  push:
+    branches: [task/ekko-windows-runtime-check]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No `bun install`: without node_modules\electrobun the script downloads the
+      # bun-windows-x64-baseline 1.3.13 release, the Bun Electrobun 1.18.1 ships on Windows.
+      - name: Run the check script
+        shell: powershell
+        continue-on-error: true
+        run: powershell -ExecutionPolicy Bypass -File scripts\windows-checks\ekko-runtime-check.ps1 -WorkDir "$env:RUNNER_TEMP\ekko-win-check"
+
+      - name: Publish report
+        if: always()
+        shell: powershell
+        run: Get-Content "$env:RUNNER_TEMP\ekko-win-check\report.md" -Raw | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ekko-win-check-report
+          path: ${{ runner.temp }}/ekko-win-check/report.md
