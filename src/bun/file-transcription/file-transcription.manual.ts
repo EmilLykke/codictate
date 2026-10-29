@@ -8,6 +8,12 @@
  * One case per Speech Engine kind, each skipped when its weights are not installed, plus
  * Translate to English, a cancel and a check that the engine runs at lowered priority. Needs `bun run build:native`
  * for the Media Helper. The video case needs ffmpeg and is skipped without it.
+ *
+ * The weights come from the app's models folder, or from the one named by
+ * `CODICTATE_FILE_TRANSCRIPTION_MODELS_DIR` (Speech Models at their usual file names, the
+ * Punctuation Model in its `ekko-pnc` folder), so ekko can run without installing it:
+ *
+ *   CODICTATE_FILE_TRANSCRIPTION_MODELS_DIR=<folder> bun test ./src/bun/file-transcription/file-transcription.manual.ts
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
@@ -16,7 +22,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { TRANSLATE_CAPABLE_MODEL_IDS } from '../../shared/dictation-plan'
 import { speechModelMakesTimedTranscript } from '../../shared/speech-models'
-import { modelManager } from '../utils/whisper/model-manager'
+import { ekkoPncModelLoader } from '../utils/punctuation/ekko-pnc-model'
+import {
+  PUNCTUATION_MODEL_FILES,
+  punctuationModelFileUrl,
+} from '../utils/punctuation/punctuation-model-files'
+import { createPunctuationRestorer } from '../utils/punctuation/punctuation-restorer'
+import { ModelManager, modelManager } from '../utils/whisper/model-manager'
 import { createFileTranscriptionQueue } from './queue'
 import { productionFileTranscriptionDeps } from './production-deps'
 import type { FileTranscriptionEvent, PublicSpeechEngineName } from './types'
@@ -85,25 +97,56 @@ afterAll(() => {
   if (dir) rmSync(dir, { recursive: true, force: true })
 })
 
+const MODELS_DIR_OVERRIDE = process.env.CODICTATE_FILE_TRANSCRIPTION_MODELS_DIR
+
+/** The models folder this run reads: the app's, or the override with its own ekko-pnc. */
+const store = MODELS_DIR_OVERRIDE
+  ? new ModelManager({
+      modelsDir: MODELS_DIR_OVERRIDE,
+      punctuationModel: {
+        dir: join(MODELS_DIR_OVERRIDE, 'ekko-pnc'),
+        files: PUNCTUATION_MODEL_FILES,
+        urlFor: punctuationModelFileUrl,
+      },
+    })
+  : modelManager
+
+/** One for the whole run, like the app's: the Punctuation Model loads once. */
+const overrideRestorer = MODELS_DIR_OVERRIDE
+  ? createPunctuationRestorer({
+      loadModel: ekkoPncModelLoader(join(MODELS_DIR_OVERRIDE, 'ekko-pnc')),
+    })
+  : null
+
 /**
  * A queue whose File Transcription Settings select one Speech Model, with `en` asked on
  * purpose and Translate to English off.
  */
 function queueFor(speechModelId: string) {
+  const deps = productionFileTranscriptionDeps(
+    {
+      getFileTranscriptionSettings: () => ({
+        speechModelId,
+        transcriptionLanguageId: 'en',
+        translateToEnglish: false,
+      }),
+      getTranslateDefaultLanguageId: () => 'auto',
+      getAddPunctuation: () => false,
+    },
+    // Add punctuation is off here, so nothing ever needs healing.
+    () => {}
+  )
   return createFileTranscriptionQueue(
-    productionFileTranscriptionDeps(
-      {
-        getFileTranscriptionSettings: () => ({
-          speechModelId,
-          transcriptionLanguageId: 'en',
-          translateToEnglish: false,
-        }),
-        getTranslateDefaultLanguageId: () => 'auto',
-        getAddPunctuation: () => false,
-      },
-      // Add punctuation is off here, so nothing ever needs healing.
-      () => {}
-    )
+    overrideRestorer === null
+      ? deps
+      : {
+          ...deps,
+          isModelAvailable: (id) => store.isModelAvailable(id),
+          isPunctuationModelInstalled: () =>
+            store.isPunctuationModelInstalled(),
+          punctuationRestorer: overrideRestorer,
+          locations: store,
+        }
   )
 }
 
@@ -111,9 +154,17 @@ const ENGINE_CASES: {
   speechModelId: string
   engine: PublicSpeechEngineName
   danish: boolean
+  /** Always after Punctuation Restoration, whatever Add punctuation says. */
+  punctuated?: boolean
 }[] = [
   { speechModelId: 'parakeet-tdt-0.6b-v3', engine: 'parakeet', danish: false },
   { speechModelId: 'hviske-v5-tiny-q5_0', engine: 'hviske', danish: true },
+  {
+    speechModelId: 'ekko-v1-tiny-q5_0',
+    engine: 'ekko',
+    danish: true,
+    punctuated: true,
+  },
   { speechModelId: 'edda-v0.2-q5_0', engine: 'whisper', danish: true },
   { speechModelId: 'large-v3-turbo-q5_0', engine: 'whisper', danish: false },
 ]
@@ -123,8 +174,8 @@ const ENGINE_CASES: {
  * available whether or not the pre-build has downloaded them.
  */
 const installed = (speechModelId: string) =>
-  modelManager.isModelAvailable(speechModelId) &&
-  existsSync(modelManager.getModelPath(speechModelId))
+  store.isModelAvailable(speechModelId) &&
+  existsSync(store.getModelPath(speechModelId))
 
 describe('one Speech Model per engine', () => {
   for (const c of ENGINE_CASES) {
@@ -156,6 +207,14 @@ describe('one Speech Model per engine', () => {
           expect(result.timedTranscript?.text).toBe(result.text)
         } else {
           expect(result.timedTranscript).toBeNull()
+        }
+        if (c.punctuated) {
+          expect(result.text).toMatch(/^\p{Lu}/u)
+          expect(result.text).toMatch(/[.!?]$/)
+          // Every punctuated word keeps a time of its own, for captions.
+          for (const part of result.timedTranscript?.parts ?? []) {
+            expect(part.words?.length).toBeGreaterThan(0)
+          }
         }
         expect(events.some((e) => e.type === 'progress')).toBe(true)
         expect(queue.snapshot()).toEqual([])

@@ -9,6 +9,7 @@ import type {
   TranscriptionResult,
 } from '../utils/whisper/engines/transcription'
 import { failedTranscription } from '../utils/whisper/engines/transcription'
+import { renderTranscript } from '../../shared/transcript-export'
 import type { DecodeAudioResult } from './extract-audio'
 import {
   createFileTranscriptionQueue,
@@ -24,6 +25,7 @@ const HVISKE = 'hviske-v5-tiny-q5_0'
 const EDDA = 'edda-v0.2-q5_0'
 const PARAKEET = 'parakeet-tdt-0.6b-v3'
 const LARGE_V3 = 'large-v3-q5_0'
+const EKKO = 'ekko-v1-tiny-q5_0'
 
 interface Deferred<T> {
   promise: Promise<T>
@@ -562,6 +564,108 @@ describe('Punctuation Restoration', () => {
           ],
         },
       ],
+    })
+  })
+
+  test('ekko comes back punctuated with Add punctuation off, its word times kept one to one', async () => {
+    // ekko's shape: one part per slice, every word timed, lowercase with no punctuation.
+    const raw = 'hej med dig jeg bor i københavn'
+    const punctuated = 'Hej med dig. Jeg bor i København.'
+    const { result } = await punctuatedRun(
+      {
+        speechModelId: EKKO,
+        addPunctuation: false,
+        punctuated: { [raw]: punctuated },
+      },
+      {
+        status: 'ok',
+        rawTranscript: raw,
+        timedTranscript: {
+          text: raw,
+          parts: [
+            {
+              text: 'hej med dig',
+              start: 0.48,
+              end: 1.6,
+              words: [
+                { text: 'hej', start: 0.48, end: 0.8 },
+                { text: 'med', start: 0.8, end: 1.12 },
+                { text: 'dig', start: 1.12, end: 1.6 },
+              ],
+            },
+            {
+              text: 'jeg bor i københavn',
+              start: 4.24,
+              end: 6,
+              words: [
+                { text: 'jeg', start: 4.24, end: 4.48 },
+                { text: 'bor', start: 4.48, end: 4.8 },
+                { text: 'i', start: 4.8, end: 4.96 },
+                { text: 'københavn', start: 5.2, end: 6 },
+              ],
+            },
+          ],
+        },
+      }
+    )
+    expect(result).toMatchObject({ status: 'ok', text: punctuated })
+    expect(result.status === 'ok' && result.timedTranscript).toEqual({
+      text: punctuated,
+      parts: [
+        {
+          text: 'Hej med dig.',
+          start: 0.48,
+          end: 1.6,
+          words: [
+            { text: 'Hej', start: 0.48, end: 0.8 },
+            { text: 'med', start: 0.8, end: 1.12 },
+            { text: 'dig.', start: 1.12, end: 1.6 },
+          ],
+        },
+        {
+          text: 'Jeg bor i København.',
+          start: 4.24,
+          end: 6,
+          words: [
+            { text: 'Jeg', start: 4.24, end: 4.48 },
+            { text: 'bor', start: 4.48, end: 4.8 },
+            { text: 'i', start: 4.8, end: 4.96 },
+            { text: 'København.', start: 5.2, end: 6 },
+          ],
+        },
+      ],
+    })
+  })
+
+  test('ekko without a Timed Transcript still returns the punctuated text, and no Caption Files', async () => {
+    const { result } = await punctuatedRun(
+      {
+        speechModelId: EKKO,
+        punctuated: { 'hej med dig': 'Hej med dig.' },
+      },
+      { status: 'ok', rawTranscript: 'hej med dig', timedTranscript: null }
+    )
+    expect(result).toMatchObject({
+      status: 'ok',
+      text: 'Hej med dig.',
+      timedTranscript: null,
+    })
+    if (result.status !== 'ok') return
+    const source = {
+      fileName: 'a.wav',
+      speechModelId: EKKO,
+      language: 'da',
+      translated: false,
+      audioSeconds: 61.2,
+      processingSeconds: 1,
+      text: result.text,
+      timedTranscript: result.timedTranscript,
+    }
+    expect(renderTranscript('srt', source)).toMatchObject({ ok: false })
+    expect(renderTranscript('vtt', source)).toMatchObject({ ok: false })
+    expect(renderTranscript('txt', source)).toEqual({
+      ok: true,
+      content: 'Hej med dig.\n',
     })
   })
 
