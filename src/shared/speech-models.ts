@@ -879,8 +879,8 @@ export const SPEECH_MODELS: SpeechModel[] = [
   // punctuation or capitals, so every ekko run goes through Punctuation Restoration with no
   // switch (the plan sets `punctuationRestoration`).
   //
-  // Not `curated`, for the same reason as hviske and Edda. Not browsable yet either: the
-  // browse modal and the Settings list leave engine `ekko` out until its download lands (#105).
+  // Not `curated`, for the same reason as hviske and Edda: it lives in the browse modal, and
+  // the Settings list shows it once installed (GGUF and ekko-pnc both on disk).
   //
   // `downloadSizeMB` is the GGUF (134710976 bytes, 128 MiB) plus ekko-pnc's runtime files
   // (24 MiB), because downloading ekko fetches the Punctuation Model when it is missing.
@@ -1185,10 +1185,10 @@ function browseSortKey(model: SpeechModel): [number, number, number] {
  * Everything the browse ("download more") modal offers: the Speech Models a user has to go
  * looking for rather than the curated few the main Settings list shows.
  *
- * That is every non-curated whisper.cpp Quantization (Edda's included) plus all five hviske
- * Quantizations.
- * hviske is named by engine instead of riding the `!curated` test, because it is not a
- * `whisper_cpp` model and no hviske entry is ever curated - a Danish-only model does not
+ * That is every non-curated whisper.cpp Quantization (Edda's included), all five hviske
+ * Quantizations and ekko.
+ * hviske and ekko are named by engine instead of riding the `!curated` test, because neither
+ * is a `whisper_cpp` model and neither is ever curated - a Danish-only model does not
  * belong in the list every user scans, but it does belong somewhere reachable.
  *
  * Parakeet is absent by design: it has its own section in Settings.
@@ -1196,5 +1196,8 @@ function browseSortKey(model: SpeechModel): [number, number, number] {
  * Listed best first, by `compareBrowseOrder`, not in catalog order.
  */
 export const BROWSABLE_SPEECH_MODELS = SPEECH_MODELS.filter(
-  (m) => (m.engine === 'whisper_cpp' && !m.curated) || m.engine === 'hviske'
+  (m) =>
+    (m.engine === 'whisper_cpp' && !m.curated) ||
+    m.engine === 'hviske' ||
+    m.engine === EKKO_ENGINE_ID
 ).sort(compareBrowseOrder)

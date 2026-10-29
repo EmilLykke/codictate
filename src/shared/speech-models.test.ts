@@ -61,7 +61,7 @@ describe('fluidAudioModelFolderName', () => {
 /**
  * The browse modal lists best first: Whisper by family (large-v3 down to tiny), a size's
  * multilingual entries before its `.en` ones, full precision before q8 before q5; then the
- * Danish-only models by accuracy, Edda before hviske.
+ * Danish-only models by accuracy: Edda, ekko, hviske.
  */
 describe('BROWSABLE_SPEECH_MODELS', () => {
   it('lists the best models first', () => {
@@ -98,6 +98,7 @@ describe('BROWSABLE_SPEECH_MODELS', () => {
       'edda-v0.2-f16',
       'edda-v0.2-q8_0',
       'edda-v0.2-q5_0',
+      'ekko-v1-tiny-q5_0',
       'hviske-v5-tiny-f16',
       'hviske-v5-tiny-q8_0',
       'hviske-v5-tiny-q6_k',
@@ -149,8 +150,7 @@ describe('RECOMMENDED_DANISH_SPEECH_MODEL_ID', () => {
 })
 
 /**
- * ekko-v1-tiny (#103): in the catalog and resolvable, but not browsable or downloadable from
- * the window yet (#105 adds it to the browse modal and the Settings list).
+ * ekko-v1-tiny (#103, #105): in the catalog and in the browse modal, between Edda and hviske.
  */
 describe('the ekko catalog entry', () => {
   const EKKO = 'ekko-v1-tiny-q5_0'
@@ -214,7 +214,7 @@ describe('the ekko catalog entry', () => {
     expect(model.peakRamMB).toBe(300)
   })
 
-  it('is not in the browse modal yet', () => {
-    expect(BROWSABLE_SPEECH_MODELS.some((m) => m.engine === 'ekko')).toBe(false)
+  it('is in the browse modal', () => {
+    expect(BROWSABLE_SPEECH_MODELS.map((m) => m.id)).toContain(EKKO)
   })
 })

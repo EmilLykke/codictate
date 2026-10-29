@@ -37,6 +37,11 @@ const SHORT_DESC: Record<string, string> = {
   "edda-v0.2-q8_0":
     "Danish only, most accurate Danish, near-full precision. 1.1 GB RAM.",
   "edda-v0.2-q5_0": "Danish only, most accurate Danish, compact. 787 MB RAM.",
+  // ekko measured 9.93 WER on the same 927 clips, scored on its Raw Transcript before
+  // Punctuation Restoration (Benchmark Run 2026-10-29_21-54-05_ekko-v1-tiny-danish). RAM is
+  // that run's average peak RSS.
+  "ekko-v1-tiny-q5_0":
+    "Danish only, fastest Danish, adds punctuation. 300 MB RAM.",
 };
 
 function StatBar({
@@ -97,7 +102,7 @@ export function ModelPicker({
         const isDeletable = isAvailable && !model.bundled;
         const isPendingDelete = confirmDelete === model.id;
         const stats = MODEL_RATINGS[model.id];
-        // SHORT_DESC covers the curated models, large-v3-q5_0 and the hviske and Edda Quantizations. Anything else
+        // SHORT_DESC covers the curated models, large-v3-q5_0, the hviske and Edda Quantizations and ekko. Anything else
         // reaching this picker is an extra Quantization downloaded from the browse modal, and
         // falls back to its catalog description rather than rendering a blank line. The two
         // are written in different registers (catalog descriptions carry an engine prefix),

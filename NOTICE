@@ -13,6 +13,16 @@ Danish Foundation Models, under the Apache License 2.0, and derives from OpenAI'
 Whisper (MIT). Codictate converted it to GGML. Its license and attribution
 notices are distributed in licenses/edda (docs/licenses/edda in source).
 
+The optional Danish Speech Model ekko-v1-tiny by RyeAI, from
+https://huggingface.co/RyeAI/ekko-v1-tiny at revision
+3658535e7b2fa98d5d9aad8114573c0fab1e6203, is downloaded unchanged (the q5_0
+GGUF) from Codictate's Mirror. It is derived from nvidia/parakeet-rnnt-110m-da-dk.
+Licensed by NVIDIA Corporation under the NVIDIA Open Model License. RyeAI's
+modifications are under CC BY 4.0, and the CoRal restrictions in its
+CORAL-LICENSE and the FT Speech terms also apply. Its NOTICE, MODEL_LICENSE.md
+and LICENSES/ are distributed in licenses/ekko-v1-tiny (docs/licenses/ekko-v1-tiny
+in source).
+
 The ekko Speech Engine runs on parakeet.cpp (parakeet-cli) v0.6.1, Copyright (c)
 2026 the parakeet.cpp authors, under the MIT License. Its LICENSE is distributed
 in licenses/parakeet-cpp (docs/licenses/parakeet-cpp in source).

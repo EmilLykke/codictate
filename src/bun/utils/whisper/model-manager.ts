@@ -16,6 +16,7 @@ import { Readable } from 'node:stream'
 import { createHash } from 'node:crypto'
 import { downloadFile, listFiles } from '@huggingface/hub'
 import {
+  EKKO_ENGINE_ID,
   PARAKEET_ENGINE_ID,
   SPEECH_MODELS,
   getSpeechModel,
@@ -25,6 +26,14 @@ import {
 } from '../../../shared/speech-models'
 import { log } from '../logger'
 import { MODELS_DIR, getPlatformRuntime } from '../../platform/runtime'
+import {
+  PUNCTUATION_MODEL_DIR,
+  PUNCTUATION_MODEL_FILES,
+  isPunctuationModelInstalled,
+  punctuationModelFileUrl,
+  type PunctuationModelFile,
+} from '../punctuation/punctuation-model-files'
+import { installPunctuationModel } from '../punctuation/punctuation-model-install'
 
 const BUNDLED_MODEL_PATH = join(
   import.meta.dir,
@@ -286,10 +295,13 @@ function parakeetArtifactName(model: SpeechModel): string {
  * is one `-coreml` away from the only name FluidAudio ever looks at. Returns null when
  * the two names agree and there is nothing to migrate.
  */
-function legacyParakeetInstallDir(model: SpeechModel): string | null {
+function legacyParakeetInstallDir(
+  model: SpeechModel,
+  modelsDir: string
+): string | null {
   if (getPlatformRuntime() === 'windows') return null
-  const legacy = join(MODELS_DIR, model.artifactName)
-  const current = join(MODELS_DIR, parakeetArtifactName(model))
+  const legacy = join(modelsDir, model.artifactName)
+  const current = join(modelsDir, parakeetArtifactName(model))
   return legacy === current ? null : legacy
 }
 
@@ -301,10 +313,13 @@ function legacyParakeetInstallDir(model: SpeechModel): string | null {
  * mismatched load leaves behind - FluidAudio's own partial fetch of weights that were
  * already on disk under the other name.
  */
-function migrateLegacyParakeetInstall(model: SpeechModel): void {
-  const legacyDir = legacyParakeetInstallDir(model)
+function migrateLegacyParakeetInstall(
+  model: SpeechModel,
+  modelsDir: string
+): void {
+  const legacyDir = legacyParakeetInstallDir(model, modelsDir)
   if (legacyDir === null) return
-  const targetDir = join(MODELS_DIR, parakeetArtifactName(model))
+  const targetDir = join(modelsDir, parakeetArtifactName(model))
   if (!parakeetCoreMlInstallComplete(legacyDir)) return
   if (parakeetCoreMlInstallComplete(targetDir)) return
   try {
@@ -353,13 +368,62 @@ function parakeetPinnedFiles(): Map<string, string> {
   )
 }
 
-class ModelManager {
+/** Where the Punctuation Model (ekko-pnc) lives and what it is pinned to. */
+export interface PunctuationModelLocation {
+  dir: string
+  files: readonly PunctuationModelFile[]
+  urlFor: (file: PunctuationModelFile) => string
+}
+
+/**
+ * Everything the store reads from outside itself. The app uses the defaults; the tests point
+ * it at a temporary models directory, a fake `fetch` and a small Punctuation Model table.
+ */
+export interface ModelManagerOptions {
+  modelsDir?: string
+  fetch?: (url: string, init?: RequestInit) => Promise<Response>
+  /** The catalog lookup. */
+  speechModel?: (modelId: string) => SpeechModel | undefined
+  punctuationModel?: PunctuationModelLocation
+}
+
+export class ModelManager {
   private downloads = new Map<string, AbortController>()
   private coreMlCleaned = new Set<string>()
   private legacyMigrated = new Set<string>()
+  private readonly modelsDir: string
+  private readonly fetchFile: (
+    url: string,
+    init?: RequestInit
+  ) => Promise<Response>
+  private readonly speechModel: (modelId: string) => SpeechModel | undefined
+  private readonly punctuationModel: PunctuationModelLocation
+
+  constructor(options: ModelManagerOptions = {}) {
+    this.modelsDir = options.modelsDir ?? MODELS_DIR
+    this.fetchFile = options.fetch ?? ((url, init) => fetch(url, init))
+    this.speechModel = options.speechModel ?? getSpeechModel
+    this.punctuationModel = options.punctuationModel ?? {
+      dir: PUNCTUATION_MODEL_DIR,
+      files: PUNCTUATION_MODEL_FILES,
+      urlFor: punctuationModelFileUrl,
+    }
+  }
 
   private modelInfo(modelId: string): SpeechModel | undefined {
-    return getSpeechModel(modelId)
+    return this.speechModel(modelId)
+  }
+
+  /**
+   * The Punctuation Model (ekko-pnc) is fully on disk with its pinned hashes. The same
+   * question the availability snapshot asks (`isPunctuationModelInstalled`), here because an
+   * ekko Speech Model is only installed with it.
+   */
+  isPunctuationModelInstalled(): boolean {
+    return isPunctuationModelInstalled(
+      this.punctuationModel.dir,
+      this.punctuationModel.files
+    )
   }
 
   /**
@@ -379,7 +443,14 @@ class ModelManager {
     if (model.engine === PARAKEET_ENGINE_ID) {
       return parakeetInstallComplete(this.getParakeetInstallDir(modelId))
     }
-    return existsSync(join(MODELS_DIR, model.artifactName))
+    const weightsOnDisk = existsSync(join(this.modelsDir, model.artifactName))
+    // ekko writes no punctuation or capitals, and every ekko run restores them (the plan's
+    // `punctuationRestoration`), so without ekko-pnc it is simply not installed: no blocked
+    // reason of its own, and the heal pass moves the selection as for any missing weights.
+    if (model.engine === EKKO_ENGINE_ID) {
+      return weightsOnDisk && this.isPunctuationModelInstalled()
+    }
+    return weightsOnDisk
   }
 
   /**
@@ -403,9 +474,9 @@ class ModelManager {
   reconcileInstalls(): void {
     for (const model of SPEECH_MODELS) {
       if (model.engine !== PARAKEET_ENGINE_ID) continue
-      const dir = join(MODELS_DIR, parakeetArtifactName(model))
+      const dir = join(this.modelsDir, parakeetArtifactName(model))
       if (!this.legacyMigrated.has(dir)) {
-        migrateLegacyParakeetInstall(model)
+        migrateLegacyParakeetInstall(model, this.modelsDir)
         this.legacyMigrated.add(dir)
       }
       if (!parakeetInstallComplete(dir)) continue
@@ -422,7 +493,7 @@ class ModelManager {
       return this.getParakeetInstallDir(modelId)
     }
     if (model.bundled) return BUNDLED_MODEL_PATH
-    return join(MODELS_DIR, model.artifactName)
+    return join(this.modelsDir, model.artifactName)
   }
 
   /** Directory passed to the platform Parakeet helper (Core ML on macOS, ONNX on Windows). */
@@ -431,7 +502,7 @@ class ModelManager {
     if (!model || model.engine !== PARAKEET_ENGINE_ID) {
       throw new Error(`Not a Parakeet / WhisperKit model: ${modelId}`)
     }
-    return join(MODELS_DIR, parakeetArtifactName(model))
+    return join(this.modelsDir, parakeetArtifactName(model))
   }
 
   getAvailabilityMap(): Record<string, boolean> {
@@ -445,11 +516,12 @@ class ModelManager {
     return this.isModelAvailable('parakeet-tdt-0.6b-v3')
   }
 
+  /** `onBytes` gets the bytes received so far and the response's length (0 when unknown). */
   private async downloadSingleFileModel(
     model: SpeechModel,
     tempPath: string,
     controller: AbortController,
-    onProgress: ModelProgressCallback
+    onBytes: (received: number, contentLength: number) => void
   ): Promise<void> {
     const url = singleFileModelDownloadUrl(model)
     log('model-manager', 'starting single-file model download', {
@@ -458,7 +530,7 @@ class ModelManager {
       url,
     })
 
-    const response = await fetch(url, { signal: controller.signal })
+    const response = await this.fetchFile(url, { signal: controller.signal })
     if (!response.ok || !response.body) {
       throw new Error(
         httpDownloadErrorMessage(
@@ -488,9 +560,7 @@ class ModelManager {
         })
       })
       received += value.length
-      if (contentLength > 0) {
-        onProgress(received / contentLength, false)
-      }
+      onBytes(received, contentLength)
     }
 
     await new Promise<void>((resolve, reject) => {
@@ -712,13 +782,13 @@ class ModelManager {
       return
     }
 
-    mkdirSync(MODELS_DIR, { recursive: true })
+    mkdirSync(this.modelsDir, { recursive: true })
 
     const controller = new AbortController()
     this.downloads.set(modelId, controller)
 
     if (model.engine === PARAKEET_ENGINE_ID) {
-      const destDir = join(MODELS_DIR, parakeetArtifactName(model))
+      const destDir = join(this.modelsDir, parakeetArtifactName(model))
       const tempDir = destDir + '.tmp'
       try {
         if (existsSync(tempDir))
@@ -758,36 +828,105 @@ class ModelManager {
       return
     }
 
-    const destPath = join(MODELS_DIR, model.artifactName)
-    const tempPath = destPath + '.tmp'
-
     log('model-manager', 'starting download', {
       modelId,
       url: singleFileModelDownloadUrl(model),
     })
 
     try {
-      await this.downloadSingleFileModel(
-        model,
-        tempPath,
-        controller,
-        onProgress
-      )
-      renameSync(tempPath, destPath)
+      if (model.engine === EKKO_ENGINE_ID) {
+        await this.downloadEkko(model, controller, onProgress)
+      } else {
+        await this.installSingleFileModel(
+          model,
+          controller,
+          (received, total) => {
+            if (total > 0) onProgress(received / total, false)
+          }
+        )
+      }
       this.downloads.delete(modelId)
       log('model-manager', 'download complete', { modelId })
       onProgress(1, true)
     } catch (err) {
       this.downloads.delete(modelId)
+      const message = downloadErrorMessage(err)
+      log('model-manager', 'download failed', { modelId, error: message })
+      onProgress(0, true, message)
+    }
+  }
+
+  /**
+   * The single-file path: into `<file>.tmp`, sha256 checked while it streams, then renamed
+   * into place. On any failure the temp file is removed and the error rethrown, so nothing
+   * unverified is ever installed.
+   */
+  private async installSingleFileModel(
+    model: SpeechModel,
+    controller: AbortController,
+    onBytes: (received: number, contentLength: number) => void
+  ): Promise<void> {
+    const destPath = join(this.modelsDir, model.artifactName)
+    const tempPath = destPath + '.tmp'
+    try {
+      await this.downloadSingleFileModel(model, tempPath, controller, onBytes)
+      renameSync(tempPath, destPath)
+    } catch (err) {
       try {
         unlinkSync(tempPath)
       } catch {
         // ignore
       }
-      const message = downloadErrorMessage(err)
-      log('model-manager', 'download failed', { modelId, error: message })
-      onProgress(0, true, message)
+      throw err
     }
+  }
+
+  /**
+   * ekko is two installs behind one download: its GGUF through the single-file path, then
+   * the Punctuation Model (ekko-pnc) through its own installer, each only when it is missing.
+   * One progress value weighted by bytes across both parts (the GGUF's size from its
+   * response, ekko-pnc's from its pinned table), one cancel, and success only when both are
+   * on disk. A failed ekko-pnc keeps the verified GGUF, so a retry fetches only ekko-pnc.
+   */
+  private async downloadEkko(
+    model: SpeechModel,
+    controller: AbortController,
+    onProgress: ModelProgressCallback
+  ): Promise<void> {
+    const needsGguf = !existsSync(join(this.modelsDir, model.artifactName))
+    const punctuationBytes = this.isPunctuationModelInstalled()
+      ? 0
+      : this.punctuationModel.files.reduce((sum, file) => sum + file.bytes, 0)
+
+    let ggufBytes = 0
+    if (needsGguf) {
+      await this.installSingleFileModel(
+        model,
+        controller,
+        (received, total) => {
+          ggufBytes = Math.max(total, received)
+          onProgress(received / (ggufBytes + punctuationBytes), false)
+        }
+      )
+    }
+    if (punctuationBytes === 0) return
+
+    log('model-manager', 'installing the Punctuation Model for ekko', {
+      modelId: model.id,
+    })
+    await installPunctuationModel({
+      dir: this.punctuationModel.dir,
+      files: this.punctuationModel.files,
+      urlFor: this.punctuationModel.urlFor,
+      fetch: this.fetchFile,
+      signal: controller.signal,
+      onProgress: (fraction) =>
+        onProgress(
+          (ggufBytes + fraction * punctuationBytes) /
+            (ggufBytes + punctuationBytes),
+          false
+        ),
+    })
   }
 
   cancelDownload(modelId: string): void {
@@ -817,10 +956,10 @@ class ModelManager {
     const model = this.modelInfo(modelId)
     if (!model || model.bundled) return false
     if (model.engine === PARAKEET_ENGINE_ID) {
-      const dir = join(MODELS_DIR, parakeetArtifactName(model))
+      const dir = join(this.modelsDir, parakeetArtifactName(model))
       // A copy under the old name is the same weights taking the same disk space, so a
       // delete that left it behind would not free what the user asked to free.
-      const legacyDir = legacyParakeetInstallDir(model)
+      const legacyDir = legacyParakeetInstallDir(model, this.modelsDir)
       const stale =
         legacyDir !== null && existsSync(legacyDir) ? legacyDir : null
       if (!existsSync(dir) && stale === null) return false
@@ -829,7 +968,7 @@ class ModelManager {
         if (stale !== null) rmSync(stale, { recursive: true, force: true })
       })
     }
-    const modelPath = join(MODELS_DIR, model.artifactName)
+    const modelPath = join(this.modelsDir, model.artifactName)
     if (!existsSync(modelPath)) return false
     return this.tryRemoveDownloadedModel(modelId, () => unlinkSync(modelPath))
   }

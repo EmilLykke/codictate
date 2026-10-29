@@ -106,8 +106,8 @@ What Codictate is doing and how it is set up. Human output is `key: value` lines
 
 - `models list` shows the curated Speech Models plus any installed one; `--all` shows every Speech Model.
 - `models use <id>` selects a Speech Model, exactly as Settings does. It must be installed (exit `4`).
-- `models download <id>` downloads one and streams progress. It does not select it.
-- `models remove <id>` removes the weights. Codictate corrects its selection when the removed Speech Model was the selected one, as it does when weights are removed from Settings. A bundled Speech Model cannot be removed (exit `2`).
+- `models download <id>` downloads one and streams progress. It does not select it. For ekko it also downloads the Danish punctuation model when that is missing, as one download with one progress value: ekko counts as installed only with both, and a retry after a failure fetches only what is missing.
+- `models remove <id>` removes the weights. Codictate corrects its selection when the removed Speech Model was the selected one, as it does when weights are removed from Settings. A bundled Speech Model cannot be removed (exit `2`). Removing ekko keeps the Danish punctuation model, which hviske's Add punctuation also uses.
 
 Human output: `list` is a table with the selected row marked `*`; `use`, `download` and `remove` print `Selected <id>`, `Downloaded <id>`, `Removed <id>`.
 

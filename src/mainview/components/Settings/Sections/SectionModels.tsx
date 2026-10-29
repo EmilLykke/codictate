@@ -3,6 +3,7 @@ import type { AppSettings } from "../../../../shared/types";
 import {
   SPEECH_MODELS,
   BROWSABLE_SPEECH_MODELS,
+  EKKO_ENGINE_ID,
   PARAKEET_ENGINE_ID,
 } from "../../../../shared/speech-models";
 import { ModelPicker } from "../ModelPicker";
@@ -31,8 +32,9 @@ export function SectionModels({
 }: Props) {
   const [isBrowseOpen, setIsBrowseOpen] = useState(false);
 
-  // Curated whisper.cpp models, plus anything the user has already downloaded - hviske
-  // included, even though no hviske entry is ever curated.
+  // Curated whisper.cpp models, plus anything the user has already downloaded - hviske and
+  // ekko included, even though neither is ever curated. An ekko counts as downloaded only
+  // with its Punctuation Model on disk too, and its delete removes the GGUF alone.
   //
   // Listing an installed model is management, not promotion: promotion is what `curated`
   // and the browse modal decide, and an hviske model only becomes available by being
@@ -44,7 +46,8 @@ export function SectionModels({
       SPEECH_MODELS.filter((m) =>
         m.engine === "whisper_cpp"
           ? m.curated || modelAvailability[m.id]
-          : m.engine === "hviske" && modelAvailability[m.id],
+          : (m.engine === "hviske" || m.engine === EKKO_ENGINE_ID) &&
+            modelAvailability[m.id],
       ),
     [modelAvailability],
   );
