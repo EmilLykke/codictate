@@ -3,6 +3,7 @@ import {
   buildChannelFrom,
 } from "./src/shared/binary-manifest";
 import { cliBinarySource } from "./scripts/build-native-cli";
+import { onnxRuntimeBuildCopy } from "./scripts/onnxruntime-bundle";
 import type { ElectrobunConfig } from "electrobun";
 import {
   CRISPASR_BUNDLE_SUBDIR,
@@ -39,6 +40,9 @@ const buildCopy: Record<string, string> = {
   "docs/licenses/edda": "licenses/edda",
   "docs/licenses/tinyld": "licenses/tinyld",
   "docs/licenses/silero-vad": "licenses/silero-vad",
+  "docs/licenses/ekko-pnc": "licenses/ekko-pnc",
+  "docs/licenses/onnxruntime": "licenses/onnxruntime",
+  "docs/licenses/huggingface-tokenizers": "licenses/huggingface-tokenizers",
   ...binaryBuildCopy(
     isWindowsHost ? "windows" : "macos",
     buildChannelFrom(buildChannel),
@@ -48,6 +52,9 @@ const buildCopy: Record<string, string> = {
   [cliBinarySource(process.platform)]: isWindowsHost
     ? "bin/codictate.exe"
     : "bin/codictate",
+  // ONNX Runtime for the Punctuation Restorer, at the path the bundled main process
+  // requires it from (ONNXRUNTIME_BINDING_DIRS in scripts/onnxruntime-bundle.ts).
+  ...onnxRuntimeBuildCopy(isWindowsHost ? "windows" : "macos"),
   "dist/index.html": "views/mainview/index.html",
   "dist/assets": "views/mainview/assets",
   // -- Sounds (src/assets/sounds -> app/sounds)

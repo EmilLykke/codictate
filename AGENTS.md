@@ -120,6 +120,7 @@ scripts/
   pre-build.ts                  # Downloads vendor binaries + Whisper model
   post-build.ts                 # App bundle patching + codesign
   vendor-manifest.ts            # Pinned vendor releases + the file lists shipped from them
+  onnxruntime-bundle.ts         # ONNX Runtime files shipped from onnxruntime-node, and where the bundle needs them
   mirror-hviske.ts              # Maintainer-run: mirror the hviske GGUF weights
   mirror-edda.ts                # Maintainer-run: convert and mirror the Edda GGML weights
   mirror-ekko.ts                # Maintainer-run: mirror ekko-pnc (and later ekko-v1-tiny), byte copies
