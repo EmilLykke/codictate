@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { PlatformCapabilities } from '../../shared/platform'
 import { DEFAULT_MODEL_ID } from '../../shared/speech-models'
+import { createEkkoWarmup } from '../utils/whisper/ekko-warmup'
 import { AppConfig, type AppConfigDependencies } from './AppConfig'
 
 const roots: string[] = []
@@ -686,5 +687,62 @@ describe('Add punctuation', () => {
     await config.updateFileTranscriptionSettings({ speechModelId: HVISKE })
 
     expect(notified).toBeGreaterThan(before)
+  })
+})
+
+describe('the ekko warm-up on the settings observer', () => {
+  const EKKO = 'ekko-v1-tiny-q5_0'
+
+  /**
+   * ekko installed (GGUF and ekko-pnc), loaded as at boot. `observe` registers a warm-up on
+   * the observer the way `index.ts` does, with its loads recorded instead of spawned.
+   */
+  async function ekkoConfig() {
+    const dependencies = testDependencies({
+      isModelAvailable: (id) => id === DEFAULT_MODEL_ID || id === EKKO,
+      getModelAvailability: () => ({ [DEFAULT_MODEL_ID]: true, [EKKO]: true }),
+      isPunctuationModelInstalled: () => true,
+    })
+    const config = new AppConfig(dependencies)
+    await config.load()
+    const loads: string[] = []
+    const observe = () => {
+      const warmup = createEkkoWarmup({
+        dictationPlan: () => config.getDictationPlan(),
+        load: async (target) => {
+          loads.push(target.speechModelId)
+        },
+        log: () => {},
+      })
+      config.observeRunnableDictationSettings(() => warmup.ensureWarm())
+    }
+    return { config, loads, observe }
+  }
+
+  test('launch with ekko selected starts one', async () => {
+    const { config, loads, observe } = await ekkoConfig()
+    await config.updateTranscriptionSettings({ speechModelId: EKKO })
+    observe()
+    expect(loads).toEqual([EKKO])
+  })
+
+  test('selecting ekko for Dictation starts one, and a later settings write none', async () => {
+    const { config, loads, observe } = await ekkoConfig()
+    observe()
+    expect(loads).toEqual([])
+    await config.updateTranscriptionSettings({ speechModelId: EKKO })
+    expect(loads).toEqual([EKKO])
+    await config.updateGeneralSettings({ soundEffectsEnabled: false })
+    await config.updateTranscriptionSettings({ transcriptionLanguageId: 'da' })
+    expect(loads).toEqual([EKKO])
+  })
+
+  test('a File Transcription selection of ekko starts no warm-up', async () => {
+    const { config, loads, observe } = await ekkoConfig()
+    observe()
+    expect(
+      await config.updateFileTranscriptionSettings({ speechModelId: EKKO })
+    ).toBe(true)
+    expect(loads).toEqual([])
   })
 })
