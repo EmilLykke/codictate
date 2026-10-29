@@ -17,7 +17,7 @@ The results in `benchmarks/results/` are frozen and are treated as read-only mea
 
 Those whisper-cli numbers can never be re-measured, so **two separate concepts** are kept apart in code, and conflating them again is how the archive gets silently dropped:
 
-- **Runnable Harness** - `ASR_HARNESS_IDS` in `src/shared/asr-harness.ts`. What a new run may execute. Used for `--harness` validation and for building a run plan.
+- **Runnable Harness** - `ASR_HARNESS_IDS` in `src/shared/asr-harness.ts`. What a new run may execute: `crispasr` and `parakeet-cli`. Only `SELECTABLE_BENCHMARK_HARNESSES` in `stt/results-schema.ts` (`crispasr`) can be asked for with `--harness` or the TUI; `parakeet-cli` runs only ekko and is forced per Speech Model, like hviske's crispasr.
 - **Archived Harness label** - `BENCHMARK_HARNESS_LABELS` in `stt/results-schema.ts`. What a Harness key in a result file may legitimately say. Append-only, and still contains `whisper-cli`. **Every read path must validate against this one**: parsing, migration, flattening, coverage, reporting, checkpoint resume, and `stt/charts.py`.
 
 `stt/results-archive.manual.ts` reads the real run directories and fails if any archived whisper-cli bucket stops parsing, or if the sample cursors derived from them move. It is pinned to the seven runs that exist today, so it sits outside the default `bun test` run (hence the `.manual.ts` suffix) and CI never touches it. Run it with `bun test ./benchmarks/stt/results-archive.manual.ts`, and update its pinned run list and counts whenever a Benchmark Run is archived.

@@ -43,6 +43,7 @@ single Vendor Binary without redoing the rest:
 ```bash
 bun run scripts/pre-build.ts --llama-only
 bun run scripts/pre-build.ts --crispasr-only
+bun run scripts/pre-build.ts --parakeet-cli-only
 bun run scripts/pre-build.ts --parakeet-only   # macOS only
 ```
 

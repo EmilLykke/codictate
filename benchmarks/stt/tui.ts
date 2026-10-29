@@ -19,10 +19,8 @@ import {
   log as clackLog,
   note,
 } from "@clack/prompts";
-import {
-  ASR_HARNESS_IDS,
-  type AsrHarnessId,
-} from "../../src/shared/asr-harness";
+import { type AsrHarnessId } from "../../src/shared/asr-harness";
+import { SELECTABLE_BENCHMARK_HARNESSES } from "./results-schema";
 import {
   SPEECH_MODEL_IDS,
   getSpeechModel,
@@ -32,7 +30,7 @@ import { formatModelCoverage, type Coverage } from "./coverage";
 
 export interface BenchmarkPlan {
   /**
-   * Every runnable Harness to run, in order. More than one means a same-samples
+   * Every selectable Harness to run, in order. More than one means a same-samples
    * comparison. Not prompted for while there is only one, but still a list: the plan
    * feeds `run-stt.ts`, whose result files and read paths stay multi-Harness because
    * the archive is.
@@ -92,11 +90,12 @@ export async function promptBenchmarkPlan(
     );
   }
 
-  // Every runnable Harness, with no prompt: there is one, and a multiselect with a
-  // single option is a keystroke that cannot change the outcome. If a second Harness is
-  // ever added, this is where the prompt comes back - running several over identical
-  // samples is the only way their WER and RTF are comparable.
-  const harnesses: AsrHarnessId[] = [...ASR_HARNESS_IDS];
+  // Every selectable Harness, with no prompt: there is one, and a multiselect with a
+  // single option is a keystroke that cannot change the outcome. `parakeet-cli` is not
+  // selectable: it runs only ekko and is forced per Speech Model. If a second selectable
+  // Harness is ever added, this is where the prompt comes back - running several over
+  // identical samples is the only way their WER and RTF are comparable.
+  const harnesses: AsrHarnessId[] = [...SELECTABLE_BENCHMARK_HARNESSES];
   clackLog.info(`ASR Harness: ${harnesses.join(", ")}`);
 
   // Each row's badge carries two numbers: how deep the deepest run scored this

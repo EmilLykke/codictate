@@ -20,6 +20,11 @@ export type BinaryId =
    * downloaded at runtime.
    */
   | 'silero-vad'
+  /**
+   * parakeet.cpp's `parakeet-cli`, the ekko Speech Engine's ASR Harness (ADR-0002). In its own
+   * folder under `native-helpers/`, beside nothing: it links only system libraries.
+   */
+  | 'parakeet-cli'
 
 export interface BinaryArtifact {
   source: string
@@ -131,6 +136,12 @@ const macosShared: Omit<Record<BinaryId, BinaryArtifact>, 'parakeet'> = {
       'CodictateMediaHelper not found. Run `bun run build:native`, then rebuild the app.',
   },
   'silero-vad': sileroVad,
+  'parakeet-cli': {
+    source: 'vendors/parakeet-cli/parakeet-cli',
+    destination: 'native-helpers/parakeet-cli/parakeet-cli',
+    remediation:
+      'parakeet-cli not found. Run `bun run scripts/pre-build.ts --parakeet-cli-only`, then rebuild the app.',
+  },
 }
 
 const windows: Record<BinaryId, BinaryArtifact | null> = {
@@ -152,6 +163,11 @@ const windows: Record<BinaryId, BinaryArtifact | null> = {
     destination: macosShared.crispasr.destination + '.exe',
   },
   'silero-vad': sileroVad,
+  'parakeet-cli': {
+    ...macosShared['parakeet-cli'],
+    source: macosShared['parakeet-cli'].source + '.exe',
+    destination: macosShared['parakeet-cli'].destination + '.exe',
+  },
 }
 
 /** Every platform's artifacts for one channel's build. Only the macOS Parakeet helper differs. */
@@ -171,6 +187,7 @@ export function binaryManifest(
       llama: macosShared.llama,
       crispasr: macosShared.crispasr,
       'silero-vad': sileroVad,
+      'parakeet-cli': macosShared['parakeet-cli'],
     },
   }
 }

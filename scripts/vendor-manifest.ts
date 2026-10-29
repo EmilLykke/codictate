@@ -8,7 +8,8 @@
 //
 // Every Vendor Binary here is a prebuilt archive verified by sha256; nothing is
 // built from source. See docs/adr/0001-vendor-binary-sourcing.md for why, and
-// docs/adr/0002-asr-harness-abstraction.md for crispasr being the only ASR Harness.
+// docs/adr/0002-asr-harness-abstraction.md for the two ASR Harnesses, crispasr and
+// parakeet-cli.
 
 /**
  * Upstream llama.cpp. Publishes `llama-completion` for both target platforms, and
@@ -20,7 +21,7 @@ export const LLAMA_VERSION = "b11496";
 export const LLAMA_RELEASE_BASE =
   `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}`;
 
-/** CrispASR, the only ASR Harness. Single prebuilt binary, also the only runtime for Cohere ASR weights. */
+/** CrispASR, the default ASR Harness. Single prebuilt binary, also the only runtime for Cohere ASR weights. */
 export const CRISPASR_VERSION = "v0.8.41";
 export const CRISPASR_RELEASE_BASE =
   `https://github.com/CrispStrobe/CrispASR/releases/download/${CRISPASR_VERSION}`;
@@ -135,6 +136,44 @@ export const CRISPASR_WINDOWS_DLLS = [
   "ggml-cpu.dll",
   "ggml-vulkan.dll",
 ];
+
+// -- parakeet-cli --------------------------------------------------------------
+
+/**
+ * parakeet.cpp, whose `parakeet-cli` is the ASR Harness of the ekko Speech Engine and of
+ * nothing else (#76). MIT.
+ */
+export const PARAKEET_CPP_VERSION = "v0.6.1";
+export const PARAKEET_CPP_RELEASE_BASE =
+  `https://github.com/mudler/parakeet.cpp/releases/download/${PARAKEET_CPP_VERSION}`;
+
+/**
+ * The Metal build. The binary links only system frameworks (`otool -L`: Accelerate,
+ * Foundation, Metal, MetalKit, libc++, libSystem), so it ships alone and post-build signs it
+ * with hardened runtime and no entitlements file.
+ */
+export const PARAKEET_CLI_MACOS_ARCHIVE: VendorArchive = {
+  asset: `parakeet-${PARAKEET_CPP_VERSION}-bin-macos-metal-arm64.tar.gz`,
+  sha256: "bc97b5e6253e928d1127f48f08242324317495ef8708e31db1e09b9537d1bb74",
+  stripPrefix: `parakeet-${PARAKEET_CPP_VERSION}-bin-macos-metal-arm64`,
+};
+
+/**
+ * The CPU build, not Vulkan: proven on the Windows CI runner, 34 MB smaller, and no
+ * GPU-driver failure mode (#76). `parakeet-cli.exe` ships alone: its imports are Windows
+ * system DLLs and the MSVC runtime (MSVCP140, VCRUNTIME140, VCRUNTIME140_1, VCOMP140).
+ */
+export const PARAKEET_CLI_WINDOWS_ARCHIVE: VendorArchive = {
+  asset: `parakeet-${PARAKEET_CPP_VERSION}-bin-win-cpu-x64.zip`,
+  sha256: "d74b4e857f75f91ae215c5e91ec42bf15ec84ed3a369423c134dbd6422243ed8",
+  stripPrefix: `parakeet-${PARAKEET_CPP_VERSION}-bin-win-cpu-x64`,
+};
+
+/**
+ * The archive's MIT licence, vendored beside the binary. The app bundles the committed copy
+ * of it, `docs/licenses/parakeet-cpp/LICENSE`.
+ */
+export const PARAKEET_CPP_LICENSE_FILE = "LICENSE";
 
 // -- Silero VAD ----------------------------------------------------------------
 

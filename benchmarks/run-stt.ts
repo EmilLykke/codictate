@@ -43,6 +43,7 @@ import {
   pooledV2Leaves,
   setCombinationResult,
   CODICTATE_V2_HARNESS,
+  SELECTABLE_BENCHMARK_HARNESSES,
   V2_RECORDS_DIRNAME,
   type BenchmarkHarnessLabel,
   type DatasetResults,
@@ -80,7 +81,6 @@ import { promptBenchmarkPlan } from "./stt/tui";
 import {
   DEFAULT_ASR_HARNESS,
   isAsrHarnessId,
-  ASR_HARNESS_IDS,
   type AsrHarnessId,
 } from "../src/shared/asr-harness";
 import {
@@ -485,15 +485,27 @@ function parseArgs() {
     switch (args[i]) {
       case "--harness": {
         // Comma-separated so CI can compare Harnesses in one run, same as the TUI.
-        // Validated against the runnable set only: a Harness that is no longer built
-        // cannot be measured, however readable its archived results still are.
+        // Validated against the selectable set only: a Harness that is no longer built
+        // cannot be measured, however readable its archived results still are, and one
+        // that is forced per Speech Model (parakeet-cli, for ekko) is never chosen.
         const values = args[++i].split(",");
-        const unknown = values.filter((v) => !isAsrHarnessId(v));
+        const unknown = values.filter(
+          (v) =>
+            !(SELECTABLE_BENCHMARK_HARNESSES as readonly string[]).includes(v),
+        );
         if (unknown.length > 0) {
-          const retired = unknown.filter(isBenchmarkHarnessLabel);
-          console.error(
-            `Error: cannot run --harness ${unknown.join(", ")}. Runnable: ${ASR_HARNESS_IDS.join(", ")}`,
+          const forced = unknown.filter(isAsrHarnessId);
+          const retired = unknown.filter(
+            (v) => !isAsrHarnessId(v) && isBenchmarkHarnessLabel(v),
           );
+          console.error(
+            `Error: cannot run --harness ${unknown.join(", ")}. Selectable: ${SELECTABLE_BENCHMARK_HARNESSES.join(", ")}`,
+          );
+          if (forced.length > 0) {
+            console.error(
+              `  ${forced.join(", ")} runs only the Speech Models that require it, and the runner picks it for them.`,
+            );
+          }
           if (retired.length > 0) {
             console.error(
               `  ${retired.join(", ")} is retired and no longer built. Its archived results stay readable in benchmarks/results/, but no new measurement can be produced.`,
@@ -761,8 +773,8 @@ export function stageIdFor(
  *
  * It exists because the Harness bucket is the one thing a resumed stage cannot get from
  * anywhere else. A resume used to assign `harnesses[0]` to every stage, which is right
- * only while exactly one ASR Harness is runnable - and the tripwire for that assumption
- * (`assertSingleRunnableAsrHarness`) is on the *pooling* path, so a second runnable
+ * only while exactly one ASR Harness is selectable - and the tripwire for that assumption
+ * (`assertOneAsrHarnessPerSpeechModel`) is on the *pooling* path, so a second selectable
  * Harness would mislabel a resumed leaf here, before any pooling ran. The stage id
  * already records which bucket the run filed this Combination under; reading it back is
  * strictly better than guarding a guess.

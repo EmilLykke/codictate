@@ -1,21 +1,25 @@
 /**
  * ASR Harness: the binary and CLI contract used to execute a Speech Engine.
  *
- * The Whisper Speech Engine has exactly one Harness, `crispasr`. The benchmark settled it
- * against the `whisper-cli` Harness Codictate used to ship: faster in 9 of 9 comparisons
- * (median 1.58x), lower peak memory on all three Speech Models, and WER at parity (4.68%
- * vs 4.78% mean). `whisper-cli` was kept on afterwards only as a degrade target, and has
- * now been retired, so nothing is built from whisper.cpp source at build time.
+ * There are two Harnesses, each the only one for the Speech Engines that run on it:
  *
- * The list stays a list, and this stays its own module, because Harness is a real domain
- * concept rather than an implementation detail of the current binary: a second Harness is
- * a one-line addition here plus its candidate paths. Harness is internal and never exposed
- * to end users - there is deliberately no picker and no env override.
+ * - `crispasr` runs Whisper (Edda included) and hviske, and is the default. The benchmark
+ *   settled it against the `whisper-cli` Harness Codictate used to ship: faster in 9 of 9
+ *   comparisons (median 1.58x), lower peak memory on all three Speech Models, and WER at
+ *   parity (4.68% vs 4.78% mean). `whisper-cli` has since been retired, so nothing is built
+ *   from whisper.cpp source at build time.
+ * - `parakeet-cli` (parakeet.cpp) runs the ekko Speech Engine and nothing else (#76). Its
+ *   GGUF weights load in no other runtime.
+ *
+ * Harness stays its own module because it is a real domain concept rather than an
+ * implementation detail of one binary. It is internal and never exposed to end users -
+ * there is deliberately no picker and no env override. Which Harness runs is decided per
+ * Speech Engine, never chosen.
  *
  * See docs/adr/0002-asr-harness-abstraction.md and GLOSSARY.md.
  */
 
-export const ASR_HARNESS_IDS = ['crispasr'] as const
+export const ASR_HARNESS_IDS = ['crispasr', 'parakeet-cli'] as const
 
 export type AsrHarnessId = (typeof ASR_HARNESS_IDS)[number]
 
@@ -43,3 +47,6 @@ export const HVISKE_ASR_HARNESS: AsrHarnessId = 'crispasr'
 
 /** The crispasr backend that hviske Speech Models require. */
 export const HVISKE_CRISPASR_BACKEND: CrispasrBackendId = 'cohere'
+
+/** The Harness the ekko Speech Engine requires. */
+export const EKKO_ASR_HARNESS: AsrHarnessId = 'parakeet-cli'

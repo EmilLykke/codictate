@@ -349,22 +349,25 @@ one list and count it twice.
 
 `harness` in the key is the **measuring** harness - `codictate` or `wispr-flow`. It is not
 Codictate's **ASR Harness**, which is the binary and CLI contract that executes a Speech
-Engine (`crispasr`, and the retired `whisper-cli`; see
+Engine (`crispasr`, `parakeet-cli`, and the retired `whisper-cli`; see
 `docs/adr/0002-asr-harness-abstraction.md`). Those are two different dimensions and the
 key only carries the first.
 
-That is sound **only because exactly one ASR Harness is currently runnable.** With one
-runnable Harness, every Codictate v2 measurement came from `crispasr`, so the dimension is
-constant and a constant is not an identity. `benchmarks/stt/results-schema.ts` asserts the
-premise rather than assuming it - `assertSingleRunnableAsrHarness()`, called at the top of
-`pooledV2Leaves()` - so a second runnable Harness fails loudly instead of silently pooling
-two ASR Harnesses as one series and publishing their average.
+That is sound **only because each Speech Model is measured by exactly one ASR Harness.**
+`parakeet-cli` is runnable, but it runs only the ekko Speech Engine and the runner forces it
+for ekko, the way it forces `crispasr` for hviske; a Run can select only `crispasr`
+(`SELECTABLE_BENCHMARK_HARNESSES`). So the ASR Harness follows from the Speech Model, which
+the key already carries, and a function of the key is not an extra identity.
+`benchmarks/stt/results-schema.ts` asserts the premise rather than assuming it -
+`assertOneAsrHarnessPerSpeechModel()`, called at the top of `pooledV2Leaves()` - so a second
+selectable Harness fails loudly instead of silently pooling two ASR Harnesses as one series
+and publishing their average.
 
-**If a second ASR Harness becomes runnable, `compatibilityKey` must grow a dimension**, and
-both repositories must grow it together. Meeting this constraint here is the point: the
-alternative is meeting it in a chart that pooled two Harnesses and looked fine. Note that
-v1 already keys results by archived Harness label (`results-schema.ts`), so the v1 archive
-keeps that distinction whatever v2 does.
+**If a Run can ever measure one Speech Model under two ASR Harnesses, `compatibilityKey`
+must grow a dimension**, and both repositories must grow it together. Meeting this
+constraint here is the point: the alternative is meeting it in a chart that pooled two
+Harnesses and looked fine. Note that v1 already keys results by archived Harness label
+(`results-schema.ts`), so the v1 archive keeps that distinction whatever v2 does.
 
 ### The schema-version key
 
