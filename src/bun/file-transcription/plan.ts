@@ -307,6 +307,7 @@ const PUBLIC_ENGINE_NAME: Record<SpeechEngineId, PublicSpeechEngineName> = {
   // `whisperkit` is a misnomer for FluidAudio's Parakeet.
   whisperkit: 'parakeet',
   hviske: 'hviske',
+  ekko: 'ekko',
 }
 
 export function publicEngineName(

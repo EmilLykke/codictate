@@ -76,7 +76,7 @@ export type FileTranscriptionErrorCode =
   | 'internal'
 
 /** The Speech Engine by the name a user sees. Never the internal id. */
-export type PublicSpeechEngineName = 'whisper' | 'parakeet' | 'hviske'
+export type PublicSpeechEngineName = 'whisper' | 'parakeet' | 'hviske' | 'ekko'
 
 export type FileTranscriptionResult =
   | {

@@ -7,15 +7,21 @@
  * here and no settings read to make.
  */
 
-import { PARAKEET_ENGINE_ID } from '../../../../shared/speech-models'
+import {
+  EKKO_ENGINE_ID,
+  PARAKEET_ENGINE_ID,
+} from '../../../../shared/speech-models'
 import { transcribeWithCrispasr } from './crispasr-engine'
+import { transcribeWithEkko } from './ekko-engine'
 import { transcribeWithParakeet } from './parakeet-engine'
 import type { TranscriptionRequest, TranscriptionResult } from './transcription'
 
 export async function runTranscription(
   request: TranscriptionRequest
 ): Promise<TranscriptionResult> {
-  return request.engineId === PARAKEET_ENGINE_ID
-    ? transcribeWithParakeet(request)
-    : transcribeWithCrispasr(request)
+  if (request.engineId === PARAKEET_ENGINE_ID) {
+    return transcribeWithParakeet(request)
+  }
+  if (request.engineId === EKKO_ENGINE_ID) return transcribeWithEkko(request)
+  return transcribeWithCrispasr(request)
 }
