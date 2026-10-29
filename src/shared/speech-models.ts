@@ -843,7 +843,7 @@ export const SPEECH_MODELS: SpeechModel[] = [
     peakRamMB: 787,
     label: 'Edda V0.2 Q5',
     description:
-      'Danish model · Danish only, Q5 quantized, smallest and fastest, 7.5 WER',
+      'Danish model · Danish only, most accurate Danish model, Q5 quantized, smallest and fastest, 7.5 WER',
     translationSupport: false,
     huggingFaceRepoId: EDDA_MIRROR_REPO_ID,
     huggingFaceRevision: EDDA_MIRROR_REVISION,
@@ -853,6 +853,14 @@ export const SPEECH_MODELS: SpeechModel[] = [
 ]
 
 export const DEFAULT_MODEL_ID = 'large-v3-turbo-q5_0'
+
+/**
+ * The Speech Model the browse modal marks "Recommended for Danish" (decided in #86): Edda
+ * q5_0, the most accurate Danish model measured, at the smallest and fastest Edda size. A
+ * marker only: it is not `curated`, nothing downloads or selects it, its row keeps its
+ * browse order, and `DEFAULT_MODEL_ID` stays the default.
+ */
+export const RECOMMENDED_DANISH_SPEECH_MODEL_ID = 'edda-v0.2-q5_0'
 
 /**
  * The large non-turbo model. Named here rather than at its callers because it is a catalog

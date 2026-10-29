@@ -123,7 +123,7 @@ scripts/
   onnxruntime-bundle.ts         # ONNX Runtime files shipped from onnxruntime-node, and where the bundle needs them
   mirror-hviske.ts              # Maintainer-run: mirror the hviske GGUF weights
   mirror-edda.ts                # Maintainer-run: convert and mirror the Edda GGML weights
-  mirror-ekko.ts                # Maintainer-run: mirror ekko-pnc (and later ekko-v1-tiny), byte copies
+  mirror-ekko.ts                # Maintainer-run: mirror ekko-pnc and ekko-v1-tiny, byte copies
   release.sh                    # Version bump + tag push
 
 entitlements/                   # Per-helper macOS entitlements plists (codesigning)
@@ -136,7 +136,7 @@ docs/
   MACOS_SIGNING_AND_NOTARIZATION.md
   HVISKE_MIRROR.md              # The published Danish hviske Mirror
   EDDA_MIRROR.md                # The Danish Edda Mirror (Codictate's own GGML conversion)
-  EKKO_MIRROR.md                # The ekko Mirrors (ekko-pnc Punctuation Model)
+  EKKO_MIRROR.md                # The ekko Mirrors (ekko-pnc Punctuation Model, ekko-v1-tiny)
   AEROSPACE.md                  # AeroSpace window rule
   CLI.md                        # Contract of the `codictate` command line: commands, JSON, exit codes, wire protocol
   adr/                          # Architecture decision records
