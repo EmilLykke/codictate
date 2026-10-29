@@ -26,6 +26,11 @@ import { SPEECH_MODELS } from '../shared/speech-models'
 import { killParakeetSessions } from './utils/whisper/engines/parakeet-session'
 import { appPunctuationRestorer } from './utils/punctuation/app-punctuation-restorer'
 import { createPunctuationWarmup } from './utils/punctuation/punctuation-warmup'
+import {
+  createEkkoWarmup,
+  installEkkoWarmup,
+} from './utils/whisper/ekko-warmup'
+import { warmUpEkko } from './utils/whisper/engines/ekko-engine'
 import type {
   BlockedDictationPlan,
   DictationPlan,
@@ -504,7 +509,23 @@ const ensurePunctuationWarm = createPunctuationWarmup({
   restorer: appPunctuationRestorer(),
   isReachable: () => UserAppConfig.isPunctuationRestorationReachable(),
 })
-UserAppConfig.observeRunnableDictationSettings(ensurePunctuationWarm)
+/**
+ * ekko's background load (`ekko-warmup.ts`): at launch, when ekko becomes the Dictation's
+ * selection and when its download finishes, one `parakeet-cli` run on half a second of silence,
+ * so the first ekko Dictation does not pay `parakeet-cli`'s setup. The Dictation's selection
+ * only; a File Transcription selection starts nothing. Parakeet has no such load: it loads
+ * while the user speaks.
+ */
+const ekkoWarmup = createEkkoWarmup({
+  dictationPlan: () => UserAppConfig.getDictationPlan(),
+  load: (target) => warmUpEkko(modelManager.getModelPath(target.speechModelId)),
+})
+installEkkoWarmup(ekkoWarmup)
+// The observer holds one function, so both background loads share it.
+UserAppConfig.observeRunnableDictationSettings(() => {
+  ensurePunctuationWarm()
+  ekkoWarmup.ensureWarm()
+})
 
 trayHandlers = setupTray(
   (onAction) => win.getOrCreateWindow(onAction),

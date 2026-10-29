@@ -1,12 +1,19 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { EKKO_ENGINE_ID } from '../../../../shared/speech-models'
 import {
   EKKO_ENV,
   ekkoSliceArgv,
   transcribeWithEkkoTuned,
+  warmUpEkko,
   type EkkoDeps,
   type EkkoProcess,
 } from './ekko-engine'
@@ -526,6 +533,92 @@ describe('the ekko slice command', () => {
 
   test('runs with the attention context the gate measured', () => {
     expect(EKKO_ENV).toEqual({ PARAKEET_ATT_CONTEXT: '128' })
+  })
+})
+
+describe('the ekko warm-up run', () => {
+  /** Deps that record the one spawn and read its WAV before the fake process exits. */
+  function warmupDeps(run: CannedRun = {}) {
+    const seen: {
+      argv: string[]
+      env: Record<string, string | undefined>
+      wav: { samples: Float32Array; sampleRate: number }
+      slicePath: string
+    }[] = []
+    const delays: number[] = []
+    const deps = fakeDeps([], {
+      spawn: (argv, { env }) => {
+        const slicePath = argv[argv.indexOf('--input') + 1]
+        seen.push({
+          argv,
+          env,
+          slicePath,
+          wav: readWavSamples(new Uint8Array(readFileSync(slicePath))),
+        })
+        return exitedProcess(run)
+      },
+      clock: {
+        setTimeout: (callback, delayMs) => {
+          delays.push(delayMs)
+          return setTimeout(callback, delayMs)
+        },
+        clearTimeout: (handle) =>
+          clearTimeout(handle as ReturnType<typeof setTimeout>),
+      },
+    })
+    return { deps, seen, delays }
+  }
+
+  test('runs the slice command with EKKO_ENV on half a second of 16 kHz silence, under 60 s', async () => {
+    const { deps, seen, delays } = warmupDeps({
+      stdout: cliJson('', [{ w: '', start: 0, end: 0.08 }]),
+    })
+    await warmUpEkko(GGUF, deps)
+
+    expect(seen).toHaveLength(1)
+    const [run] = seen
+    expect(run.argv).toEqual(ekkoSliceArgv(BINARY, GGUF, run.slicePath))
+    expect(run.env.PARAKEET_ATT_CONTEXT).toBe('128')
+    expect(run.wav.sampleRate).toBe(16_000)
+    expect(run.wav.samples.length).toBe(8_000)
+    expect(run.wav.samples.every((s) => s === 0)).toBe(true)
+    expect(delays).toContain(60_000)
+  })
+
+  test('removes its temp directory', async () => {
+    const { deps, seen } = warmupDeps()
+    await warmUpEkko(GGUF, deps)
+    expect(existsSync(dirname(seen[0].slicePath))).toBe(false)
+  })
+
+  test('a non-zero exit rejects with the exit code and stderr, and still cleans up', async () => {
+    const { deps, seen } = warmupDeps({
+      exitCode: 3,
+      stderr: 'no Metal device',
+    })
+    await expect(warmUpEkko(GGUF, deps)).rejects.toThrow(
+      /exit 3.*no Metal device/
+    )
+    expect(existsSync(dirname(seen[0].slicePath))).toBe(false)
+  })
+
+  test('a missing parakeet-cli rejects without spawning', async () => {
+    const { deps, seen } = warmupDeps()
+    deps.resolveBinary = async () => {
+      throw new Error('parakeet-cli not installed')
+    }
+    await expect(warmUpEkko(GGUF, deps)).rejects.toThrow(
+      'parakeet-cli not installed'
+    )
+    expect(seen).toHaveLength(0)
+  })
+
+  test('a missing GGUF rejects without spawning', async () => {
+    const { deps, seen } = warmupDeps()
+    await expect(warmUpEkko(join(dir, 'gone.gguf'), deps)).rejects.toThrow(
+      /GGUF not on disk/
+    )
+    expect(seen).toHaveLength(0)
   })
 })
 
