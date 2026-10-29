@@ -1071,6 +1071,62 @@ export function formatRamSize(ramMB: number): string {
 export const CURATED_SPEECH_MODELS = SPEECH_MODELS.filter((m) => m.curated)
 
 /**
+ * Model families in the order the browse modal lists them, best first: the Whisper sizes,
+ * then the Danish-only models by accuracy. A family is the Model ID with its Quantization
+ * suffix and `.en` removed. A new family (ekko, between Edda and hviske) is one entry here.
+ */
+const BROWSE_FAMILY_ORDER: readonly string[] = [
+  'large-v3',
+  'large-v3-turbo',
+  'large-v2',
+  'large-v1',
+  'medium',
+  'small',
+  'base',
+  'tiny',
+  'edda-v0.2',
+  'hviske-v5-tiny',
+]
+
+/** The Quantization suffix of a Model ID, as `parseModelTags` reads it; none means full. */
+const QUANTIZATION_SUFFIX = /-(q(\d+)_[0-9a-z]+|f16|f32)$/
+
+/**
+ * Browse order for two Speech Models: family as `BROWSE_FAMILY_ORDER` lists it, then a
+ * size's multilingual entries before its `.en` ones, then full precision before q8 before
+ * q5 and lower. An unlisted family sorts last, so it still shows up while it waits for a
+ * place in the list.
+ */
+function compareBrowseOrder(a: SpeechModel, b: SpeechModel): number {
+  const ka = browseSortKey(a)
+  const kb = browseSortKey(b)
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return ka[i] - kb[i]
+  }
+  return 0
+}
+
+/** `[family rank, English-only, minus Quantization bits]`; lower sorts first in each place. */
+function browseSortKey(model: SpeechModel): [number, number, number] {
+  const quantization = model.id.match(QUANTIZATION_SUFFIX)
+  const withoutQuantization = quantization
+    ? model.id.slice(0, quantization.index)
+    : model.id
+  const englishOnly = withoutQuantization.endsWith('.en')
+  const family = englishOnly
+    ? withoutQuantization.slice(0, -'.en'.length)
+    : withoutQuantization
+  const familyRank = BROWSE_FAMILY_ORDER.indexOf(family)
+  // Fewer bits sorts later; no suffix, f16 and f32 are all full precision.
+  const bits = quantization?.[2] ? Number(quantization[2]) : 32
+  return [
+    familyRank === -1 ? BROWSE_FAMILY_ORDER.length : familyRank,
+    englishOnly ? 1 : 0,
+    -bits,
+  ]
+}
+
+/**
  * Everything the browse ("download more") modal offers: the Speech Models a user has to go
  * looking for rather than the curated few the main Settings list shows.
  *
@@ -1081,7 +1137,9 @@ export const CURATED_SPEECH_MODELS = SPEECH_MODELS.filter((m) => m.curated)
  * belong in the list every user scans, but it does belong somewhere reachable.
  *
  * Parakeet is absent by design: it has its own section in Settings.
+ *
+ * Listed best first, by `compareBrowseOrder`, not in catalog order.
  */
 export const BROWSABLE_SPEECH_MODELS = SPEECH_MODELS.filter(
   (m) => (m.engine === 'whisper_cpp' && !m.curated) || m.engine === 'hviske'
-)
+).sort(compareBrowseOrder)

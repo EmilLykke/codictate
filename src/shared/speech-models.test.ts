@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  BROWSABLE_SPEECH_MODELS,
   SPEECH_MODELS,
   fluidAudioModelFolderName,
   getSpeechModel,
@@ -47,5 +48,61 @@ describe('fluidAudioModelFolderName', () => {
         model.artifactName
       )
     }
+  })
+})
+
+/**
+ * The browse modal lists best first: Whisper by family (large-v3 down to tiny), a size's
+ * multilingual entries before its `.en` ones, full precision before q8 before q5; then the
+ * Danish-only models by accuracy, Edda before hviske.
+ */
+describe('BROWSABLE_SPEECH_MODELS', () => {
+  it('lists the best models first', () => {
+    expect(BROWSABLE_SPEECH_MODELS.map((m) => m.id)).toEqual([
+      'large-v3',
+      'large-v3-q5_0',
+      'large-v3-turbo',
+      'large-v3-turbo-q8_0',
+      'large-v2',
+      'large-v2-q8_0',
+      'large-v2-q5_0',
+      'large-v1',
+      'medium',
+      'medium-q8_0',
+      'medium-q5_0',
+      'medium.en',
+      'medium.en-q8_0',
+      'small',
+      'small-q8_0',
+      'small.en',
+      'small.en-q8_0',
+      'base',
+      'base-q8_0',
+      'base-q5_1',
+      'base.en',
+      'base.en-q8_0',
+      'base.en-q5_1',
+      'tiny',
+      'tiny-q8_0',
+      'tiny-q5_1',
+      'tiny.en',
+      'tiny.en-q8_0',
+      'tiny.en-q5_1',
+      'edda-v0.2-f16',
+      'edda-v0.2-q8_0',
+      'edda-v0.2-q5_0',
+      'hviske-v5-tiny-f16',
+      'hviske-v5-tiny-q8_0',
+      'hviske-v5-tiny-q6_k',
+      'hviske-v5-tiny-q5_0',
+      'hviske-v5-tiny-q4_k',
+    ])
+  })
+
+  it('leaves the catalog order of SPEECH_MODELS alone', () => {
+    expect(SPEECH_MODELS[0].id).toBe('parakeet-tdt-0.6b-v3')
+    expect(SPEECH_MODELS.findIndex((m) => m.id === 'tiny')).toBeLessThan(
+      SPEECH_MODELS.findIndex((m) => m.id === 'large-v3')
+    )
   })
 })
