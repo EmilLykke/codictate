@@ -34,13 +34,15 @@ _Avoid_: audio device, input device
 
 ## Speech
 
-**Speech Engine** - the recognition system a Dictation is transcribed by, as the user sees it: Whisper, Parakeet, or hviske. Note that the Parakeet engine is identified as `whisperkit` in code, which is a misnomer; the engine is FluidAudio.
+**Speech Engine** - the recognition system a Dictation is transcribed by, as the user sees it: Whisper, Parakeet, hviske, or ekko. Note that the Parakeet engine is identified as `whisperkit` in code, which is a misnomer; the engine is FluidAudio.
 
 **hviske** - the Danish-only Speech Engine, running the mirrored `syvai/hviske-v5-tiny` weights. A Speech Engine in its own right rather than a Whisper Speech Model, because its weights, its backend and its language support all differ. See `docs/adr/0004-hviske-danish-ungated.md`.
 
+**ekko** - the Danish-only Speech Engine running `RyeAI/ekko-v1-tiny`. Its own Speech Engine for the same reasons as hviske: its weights, its ASR Harness and its language support all differ from Whisper's. Though the model is a Parakeet architecture, it is never called Parakeet, which names the FluidAudio Speech Engine. Its Raw Transcript has no punctuation or capitals, so Punctuation Restoration always follows it.
+
 **Edda** - a Danish-only Whisper Speech Model: `danish-foundation-models/edda-v0.2`, a fine-tune of large-v3-turbo, converted to GGML by Codictate and served from a Mirror. Unlike hviske it is not its own Speech Engine, because its weights load on the default crispasr backend like any other Whisper Speech Model; only its language is pinned. See `docs/EDDA_MIRROR.md`.
 
-**ASR Harness** - the specific binary and CLI contract used to execute a Speech Engine. There is one Harness, `crispasr`, and it executes both Whisper and hviske. Harness is an internal concept and is never exposed to end users. See `docs/adr/0002-asr-harness-abstraction.md`.
+**ASR Harness** - the specific binary and CLI contract used to execute a Speech Engine. There are two: `crispasr` executes Whisper and hviske, and `parakeet-cli` (parakeet.cpp) executes ekko. Harness is an internal concept and is never exposed to end users. See `docs/adr/0002-asr-harness-abstraction.md`.
 
 **Speech Engine Adapter** - the uniform way Codictate asks any Speech Engine for a transcription, so that a caller does not need to know whether the answer comes from an ASR Harness or from a Native Helper. Covers Batch Dictation only: Live Transcription is a session rather than a question, so it is not asked through an Adapter.
 
@@ -60,13 +62,13 @@ _Avoid_: audio device, input device
 
 **Translate to English** - a mode where the Speech Engine outputs English regardless of the spoken language, rather than transcribing verbatim. Distinct from Transcription Language, which selects the input language.
 
-**File Transcription** - transcribing an existing audio or video file with the File Transcription Settings, or with a Speech Model and Transcription Language the request names. Asked for from the command line or in Codictate's window. Not a Dictation: no Dictation Shortcut, no microphone, no Dictionary or Formatting Mode, and nothing is pasted; the result is the Raw Transcript, in English when Translate to English is on (from the command line, only when the request asks for it). File Transcriptions run one at a time, and never make a Dictation wait. Only those asked for in Codictate's window are kept in History; one asked for from the command line belongs to whoever asked.
+**File Transcription** - transcribing an existing audio or video file with the File Transcription Settings, or with a Speech Model and Transcription Language the request names. Asked for from the command line or in Codictate's window. Not a Dictation: no Dictation Shortcut, no microphone, no Dictionary or Formatting Mode, and nothing is pasted; the result is the Raw Transcript after Punctuation Restoration where it applies, in English when Translate to English is on (from the command line, only when the request asks for it). File Transcriptions run one at a time, and never make a Dictation wait. Only those asked for in Codictate's window are kept in History; one asked for from the command line belongs to whoever asked.
 
 **File Transcription Settings** - the Speech Model, Transcription Language and Translate to English choice that File Transcriptions use, chosen apart from the ones Dictations use. One from the command line takes only the Speech Model and Transcription Language from them; it translates only when asked. They start out as the Dictation's, so they differ only once the user picks otherwise. Kept runnable the same way: when the chosen Speech Model goes away, they fall back to the Dictation's.
 
 **History** - the user's record of past Dictations and of File Transcriptions asked for in Codictate's window.
 
-**Timed Transcript** - a Raw Transcript together with when each part of it was spoken in the file. Its text is always exactly the Raw Transcript, never a variant of it. Not every Speech Model can produce one. Avoid "segments" and "timestamps" when talking about the domain.
+**Timed Transcript** - a Raw Transcript together with when each part of it was spoken in the file. Its text is always exactly the File Transcription's text, never a variant of it. Not every Speech Model can produce one. Avoid "segments" and "timestamps" when talking about the domain.
 
 **Caption File** - an SRT or VTT file made from a Timed Transcript, for showing the words on screen alongside the audio or video.
 
@@ -99,9 +101,9 @@ _Avoid_: Cold Start (an earlier name for a slow load of prepared weights; every 
 
 ## Distribution
 
-**Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`crispasr`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).
+**Vendor Binary** - a third-party executable Codictate ships and invokes as a subprocess (`crispasr`, `parakeet-cli`, `llama-completion`). Distinct from a **Native Helper**, which is a binary Codictate itself authors (`KeyListener`, `CodictateWindowsHelper`, `CodictateParakeetHelper`, `CodictateWindowHelper`, `CodictateObserverHelper`).
 
-**Mirror** - a copy of a third-party Speech Model that Codictate hosts itself, because end users cannot download a usable file from upstream directly: the repository is access-gated (hviske), or it ships a format no ASR Harness reads, so the Mirror carries Codictate's conversion (Edda).
+**Mirror** - a copy of a third-party Speech Model or Punctuation Model that Codictate hosts itself, so a download never depends on upstream: the repository is access-gated (hviske), it ships a format no ASR Harness reads, so the Mirror carries Codictate's conversion (Edda), or it could change or disappear under a shipped release (ekko-v1-tiny, ekko-pnc).
 
 ## Benchmarking
 
