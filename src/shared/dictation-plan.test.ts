@@ -358,6 +358,22 @@ describe('getDictationReadiness - Add punctuation', () => {
     expect(readiness.downloadModelId).toBeNull()
   })
 
+  test('says ekko always adds punctuation, with no switch', () => {
+    for (const availability of [
+      available(EKKO),
+      withPunctuationModel(available(EKKO)),
+    ]) {
+      const readiness = punctuation(
+        input({ speechModelId: EKKO }),
+        availability
+      )
+      expect(readiness.ready).toBe(false)
+      expect(readiness.reason).toBe('speech_model_always_punctuates')
+      expect(readiness.message).toBe('Ekko always adds punctuation.')
+      expect(readiness.downloadModelId).toBeNull()
+    }
+  })
+
   test('is not offered for Edda or any other Speech Model', () => {
     for (const speechModelId of [EDDA, TRANSLATE_CAPABLE, PARAKEET]) {
       const readiness = punctuation(
@@ -369,14 +385,50 @@ describe('getDictationReadiness - Add punctuation', () => {
     }
   })
 
-  test('the two reasons carry their own sentences', () => {
+  test('says where the switch works, and that Edda punctuates on its own', () => {
+    const message = (speechModelId: string) =>
+      punctuation(
+        input({ speechModelId }),
+        withPunctuationModel(available(speechModelId))
+      ).message
+    expect(message(EDDA)).toBe(
+      'Available for hviske models. Edda punctuates on its own.'
+    )
+    expect(message(TRANSLATE_CAPABLE)).toBe('Available for hviske models.')
+    expect(message(PARAKEET)).toBe('Available for hviske models.')
+  })
+
+  test('decides on the Dictation selection when neither is hviske', () => {
+    const readiness = getDictationReadiness(
+      input({ speechModelId: EDDA }),
+      withPunctuationModel(available(EDDA, EKKO)),
+      [input({ speechModelId: EDDA }), input({ speechModelId: EKKO })]
+    ).addPunctuation
+    expect(readiness.reason).toBe('not_offered_for_speech_model')
+  })
+
+  test('is offered for hviske in either selection, even with ekko for the Dictation', () => {
+    const readiness = getDictationReadiness(
+      input({ speechModelId: EKKO }),
+      withPunctuationModel(available(EKKO, HVISKE)),
+      [input({ speechModelId: EKKO }), input({ speechModelId: HVISKE })]
+    ).addPunctuation
+    expect(readiness.ready).toBe(true)
+  })
+
+  test('the three reasons carry their own sentences', () => {
     const missing = punctuation(input({ speechModelId: HVISKE }), available())
     const notOffered = punctuation(
       input({ speechModelId: EDDA }),
       withPunctuationModel(available())
     )
-    expect(missing.message).not.toBe(notOffered.message)
-    for (const message of [missing.message, notOffered.message]) {
+    const alwaysOn = punctuation(
+      input({ speechModelId: EKKO }),
+      withPunctuationModel(available(EKKO))
+    )
+    const messages = [missing.message, notOffered.message, alwaysOn.message]
+    expect(new Set(messages).size).toBe(3)
+    for (const message of messages) {
       expect(message.length).toBeGreaterThan(0)
       expect(message).not.toContain('undefined')
     }
@@ -1125,8 +1177,8 @@ describe('buildDictationPlan agrees with getDictationReadiness', () => {
   })
 
   test('Add punctuation runs exactly when readiness says it can, and is ignored where it is not offered', () => {
-    for (const speechModelId of [...selections, EDDA]) {
-      for (const snapshot of snapshots) {
+    for (const speechModelId of [...selections, EDDA, EKKO]) {
+      for (const snapshot of [...snapshots, available(EKKO)]) {
         for (const availability of [snapshot, withPunctuationModel(snapshot)]) {
           if (!availability.isModelAvailable(speechModelId)) continue
           const plan = buildDictationPlan(
@@ -1141,6 +1193,13 @@ describe('buildDictationPlan agrees with getDictationReadiness', () => {
             expect(plan.status).toBe('runnable')
             if (plan.status === 'runnable') {
               expect(plan.punctuationRestoration).toBe(false)
+            }
+            continue
+          }
+          if (readiness.reason === 'speech_model_always_punctuates') {
+            expect(plan.status).toBe('runnable')
+            if (plan.status === 'runnable') {
+              expect(plan.punctuationRestoration).toBe(true)
             }
             continue
           }

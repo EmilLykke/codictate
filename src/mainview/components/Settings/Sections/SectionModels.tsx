@@ -88,6 +88,8 @@ export function SectionModels({
         </p>
       </div>
 
+      <AddPunctuationSwitch settings={settings} />
+
       <div className="mb-8">
         <h2 className="text-[14px] text-overlay/48 font-medium uppercase tracking-wider mb-3">
           Whisper
@@ -102,7 +104,6 @@ export function SectionModels({
           onCancelDownload={onCancelDownload}
           onDelete={onModelDelete}
         />
-        <AddPunctuationSwitch settings={settings} />
         <button
           type="button"
           onClick={() => setIsBrowseOpen(true)}

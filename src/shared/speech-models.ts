@@ -963,6 +963,11 @@ export function isHviskeSpeechModelId(id: string): boolean {
   return getSpeechModel(id)?.engine === 'hviske'
 }
 
+/** True for the Danish Edda Speech Models, the Whisper ones served from the Edda Mirror. */
+export function isEddaSpeechModelId(id: string): boolean {
+  return getSpeechModel(id)?.huggingFaceRepoId === EDDA_MIRROR_REPO_ID
+}
+
 /** `null` when the Speech Model is not a Whisper one (or unknown). */
 export function whisperDecodingForModel(
   speechModelId: string

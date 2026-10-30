@@ -14,12 +14,13 @@ import { Switch } from "../Common/Switch";
 type Download = { inFlight: boolean; fraction: number; error?: string };
 
 /**
- * "Add punctuation", offered while the Dictation or the File Transcription selection is an
- * hviske Speech Model. The main process decides that (readiness says
- * `not_offered_for_speech_model` when neither is), and it decides when the switch is on:
- * turning it on downloads the Danish punctuation model first, and `settings.addPunctuation`
- * turns true only after a verified install. Turning it off keeps the files, so turning it on
- * again is instant.
+ * "Add punctuation", always shown at the top of the Models page. The main process decides
+ * what it can do: when neither the Dictation nor the File Transcription selection is hviske,
+ * readiness says `not_offered_for_speech_model` (shown off) or
+ * `speech_model_always_punctuates` (ekko, shown on), and the switch is disabled with
+ * readiness's sentence. It also decides when the switch is on: turning it on downloads the
+ * Danish punctuation model first, and `settings.addPunctuation` turns true only after a
+ * verified install. Turning it off keeps the files, so turning it on again is instant.
  */
 export function AddPunctuationSwitch({ settings }: { settings: AppSettings }) {
   const [download, setDownload] = useState<Download>({
@@ -40,9 +41,11 @@ export function AddPunctuationSwitch({ settings }: { settings: AppSettings }) {
   );
 
   const readiness = settings.dictationReadiness.addPunctuation;
-  if (!readiness.ready && readiness.reason === "not_offered_for_speech_model") {
-    return null;
-  }
+  const offered =
+    readiness.ready || readiness.reason === "punctuation_model_not_installed";
+  const checked = offered
+    ? settings.addPunctuation
+    : readiness.reason === "speech_model_always_punctuates";
 
   const onCheckedChange = (on: boolean) => {
     if (on) {
@@ -57,21 +60,31 @@ export function AddPunctuationSwitch({ settings }: { settings: AppSettings }) {
   const percent = Math.round(download.fraction * 100);
 
   return (
-    <div className="mt-3 rounded-xl border border-overlay/8 bg-surface-1 overflow-hidden">
+    <div className="mb-8 rounded-xl border border-overlay/8 bg-surface-1 overflow-hidden">
       <div className="flex items-start justify-between gap-4 px-4 py-3">
         <div className="min-w-0">
-          <p className="text-[15px] text-overlay/80">Add punctuation</p>
+          <p
+            className={`text-[15px] ${offered ? "text-overlay/80" : "text-overlay/40"}`}
+          >
+            Add punctuation
+          </p>
           <p className="mt-0.5 text-[13px] leading-snug text-overlay/40">
             Adds commas, full stops and capitals to hviske's Danish text.
-            {!settings.punctuationModelInstalled &&
+            {offered &&
+              !settings.punctuationModelInstalled &&
               ` Turning it on downloads a ${formatModelSize(PUNCTUATION_MODEL_DOWNLOAD_MB)} Danish punctuation model.`}
           </p>
+          {!offered && (
+            <p className="mt-1 text-[13px] leading-snug text-overlay/56">
+              {readiness.message}
+            </p>
+          )}
         </div>
         <div className="pt-0.5">
           <Switch
-            checked={settings.addPunctuation}
+            checked={checked}
             onCheckedChange={onCheckedChange}
-            disabled={download.inFlight}
+            disabled={!offered || download.inFlight}
             aria-label="Add punctuation"
           />
         </div>

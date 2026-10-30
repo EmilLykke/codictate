@@ -29,6 +29,7 @@ import {
   PARAKEET_ENGINE_ID,
   SPEECH_MODELS,
   getSpeechModel,
+  isEddaSpeechModelId,
   isHviskeSpeechModelId,
   parakeetSupportsTranscriptionLanguageId,
   pinnedTranscriptionLanguageId,
@@ -202,11 +203,16 @@ export type CapabilityReadiness<Reason extends string> =
 /** Why Add punctuation cannot run. Closed union, same contract. */
 export type AddPunctuationReadinessReason =
   /**
-   * Neither the Dictation's nor the File Transcription's selection is hviske. Edda and every
-   * other Whisper Speech Model punctuate themselves, and Parakeet too, so the switch is not
-   * offered and a run ignores it.
+   * Neither the Dictation's nor the File Transcription's selection is hviske, and the
+   * Dictation's is not ekko. Edda and every other Whisper Speech Model punctuate themselves,
+   * and Parakeet too, so the switch is not offered (shown off) and a run ignores it.
    */
   | 'not_offered_for_speech_model'
+  /**
+   * Neither selection is hviske, and the Dictation's is the ekko Speech Engine, which always
+   * restores punctuation with no switch: the switch is not offered and is shown on.
+   */
+  | 'speech_model_always_punctuates'
   /** hviske is selected for one of them, and the Punctuation Model is not fully on disk. */
   | 'punctuation_model_not_installed'
 
@@ -358,10 +364,25 @@ function addPunctuationReadiness(
   availability: DictationAvailability
 ): AddPunctuationReadiness {
   if (!selections.some((s) => offersAddPunctuation(s.speechModelId))) {
+    if (
+      ENGINES_ALWAYS_RESTORING_PUNCTUATION.some(
+        (engine) =>
+          getSpeechModel(selections[0].speechModelId)?.engine === engine
+      )
+    ) {
+      return {
+        ready: false,
+        reason: 'speech_model_always_punctuates',
+        message: 'Ekko always adds punctuation.',
+        downloadModelId: null,
+      }
+    }
     return {
       ready: false,
       reason: 'not_offered_for_speech_model',
-      message: `Add punctuation is only offered for hviske. ${modelLabel(selections[0].speechModelId)} punctuates on its own.`,
+      message: isEddaSpeechModelId(selections[0].speechModelId)
+        ? 'Available for hviske models. Edda punctuates on its own.'
+        : 'Available for hviske models.',
       downloadModelId: null,
     }
   }
