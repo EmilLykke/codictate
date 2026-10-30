@@ -518,14 +518,12 @@ const ensurePunctuationWarm = createPunctuationWarmup({
  */
 const ekkoWarmup = createEkkoWarmup({
   dictationPlan: () => UserAppConfig.getDictationPlan(),
-  load: (target) => warmUpEkko(modelManager.getModelPath(target.speechModelId)),
+  load: (target, signal) =>
+    warmUpEkko(modelManager.getModelPath(target.speechModelId), { signal }),
 })
 installEkkoWarmup(ekkoWarmup)
-// The observer holds one function, so both background loads share it.
-UserAppConfig.observeRunnableDictationSettings(() => {
-  ensurePunctuationWarm()
-  ekkoWarmup.ensureWarm()
-})
+UserAppConfig.observeRunnableDictationSettings(ensurePunctuationWarm)
+UserAppConfig.observeRunnableDictationSettings(() => ekkoWarmup.ensureWarm())
 
 trayHandlers = setupTray(
   (onAction) => win.getOrCreateWindow(onAction),
@@ -863,6 +861,7 @@ Electrobun.events.on('before-quit', () => {
   // First, and synchronously: a decoder or Speech Engine left running would outlive the app.
   fileTranscriptions.cancelAll()
   killParakeetSessions()
+  ekkoWarmup.stop()
   win.removeDroppedFiles()
   trayHandlers.setTrayIdle()
   void (async () => {
@@ -874,6 +873,7 @@ Electrobun.events.on('before-quit', () => {
 })
 process.on('exit', () => {
   killParakeetSessions()
+  ekkoWarmup.stop()
   keyboard.stop()
   commandLineServer?.close()
 })

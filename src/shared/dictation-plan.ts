@@ -25,6 +25,7 @@
 import { HVISKE_CRISPASR_BACKEND, type CrispasrBackendId } from './asr-harness'
 import {
   DEFAULT_STREAM_CAPABLE_MODEL_ID,
+  EKKO_ENGINE_ID,
   PARAKEET_ENGINE_ID,
   SPEECH_MODELS,
   getSpeechModel,
@@ -647,10 +648,13 @@ function runTranscriptionLanguageId(input: DictationPlanInput): string {
 
 /**
  * Speech Engines whose Raw Transcript always goes through Punctuation Restoration, with no
- * switch. The ekko Speech Engine (#87) writes no punctuation or capitals of its own. #87 also
- * owns its blocked reason for a missing Punctuation Model.
+ * switch. The ekko Speech Engine writes no punctuation or capitals of its own. It has no
+ * blocked reason for a missing Punctuation Model: ekko without ekko-pnc on disk is simply not
+ * installed (`isModelAvailable`), so it is blocked as any missing Speech Model is.
  */
-const ENGINES_ALWAYS_RESTORING_PUNCTUATION: readonly string[] = ['ekko']
+const ENGINES_ALWAYS_RESTORING_PUNCTUATION: readonly SpeechEngineId[] = [
+  EKKO_ENGINE_ID,
+]
 
 /**
  * The whole run decision, as one value.

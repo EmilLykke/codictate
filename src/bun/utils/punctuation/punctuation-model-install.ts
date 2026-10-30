@@ -11,12 +11,19 @@
  * The rename stays within one parent folder, which is atomic on macOS and Windows alike.
  * Windows refuses to rename a folder onto an existing one, so an old install (a set the
  * availability check no longer accepts) is removed first, as Parakeet's install does.
+ *
+ * One install per folder at a time, whoever asks: an ekko download and the "Add punctuation"
+ * switch both install ekko-pnc, and two installs at once would delete each other's
+ * `<dir>.tmp`. A call that arrives while another runs waits for it, then returns when the set
+ * is installed, or installs it itself when that one failed. Cancelling a waiting call
+ * rejects it and leaves the running one alone.
  */
 
 import { createHash } from 'node:crypto'
 import { createWriteStream, mkdirSync, renameSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
+  isPunctuationModelInstalled,
   PUNCTUATION_MODEL_DIR,
   PUNCTUATION_MODEL_FILES,
   PUNCTUATION_MODEL_MIRROR_REPO_ID,
@@ -47,6 +54,51 @@ export async function installPunctuationModel(
 ): Promise<void> {
   const dir = options.dir ?? PUNCTUATION_MODEL_DIR
   const files = options.files ?? PUNCTUATION_MODEL_FILES
+
+  const previous = installsByDir.get(dir)
+  let release!: () => void
+  const mine = new Promise<void>((resolve) => (release = resolve))
+  const tail = (previous ?? Promise.resolve()).then(() => mine)
+  installsByDir.set(dir, tail)
+  try {
+    if (previous) {
+      await untilSettledOrAborted(previous, options.signal)
+      if (isPunctuationModelInstalled(dir, files)) {
+        options.onProgress?.(1)
+        return
+      }
+    }
+    await installUnlocked(dir, files, options)
+  } finally {
+    release()
+    if (installsByDir.get(dir) === tail) installsByDir.delete(dir)
+  }
+}
+
+/** The last install queued per folder; it settles when every one before it has. */
+const installsByDir = new Map<string, Promise<void>>()
+
+function untilSettledOrAborted(
+  previous: Promise<void>,
+  signal: AbortSignal | undefined
+): Promise<void> {
+  if (!signal) return previous
+  signal.throwIfAborted()
+  return new Promise<void>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason)
+    signal.addEventListener('abort', onAbort, { once: true })
+    void previous.then(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    })
+  })
+}
+
+async function installUnlocked(
+  dir: string,
+  files: readonly PunctuationModelFile[],
+  options: PunctuationModelInstallOptions
+): Promise<void> {
   const urlFor = options.urlFor ?? punctuationModelFileUrl
   const fetchFile = options.fetch ?? fetch
   const tempDir = `${dir}.tmp`

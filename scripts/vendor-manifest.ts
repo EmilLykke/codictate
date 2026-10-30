@@ -162,6 +162,9 @@ export const PARAKEET_CLI_MACOS_ARCHIVE: VendorArchive = {
  * The CPU build, not Vulkan: proven on the Windows CI runner, 34 MB smaller, and no
  * GPU-driver failure mode (#76). `parakeet-cli.exe` ships alone: its imports are Windows
  * system DLLs and the MSVC runtime (MSVCP140, VCRUNTIME140, VCRUNTIME140_1, VCOMP140).
+ * No pinned archive ships `vcomp140.dll`, and the runtime DLLs pre-build copies land in
+ * `native-helpers/`, not beside the exe, so it needs the VC++ Redistributable installed
+ * (as crispasr does). Unverified on consumer Windows.
  */
 export const PARAKEET_CLI_WINDOWS_ARCHIVE: VendorArchive = {
   asset: `parakeet-${PARAKEET_CPP_VERSION}-bin-win-cpu-x64.zip`,
