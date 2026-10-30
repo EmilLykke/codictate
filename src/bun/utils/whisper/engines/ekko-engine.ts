@@ -62,8 +62,7 @@ import {
  * The argv of one ekko slice: `parakeet-cli transcribe --model <gguf> --input <wav> --json`.
  *
  * No other flags (`--vad`, `--timestamps`, `--threads`, `--lang`, `--decoder`, beam): the gate
- * (#78) measured the defaults. Exported because the benchmark's memory run, the long-audio
- * check and the warm-up run the same command, and a second copy is a copy that drifts.
+ * (#78) measured the defaults. Every caller reaches it through `ekkoSliceInvocation`.
  */
 export function ekkoSliceArgv(
   binary: string,
@@ -83,10 +82,42 @@ export function ekkoSliceArgv(
 
 /**
  * What ekko adds to the process env. `PARAKEET_ATT_CONTEXT=128` is the attention context the
- * gate (#78) ran with. Spread on top of `process.env` by every caller.
+ * gate (#78) ran with. Spread on top of `process.env` by `ekkoSliceInvocation`.
  */
 export const EKKO_ENV: Readonly<Record<string, string>> = {
   PARAKEET_ATT_CONTEXT: '128',
+}
+
+/** One `parakeet-cli` run on one slice: what to spawn and with which env. */
+export interface EkkoSliceInvocation {
+  argv: string[]
+  env: Record<string, string | undefined>
+}
+
+/**
+ * One ekko slice, ready to spawn: writes `samples[slice]` as a 16-bit PCM mono WAV at
+ * `slicePath`, and returns `ekkoSliceArgv` on it with `EKKO_ENV` over `process.env`. The
+ * adapter, the warm-up, the benchmark's memory run and the long-audio check all start
+ * `parakeet-cli` through this, so none of them can drift from what the benchmark measured.
+ * Throws when the WAV cannot be written.
+ */
+export function ekkoSliceInvocation(args: {
+  binary: string
+  modelPath: string
+  slicePath: string
+  samples: Float32Array
+  sampleRate: number
+  /** Absent: all of `samples`. */
+  slice?: AudioSlice
+}): EkkoSliceInvocation {
+  writeFileSync(
+    args.slicePath,
+    pcm16MonoWav(args.samples, args.sampleRate, args.slice)
+  )
+  return {
+    argv: ekkoSliceArgv(args.binary, args.modelPath, args.slicePath),
+    env: { ...process.env, ...EKKO_ENV },
+  }
 }
 
 /** What the adapter needs of a spawned `parakeet-cli`. `Bun.spawn` with two pipes satisfies it. */
@@ -230,33 +261,38 @@ const WARMUP_SAMPLES = WARMUP_SAMPLE_RATE / 2
  * One warm-up: the slice command, with `EKKO_ENV`, on half a second of silence in its own temp
  * directory, supervised for `EKKO_WARMUP_TIMEOUT_MS`. What it pays for is `parakeet-cli`'s
  * setup (on the Mac the Metal compile, cached by macOS afterwards), not the transcript, which
- * is ignored. Rejects on any failure; `ekko-warmup.ts` logs it.
+ * is ignored. Rejects on any failure; `ekko-warmup.ts` logs it. Aborting `signal` kills the
+ * run (app quit) and rejects with the signal's `AbortError`.
  */
 export async function warmUpEkko(
   modelPath: string,
-  deps: EkkoDeps = realEkkoDeps
+  options: { signal?: AbortSignal; deps?: EkkoDeps } = {}
 ): Promise<void> {
+  const { signal, deps = realEkkoDeps } = options
+  signal?.throwIfAborted()
   if (!existsSync(modelPath)) {
     throw new Error(`ekko GGUF not on disk: ${modelPath}`)
   }
   const binary = await deps.resolveBinary()
+  signal?.throwIfAborted()
   const runDir = mkdtempSync(join(tmpdir(), 'codictate-ekko-warmup-'))
   try {
-    const wavPath = join(runDir, 'silence.wav')
-    writeFileSync(
-      wavPath,
-      pcm16MonoWav(new Float32Array(WARMUP_SAMPLES), WARMUP_SAMPLE_RATE)
-    )
-    log('ekko', 'warming up parakeet-cli', { binary, model: modelPath })
-    const proc = deps.spawn(ekkoSliceArgv(binary, modelPath, wavPath), {
-      env: { ...process.env, ...EKKO_ENV },
+    const { argv, env } = ekkoSliceInvocation({
+      binary,
+      modelPath,
+      slicePath: join(runDir, 'silence.wav'),
+      samples: new Float32Array(WARMUP_SAMPLES),
+      sampleRate: WARMUP_SAMPLE_RATE,
     })
+    log('ekko', 'warming up parakeet-cli', { binary, model: modelPath })
+    const proc = deps.spawn(argv, { env, signal })
     const supervised = await superviseProcess(proc, {
       stdout: proc.stdout,
       stderr: proc.stderr,
       timeoutMs: EKKO_WARMUP_TIMEOUT_MS,
       clock: deps.clock,
     })
+    signal?.throwIfAborted()
     const stderr = stderrTail(decodeEngineStderr(supervised.stderr))
     if (supervised.status === 'timed_out') {
       throw new Error(`timed out after ${EKKO_WARMUP_TIMEOUT_MS} ms: ${stderr}`)
@@ -335,14 +371,13 @@ export async function transcribeWithEkkoTuned(
     )
   }
   try {
-    const result = await transcribeSlices(
+    const result = await transcribeSlices(slicing, {
       runDir,
       binary,
-      slicing,
       request,
       deps,
-      deadline
-    )
+      deadline,
+    })
     if (result.status === 'ok') {
       log('ekko', 'transcription complete', {
         modelId: request.speechModelId,
@@ -358,14 +393,22 @@ export async function transcribeWithEkkoTuned(
   }
 }
 
-async function transcribeSlices(
-  runDir: string,
-  binary: string,
-  slicing: Extract<EkkoSlicing, { ok: true }>,
-  request: EkkoTranscriptionRequest,
-  deps: EkkoDeps,
+/** What every slice of one Request shares. */
+interface EkkoRun {
+  /** The per-run temp directory the slice WAVs go in. */
+  runDir: string
+  binary: string
+  request: EkkoTranscriptionRequest
+  deps: EkkoDeps
+  /** The Request's one deadline, on `deps.now()`. */
   deadline: number
+}
+
+async function transcribeSlices(
+  slicing: Extract<EkkoSlicing, { ok: true }>,
+  run: EkkoRun
 ): Promise<TranscriptionResult> {
+  const { request, deps, deadline, binary } = run
   const { samples, sampleRate, slices } = slicing
   log('ekko', 'spawning parakeet-cli', {
     binary,
@@ -394,21 +437,16 @@ async function transcribeSlices(
         `${where}: deadline ${request.timeoutMs} ms passed before it started`
       )
     }
-    const run = await runSlice(
-      runDir,
-      binary,
+    const sliceRun = await runSlice(run, {
       where,
       index,
       slice,
       samples,
       sampleRate,
-      request,
-      deps,
-      deadline
-    )
-    if (!run.ok) return run.failure
-    texts.push(run.text)
-    const piece = ekkoTimedPiece(run, {
+    })
+    if (!sliceRun.ok) return sliceRun.failure
+    texts.push(sliceRun.text)
+    const piece = ekkoTimedPiece(sliceRun, {
       startSeconds: slice.startSample / sampleRate,
       endSeconds: slice.endSample / sampleRate,
     })
@@ -430,19 +468,22 @@ type SliceRun =
   | { ok: true; text: string; words: EkkoWord[] }
   | { ok: false; failure: TranscriptionResult }
 
+/** One slice of the recording, and how to name it in a failure. */
+interface EkkoSliceInput {
+  /** "slice 2 of 3". */
+  where: string
+  index: number
+  slice: AudioSlice
+  samples: Float32Array
+  sampleRate: number
+}
+
 /** One slice: written, spawned, supervised to what is left of the deadline, and read. */
 async function runSlice(
-  runDir: string,
-  binary: string,
-  where: string,
-  index: number,
-  slice: AudioSlice,
-  samples: Float32Array,
-  sampleRate: number,
-  request: EkkoTranscriptionRequest,
-  deps: EkkoDeps,
-  deadline: number
+  run: EkkoRun,
+  { where, index, slice, samples, sampleRate }: EkkoSliceInput
 ): Promise<SliceRun> {
+  const { runDir, binary, request, deps, deadline } = run
   const fail = (
     reason: Parameters<typeof failedTranscription>[0],
     detail?: string
@@ -455,9 +496,16 @@ async function runSlice(
     ),
   })
 
-  const slicePath = join(runDir, `slice-${index}.wav`)
+  let invocation: EkkoSliceInvocation
   try {
-    writeFileSync(slicePath, pcm16MonoWav(samples, sampleRate, slice))
+    invocation = ekkoSliceInvocation({
+      binary,
+      modelPath: request.modelPath,
+      slicePath: join(runDir, `slice-${index}.wav`),
+      samples,
+      sampleRate,
+      slice,
+    })
   } catch (err) {
     return fail(
       'engine_output_unreadable',
@@ -467,8 +515,8 @@ async function runSlice(
 
   let proc: EkkoProcess
   try {
-    proc = deps.spawn(ekkoSliceArgv(binary, request.modelPath, slicePath), {
-      env: { ...process.env, ...EKKO_ENV },
+    proc = deps.spawn(invocation.argv, {
+      env: invocation.env,
       signal: request.signal,
     })
   } catch (err) {
@@ -485,12 +533,31 @@ async function runSlice(
   if (request.lowPriority && proc.pid !== undefined)
     deps.lowerPriority(proc.pid)
 
-  const supervised = await superviseProcess(proc, {
-    stdout: proc.stdout,
-    stderr: proc.stderr,
-    timeoutMs: Math.max(1, Math.round(deadline - deps.now())),
-    clock: deps.clock,
-  })
+  let supervised: Awaited<ReturnType<typeof superviseProcess>>
+  try {
+    supervised = await superviseProcess(proc, {
+      stdout: proc.stdout,
+      stderr: proc.stderr,
+      timeoutMs: Math.max(1, Math.round(deadline - deps.now())),
+      clock: deps.clock,
+    })
+  } catch (err) {
+    // The process's exit could not be read. Kill it in case it still runs, and fail the run
+    // with a reason rather than rejecting out of the adapter.
+    try {
+      proc.kill('SIGKILL')
+    } catch {
+      // Already gone.
+    }
+    log('ekko', 'parakeet-cli could not be supervised', {
+      slice: where,
+      err: String(err),
+    })
+    return fail(
+      'engine_exited_nonzero',
+      `parakeet-cli exit unreadable: ${String(err)}`
+    )
+  }
   const stderrText = decodeEngineStderr(supervised.stderr)
   // Aborting the signal kills the process, which then looks like any other non-zero exit.
   // The caller asked for that, so it is a cancellation and not an engine failure.

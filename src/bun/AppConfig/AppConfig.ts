@@ -369,8 +369,8 @@ export class AppConfig {
   private readonly dictionaryWriter: SerializedSnapshotWriter<string>
 
   /**
-   * Wired once at boot. Everything derived from the `(settings, availability)` pair that
-   * lives outside this class - today only the Punctuation Model's background load - has to hear
+   * Wired at boot. Everything derived from the `(settings, availability)` pair that lives
+   * outside this class - the Punctuation Model's and ekko's background loads - has to hear
    * about every change to either half, and there are two entry points rather than one: a
    * transcription settings write, and the heal pass that runs at boot, on a download, on a
    * delete and after a blocked Dictation.
@@ -378,7 +378,7 @@ export class AppConfig {
    * A callback rather than a direct call, so that `AppConfig` stays the settings adapter and
    * needs to know nothing about what the observer loads.
    */
-  private runnableDictationObserver: (() => void) | null = null
+  private readonly runnableDictationObservers: (() => void)[] = []
 
   constructor(private readonly dependencies: AppConfigDependencies) {
     this.mainWriter = new SerializedSnapshotWriter<string>(async (snapshot) => {
@@ -1150,18 +1150,19 @@ export class AppConfig {
   }
 
   /**
-   * Register the observer above, and fire it once immediately.
+   * Register one of the observers above, and fire it once immediately. Each registration
+   * adds one; every settle calls them all, in the order they registered.
    *
    * The immediate call is deliberate: `load()` has already healed by the time boot gets here,
    * so the current selection is the first change the observer needs to hear about.
    */
   public observeRunnableDictationSettings(observer: () => void): void {
-    this.runnableDictationObserver = observer
+    this.runnableDictationObservers.push(observer)
     observer()
   }
 
   private notifyRunnableDictationSettled(): void {
-    this.runnableDictationObserver?.()
+    for (const observer of this.runnableDictationObservers) observer()
   }
 
   /**

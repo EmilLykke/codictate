@@ -1,5 +1,5 @@
 import { requireRuntimeBinary } from "../../src/bun/platform/binaries";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MODELS_DIR } from "../../src/bun/platform/runtime";
@@ -21,10 +21,8 @@ import { buildWhisperHarnessCommand } from "../../src/bun/utils/whisper/whisper-
 import { modelManager } from "../../src/bun/utils/whisper/model-manager";
 import { parakeetTranscribeArgv } from "../../src/bun/utils/whisper/engines/parakeet-engine";
 import {
-  EKKO_ENV,
-  ekkoSliceArgv,
+  ekkoSliceInvocation,
   ekkoSlices,
-  pcm16MonoWav,
 } from "../../src/bun/utils/whisper/engines/ekko-engine";
 import { findAsrHarnessBinary } from "../../src/bun/utils/whisper/find-asr-harness";
 import { writeNtVadSlices } from "../../src/bun/utils/whisper/engines/crispasr-engine";
@@ -1058,19 +1056,15 @@ async function measureModelMemory(
       if (!slicing.ok)
         throw new Error(`${sampleEntry.audioPath}: ${slicing.detail}`);
       if (slicing.slices.length === 0) return null;
-      const slicePath = join(outputDir, "slice.wav");
-      writeFileSync(
-        slicePath,
-        pcm16MonoWav(slicing.samples, slicing.sampleRate, slicing.slices[0]),
-      );
-      const result = await measurePeakRss(
-        ekkoSliceArgv(
-          await findAsrHarnessBinary(EKKO_ASR_HARNESS),
-          modelPath,
-          slicePath,
-        ),
-        { env: { ...process.env, ...EKKO_ENV } },
-      );
+      const { argv, env } = ekkoSliceInvocation({
+        binary: await findAsrHarnessBinary(EKKO_ASR_HARNESS),
+        modelPath,
+        slicePath: join(outputDir, "slice.wav"),
+        samples: slicing.samples,
+        sampleRate: slicing.sampleRate,
+        slice: slicing.slices[0],
+      });
+      const result = await measurePeakRss(argv, { env });
       return result.peakRssBytes === null
         ? null
         : Math.round(result.peakRssBytes / 1024 / 1024);

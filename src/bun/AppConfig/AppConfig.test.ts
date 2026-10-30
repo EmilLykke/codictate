@@ -688,6 +688,23 @@ describe('Add punctuation', () => {
 
     expect(notified).toBeGreaterThan(before)
   })
+
+  test('every registered observer hears each settle, not only the last one', async () => {
+    const { dependencies } = punctuationConfig()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    const heard: string[] = []
+    config.observeRunnableDictationSettings(() => heard.push('first'))
+    config.observeRunnableDictationSettings(() => heard.push('second'))
+    expect(heard).toEqual(['first', 'second'])
+
+    heard.length = 0
+    await config.updateFileTranscriptionSettings({ speechModelId: HVISKE })
+    expect(heard.filter((h) => h === 'first').length).toBeGreaterThan(0)
+    expect(heard.filter((h) => h === 'first').length).toBe(
+      heard.filter((h) => h === 'second').length
+    )
+  })
 })
 
 describe('the ekko warm-up on the settings observer', () => {

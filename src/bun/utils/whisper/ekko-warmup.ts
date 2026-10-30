@@ -19,10 +19,14 @@
  * - **Only the Dictation's selection.** Asked of the Dictation Plan: ekko, runnable (GGUF and
  *   ekko-pnc on disk). A File Transcription selection starts nothing; a File Transcription pays
  *   the setup in its own Processing Time.
- * - **One load in flight**, held in one promise that never rejects.
+ * - **One load in flight**, held in one promise that never rejects. A trigger that arrives
+ *   while it runs is joined to it, and kept: when that load fails (or loaded another Speech
+ *   Model), the warm-up runs once more if the plan still asks for it.
  * - **A failure is logged, not reported**, and the next trigger tries again.
  * - **A Dictation waits for a load in flight**, bounded (`awaitEkkoWarmup`), so it never runs a
  *   second cold `parakeet-cli` beside it.
+ * - **Quit kills it.** `stop()` aborts the load in flight, which kills its `parakeet-cli`, and
+ *   no load starts after it.
  */
 
 import type { DictationPlan } from '../../../shared/dictation-plan'
@@ -56,8 +60,8 @@ export function ekkoWarmupTarget(plan: DictationPlan): EkkoWarmupTarget | null {
 export interface EkkoWarmupOptions {
   /** The Dictation's plan right now (`AppConfig.getDictationPlan`). */
   dictationPlan: () => DictationPlan
-  /** One warm-up run. Rejects on failure. */
-  load: (target: EkkoWarmupTarget) => Promise<void>
+  /** One warm-up run. Rejects on failure. Aborting `signal` kills it. */
+  load: (target: EkkoWarmupTarget, signal: AbortSignal) => Promise<void>
   log?: typeof appLog
 }
 
@@ -68,6 +72,8 @@ export interface EkkoWarmup {
   readonly inFlight: Promise<void> | null
   /** Resolves when the load in flight ends, or after `boundMs`; at once when there is none. */
   whenLoaded(boundMs: number): Promise<void>
+  /** At quit: kills the load in flight and starts none afterwards. Synchronous, never throws. */
+  stop(): void
 }
 
 export function createEkkoWarmup(options: EkkoWarmupOptions): EkkoWarmup {
@@ -75,11 +81,28 @@ export function createEkkoWarmup(options: EkkoWarmupOptions): EkkoWarmup {
   let inFlight: Promise<void> | null = null
   /** The Speech Model that was ekko and runnable at the previous settle, or null. */
   let loadableModelId: string | null = null
+  /** A trigger arrived while a load was in flight: settled when that load ends. */
+  let joinedTrigger = false
+  /** Aborted by `stop()`; every load gets its signal. */
+  const quit = new AbortController()
+
+  const currentTarget = (): EkkoWarmupTarget | null => {
+    try {
+      return ekkoWarmupTarget(options.dictationPlan())
+    } catch (err) {
+      log('ekko', 'could not tell whether to warm up', {
+        err: err instanceof Error ? err.message : String(err),
+      })
+      return null
+    }
+  }
 
   const run = async (target: EkkoWarmupTarget): Promise<void> => {
     const startedAt = performance.now()
+    let loaded = false
     try {
-      await options.load(target)
+      await options.load(target, quit.signal)
+      loaded = true
       log('ekko', 'warm-up complete', {
         speechModelId: target.speechModelId,
         elapsedMs: Math.round(performance.now() - startedAt),
@@ -94,6 +117,13 @@ export function createEkkoWarmup(options: EkkoWarmupOptions): EkkoWarmup {
       })
     } finally {
       inFlight = null
+      if (joinedTrigger && !quit.signal.aborted) {
+        joinedTrigger = false
+        const next = currentTarget()
+        if (next && (!loaded || next.speechModelId !== target.speechModelId)) {
+          inFlight = run(next)
+        }
+      }
     }
   }
 
@@ -102,6 +132,7 @@ export function createEkkoWarmup(options: EkkoWarmupOptions): EkkoWarmup {
       return inFlight
     },
     ensureWarm() {
+      if (quit.signal.aborted) return
       let target: EkkoWarmupTarget | null
       try {
         target = ekkoWarmupTarget(options.dictationPlan())
@@ -115,8 +146,14 @@ export function createEkkoWarmup(options: EkkoWarmupOptions): EkkoWarmup {
       loadableModelId = target?.speechModelId ?? null
       if (target === null) return
       if (previous === target.speechModelId) return
-      if (inFlight !== null) return
+      if (inFlight !== null) {
+        joinedTrigger = true
+        return
+      }
       inFlight = run(target)
+    },
+    stop() {
+      quit.abort()
     },
     async whenLoaded(boundMs) {
       const pending = inFlight

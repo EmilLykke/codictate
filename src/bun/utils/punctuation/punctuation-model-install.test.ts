@@ -133,6 +133,76 @@ describe('installPunctuationModel', () => {
     expect(fractions).toEqual([1 / 3, 2 / 3, 1])
   })
 
+  test('two installs at once share one download: both resolve and the set is installed', async () => {
+    const { fetch: serve, requested } = fakeFetch(MIRROR)
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const fetch = async (url: string) => {
+      await gate
+      return serve(url)
+    }
+    const first = installPunctuationModel({ dir, files: TABLE, urlFor, fetch })
+    const second = installPunctuationModel({ dir, files: TABLE, urlFor, fetch })
+    release()
+    await Promise.all([first, second])
+
+    expect(isPunctuationModelInstalled(dir, TABLE)).toBe(true)
+    expect(requested).toEqual([
+      'pnc.int8.onnx',
+      'config.json',
+      'LICENSES/NOTICE',
+    ])
+    expect(readdirSync(modelsDir)).toEqual(['ekko-pnc'])
+  })
+
+  test('an install waiting on another one that fails tries again itself', async () => {
+    const { fetch: serve, requested } = fakeFetch(MIRROR)
+    let calls = 0
+    const fetch = async (url: string) => {
+      calls += 1
+      if (calls === 1) {
+        await Promise.resolve()
+        return new Response('Not Found', { status: 404 })
+      }
+      return serve(url)
+    }
+    const first = installPunctuationModel({ dir, files: TABLE, urlFor, fetch })
+    const second = installPunctuationModel({ dir, files: TABLE, urlFor, fetch })
+    await expect(first).rejects.toThrow('HTTP 404')
+    await second
+
+    expect(isPunctuationModelInstalled(dir, TABLE)).toBe(true)
+    expect(requested).toEqual([
+      'pnc.int8.onnx',
+      'config.json',
+      'LICENSES/NOTICE',
+    ])
+  })
+
+  test('an install cancelled while it waits on another one rejects and leaves that one running', async () => {
+    const { fetch: serve } = fakeFetch(MIRROR)
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const fetch = async (url: string) => {
+      await gate
+      return serve(url)
+    }
+    const first = installPunctuationModel({ dir, files: TABLE, urlFor, fetch })
+    const controller = new AbortController()
+    const second = installPunctuationModel({
+      dir,
+      files: TABLE,
+      urlFor,
+      fetch,
+      signal: controller.signal,
+    }).catch((e: unknown) => e)
+    controller.abort()
+    expect(((await second) as Error).name).toBe('AbortError')
+    release()
+    await first
+    expect(isPunctuationModelInstalled(dir, TABLE)).toBe(true)
+  })
+
   test('a cancelled download rejects and installs nothing', async () => {
     const controller = new AbortController()
     const fetch = async (_url: string, init?: RequestInit) => {

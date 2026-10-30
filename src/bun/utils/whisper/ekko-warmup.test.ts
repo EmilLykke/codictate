@@ -124,6 +124,44 @@ describe('the ekko warm-up trigger table', () => {
     expect(loads).toHaveLength(1)
   })
 
+  test('a trigger joined to a load that then succeeds starts nothing more', async () => {
+    const { state, warmup, loads, settled } = harness(EKKO)
+    warmup.ensureWarm()
+    state.speechModelId = HVISKE
+    warmup.ensureWarm()
+    state.speechModelId = EKKO
+    warmup.ensureWarm()
+    loads[0].run.resolve()
+    await settled()
+    expect(loads).toHaveLength(1)
+  })
+
+  test('a trigger that arrived during a load that then fails is tried again', async () => {
+    const { state, warmup, loads, settled } = harness(EKKO)
+    warmup.ensureWarm()
+    state.speechModelId = HVISKE
+    warmup.ensureWarm()
+    state.speechModelId = EKKO
+    warmup.ensureWarm()
+    loads[0].run.reject(new Error('parakeet-cli exited 1'))
+    await settled()
+    expect(loads.map((l) => l.speechModelId)).toEqual([EKKO, EKKO])
+  })
+
+  test('a trigger during a load is not retried once ekko is no longer the selection', async () => {
+    const { state, warmup, loads, settled } = harness(EKKO)
+    warmup.ensureWarm()
+    state.speechModelId = HVISKE
+    warmup.ensureWarm()
+    state.speechModelId = EKKO
+    warmup.ensureWarm()
+    state.speechModelId = HVISKE
+    warmup.ensureWarm()
+    loads[0].run.reject(new Error('parakeet-cli exited 1'))
+    await settled()
+    expect(loads).toHaveLength(1)
+  })
+
   test('Whisper, hviske and Parakeet selections never load ekko', () => {
     for (const id of [DEFAULT_MODEL_ID, HVISKE, PARAKEET]) {
       const { warmup, loads } = harness(id)
@@ -180,6 +218,32 @@ describe('a failed ekko warm-up', () => {
     expect(() => warmup.ensureWarm()).not.toThrow()
     expect(warmup.inFlight).toBeNull()
     expect(logged).toEqual(['could not tell whether to warm up'])
+  })
+})
+
+describe('stopping the ekko warm-up at quit', () => {
+  test('aborts the load in flight', () => {
+    const signals: AbortSignal[] = []
+    const warmup = createEkkoWarmup({
+      dictationPlan: world(EKKO).plan,
+      load: (_target, signal) => {
+        signals.push(signal)
+        return new Promise<void>(() => {})
+      },
+      log: () => {},
+    })
+    warmup.ensureWarm()
+    expect(signals[0].aborted).toBe(false)
+    warmup.stop()
+    expect(signals[0].aborted).toBe(true)
+  })
+
+  test('starts no load afterwards, and does nothing when none is running', () => {
+    const { state, warmup, loads } = harness(DEFAULT_MODEL_ID)
+    warmup.stop()
+    state.speechModelId = EKKO
+    warmup.ensureWarm()
+    expect(loads).toHaveLength(0)
   })
 })
 

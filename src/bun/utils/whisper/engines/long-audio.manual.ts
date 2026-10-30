@@ -93,7 +93,7 @@
  *   utterance's speech start (`long-audio-gates.ts`). `da_2min` and `da_5min` fail when p10 is
  *   earlier than -1.0 s (#78 measured -3.6 s on `da_5min` without the 0.8 s word-start clamp,
  *   -0.7 s with it).
- * - Memory: per long clip, `ekkoSliceArgv` alone on the clip's longest slice, with peak RSS
+ * - Memory: per long clip, `ekkoSliceInvocation` alone on the clip's longest slice, with peak RSS
  *   from Bun's `resourceUsage().maxRSS`. 1 GB or more fails; a missing or zero value is
  *   reported as skipped, never as a pass.
  * The crispasr argv checks (legacy `-nt` parity, the VAD-loss check, prompt echo, Translate,
@@ -146,10 +146,8 @@ import {
 } from './crispasr-engine'
 import { crispasrTranscript, parseCrispasrJson } from './crispasr-json'
 import {
-  EKKO_ENV,
-  ekkoSliceArgv,
+  ekkoSliceInvocation,
   ekkoSlices,
-  pcm16MonoWav,
   transcribeWithEkkoTuned,
 } from './ekko-engine'
 import {
@@ -1831,19 +1829,19 @@ describe('long-audio check', () => {
           const longest = slicing.slices.reduce((a, b) =>
             b.endSample - b.startSample > a.endSample - a.startSample ? b : a
           )
-          const slicePath = join(dir, `memory-${id}-${clip.name}.wav`)
-          writeFileSync(
-            slicePath,
-            pcm16MonoWav(slicing.samples, slicing.sampleRate, longest)
-          )
-          const proc = Bun.spawnSync(
-            ekkoSliceArgv(parakeetCli!, installed.path, slicePath),
-            {
-              stdout: 'ignore',
-              stderr: 'ignore',
-              env: { ...process.env, ...EKKO_ENV },
-            }
-          )
+          const { argv, env } = ekkoSliceInvocation({
+            binary: parakeetCli!,
+            modelPath: installed.path,
+            slicePath: join(dir, `memory-${id}-${clip.name}.wav`),
+            samples: slicing.samples,
+            sampleRate: slicing.sampleRate,
+            slice: longest,
+          })
+          const proc = Bun.spawnSync(argv, {
+            stdout: 'ignore',
+            stderr: 'ignore',
+            env,
+          })
           if (proc.exitCode !== 0) {
             failures.push(`${clip.name}: parakeet-cli exited ${proc.exitCode}`)
             continue
