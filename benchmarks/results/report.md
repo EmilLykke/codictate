@@ -2,7 +2,7 @@
 
 **Description:** Aggregated results from all benchmark runs
 
-- **Date:** 2026-10-29T21:57:55.013Z
+- **Date:** 2026-10-30T07:02:54.664Z
 - **Hardware:** Apple M4 Max / 36 GB / macOS 26.6.2
 - **Pooled unique scored clips per dataset:** 2936
 - **Warmup utterances:** 3

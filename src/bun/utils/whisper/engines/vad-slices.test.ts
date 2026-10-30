@@ -31,6 +31,8 @@ type Part =
   | ['soft', number]
   /** A quiet room: noise around -55 dBFS. */
   | ['room', number]
+  /** A very quiet room: noise around -71 dBFS. */
+  | ['hush', number]
   | ['zeros', number]
   /** A 440 Hz tone around -13 dBFS. */
   | ['tone', number]
@@ -45,6 +47,7 @@ function audio(...parts: Part[]): Float32Array {
       if (kind === 'speech') out.push(0.3 * random())
       else if (kind === 'soft') out.push(0.15 * random())
       else if (kind === 'room') out.push(0.003 * random())
+      else if (kind === 'hush') out.push(0.0005 * random())
       else if (kind === 'tone')
         out.push(0.3 * Math.sin((2 * Math.PI * 440 * out.length) / SR))
       else out.push(0)
@@ -457,6 +460,67 @@ describe('planVadSlices: speech longer than the cap', () => {
       { startSample: 0, endSample: at(19.5) },
       { startSample: at(19.5), endSample: at(19.9) },
     ])
+  })
+})
+
+describe('planVadSlices: default options are pinned', () => {
+  // The crispasr `nt-vad` path (Edda and every other Speech Model without `whisperDecoding`)
+  // plans with the defaults. These slices were taken from the planner before ekko got its
+  // own option (#108); a change here changes what Edda decodes.
+  test('a minute of mixed rooms, pauses and long speech plans exactly as before', () => {
+    const samples = audio(
+      ['hush', 0.6],
+      ['speech', 4],
+      ['room', 0.3],
+      ['soft', 2],
+      ['hush', 2.5],
+      ['tone', 3],
+      ['room', 6],
+      ['speech', 5],
+      ['zeros', 1.2],
+      ['room', 0.5],
+      ['speech', 12],
+      ['room', 0.2],
+      ['speech', 14],
+      ['soft', 0.4],
+      ['speech', 6],
+      ['hush', 1]
+    )
+    expect(planVadSlices(samples, SR)).toEqual([
+      { startSample: 6400, endSample: 113600 },
+      { startSample: 147200, endSample: 201600 },
+      { startSample: 291200, endSample: 377600 },
+      { startSample: 398400, endSample: 823040 },
+      { startSample: 823040, endSample: 926400 },
+    ])
+  })
+
+  test('a pause of room noise above the floor stays inside one slice', () => {
+    const samples = audio(
+      ['hush', 1],
+      ['tone', 3],
+      ['room', 4],
+      ['tone', 3],
+      ['hush', 1]
+    )
+    expect(planVadSlices(samples, SR)).toEqual([
+      { startSample: at(0.8), endSample: at(11.2) },
+    ])
+  })
+})
+
+describe('planVadSlices: pauseBelowSpeechDb', () => {
+  const noisyPause = () =>
+    audio(['hush', 1], ['tone', 3], ['room', 4], ['tone', 3], ['hush', 1])
+
+  test('room noise far under the speech is a pause, so a long one ends the slice', () => {
+    // The tone is about -13.5 dBFS and the room about -55: more than 35 dB under it.
+    expect(planVadSlices(noisyPause(), SR, { pauseBelowSpeechDb: 35 })).toEqual(
+      [
+        { startSample: at(0.8), endSample: at(4.2) },
+        { startSample: at(7.8), endSample: at(11.2) },
+      ]
+    )
   })
 })
 
