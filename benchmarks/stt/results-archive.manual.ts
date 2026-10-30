@@ -12,8 +12,8 @@
  * numbers to match; fix the read path.
  *
  * This is deliberately outside the default `bun test` run - the `.manual.ts` suffix keeps
- * it out of test discovery. The assertions are pinned to the thirty archived runs that exist
- * today (`coverage.runCount` is asserted to be exactly 30), so a thirty-first Benchmark Run turns
+ * it out of test discovery. The assertions are pinned to the thirty-one archived runs that exist
+ * today (`coverage.runCount` is asserted to be exactly 31), so a thirty-second Benchmark Run turns
  * the suite red without anything having broken. Its subject is the archive on disk, not
  * the code under change, which makes it a check to run when the archive moves rather than
  * a gate on every commit.
@@ -148,14 +148,14 @@ describe("pre-harness archived runs", () => {
 describe("coverage across every archived run", () => {
   const coverage = loadCoverage(RESULTS_DIR);
 
-  test("all thirty run directories are counted", () => {
+  test("all thirty-one run directories are counted", () => {
     const runDirs = readdirSync(RESULTS_DIR).filter(
       (d) =>
         /^\d{4}-\d{2}-\d{2}/.test(d) &&
         existsSync(join(RESULTS_DIR, d, "stt.json")),
     );
     expect(coverage.runCount).toBe(runDirs.length);
-    expect(coverage.runCount).toBe(30);
+    expect(coverage.runCount).toBe(31);
   });
 
   test("archived whisper-cli Combinations count as measured", () => {
@@ -273,7 +273,9 @@ describe("sample cursors across the archive", () => {
   });
 
   test("ekko's cursor is under parakeet-cli, the Harness that ran it", () => {
-    // `2026-10-29_21-54-05_ekko-v1-tiny-danish`, all 927 consumable da_dk clips. Under
+    // `2026-10-29_21-54-05_ekko-v1-tiny-danish`, all 927 consumable da_dk clips, re-measured
+    // with `--from 0` by `2026-10-30_06-58-37_ekko-v1-tiny-danish` after ekko's slicing
+    // changed (#108): the same depth either way. Under
     // the selected crispasr it would read as a Combination nobody has measured.
     expect(
       deepestCursorForDataset(

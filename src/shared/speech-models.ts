@@ -885,9 +885,10 @@ export const SPEECH_MODELS: SpeechModel[] = [
   // `downloadSizeMB` is the GGUF (134710976 bytes, 128 MiB) plus ekko-pnc's runtime files
   // (24 MiB), because downloading ekko fetches the Punctuation Model when it is missing.
   // `peakRamMB` and the 9.9 WER are from the Benchmark Run
-  // `2026-10-29_21-54-05_ekko-v1-tiny-danish` (all 927 FLEURS `da_dk` clips, Apple M4 Max, the
-  // same plan and order as Edda's run): 9.93 WER on the Raw Transcript, 17 ms per second of
-  // audio and 299 MB average peak RSS, matching the gate (#78).
+  // `2026-10-30_06-58-37_ekko-v1-tiny-danish` (all 927 FLEURS `da_dk` clips, Apple M4 Max, the
+  // same plan and order as Edda's run, after ekko's slicing change in #108): 9.91 WER on the
+  // Raw Transcript, 17 ms per second of audio and 299 MB average peak RSS, matching the gate
+  // (#78). The run before that change, `2026-10-29_21-54-05_ekko-v1-tiny-danish`, measured 9.93.
   {
     id: 'ekko-v1-tiny-q5_0',
     engine: 'ekko',

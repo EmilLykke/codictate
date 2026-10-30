@@ -9,7 +9,8 @@
  *
  * The plan is WhisperX's cut-and-merge with faster-whisper's split rule:
  * 1. Loudness in 10 ms frames finds the pauses: a frame is silent when it is within a few dB
- *    of the recording's own noise floor.
+ *    of the recording's own noise floor (with `pauseBelowSpeechDb`, ekko's only, also when it
+ *    is that far under the recording's speech level).
  * 2. Speech is the given `speechRegions` (a Silero pass), or else the runs of loud frames with
  *    pauses shorter than `minPauseMs` bridged.
  * 3. Neighbouring speech is merged into slices. A pause up to `maxMergeGapMs` can stay in a
@@ -50,6 +51,16 @@ export interface VadSliceOptions {
   minSpeechMs: number
   /** A pause longer than this always ends a slice; up to this it can stay inside one. */
   maxMergeGapMs: number
+  /**
+   * Off (`null`) by default, and only the ekko adapter sets it (#108). When set, a frame this
+   * many dB or more under the recording's speech level (the 90th percentile of its frame
+   * levels) is silent too, however far it is above the noise floor. One noise floor for the
+   * whole recording sits at its quietest room, so a stretch of louder room noise between two
+   * sentences reads as speech and never ends a slice; ekko-v1-tiny then drops the first words
+   * after it. A noise floor taken locally does not fix that: a quieter room nearby pulls it
+   * down just as far.
+   */
+  pauseBelowSpeechDb: number | null
 }
 
 /**
@@ -65,12 +76,15 @@ export const DEFAULT_VAD_SLICE_OPTIONS: VadSliceOptions = {
   padMs: 200,
   minSpeechMs: 250,
   maxMergeGapMs: 1500,
+  pauseBelowSpeechDb: null,
 }
 
 const FRAME_SECONDS = 0.01
 const QUIET_WINDOW_SECONDS = 0.1
 /** The noise floor is this percentile of the frame levels. */
 const NOISE_FLOOR_PERCENTILE = 0.1
+/** With `pauseBelowSpeechDb`, the speech level is this percentile of the frame levels. */
+const SPEECH_LEVEL_PERCENTILE = 0.9
 /**
  * How far above the noise floor a frame may be and still be silent. The 10th percentile sits
  * a few dB under typical noise frames, and voiced speech is 20 dB or more above it. Kept low
@@ -105,7 +119,8 @@ interface Loudness {
 /** Frame levels and which frames are silent, or `null` when the whole recording is silent. */
 function frameLoudness(
   samples: Float32Array,
-  sampleRate: number
+  sampleRate: number,
+  pauseBelowSpeechDb: number | null
 ): Loudness | null {
   const frameLength = Math.max(1, Math.round(sampleRate * FRAME_SECONDS))
   const frameCount = Math.ceil(samples.length / frameLength)
@@ -127,8 +142,16 @@ function frameLoudness(
   const audible = levels.filter((level) => level > DIGITAL_SILENCE_DB).sort()
   const floor =
     audible[Math.floor((audible.length - 1) * NOISE_FLOOR_PERCENTILE)]
+  const aboveFloor =
+    pauseBelowSpeechDb === null
+      ? floor + SILENCE_MARGIN_DB
+      : Math.max(
+          floor + SILENCE_MARGIN_DB,
+          audible[Math.floor((audible.length - 1) * SPEECH_LEVEL_PERCENTILE)] -
+            pauseBelowSpeechDb
+        )
   const threshold = Math.min(
-    floor + SILENCE_MARGIN_DB,
+    aboveFloor,
     Math.max(loudest - SPEECH_HEADROOM_DB, LOUD_FRAME_DB)
   )
   const silent = new Uint8Array(frameCount)
@@ -401,7 +424,14 @@ export function planVadSlices(
   options?: Partial<VadSliceOptions>,
   speechRegions?: SpeechRegion[]
 ): AudioSlice[] {
-  const { maxSliceSeconds, minPauseMs, padMs, minSpeechMs, maxMergeGapMs } = {
+  const {
+    maxSliceSeconds,
+    minPauseMs,
+    padMs,
+    minSpeechMs,
+    maxMergeGapMs,
+    pauseBelowSpeechDb,
+  } = {
     ...DEFAULT_VAD_SLICE_OPTIONS,
     ...options,
   }
@@ -410,7 +440,7 @@ export function planVadSlices(
       `cannot plan slices at ${sampleRate} Hz with a ${maxSliceSeconds} s cap`
     )
   }
-  const loudness = frameLoudness(samples, sampleRate)
+  const loudness = frameLoudness(samples, sampleRate, pauseBelowSpeechDb)
   if (loudness === null) return []
 
   const toSamples = (ms: number) =>

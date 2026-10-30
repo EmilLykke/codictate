@@ -12,6 +12,7 @@ import { EKKO_ENGINE_ID } from '../../../../shared/speech-models'
 import {
   EKKO_ENV,
   ekkoSliceArgv,
+  ekkoSlices,
   transcribeWithEkkoTuned,
   warmUpEkko,
   type EkkoDeps,
@@ -44,6 +45,8 @@ type Part =
   | ['speech', number]
   /** A quiet room: noise around -55 dBFS. */
   | ['room', number]
+  /** A very quiet room: noise around -71 dBFS. */
+  | ['hush', number]
   | ['zeros', number]
 
 /** A 16 kHz mono 16-bit PCM WAV from parts given in seconds, written into the temp dir. */
@@ -56,6 +59,7 @@ function wavFile(...parts: Part[]): string {
     for (let i = 0; i < count; i += 1) {
       if (kind === 'speech') samples.push(0.3 * random())
       else if (kind === 'room') samples.push(0.003 * random())
+      else if (kind === 'hush') samples.push(0.0005 * random())
       else samples.push(0)
     }
   }
@@ -513,6 +517,39 @@ describe('the ekko adapter', () => {
     // Each slice is 2 s of speech with 0.2 s either side.
     expect(seen.length).toBeGreaterThan(0)
     for (const run of seen) expect(run).toBe('true 128 16000 2.40')
+  })
+})
+
+describe("the ekko adapter's slices", () => {
+  /**
+   * The noise floor is the hushed room, and the 4 s between the sentences is a louder room,
+   * well above that floor but 40 dB under the speech: the long pause #108 lost words after.
+   */
+  function noisyPause(): string {
+    return wavFile(
+      ['hush', 1],
+      ['speech', 3],
+      ['room', 4],
+      ['speech', 3],
+      ['hush', 1]
+    )
+  }
+  const at = (seconds: number) => Math.round(seconds * SR)
+
+  test('a long pause of room noise above the noise floor ends a slice', () => {
+    const slicing = ekkoSlices(noisyPause())
+    expect(slicing.ok && slicing.slices).toEqual([
+      { startSample: at(0.8), endSample: at(4.2) },
+      { startSample: at(7.8), endSample: at(11.2) },
+    ])
+  })
+
+  test('slice options from the long-audio check keep that rule', () => {
+    const slicing = ekkoSlices(noisyPause(), { maxSliceSeconds: 20 })
+    expect(slicing.ok && slicing.slices).toEqual([
+      { startSample: at(0.8), endSample: at(4.2) },
+      { startSample: at(7.8), endSample: at(11.2) },
+    ])
   })
 })
 

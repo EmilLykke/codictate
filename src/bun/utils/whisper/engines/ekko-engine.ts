@@ -3,8 +3,9 @@
  *
  * Decided in #76: Codictate cuts the recording itself, with the same VAD slice planner the
  * crispasr `nt-vad` path uses at its defaults (30 s cap, 0.2 s padding, a pause over 1.5 s
- * always ends a slice; no Silero), and runs one `parakeet-cli` per slice, in order, one at a
- * time, for every length and for Dictation and File Transcription alike. Each slice is written
+ * always ends a slice; no Silero) plus one ekko-only option, `EKKO_VAD_SLICE_OPTIONS` (room
+ * noise far under the speech is a pause, #108), and runs one `parakeet-cli` per slice, in
+ * order, one at a time, for every length and for Dictation and File Transcription alike. Each slice is written
  * as a 16-bit PCM mono WAV into a per-run temp directory that is removed on every way out.
  *
  * One deadline covers the whole Request; each process is supervised with what is left of it.
@@ -160,6 +161,18 @@ export function pcm16MonoWav(
   return bytes
 }
 
+/**
+ * What ekko's slicing adds to the planner's defaults: room noise 35 dB or more under the
+ * speech is a pause (`pauseBelowSpeechDb`), so a long noisy pause between sentences ends a
+ * slice. ekko-v1-tiny drops the first words of a sentence that follows a long pause inside
+ * one slice (#108: "du skal se skiruten" in the long-audio check, after about 7 s of room
+ * noise that the recording-wide noise floor read as speech). Only ekko: Edda's and the other
+ * crispasr `nt-vad` slices stay on the defaults.
+ */
+export const EKKO_VAD_SLICE_OPTIONS: Readonly<Partial<VadSliceOptions>> = {
+  pauseBelowSpeechDb: 35,
+}
+
 /** A recording read and cut the way the adapter cuts it. */
 export type EkkoSlicing =
   | {
@@ -172,8 +185,9 @@ export type EkkoSlicing =
   | { ok: false; detail: string }
 
 /**
- * Reads a WAV and plans its slices exactly as the adapter does. Exported for the benchmark's
- * memory run and the long-audio check, which run `ekkoSliceArgv` on one of these slices.
+ * Reads a WAV and plans its slices exactly as the adapter does: the planner's defaults with
+ * `EKKO_VAD_SLICE_OPTIONS`, then `sliceOptions` on top. Exported for the benchmark's memory
+ * run and the long-audio check, which run `ekkoSliceArgv` on one of these slices.
  */
 export function ekkoSlices(
   audioPath: string,
@@ -190,7 +204,10 @@ export function ekkoSlices(
     ok: true,
     samples: audio.samples,
     sampleRate: audio.sampleRate,
-    slices: planVadSlices(audio.samples, audio.sampleRate, sliceOptions),
+    slices: planVadSlices(audio.samples, audio.sampleRate, {
+      ...EKKO_VAD_SLICE_OPTIONS,
+      ...sliceOptions,
+    }),
   }
 }
 
