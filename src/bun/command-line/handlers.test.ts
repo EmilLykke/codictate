@@ -409,6 +409,7 @@ describe('transcribe', () => {
         languageId: null,
         translate: null,
         format: null,
+        wordsPerCaption: null,
       }),
       context(emitted).ctx
     )
@@ -476,6 +477,7 @@ describe('transcribe', () => {
           languageId: null,
           translate: null,
           format: null,
+          wordsPerCaption: null,
         },
         null
       ),
@@ -506,6 +508,7 @@ describe('transcribe', () => {
         languageId: null,
         translate: null,
         format: null,
+        wordsPerCaption: null,
       }),
       context().ctx
     )
@@ -584,6 +587,7 @@ function transcribeArgs(
     languageId: null,
     translate: null,
     format: null,
+    wordsPerCaption: null,
     ...extra,
   }
 }
@@ -648,6 +652,36 @@ describe('transcribe: Translate to English', () => {
       code: 'cannot_translate',
       message,
     })
+  })
+})
+
+describe('transcribe: --words-per-caption', () => {
+  test('reaches the renderer; without it the Captions are Automatic, whatever the window chose', async () => {
+    const timed: TimedTranscript = {
+      text: 'Hello there.',
+      parts: [{ text: 'Hello there.', start: 0.1, end: 1.3 }],
+    }
+    for (const wordsPerCaption of [null, 1, 12]) {
+      const seen: unknown[] = []
+      const f = fakeDeps()
+      const handlers = createCommandHandlers({
+        ...f.deps,
+        renderTranscript: (format, source, options) => {
+          seen.push(options)
+          return {
+            ok: true,
+            content: `<${format}>${source.text}</${format}>\n`,
+          }
+        },
+      })
+      const running = handlers.transcribe(
+        req('transcribe', transcribeArgs({ format: 'srt', wordsPerCaption })),
+        context().ctx
+      )
+      f.jobs[0].settle(finished({ timedTranscript: timed }))
+      expect(await running).toMatchObject({ type: 'result' })
+      expect(seen).toEqual([{ wordsPerCaption }])
+    }
   })
 })
 

@@ -265,21 +265,26 @@ function captionsRefusal(
 function withFormatted(
   result: TranscribeResult,
   format: TranscriptExportFormat,
+  wordsPerCaption: number | null,
   timedTranscript: FinishedFileTranscription['timedTranscript'],
   render: typeof renderTranscriptExport
 ): TranscribeResult | ErrorEvent {
   let rendered: ReturnType<typeof renderTranscriptExport>
   try {
-    rendered = render(format, {
-      fileName: basename(result.file),
-      speechModelId: result.speechModelId,
-      language: result.language,
-      translated: result.translated,
-      audioSeconds: result.audioSeconds,
-      processingSeconds: result.processingSeconds,
-      text: result.text,
-      timedTranscript,
-    })
+    rendered = render(
+      format,
+      {
+        fileName: basename(result.file),
+        speechModelId: result.speechModelId,
+        language: result.language,
+        translated: result.translated,
+        audioSeconds: result.audioSeconds,
+        processingSeconds: result.processingSeconds,
+        text: result.text,
+        timedTranscript,
+      },
+      { wordsPerCaption }
+    )
   } catch (err) {
     return errorEvent(
       'internal',
@@ -293,7 +298,14 @@ function withFormatted(
 const transcribe =
   (deps: CommandLineDeps): CommandHandler<'transcribe'> =>
   async (request, context) => {
-    const { file, speechModelId, languageId, translate, format } = request.args
+    const {
+      file,
+      speechModelId,
+      languageId,
+      translate,
+      format,
+      wordsPerCaption,
+    } = request.args
     // A cancel can land while the handler waited for the app to finish booting.
     if (context.signal.aborted) return errorEvent('cancelled', 'Cancelled')
     if (!isAbsolute(file)) {
@@ -337,6 +349,8 @@ const transcribe =
     return withFormatted(
       finished,
       format,
+      // Like Translate to English, never taken from the File Transcription Settings.
+      wordsPerCaption,
       result.timedTranscript,
       deps.renderTranscript ?? renderTranscriptExport
     )

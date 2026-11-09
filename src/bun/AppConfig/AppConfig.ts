@@ -43,6 +43,7 @@ import {
   coerceTranscriptionLanguageIdForModel,
 } from '../../shared/speech-models'
 import type { PlatformCapabilities } from '../../shared/platform'
+import { WORDS_PER_CAPTION_CHOICES } from '../../shared/transcript-cues'
 import {
   buildDictationPlan,
   getDictationReadiness,
@@ -283,6 +284,8 @@ interface PersistedMainSettings {
   /** `null` while the File Transcription Settings follow the Dictation's. */
   fileTranscription: FileTranscriptionSettings | null
   lastTranscriptExportFolder: string | null
+  /** Words per Caption; `null` for Automatic. */
+  wordsPerCaption: number | null
   debugMode: false
 }
 
@@ -342,6 +345,8 @@ export class AppConfig {
   private fileHealAnnouncements: SettingsHealAnnouncement[] = []
   /** Where the last Transcript Export was saved, so the next folder picker opens there. */
   private lastTranscriptExportFolder: string | null = null
+  /** Words per Caption last chosen in the Save menu; `null` for Automatic. */
+  private wordsPerCaption: number | null = null
   private _recentlyAppliedEntries: DictionaryEntry[] = []
   private recordingIndicatorOnboardingPreviewMode: RecordingIndicatorMode | null =
     null
@@ -477,6 +482,7 @@ export class AppConfig {
       fileTranscription:
         this.fileTranscription === null ? null : { ...this.fileTranscription },
       lastTranscriptExportFolder: this.lastTranscriptExportFolder,
+      wordsPerCaption: this.wordsPerCaption,
       debugMode: false,
     }
   }
@@ -629,6 +635,11 @@ export class AppConfig {
     ) {
       this.lastTranscriptExportFolder = raw.lastTranscriptExportFolder
     }
+    this.wordsPerCaption = WORDS_PER_CAPTION_CHOICES.includes(
+      raw.wordsPerCaption as number
+    )
+      ? (raw.wordsPerCaption as number)
+      : null
 
     if (raw.formatting && typeof raw.formatting === 'object') {
       const formatting = raw.formatting as Record<string, unknown>
@@ -1095,6 +1106,7 @@ export class AppConfig {
       healAnnouncements: this.getHealAnnouncements(),
       dictationReadiness: this.getDictationReadiness(),
       fileTranscription: this.getFileTranscriptionSettingsState(),
+      wordsPerCaption: this.wordsPerCaption,
       blockedDictation: this.getBlockedDictation(),
       dictationFailure: this.getDictationFailure(),
     }
@@ -1438,6 +1450,7 @@ export class AppConfig {
         this.fileTranscriptionHealContext(),
         this.dictationAvailability()
       ),
+
       healAnnouncements: this.fileHealAnnouncements.map((announcement) => ({
         ...announcement,
       })),
@@ -1516,6 +1529,26 @@ export class AppConfig {
   public dismissFileTranscriptionHealAnnouncements(): boolean {
     if (this.fileHealAnnouncements.length === 0) return false
     this.fileHealAnnouncements = []
+    return true
+  }
+
+  /** Words per Caption last chosen in the Save menu; `null` for Automatic. */
+  public getWordsPerCaption(): number | null {
+    return this.wordsPerCaption
+  }
+
+  /**
+   * Remember the Save menu's Words per Caption: one it offers, or `null` for Automatic.
+   * `false`, and nothing written, for anything else. Not a File Transcription Setting, so
+   * choosing it never stops those following the Dictation's.
+   */
+  public async setWordsPerCaption(value: number | null): Promise<boolean> {
+    if (value !== null && !WORDS_PER_CAPTION_CHOICES.includes(value)) {
+      return false
+    }
+    if (value === this.wordsPerCaption) return true
+    this.wordsPerCaption = value
+    await this.saveMain()
     return true
   }
 

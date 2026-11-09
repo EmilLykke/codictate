@@ -39,6 +39,7 @@ import {
   transcriptExportFileName as transcriptExportFileNameDefault,
   type TranscriptExportFormat,
   type TranscriptExportSource,
+  type TranscriptRenderOptions,
 } from '../../shared/transcript-export'
 import { transcriptExportFailureMessage } from '../../shared/file-transcription-copy'
 import { exportStartFolder, uniqueExportPath } from './paths'
@@ -126,13 +127,15 @@ export interface WindowFileTranscriptions {
   dismiss(id: string): boolean
   /**
    * Ask for a folder in the native folder picker and write the transcript there in `format`,
-   * as a new file named after the transcribed file.
+   * as a new file named after the transcribed file, its Captions cut by `options` (Automatic
+   * when absent).
    * How it ended goes to `pushExportResult`; the returned promise resolves with the same
    * result.
    */
   exportTranscript(
     target: TranscriptExportTarget,
-    format: TranscriptExportFormat
+    format: TranscriptExportFormat,
+    options?: TranscriptRenderOptions
   ): Promise<TranscriptExportResult>
   /** Show the file the last Transcript Export of `target` wrote. */
   revealExport(target: TranscriptExportTarget): void
@@ -313,7 +316,8 @@ export function createWindowFileTranscriptions(
 
   async function runExport(
     target: TranscriptExportTarget,
-    format: TranscriptExportFormat
+    format: TranscriptExportFormat,
+    options: TranscriptRenderOptions
   ): Promise<TranscriptExportResult> {
     let resolved: Awaited<ReturnType<typeof resolveSource>>
     try {
@@ -331,7 +335,7 @@ export function createWindowFileTranscriptions(
     // Before the picker: a Caption File without timings is refused without asking where.
     let rendered: ReturnType<typeof render>
     try {
-      rendered = render(format, source)
+      rendered = render(format, source, options)
     } catch (err) {
       deps.log('export render failed', { target, format, err: String(err) })
       return {
@@ -431,9 +435,10 @@ export function createWindowFileTranscriptions(
 
   async function exportTranscript(
     target: TranscriptExportTarget,
-    format: TranscriptExportFormat
+    format: TranscriptExportFormat,
+    options: TranscriptRenderOptions = { wordsPerCaption: null }
   ): Promise<TranscriptExportResult> {
-    const result = await runExport(target, format)
+    const result = await runExport(target, format, options)
     try {
       deps.pushExportResult(result)
     } catch (err) {

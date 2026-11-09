@@ -72,6 +72,10 @@ _Avoid_: audio device, input device
 
 **Caption File** - an SRT or VTT file made from a Timed Transcript, for showing the words on screen alongside the audio or video.
 
+**Caption** - one span of the transcript a Caption File shows on screen on its own, with when it appears and disappears. Its text is exactly that span of the File Transcription's text. Avoid "cue", "segment" and "subtitle" when talking about the domain.
+
+**Words per Caption** - the most words one Caption may hold, or Automatic, where Captions are cut by length on screen alone. Chosen when saving a Transcript Export, not when transcribing, and remembered for the next one; from the command line it is Automatic unless the call asks for one. A Caption still ends early at the end of a sentence or a pause, so it can hold fewer. Where a Speech Model times only whole parts of the transcript, word times inside a part are estimated, so short Captions can drift from the speech.
+
 **Transcript Export** - saving a File Transcription as a file in a folder the user picks, as text, as a Caption File, or as JSON. The file is named after the transcribed file, with a number added when that name is taken, so it never replaces a file. A Caption File, and the timing inside JSON, need a Timed Transcript.
 
 **Processing Time** - how long a File Transcription took, from when Codictate began reading the file to when the transcript was ready. Time spent waiting behind other File Transcriptions does not count. Distinct from the audio's own length.

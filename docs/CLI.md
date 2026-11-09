@@ -29,7 +29,7 @@ Every command except `--help` and `--version` goes through the running app. When
 
 ```
 codictate transcribe <file>... [--model <id>] [--language <id|auto>] [--translate | --no-translate]
-                     [--format txt|srt|vtt|json] [-o <path>] [--json]
+                     [--format txt|srt|vtt|json] [--words-per-caption <n>] [-o <path>] [--json]
 codictate dictate [--paste] [--raw] [--until enter|silence] [--max <seconds>]
                   [--model <id>] [--language <id|auto>] [--formatting-mode <id>] [--json]
 codictate stop [--json]
@@ -71,9 +71,11 @@ Transcribes audio or video files with the Speech Model and Transcription Languag
 
 - `txt`: the transcript and a newline, as without `--format`.
 - `srt`, `vtt`: a Caption File. It needs a Timed Transcript, which not every Speech Model makes (Edda does not). With one that never does, the call exits `2` with `captions_unavailable` before anything is transcribed; if a run gives no usable timings, it ends with the same error.
-- `json`: the transcript and what it was made with (file name, Speech Model, language, translated, audio length, Processing Time), plus the caption cues under `segments` when there is a Timed Transcript.
+- `json`: the transcript and what it was made with (file name, Speech Model, language, translated, audio length, Processing Time), plus the Captions under `segments` when there is a Timed Transcript.
 
 The document is printed instead of the transcript, and under `--json` it is in the result's `formatted` field.
+
+**`--words-per-caption <n>`** puts at most `n` words in each Caption of an `srt`, `vtt` or `json` document (`1` gives one word per Caption). `n` is any whole number from 1. A Caption still ends early at the end of a sentence or at a pause longer than 0.6 s, and still fits two lines of 42 characters and 7 seconds. Each Caption stays on screen until the next one starts, unless the pause between them is longer than 0.6 s. Without the flag the Captions are Automatic, cut by those limits alone, as before; the Words per Caption chosen in the Save menu of Codictate's window applies only there, never to the command line. With no `--format`, or with `--format txt`, it is a usage error. Speech Models that time whole parts rather than words (Whisper Speech Models, and Parakeet on Windows) only estimate when each word is spoken, so short Captions can drift from the speech; hviske, ekko, and Parakeet on macOS time each word.
 
 **`-o, --output <path>`** writes the transcript (or the `--format` document) to that file, replacing it if it exists, and prints nothing on success. It takes one input file; with several it is a usage error. A path relative to the working directory is fine, since the client writes the file. If it cannot be written, the client prints `codictate: <path>: cannot write: <reason>` and exits `1` (`output_unwritable`); under `--json` the result line comes first, then that error.
 
@@ -232,14 +234,14 @@ The app creates it at startup, and only one app per user and identifier may: on 
 **Request.** The client's first line:
 
 ```json
-{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null,"translate":null,"format":null},"caller":{"name":"Terminal","pid":4211}}
+{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null,"translate":null,"format":null,"wordsPerCaption":null},"caller":{"name":"Terminal","pid":4211}}
 ```
 
 `caller` is the client's parent process, self-reported. It is shown to the user (for example in the File Transcription queue) and never used to grant anything.
 
 | `command` | `args` |
 |---|---|
-| `transcribe` | `{file, speechModelId?, languageId?, translate?: true\|false, format?: "txt"\|"srt"\|"vtt"\|"json"}`: one file; the client loops over several. `translate` absent, `null` or `false` means no translation; only `true` translates |
+| `transcribe` | `{file, speechModelId?, languageId?, translate?: true\|false, format?: "txt"\|"srt"\|"vtt"\|"json", wordsPerCaption?}`: one file; the client loops over several. `translate` absent, `null` or `false` means no translation; only `true` translates. `wordsPerCaption` is a whole number from 1, only with `format` `srt`, `vtt` or `json` (otherwise `usage`); absent or `null` is Automatic |
 | `dictate` | `{output: "stdout"\|"cursor", raw, until: "enter"\|"silence", maxSeconds?, speechModelId?, languageId?, formattingModeId?}` |
 | `stop` | `{}` |
 | `status` | `{}` |
@@ -249,7 +251,7 @@ The app creates it at startup, and only one app per user and identifier may: on 
 | `languages.use` | `{id}` |
 | `app.show` | `{}`: internal, used by a second app instance; not a command-line command |
 
-The client resolves relative file paths to absolute ones before sending them. Unset optional `args` are sent as `null`, and the app reads an absent one as `null` too, so a client that predates `translate` and `format` still works; `maxSeconds` is a number of seconds and may be fractional. `caller.name` is `"unknown"` when the parent process cannot be read, and a Windows name drops its `.exe`.
+The client resolves relative file paths to absolute ones before sending them. Unset optional `args` are sent as `null`, and the app reads an absent one as `null` too, so a client that predates `translate`, `format` and `wordsPerCaption` still works; `maxSeconds` is a number of seconds and may be fractional. `caller.name` is `"unknown"` when the parent process cannot be read, and a Windows name drops its `.exe`.
 
 **Development overrides** (client only, not in `--help`): `CODICTATE_APP_BUNDLE` points the client at an app bundle or install directory instead of the one it ships in; `CODICTATE_DATA_DIR` moves the socket and the hidden-launch marker, for tests.
 

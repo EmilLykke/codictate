@@ -10,7 +10,11 @@ import {
   speechModelMakesTimedTranscript,
 } from './speech-models'
 import { isTimedTranscript, type TimedTranscript } from './timed-transcript'
-import { buildCues, type TranscriptCue } from './transcript-cues'
+import {
+  buildCues,
+  captionCueRules,
+  type TranscriptCue,
+} from './transcript-cues'
 
 export const TRANSCRIPT_EXPORT_FORMATS = ['txt', 'srt', 'vtt', 'json'] as const
 export type TranscriptExportFormat = (typeof TRANSCRIPT_EXPORT_FORMATS)[number]
@@ -64,6 +68,12 @@ export interface TranscriptJsonDocument {
   processingSeconds: number | null
   text: string
   segments?: { start: number; end: number; text: string }[]
+}
+
+/** How a Transcript Export cuts its Captions. */
+export interface TranscriptRenderOptions {
+  /** Words per Caption: the most words in one Caption, or `null` for Automatic. */
+  wordsPerCaption: number | null
 }
 
 export type RenderedTranscript =
@@ -169,7 +179,7 @@ function roundToMs(seconds: number): number {
 
 function renderJson(
   source: TranscriptExportSource,
-  timed: TimedTranscript | null
+  cues: readonly TranscriptCue[] | null
 ): string {
   const document: TranscriptJsonDocument = {
     fileName: source.fileName,
@@ -180,8 +190,8 @@ function renderJson(
     processingSeconds: source.processingSeconds,
     text: source.text,
   }
-  if (timed !== null) {
-    document.segments = buildCues(timed).map((cue) => ({
+  if (cues !== null) {
+    document.segments = cues.map((cue) => ({
       start: roundToMs(cue.start),
       end: roundToMs(cue.end),
       text: cue.text,
@@ -191,20 +201,27 @@ function renderJson(
 }
 
 /**
- * The document a Transcript Export writes. Captions use `CAPTION_CUE_RULES`; JSON carries
- * the same cues as `segments`, with their exact text. A Caption File without a Timed
- * Transcript is refused with the sentence to show; text and JSON always render.
+ * The document a Transcript Export writes. Captions are cut by the Words per Caption in
+ * `options` (Automatic when absent); JSON carries the same Captions as `segments`, with their
+ * exact text. A Caption File without a Timed Transcript is refused with the sentence to show;
+ * text and JSON always render.
  */
 export function renderTranscript(
   format: TranscriptExportFormat,
-  source: TranscriptExportSource
+  source: TranscriptExportSource,
+  options: TranscriptRenderOptions = { wordsPerCaption: null }
 ): RenderedTranscript {
   const timed = usableTimedTranscript(source)
+  const cuesOf = (t: TimedTranscript) =>
+    buildCues(t, captionCueRules(options.wordsPerCaption))
   switch (format) {
     case 'txt':
       return { ok: true, content: `${source.text}\n` }
     case 'json':
-      return { ok: true, content: renderJson(source, timed) }
+      return {
+        ok: true,
+        content: renderJson(source, timed === null ? null : cuesOf(timed)),
+      }
     case 'srt':
     case 'vtt': {
       if (timed === null) {
@@ -215,7 +232,7 @@ export function renderTranscript(
             modelCannotMakeCaptions(source.speechModelId) ?? HAS_NO_TIMINGS,
         }
       }
-      const cues = buildCues(timed)
+      const cues = cuesOf(timed)
       return {
         ok: true,
         content: format === 'srt' ? renderSrt(cues) : renderVtt(cues),

@@ -551,6 +551,61 @@ describe('File Transcription Settings', () => {
   })
 })
 
+describe('Words per Caption', () => {
+  function persisted(path: string): Record<string, unknown> {
+    return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
+  }
+
+  test('is Automatic until chosen, then persists', async () => {
+    const dependencies = testDependencies()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(config.getWordsPerCaption()).toBeNull()
+    expect(config.getSettings().wordsPerCaption).toBeNull()
+
+    expect(await config.setWordsPerCaption(1)).toBe(true)
+    expect(config.getSettings().wordsPerCaption).toBe(1)
+    expect(persisted(dependencies.paths.mainConfig).wordsPerCaption).toBe(1)
+
+    const reloaded = new AppConfig(dependencies)
+    await reloaded.load()
+    expect(reloaded.getWordsPerCaption()).toBe(1)
+
+    expect(await reloaded.setWordsPerCaption(null)).toBe(true)
+    expect(reloaded.getWordsPerCaption()).toBeNull()
+  })
+
+  test('takes only what the Save menu offers', async () => {
+    const config = new AppConfig(testDependencies())
+    await config.load()
+    for (const bad of [0, 6, 1.5, '2', undefined]) {
+      expect(await config.setWordsPerCaption(bad as number)).toBe(false)
+    }
+    expect(config.getWordsPerCaption()).toBeNull()
+  })
+
+  test('a stored value the Save menu does not offer reads as Automatic', async () => {
+    const dependencies = testDependencies()
+    writeFileSync(
+      dependencies.paths.mainConfig,
+      JSON.stringify({ wordsPerCaption: 9 })
+    )
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(config.getWordsPerCaption()).toBeNull()
+  })
+
+  test('choosing one leaves the File Transcription Settings following the Dictation', async () => {
+    const dependencies = testDependencies()
+    const config = new AppConfig(dependencies)
+    await config.load()
+    expect(await config.setWordsPerCaption(2)).toBe(true)
+    expect(
+      persisted(dependencies.paths.mainConfig).fileTranscription
+    ).toBeNull()
+  })
+})
+
 describe('Add punctuation', () => {
   const HVISKE = 'hviske-v5-tiny-q5_0'
 

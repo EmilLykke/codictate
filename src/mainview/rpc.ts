@@ -698,6 +698,13 @@ export async function updateFileTranscriptionSettings(
   return rpc.request.updateFileTranscriptionSettings({ patch })
 }
 
+/** `false` when the main process refused the value; the settings push has the truth either way. */
+export async function setWordsPerCaption(
+  wordsPerCaption: number | null
+): Promise<boolean> {
+  return rpc.request.setWordsPerCaption({ wordsPerCaption })
+}
+
 export async function dismissFileTranscriptionNotice(): Promise<boolean> {
   return rpc.request.dismissFileTranscriptionNotice({})
 }
@@ -705,9 +712,10 @@ export async function dismissFileTranscriptionNotice(): Promise<boolean> {
 /** Opens the folder picker and saves a new file there. The result arrives as `transcriptExportFinished`. */
 export function exportTranscript(
   target: TranscriptExportTarget,
-  format: TranscriptExportFormat
+  format: TranscriptExportFormat,
+  wordsPerCaption: number | null
 ): void {
-  rpc.send.exportTranscript({ target, format })
+  rpc.send.exportTranscript({ target, format, wordsPerCaption })
 }
 
 export function revealExportedTranscript(target: TranscriptExportTarget): void {

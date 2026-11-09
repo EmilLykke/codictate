@@ -2,6 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import {
   buildCues,
   CAPTION_CUE_RULES,
+  captionCueRules,
+  isWordsPerCaption,
+  WORDS_PER_CAPTION_CHOICES,
   type TranscriptCue,
 } from './transcript-cues'
 import {
@@ -324,5 +327,107 @@ describe('buildCues', () => {
         parts: [{ text: 'Goodbye.', start: 0, end: 1 }],
       })
     ).toEqual([])
+  })
+})
+
+describe('Words per Caption', () => {
+  test('the window offers 1 to 5; any whole number from 1 is valid', () => {
+    expect(WORDS_PER_CAPTION_CHOICES).toEqual([1, 2, 3, 4, 5])
+    expect(isWordsPerCaption(1)).toBe(true)
+    expect(isWordsPerCaption(12)).toBe(true)
+    for (const bad of [0, -1, 1.5, Number.NaN, Infinity, '2', null]) {
+      expect(isWordsPerCaption(bad)).toBe(false)
+    }
+  })
+
+  test('Automatic is the caption rules as they are', () => {
+    expect(captionCueRules(null)).toEqual(CAPTION_CUE_RULES)
+  })
+
+  test('one word per Caption', () => {
+    const text = 'we looked at the numbers'
+    const cues = buildCues(evenlyTimed(text), captionCueRules(1))
+    expect(cues.map((c) => c.text)).toEqual([
+      'we',
+      'looked',
+      'at',
+      'the',
+      'numbers',
+    ])
+    expectSpellsOut(text, cues)
+    expectWellFormed(cues)
+  })
+
+  test('a number is the most words, so a sentence end still cuts early', () => {
+    const text = 'one two three. four five six seven'
+    const cues = buildCues(evenlyTimed(text), captionCueRules(3))
+    expect(cues.map((c) => c.text)).toEqual([
+      'one two three.',
+      'four five six',
+      'seven',
+    ])
+  })
+
+  test('punctuation stays on its word', () => {
+    const text = 'Hej, med dig.'
+    const cues = buildCues(evenlyTimed(text), captionCueRules(1))
+    expect(cues.map((c) => c.text)).toEqual(['Hej,', 'med', 'dig.'])
+  })
+
+  test('a Caption stays up until the next starts, unless the pause is longer than 0.6 s', () => {
+    const t = timed('a b c', [
+      {
+        text: 'a b c',
+        start: 0,
+        end: 3,
+        words: [
+          { text: 'a', start: 0, end: 0.3 },
+          { text: 'b', start: 0.5, end: 0.8 },
+          { text: 'c', start: 2, end: 2.3 },
+        ],
+      },
+    ])
+    const cues = buildCues(t, captionCueRules(1))
+    expect(cues.map((c) => [c.start, c.end])).toEqual([
+      [0, 0.5],
+      [0.5, 0.8],
+      [2, 2.3],
+    ])
+  })
+
+  test('Automatic keeps the gap between Captions', () => {
+    const t = timed('one. two', [
+      {
+        text: 'one. two',
+        start: 0,
+        end: 1,
+        words: [
+          { text: 'one.', start: 0, end: 0.3 },
+          { text: 'two', start: 0.5, end: 0.8 },
+        ],
+      },
+    ])
+    const cues = buildCues(t, captionCueRules(null))
+    expect(cues.map((c) => [c.start, c.end])).toEqual([
+      [0, 0.3],
+      [0.5, 0.8],
+    ])
+  })
+
+  test('a part without words is still cut word by word, its time shared out by character', () => {
+    const text = 'aa bbbb'
+    const cues = buildCues(
+      timed(text, [{ text, start: 0, end: 0.7 }]),
+      captionCueRules(1)
+    )
+    expect(cues.map((c) => c.text)).toEqual(['aa', 'bbbb'])
+    expect(cues[1].start).toBeCloseTo(0.3, 6)
+    expect(cues[0].end).toBeCloseTo(0.3, 6)
+  })
+
+  test('the line and time limits still hold', () => {
+    const cues = buildCues(evenlyTimed(LONG), captionCueRules(50))
+    expectSpellsOut(LONG, cues)
+    expectWellFormed(cues)
   })
 })

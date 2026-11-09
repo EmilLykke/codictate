@@ -5,6 +5,7 @@
  * `engine: 'whisperkit'` is the historical Parakeet engine label.
  */
 
+import type { PlatformRuntime } from './platform'
 import { TRANSCRIPTION_LANGUAGE_OPTIONS } from './transcription-languages'
 
 /**
@@ -994,6 +995,28 @@ export function speechModelMakesTimedTranscript(
   if (model.engine === 'whisper_cpp')
     return whisperDecodingForModel(speechModelId) === 'timestamps'
   return true // Parakeet (both platforms), hviske and ekko
+}
+
+/**
+ * Whether this Speech Model's Timed Transcript times each word on `platform`, rather than
+ * whole parts inside which word times are only estimated (by character), so short Captions
+ * can drift from the speech. hviske (crispasr `cohere` tokens) and ekko time words;
+ * Parakeet does on macOS (FluidAudio word timings) and times sentences on Windows; Whisper
+ * Speech Models time segments, or nothing.
+ */
+export function speechModelTimesEachWord(
+  speechModelId: string,
+  platform: PlatformRuntime
+): boolean {
+  switch (getSpeechModel(speechModelId)?.engine) {
+    case 'hviske':
+    case 'ekko':
+      return true
+    case 'whisperkit':
+      return platform === 'macos'
+    default:
+      return false
+  }
 }
 
 /**

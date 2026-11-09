@@ -26,6 +26,7 @@ import type {
   UpdateCheckState,
   WindowResizeEdge,
 } from '../shared/types'
+import { isWordsPerCaption } from '../shared/transcript-cues'
 import type { HistoryManager } from './utils/history/history-manager'
 import type { StatsManager } from './utils/stats/stats-manager'
 import { AppConfig } from './AppConfig/AppConfig'
@@ -496,6 +497,11 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
           rpc.send.updateSettings(deps.appConfig.getSettings())
           return ok
         },
+        setWordsPerCaption: async ({ wordsPerCaption }) => {
+          const ok = await deps.appConfig.setWordsPerCaption(wordsPerCaption)
+          rpc.send.updateSettings(deps.appConfig.getSettings())
+          return ok
+        },
         dismissFileTranscriptionNotice: async () => {
           if (!deps.appConfig.dismissFileTranscriptionHealAnnouncements()) {
             return false
@@ -686,7 +692,7 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
         },
         // A message, like `chooseFilesToTranscribe`: the folder picker is never awaited
         // inside a request (#156). The result goes back as `transcriptExportFinished`.
-        exportTranscript: ({ target, format }) => {
+        exportTranscript: ({ target, format, wordsPerCaption }) => {
           if (!windowFiles) {
             sendIfWindowAlive(() =>
               rpc.send.transcriptExportFinished({
@@ -698,7 +704,12 @@ export function setupWindow(deps: WindowDeps): WindowHandle {
             )
             return
           }
-          void windowFiles.exportTranscript(target, format)
+          // From the webview: anything but a whole number from 1 is Automatic.
+          void windowFiles.exportTranscript(target, format, {
+            wordsPerCaption: isWordsPerCaption(wordsPerCaption)
+              ? wordsPerCaption
+              : null,
+          })
         },
         revealExportedTranscript: ({ target }) => {
           windowFiles?.revealExport(target)

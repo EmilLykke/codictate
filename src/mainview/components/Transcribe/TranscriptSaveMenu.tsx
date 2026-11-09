@@ -1,16 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import type {
   TranscriptExportFormat,
   TranscriptExportFacts,
 } from "../../../shared/transcript-export";
 import { transcriptExportOptions } from "../../../shared/transcript-export";
-import type { TranscriptExportTarget } from "../../../shared/types";
-import { transcriptExportSavedLine } from "../../../shared/file-transcription-copy";
+import type {
+  AppSettings,
+  TranscriptExportTarget,
+} from "../../../shared/types";
+import {
+  transcriptExportSavedLine,
+  wordsPerCaptionNote,
+} from "../../../shared/file-transcription-copy";
+import { WORDS_PER_CAPTION_CHOICES } from "../../../shared/transcript-cues";
 import { appEvents } from "../../app-events";
-import { exportTranscript, revealExportedTranscript } from "../../rpc";
+import {
+  exportTranscript,
+  fetchSettings,
+  revealExportedTranscript,
+  setWordsPerCaption,
+} from "../../rpc";
 import { DropdownChevron } from "../Common/DropdownChevron";
+import { DropdownSelect } from "../Common/DropdownSelect";
 import { BUTTON, LINK } from "./transcribe-styles";
 
 type Status =
@@ -18,11 +32,24 @@ type Status =
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
+const AUTOMATIC = "automatic";
+
+/** Automatic, then each number of words, as the menu lists them. */
+const WORDS_PER_CAPTION_OPTIONS = [
+  { value: AUTOMATIC, label: "Automatic" },
+  ...WORDS_PER_CAPTION_CHOICES.map((n) => ({
+    value: String(n),
+    label: n === 1 ? "1 word" : `${n} words`,
+  })),
+];
+
 /**
  * "Save" and its menu: Text, Captions (.srt, .vtt) and JSON, for a window result or a History
  * entry. Picking one asks the main process to open the folder picker and save a new file,
  * named after the transcribed file, in the folder the user picks; how it went comes back as
  * `transcriptExportFinished` and is shown beside the button. Captions are greyed out, with the reason, when there are no timings.
+ * Words per Caption is its own dropdown beside Save, shown only when the transcript has
+ * timings. It goes with every save, and the main process remembers it for the next one.
  *
  * Renders the button and the status line as siblings, for the caller's flex row.
  */
@@ -41,6 +68,30 @@ export function TranscriptSaveMenu({
     lastExport ? { kind: "saved", path: lastExport.path } : null,
   );
   const listRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: fetchSettings,
+    staleTime: Infinity,
+  });
+  const wordsPerCaption = settings?.wordsPerCaption ?? null;
+  const note =
+    settings === undefined
+      ? null
+      : wordsPerCaptionNote(
+          wordsPerCaption,
+          facts.speechModelId,
+          settings.capabilities.platform,
+        );
+
+  const chooseWordsPerCaption = async (value: number | null) => {
+    if (value === wordsPerCaption) return;
+    queryClient.setQueryData(["settings"], (old: AppSettings | undefined) =>
+      old ? { ...old, wordsPerCaption: value } : old,
+    );
+    const ok = await setWordsPerCaption(value);
+    if (!ok) queryClient.setQueryData(["settings"], await fetchSettings());
+  };
 
   const options = useMemo(
     () =>
@@ -69,7 +120,7 @@ export function TranscriptSaveMenu({
   const pick = (format: TranscriptExportFormat) => {
     setOpen(false);
     setStatus((current) => (current?.kind === "failed" ? null : current));
-    exportTranscript(target, format);
+    exportTranscript(target, format, wordsPerCaption);
   };
 
   /** Arrow keys move between the choices that can be picked. */
@@ -159,6 +210,31 @@ export function TranscriptSaveMenu({
           )}
         </AnimatePresence>
       </Popover.Root>
+
+      {facts.hasTimedTranscript && (
+        <DropdownSelect
+          value={wordsPerCaption === null ? AUTOMATIC : String(wordsPerCaption)}
+          onChange={(value) =>
+            void chooseWordsPerCaption(
+              value === AUTOMATIC ? null : Number(value),
+            )
+          }
+          options={WORDS_PER_CAPTION_OPTIONS}
+          align="start"
+          trigger={{
+            className: `${BUTTON} inline-flex items-center gap-1.5`,
+            content: (
+              <>
+                <span>Words per caption</span>
+                <span className="text-overlay/85 tabular-nums">
+                  {wordsPerCaption ?? "Auto"}
+                </span>
+              </>
+            ),
+          }}
+          footer={note}
+        />
+      )}
 
       <AnimatePresence mode="wait" initial={false}>
         {status !== null && (

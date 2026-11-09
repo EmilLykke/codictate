@@ -9,6 +9,7 @@
  */
 
 import type { SpeechEngineId } from './speech-models'
+import { isWordsPerCaption } from './transcript-cues'
 import {
   TRANSCRIPT_EXPORT_FORMATS,
   isTranscriptExportFormat,
@@ -64,6 +65,12 @@ export interface CommandArgs {
     translate: boolean | null
     /** Render the result as this Transcript Export into `formatted`; `null`: no rendering. */
     format: TranscriptExportFormat | null
+    /**
+     * Words per Caption for `srt`, `vtt` and `json`: any whole number from 1. `null` (absent
+     * on the wire) is Automatic; the command line never takes it from the File Transcription
+     * Settings. Sent with any other format, or none, it is a usage error.
+     */
+    wordsPerCaption: number | null
   }
   dictate: {
     output: DictateOutput
@@ -417,6 +424,37 @@ function optionalFormat(
   return value
 }
 
+/** Absent and `null` both read as `null`. */
+function optionalWordsPerCaption(args: JsonObject, key: string): number | null {
+  const value = args[key]
+  if (value === undefined || value === null) return null
+  if (!isWordsPerCaption(value)) {
+    throw new UsageError(`args.${key} must be a whole number from 1, or null`)
+  }
+  return value
+}
+
+/** `transcribe`'s args, with Words per Caption only beside a format that has Captions. */
+function transcribeArgs(args: JsonObject): CommandArgs['transcribe'] {
+  const parsed = {
+    file: requiredString(args, 'file'),
+    speechModelId: optionalString(args, 'speechModelId'),
+    languageId: optionalString(args, 'languageId'),
+    translate: optionalBoolean(args, 'translate'),
+    format: optionalFormat(args, 'format'),
+    wordsPerCaption: optionalWordsPerCaption(args, 'wordsPerCaption'),
+  }
+  if (
+    parsed.wordsPerCaption !== null &&
+    parsed.format !== 'srt' &&
+    parsed.format !== 'vtt' &&
+    parsed.format !== 'json'
+  ) {
+    throw new UsageError('args.wordsPerCaption needs format srt, vtt or json')
+  }
+  return parsed
+}
+
 function optionalPositiveNumber(args: JsonObject, key: string): number | null {
   const value = args[key]
   if (value === undefined || value === null) return null
@@ -431,13 +469,7 @@ function parseArgs<C extends CommandName>(
   args: JsonObject
 ): CommandArgs[C] {
   const parsed: { [K in CommandName]: () => CommandArgs[K] } = {
-    transcribe: () => ({
-      file: requiredString(args, 'file'),
-      speechModelId: optionalString(args, 'speechModelId'),
-      languageId: optionalString(args, 'languageId'),
-      translate: optionalBoolean(args, 'translate'),
-      format: optionalFormat(args, 'format'),
-    }),
+    transcribe: () => transcribeArgs(args),
     dictate: () => ({
       output: oneOf(args, 'output', ['stdout', 'cursor'] as const),
       raw: requiredBoolean(args, 'raw'),

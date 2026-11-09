@@ -35,9 +35,10 @@ function source(
 
 function content(
   format: Parameters<typeof renderTranscript>[0],
-  s: TranscriptExportSource
+  s: TranscriptExportSource,
+  wordsPerCaption: number | null = null
 ): string {
-  const rendered = renderTranscript(format, s)
+  const rendered = renderTranscript(format, s, { wordsPerCaption })
   if (!rendered.ok) throw new Error(rendered.message)
   return rendered.content
 }
@@ -137,6 +138,51 @@ describe('renderTranscript', () => {
         2
       )}\n`
     )
+  })
+
+  test('Words per Caption cuts the Caption File, held until the next Caption', () => {
+    expect(content('srt', source(), 1)).toBe(
+      '1\n' +
+        '00:00:00,500 --> 00:00:00,875\n' +
+        'Hello\n' +
+        '\n' +
+        '2\n' +
+        '00:00:00,875 --> 00:00:01,250\n' +
+        'there.\n' +
+        '\n' +
+        '3\n' +
+        '00:00:03,000 --> 00:00:03,374\n' +
+        'How\n' +
+        '\n' +
+        '4\n' +
+        '00:00:03,374 --> 00:00:03,749\n' +
+        'are\n' +
+        '\n' +
+        '5\n' +
+        '00:00:03,749 --> 00:00:04,123\n' +
+        'you?\n' +
+        '\n'
+    )
+    expect(content('vtt', source(), 2)).toContain(
+      '00:00:03.000 --> 00:00:03.749\nHow are\n'
+    )
+  })
+
+  test('JSON segments follow Words per Caption too', () => {
+    const json = JSON.parse(content('json', source(), 1)) as {
+      segments: { text: string }[]
+    }
+    expect(json.segments.map((s) => s.text)).toEqual([
+      'Hello',
+      'there.',
+      'How',
+      'are',
+      'you?',
+    ])
+  })
+
+  test('Words per Caption leaves text alone', () => {
+    expect(content('txt', source(), 1)).toBe(`${TEXT}\n`)
   })
 
   test('JSON segments keep the exact text, line breaks and all', () => {

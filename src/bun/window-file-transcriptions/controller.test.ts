@@ -297,6 +297,24 @@ describe('window File Transcriptions', () => {
     })
   })
 
+  test('an export cuts Captions by the Words per Caption it was asked with, else Automatic', async () => {
+    const seen: (number | null)[] = []
+    const { controller, fake } = setup({
+      renderTranscript: (format, source, options) => {
+        seen.push(options?.wordsPerCaption ?? null)
+        return fakeRender(format, source)
+      },
+    })
+    controller.transcribe(['/a/talk.m4a'])
+    fake.jobs[0].resolve(ok('/a/talk.m4a', 'first line', timed('first line')))
+    await settled()
+
+    const target = { kind: 'window', id: 'job-1' } as const
+    await controller.exportTranscript(target, 'srt')
+    await controller.exportTranscript(target, 'srt', { wordsPerCaption: 1 })
+    expect(seen).toEqual([null, 1])
+  })
+
   test('the picked folder is written to, remembered, and Show finds the file', async () => {
     const { controller, fake, writes, remembered, revealed } = setup({
       chooseExportFolder: async () => '/Users/me/Talks',

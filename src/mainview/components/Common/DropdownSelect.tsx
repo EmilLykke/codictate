@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import * as Select from "@radix-ui/react-select";
 import { motion } from "motion/react";
 import { DropdownChevron } from "./DropdownChevron";
@@ -17,6 +17,13 @@ interface DropdownSelectProps {
   ariaLabel?: string;
   placeholder?: string;
   align?: "start" | "center" | "end";
+  /**
+   * A trigger of the caller's own, for a dropdown that sits in a row of buttons rather than
+   * in a form field. Rendered before the chevron.
+   */
+  trigger?: { className: string; content: ReactNode };
+  /** Shown under the options, inside the menu. */
+  footer?: ReactNode;
 }
 
 export function DropdownSelect({
@@ -27,6 +34,8 @@ export function DropdownSelect({
   ariaLabel,
   placeholder,
   align = "end",
+  trigger,
+  footer,
 }: DropdownSelectProps) {
   const [open, setOpen] = useState(false);
 
@@ -42,24 +51,35 @@ export function DropdownSelect({
       disabled={disabled}
     >
       <Select.Trigger asChild>
-        <button
-          type="button"
-          aria-label={ariaLabel}
-          className={`flex w-full items-center gap-2 rounded-lg border border-overlay/10 bg-surface-1 px-3 py-2 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
-            disabled
-              ? "opacity-50 cursor-not-allowed"
-              : "cursor-pointer hover:border-overlay/20 hover:bg-surface-2"
-          }`}
-        >
-          <span
-            className={`min-w-0 flex-1 truncate text-[15px] font-medium ${
-              selectedOption ? "text-overlay/90" : "text-overlay/45"
+        {trigger ? (
+          <button
+            type="button"
+            aria-label={ariaLabel}
+            className={trigger.className}
+          >
+            {trigger.content}
+            <DropdownChevron open={open} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={ariaLabel}
+            className={`flex w-full items-center gap-2 rounded-lg border border-overlay/10 bg-surface-1 px-3 py-2 text-left outline-none transition-colors duration-200 focus-visible:ring-1 focus-visible:ring-overlay/20 ${
+              disabled
+                ? "opacity-50 cursor-not-allowed"
+                : "cursor-pointer hover:border-overlay/20 hover:bg-surface-2"
             }`}
           >
-            {displayLabel}
-          </span>
-          <DropdownChevron open={open} />
-        </button>
+            <span
+              className={`min-w-0 flex-1 truncate text-[15px] font-medium ${
+                selectedOption ? "text-overlay/90" : "text-overlay/45"
+              }`}
+            >
+              {displayLabel}
+            </span>
+            <DropdownChevron open={open} />
+          </button>
+        )}
       </Select.Trigger>
       <Select.Portal>
         <Select.Content
@@ -138,6 +158,11 @@ export function DropdownSelect({
                 })}
               </div>
             </Select.Viewport>
+            {footer && (
+              <div className="max-w-[260px] border-t border-overlay/8 px-3 py-2 text-[12px] leading-snug text-overlay/40">
+                {footer}
+              </div>
+            )}
           </motion.div>
         </Select.Content>
       </Select.Portal>

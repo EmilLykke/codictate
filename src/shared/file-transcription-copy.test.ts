@@ -7,7 +7,9 @@ import {
   resultSummaryLine,
   transcriptExportFailureMessage,
   transcriptExportSavedLine,
+  wordsPerCaptionNote,
 } from './file-transcription-copy'
+import { modelLabel } from './dictation-plan'
 import type { FileTranscriptionFailureCode } from './types'
 
 describe('formatAudioClock', () => {
@@ -162,5 +164,27 @@ describe('Transcript Export lines', () => {
       "Couldn't save the file."
     )
     expect(transcriptExportFailureMessage(null)).toBe("Couldn't save the file.")
+  })
+})
+
+describe('wordsPerCaptionNote', () => {
+  test('names a Speech Model that estimates word times, once a number is picked', () => {
+    const note = wordsPerCaptionNote(1, 'large-v3-turbo-q5_0', 'macos')
+    expect(note).toBe(
+      `${modelLabel('large-v3-turbo-q5_0')} only estimates when each word is spoken, so short captions can drift from the speech.`
+    )
+    expect(note).not.toMatch(/—/)
+    expect(wordsPerCaptionNote(3, 'parakeet-tdt-0.6b-v3', 'windows')).toContain(
+      modelLabel('parakeet-tdt-0.6b-v3')
+    )
+  })
+
+  test('nothing for Automatic, for word-timed models, for a model that makes no captions, or an unknown one', () => {
+    expect(wordsPerCaptionNote(null, 'large-v3-turbo-q5_0', 'macos')).toBeNull()
+    expect(wordsPerCaptionNote(1, 'parakeet-tdt-0.6b-v3', 'macos')).toBeNull()
+    expect(wordsPerCaptionNote(1, 'hviske-v5-tiny-q5_0', 'windows')).toBeNull()
+    expect(wordsPerCaptionNote(1, 'ekko-v1-tiny-q5_0', 'macos')).toBeNull()
+    expect(wordsPerCaptionNote(1, 'edda-v0.2-q5_0', 'macos')).toBeNull()
+    expect(wordsPerCaptionNote(1, null, 'macos')).toBeNull()
   })
 })

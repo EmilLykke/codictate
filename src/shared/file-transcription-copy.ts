@@ -4,6 +4,12 @@
  * every line is tested without a webview.
  */
 
+import { modelLabel } from './dictation-plan'
+import type { PlatformRuntime } from './platform'
+import {
+  speechModelMakesTimedTranscript,
+  speechModelTimesEachWord,
+} from './speech-models'
 import type {
   FileTranscriptionFailureCode,
   FileTranscriptionQueueItem,
@@ -151,4 +157,21 @@ export function transcriptExportFailureMessage(
   return errorCode !== null && UNWRITABLE_FOLDER_CODES.has(errorCode)
     ? "Codictate can't save in that folder. Choose another folder."
     : "Couldn't save the file."
+}
+
+/**
+ * The line under Words per Caption in the Save menu when the Speech Model that made this
+ * transcript only estimates when each word is spoken (it times whole parts), so short
+ * Captions can drift. `null` for Automatic, for a Speech Model that times each word, for one
+ * that makes no captions at all (the menu already explains), and when it is not known.
+ */
+export function wordsPerCaptionNote(
+  wordsPerCaption: number | null,
+  speechModelId: string | null,
+  platform: PlatformRuntime
+): string | null {
+  if (wordsPerCaption === null || speechModelId === null) return null
+  if (!speechModelMakesTimedTranscript(speechModelId)) return null
+  if (speechModelTimesEachWord(speechModelId, platform)) return null
+  return `${modelLabel(speechModelId)} only estimates when each word is spoken, so short captions can drift from the speech.`
 }

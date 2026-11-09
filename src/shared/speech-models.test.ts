@@ -11,6 +11,7 @@ import {
   getSpeechModel,
   pinnedTranscriptionLanguageId,
   singleFileModelDownloadUrl,
+  speechModelTimesEachWord,
 } from './speech-models'
 
 /**
@@ -216,5 +217,33 @@ describe('the ekko catalog entry', () => {
 
   it('is in the browse modal', () => {
     expect(BROWSABLE_SPEECH_MODELS.map((m) => m.id)).toContain(EKKO)
+  })
+})
+
+/**
+ * Whether a File Transcription's Timed Transcript times each word, so short Captions follow
+ * the speech, or only whole parts, inside which word times are estimated.
+ */
+describe('speechModelTimesEachWord', () => {
+  it('hviske and ekko time each word on both platforms', () => {
+    for (const platform of ['macos', 'windows'] as const) {
+      expect(speechModelTimesEachWord('hviske-v5-tiny-q5_0', platform)).toBe(
+        true
+      )
+      expect(speechModelTimesEachWord('ekko-v1-tiny-q5_0', platform)).toBe(true)
+    }
+  })
+
+  it('Parakeet times each word on macOS, and only sentences on Windows', () => {
+    expect(speechModelTimesEachWord('parakeet-tdt-0.6b-v3', 'macos')).toBe(true)
+    expect(speechModelTimesEachWord('parakeet-tdt-0.6b-v3', 'windows')).toBe(
+      false
+    )
+  })
+
+  it('Whisper Speech Models time only parts, or nothing', () => {
+    expect(speechModelTimesEachWord('large-v3-turbo-q5_0', 'macos')).toBe(false)
+    expect(speechModelTimesEachWord('edda-v0.2-q5_0', 'macos')).toBe(false)
+    expect(speechModelTimesEachWord('no-such-model', 'macos')).toBe(false)
   })
 })

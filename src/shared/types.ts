@@ -305,6 +305,11 @@ export interface AppSettings {
    */
   fileTranscription: FileTranscriptionSettingsState
   /**
+   * Words per Caption last chosen in the Save menu, for the next Transcript Export from the
+   * window: the most words in one Caption, or `null` for Automatic.
+   */
+  wordsPerCaption: number | null
+  /**
    * The last Dictation that refused to start, or `null`. Reached only when the world changed
    * behind the app's back - weights deleted in Finder, a failed disk, a cloud-storage
    * eviction - because the settings themselves are kept runnable. Rides this payload so the
@@ -854,6 +859,11 @@ export type WebviewRPCType = {
         params: { patch: FileTranscriptionSettingsPatch }
         response: boolean
       }
+      /** Remember the Save menu's Words per Caption (`null` for Automatic). `false` for a value it does not offer. */
+      setWordsPerCaption: {
+        params: { wordsPerCaption: number | null }
+        response: boolean
+      }
       /** Dismiss the File Transcription Settings heal announcements on the Transcribe page. */
       dismissFileTranscriptionNotice: { params: {}; response: boolean }
       /**
@@ -938,6 +948,8 @@ export type WebviewRPCType = {
       exportTranscript: {
         target: TranscriptExportTarget
         format: TranscriptExportFormat
+        /** Words per Caption as the Save menu showed it; absent or `null` is Automatic. */
+        wordsPerCaption?: number | null
       }
       /** Show the file the last Transcript Export of `target` wrote, in Finder / Explorer. */
       revealExportedTranscript: { target: TranscriptExportTarget }

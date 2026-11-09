@@ -86,6 +86,10 @@ pub struct TranscribeArgs {
     #[arg(long, value_enum, value_name = "FORMAT")]
     pub format: Option<Format>,
 
+    /// At most this many words per caption (with --format srt, vtt or json)
+    #[arg(long = "words-per-caption", value_name = "N", value_parser = clap::value_parser!(u32).range(1..))]
+    pub words_per_caption: Option<u32>,
+
     /// Write the transcript to this file instead of printing it (one file only)
     #[arg(short = 'o', long = "output", value_name = "PATH")]
     pub output_file: Option<PathBuf>,
@@ -313,6 +317,13 @@ pub fn plan(command: Command, caller: &Caller, cwd: &Path) -> Result<Plan, Failu
                     args.files.len()
                 )));
             }
+            if args.words_per_caption.is_some()
+                && !matches!(args.format, Some(Format::Srt | Format::Vtt | Format::Json))
+            {
+                return Err(Failure::usage(
+                    "--words-per-caption needs --format srt, vtt or json (see 'codictate --help')",
+                ));
+            }
             let translate = args.translate_wire();
             let format = args.format.map(Format::wire);
             let mut jobs = Vec::with_capacity(args.files.len());
@@ -328,6 +339,7 @@ pub fn plan(command: Command, caller: &Caller, cwd: &Path) -> Result<Plan, Failu
                             "languageId": args.language,
                             "translate": translate,
                             "format": format,
+                            "wordsPerCaption": args.words_per_caption,
                         }),
                         caller,
                     ),
@@ -512,6 +524,7 @@ mod tests {
                 translate: false,
                 no_translate: false,
                 format: None,
+                words_per_caption: None,
                 output_file: None,
                 output: JsonFlag { json: true },
             })
@@ -533,6 +546,7 @@ mod tests {
                 translate: true,
                 no_translate: false,
                 format: Some(Format::Srt),
+                words_per_caption: None,
                 output_file: Some("a.srt".into()),
                 output: JsonFlag { json: false },
             })
@@ -591,6 +605,64 @@ mod tests {
             for job in &plan.jobs {
                 assert_eq!(job.request["args"]["format"], wire);
             }
+        }
+    }
+
+    #[test]
+    fn transcribe_words_per_caption_goes_on_the_wire_with_a_caption_or_json_format() {
+        let plain = planned(&["transcribe", "/a", "--format", "srt"]);
+        assert_eq!(
+            plain.jobs[0].request["args"]["wordsPerCaption"],
+            Value::Null
+        );
+        for format in ["srt", "vtt", "json"] {
+            let plan = planned(&[
+                "transcribe",
+                "/a",
+                "/b",
+                "--format",
+                format,
+                "--words-per-caption",
+                "1",
+            ]);
+            for job in &plan.jobs {
+                assert_eq!(job.request["args"]["wordsPerCaption"], json!(1));
+            }
+        }
+        let many = planned(&[
+            "transcribe",
+            "/a",
+            "--format",
+            "srt",
+            "--words-per-caption",
+            "12",
+        ]);
+        assert_eq!(many.jobs[0].request["args"]["wordsPerCaption"], json!(12));
+    }
+
+    #[test]
+    fn transcribe_words_per_caption_is_a_whole_number_from_one_beside_captions() {
+        for bad in ["0", "-1", "1.5", "two"] {
+            assert!(
+                parse(&[
+                    "transcribe",
+                    "a",
+                    "--format",
+                    "srt",
+                    "--words-per-caption",
+                    bad
+                ])
+                .is_err(),
+                "{bad}"
+            );
+        }
+        for flags in [
+            &["--words-per-caption", "1"][..],
+            &["--format", "txt", "--words-per-caption", "1"][..],
+        ] {
+            let mut args = vec!["transcribe", "/a"];
+            args.extend_from_slice(flags);
+            assert_eq!(plan_of(&args).unwrap_err().code, "usage");
         }
     }
 

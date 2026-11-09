@@ -28,6 +28,14 @@ export interface CueRules {
   maxSeconds: number
   /** A silence longer than this between two words starts a new cue. */
   pauseSeconds: number
+  /** Words per Caption: the most words one cue holds. Absent: no limit but the others. */
+  maxWords?: number
+  /**
+   * A cue stays on screen until the next one starts, unless the silence between them is
+   * longer than `pauseSeconds`; so one-word cues follow each other without the screen
+   * blinking empty. Absent or false: a cue ends when its last word does.
+   */
+  holdUntilNext?: boolean
 }
 
 /** The broadcast caption conventions every Caption File uses. */
@@ -37,6 +45,32 @@ export const CAPTION_CUE_RULES: Readonly<CueRules> = Object.freeze({
   maxSeconds: 7,
   pauseSeconds: 0.6,
 })
+
+/** The Words per Caption the Save menu offers, besides Automatic. */
+export const WORDS_PER_CAPTION_CHOICES: readonly number[] = Object.freeze([
+  1, 2, 3, 4, 5,
+])
+
+/** A Words per Caption: any whole number from 1. Automatic is `null`, not a number. */
+export function isWordsPerCaption(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1
+}
+
+/**
+ * The rules for a Words per Caption (`null` for Automatic): Automatic is
+ * `CAPTION_CUE_RULES` as they are; a number caps the words in a cue, and holds each cue
+ * until the next one starts.
+ */
+export function captionCueRules(wordsPerCaption: number | null): CueRules {
+  if (wordsPerCaption === null || !isWordsPerCaption(wordsPerCaption)) {
+    return { ...CAPTION_CUE_RULES }
+  }
+  return {
+    ...CAPTION_CUE_RULES,
+    maxWords: wordsPerCaption,
+    holdUntilNext: true,
+  }
+}
 
 /** The shortest a cue is shown for, so a player never gets a zero-length one. */
 const MIN_CUE_SECONDS = 0.1
@@ -350,10 +384,12 @@ function linesOf(
 /**
  * Monotonic, never overlapping, each at least `MIN_CUE_SECONDS` long: a cue starts no
  * earlier than the one before it ends, and ends no later than the next one starts unless
- * that would make it too short.
+ * that would make it too short. With `holdUntil`, a cue whose next one starts no more than
+ * that many seconds after it ends stays up until then.
  */
 function settleTimes(
-  spans: readonly { start: number; end: number }[]
+  spans: readonly { start: number; end: number }[],
+  holdUntil: number | null
 ): { start: number; end: number }[] {
   const out: { start: number; end: number }[] = []
   let previousEnd = 0
@@ -362,6 +398,9 @@ function settleTimes(
     let end = Math.max(span.end, start + MIN_CUE_SECONDS)
     const next = spans[i + 1]
     if (next !== undefined) {
+      if (holdUntil !== null && next.start - span.end <= holdUntil) {
+        end = Math.max(end, next.start)
+      }
       end = Math.min(end, Math.max(next.start, start + MIN_CUE_SECONDS))
     }
     out.push({ start, end })
@@ -376,7 +415,8 @@ function settleTimes(
  * - the silence before the next word is longer than `pauseSeconds`;
  * - the cue so far ends a sentence (`.!?…` or `。！？`);
  * - the next word would make it run past `maxSeconds`;
- * - its text would no longer wrap into `maxLines` lines of `maxCharsPerLine`.
+ * - its text would no longer wrap into `maxLines` lines of `maxCharsPerLine`;
+ * - it already holds `maxWords` words.
  */
 export function buildCues(
   t: TimedTranscript,
@@ -386,6 +426,10 @@ export function buildCues(
   if (words === null || words.length === 0) return []
   const maxColumns = Math.max(1, Math.floor(rules.maxCharsPerLine))
   const maxLines = Math.max(1, Math.floor(rules.maxLines))
+  const maxWords =
+    rules.maxWords === undefined
+      ? Infinity
+      : Math.max(1, Math.floor(rules.maxWords))
   const units = joinGlued(t.text, words).flatMap((unit) =>
     splitWide(t.text, unit, maxColumns)
   )
@@ -402,7 +446,8 @@ export function buildCues(
       unit.start - prev.end > rules.pauseSeconds ||
       SENTENCE_END.test(t.text.slice(prev.from, prev.to)) ||
       end - group.start > rules.maxSeconds ||
-      linesNeeded(layout, group.first, i, maxColumns) > maxLines
+      linesNeeded(layout, group.first, i, maxColumns) > maxLines ||
+      i - group.first >= maxWords
     if (startsNew) {
       groups.push(group)
       group = { first: i, last: i, start: unit.start, end: unit.end }
@@ -413,7 +458,10 @@ export function buildCues(
   }
   groups.push(group)
 
-  const times = settleTimes(groups)
+  const times = settleTimes(
+    groups,
+    rules.holdUntilNext === true ? rules.pauseSeconds : null
+  )
   return groups.map((g, i) => ({
     start: times[i].start,
     end: times[i].end,

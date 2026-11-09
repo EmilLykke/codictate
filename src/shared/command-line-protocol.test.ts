@@ -38,7 +38,7 @@ function expectUsage(line: string) {
 describe('parseRequestLine', () => {
   test('reads the docs/CLI.md transcribe request', () => {
     const line =
-      '{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null,"translate":null,"format":null},"caller":{"name":"Terminal","pid":4211}}'
+      '{"contractVersion":1,"command":"transcribe","args":{"file":"/abs/path/memo.m4a","speechModelId":null,"languageId":null,"translate":null,"format":null,"wordsPerCaption":null},"caller":{"name":"Terminal","pid":4211}}'
     const expected: CommandRequest = {
       contractVersion: 1,
       command: 'transcribe',
@@ -48,6 +48,7 @@ describe('parseRequestLine', () => {
         languageId: null,
         translate: null,
         format: null,
+        wordsPerCaption: null,
       },
       caller: { name: 'Terminal', pid: 4211 },
     }
@@ -72,6 +73,7 @@ describe('parseRequestLine', () => {
           languageId: null,
           translate: null,
           format: null,
+          wordsPerCaption: null,
         },
         caller: null,
       },
@@ -88,6 +90,7 @@ describe('parseRequestLine', () => {
       languageId: null,
       translate: null,
       format: null,
+      wordsPerCaption: null,
     })
   })
 
@@ -103,6 +106,26 @@ describe('parseRequestLine', () => {
         })
       }
     }
+  })
+
+  test('Words per Caption, with a caption or JSON format', () => {
+    for (const format of ['srt', 'vtt', 'json'] as const) {
+      const parsed = parseRequestLine(
+        request('transcribe', { file: '/a.wav', format, wordsPerCaption: 1 })
+      )
+      expect(parsed.ok && parsed.request.args).toMatchObject({
+        format,
+        wordsPerCaption: 1,
+      })
+    }
+    const many = parseRequestLine(
+      request('transcribe', {
+        file: '/a.wav',
+        format: 'srt',
+        wordsPerCaption: 12,
+      })
+    )
+    expect(many.ok && many.request.args).toMatchObject({ wordsPerCaption: 12 })
   })
 
   test('reads every command with its args', () => {
@@ -189,6 +212,16 @@ describe('parseRequestLine', () => {
     expectUsage(request('transcribe', { file: '/a', translate: 1 }))
     expectUsage(request('transcribe', { file: '/a', format: 'docx' }))
     expectUsage(request('transcribe', { file: '/a', format: 'SRT' }))
+    for (const wordsPerCaption of [0, -1, 1.5, '2', true]) {
+      expectUsage(
+        request('transcribe', { file: '/a', format: 'srt', wordsPerCaption })
+      )
+    }
+    // Words per Caption does nothing without Captions, so it is a mistake there.
+    expectUsage(request('transcribe', { file: '/a', wordsPerCaption: 1 }))
+    expectUsage(
+      request('transcribe', { file: '/a', format: 'txt', wordsPerCaption: 1 })
+    )
     expectUsage(request('models.list', {}))
     expectUsage(request('models.use', { id: 1 }))
     expectUsage(
